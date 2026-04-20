@@ -1,7 +1,7 @@
 # LiteNAS
 
 
-LiteNAS is a lightweight, secure self-hosted platform for Linux with ZFS, monitoring, and configuration validation. Built around microservices for extensible automation, security, and media capabilities.
+LiteNAS is a project intent for a lightweight, secure self-hosted platform for Linux with ZFS, monitoring, and configuration validation. It is conceived as a modular system built around small services to support extensible automation, security, and media capabilities.
 
 
 ## Table of Contents
@@ -24,13 +24,13 @@ LiteNAS is a lightweight, secure self-hosted platform for Linux with ZFS, monito
 
 ## Overview
 
-LiteNAS started as a home lab project to build a secure and usable NAS on top of Linux and ZFS. Over time, it evolved into a lightweight, extensible platform for managing storage, system configuration, and services in a consistent and automated way.
+LiteNAS started from a real home lab setup built to provide a secure and usable NAS on top of Linux and ZFS. That underlying setup exists today as a CLI-managed system. LiteNAS is the project to evolve those ideas and operational experience into a lightweight, extensible platform for managing storage, system configuration, and services in a more consistent and automated way.
 
-Rather than being a single-purpose NAS solution, LiteNAS is designed as a modular system composed of small, focused services. It combines storage management, monitoring, security validation, and automation into a unified self-hosted platform.
+Rather than being defined as a single-purpose NAS solution, LiteNAS is intended as a modular system composed of small, focused services. The project direction is to bring together storage management, monitoring, security validation, and automation into a unified self-hosted platform.
 
-The system follows a microservices architecture with event-driven communication, allowing components to remain loosely coupled while still working together as a cohesive system. A web-based interface acts as a bridge between internal services and external access, making the platform usable without direct terminal interaction.
+The planned architecture follows a microservices-oriented model with event-driven communication, allowing components to remain loosely coupled while still working together as a cohesive system. A web-based interface is envisioned as the bridge between internal services and external access, making the platform usable without direct terminal interaction for routine tasks.
 
-LiteNAS is developed based on real-world usage in a home lab environment, with features added incrementally as new needs arise.
+At this stage, the repository primarily captures project intent, architectural direction, and design ideas. Implementation work is expected to be introduced incrementally as the project takes shape.
 
 ## Goals & Philosophy
 
@@ -61,13 +61,13 @@ LiteNAS is built around a set of practical design principles:
 
 LiteNAS is intended to evolve as a modular, event-driven platform composed of small, focused services rather than a single monolithic application. The goal is to keep the system lightweight, maintainable, and adaptable as new requirements emerge.
 
-At its foundation, LiteNAS builds on Linux and ZFS to provide core storage and system capabilities. Around that foundation, the platform is expected to grow with dedicated components responsible for areas such as monitoring, resource supervision, security checks, configuration validation, automation, and auxiliary services.
+At its foundation, LiteNAS is planned to build on Linux and ZFS to provide core storage and system capabilities. Around that foundation, the platform is expected to grow with dedicated components responsible for areas such as monitoring, resource supervision, security checks, configuration validation, automation, and auxiliary services.
 
 The overall design favors loose coupling between components. Rather than concentrating all logic in one place, LiteNAS is intended to use service boundaries and event-driven communication so that responsibilities remain separated and the system can evolve incrementally over time.
 
 A web-based HMI is planned as the main user-facing entry point for administration and day-to-day interaction. Its role is not to replace the internal service model, but to provide a controlled interface to it, making the platform more usable without depending on direct terminal access for routine operations.
 
-The current reference environment is a home lab deployment, but the architectural direction is intentionally broader. While Raspberry Pi hardware is one practical target, the platform is meant to remain portable across Linux-based systems and not depend on a single hardware profile.
+The current reference environment is a working home lab deployment managed primarily through the CLI, but the architectural direction is intentionally broader. While Raspberry Pi hardware is one practical target, the platform is meant to remain portable across Linux-based systems and not depend on a single hardware profile.
 
 At a high level, LiteNAS can be viewed as consisting of:
 
@@ -87,13 +87,13 @@ This architecture is expected to mature gradually as the project develops, with 
 
 ## Monorepo Structure
 
-LiteNAS is organized as a monorepo to allow core components, services, and shared logic to evolve together.
+LiteNAS is intended to be organized as a monorepo so that core components, services, and shared logic can evolve together.
 
-The exact structure is expected to take shape as the project develops. Individual services and modules will include their own documentation, with more detailed READMEs provided within subprojects where needed.
+The exact structure has not yet been implemented and is expected to take shape as the project develops. Individual services and modules are expected to include their own documentation, with more detailed READMEs provided within subprojects where needed.
 
 ## Core Features
 
-LiteNAS is designed as an evolving platform, with capabilities added incrementally based on real-world usage. The following areas represent the core focus of the system:
+LiteNAS is defined as an evolving platform, with capabilities expected to be added incrementally based on real-world usage. The following areas represent the intended core focus of the system:
 
 - **ZFS-based storage management**  
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient use of resources.
@@ -121,9 +121,9 @@ LiteNAS is designed as an evolving platform, with capabilities added incremental
 
 ## Configuration Validation Engine
 
-A central component of LiteNAS is the configuration validation engine, designed to provide a consistent and automated way to verify system state against expected policies.
+A central component in the LiteNAS design is the configuration validation engine, intended to provide a consistent and automated way to verify system state against expected policies.
 
-The engine is intended to operate on structured rules, allowing system configuration to be described, validated, and reasoned about in a reproducible way. Rather than relying on manual checks or ad-hoc scripts, LiteNAS aims to treat configuration validation as a first-class capability.
+The engine is intended to operate on structured rules, allowing system configuration to be described, validated, and reasoned about in a reproducible way. Rather than relying on manual checks or ad-hoc scripts, LiteNAS aims to treat configuration validation as a first-class capability once implemented.
 
 ### Rule-Based Validation
 
@@ -179,7 +179,7 @@ This allows configuration validation to become part of the overall system lifecy
 
 ### Design Approach
 
-The validation engine is being developed incrementally, with a focus on:
+The validation engine is planned to be developed incrementally, with a focus on:
 
 - Simplicity of rule definition
 - Clear and interpretable results
@@ -239,13 +239,13 @@ The goal is to enable flexibility and extensibility without sacrificing clarity 
 
 ## Technology Choices
 
-LiteNAS favors simple, well-understood technologies that provide strong performance, low operational overhead, and good long-term maintainability.
+LiteNAS is intended to favor simple, well-understood technologies that provide strong performance, low operational overhead, and good long-term maintainability.
 
 The focus is on choosing tools that align with the goals of lightweight operation, clear architecture, and ease of development.
 
 ### Go
 
-Go is chosen as the primary implementation language due to its balance between simplicity, performance, and practicality.
+Go is the intended primary implementation language due to its balance between simplicity, performance, and practicality.
 
 - **Lightweight and efficient**  
   Well-suited for system-level tooling and services with minimal resource overhead.
@@ -263,7 +263,7 @@ Go also provides a relatively smooth transition path from scripting languages su
 
 ### NATS
 
-NATS is intended as the messaging backbone for event-driven communication between components.
+NATS is a planned messaging backbone for event-driven communication between components.
 
 - **Simplicity**  
   Minimal configuration and straightforward operational model.
@@ -281,9 +281,9 @@ NATS aligns well with the goals of keeping the system decoupled while avoiding t
 
 ## Reference Setup (Home Lab)
 
-LiteNAS is developed and tested on a real, continuously used home setup rather than a purely experimental lab environment.
+LiteNAS is informed by a real, continuously used home setup rather than a purely experimental lab environment.
 
-The original goal of this setup was to provide a low-power, reliable storage system for personal data such as photo and video libraries. It operates as a shared storage and backup solution, using simple mirroring on low-power hardware.
+The original goal of this setup was to provide a low-power, reliable storage system for personal data such as photo and video libraries. It operates today as a shared storage and backup solution, managed primarily through the command line and based on simple mirroring on low-power hardware.
 
 The current setup is based on:
 
@@ -300,7 +300,7 @@ In its initial form, the system was accessed via CIFS and managed primarily thro
 
 This demonstrated that a low-power system can deliver acceptable performance for home storage and backup use cases.
 
-LiteNAS builds on top of this working foundation. The goal is to evolve the setup into a more structured, secure, and reusable platform by introducing:
+LiteNAS is intended to build on top of this working foundation. The goal is to evolve the setup into a more structured, secure, and reusable platform by introducing:
 
 - Configuration validation instead of manual tuning
 - Improved access methods (e.g. NFS alongside CIFS)
@@ -313,13 +313,13 @@ The Raspberry Pi environment serves as a lower-bound reference, ensuring that th
 
 ## Security Approach
 
-Security is a core aspect of LiteNAS and is treated as an ongoing process rather than a one-time configuration.
+Security is a core aspect of the LiteNAS design and is treated as an ongoing process rather than a one-time configuration.
 
-The system is designed to minimize exposure, enforce least privilege, and continuously validate its configuration to reduce the risk of misconfiguration and unintended access.
+The intended system is designed to minimize exposure, enforce least privilege, and continuously validate its configuration to reduce the risk of misconfiguration and unintended access.
 
 ### Minimal Exposure
 
-LiteNAS follows a model where services are not directly exposed to the public internet.
+LiteNAS is intended to follow a model where services are not directly exposed to the public internet.
 
 - External access is restricted to controlled entry points
 - Internal services remain isolated within the private network
@@ -329,7 +329,7 @@ This approach reduces the attack surface and avoids unnecessary public endpoints
 
 ### Controlled Access
 
-Access to the system is designed to be explicit and limited:
+Access to the system is intended to be explicit and limited:
 
 - Authentication is required for all remote access
 - Network boundaries are enforced between internal and external components
@@ -343,7 +343,7 @@ This avoids the need for direct WAN exposure and simplifies the overall security
 
 ### Configuration Validation
 
-Security is reinforced through the configuration validation engine:
+Security is intended to be reinforced through the configuration validation engine:
 
 - System state can be continuously checked against defined policies
 - Misconfigurations can be detected early
@@ -353,7 +353,7 @@ This helps maintain a consistent and auditable system state over time.
 
 ### Principle of Least Privilege
 
-LiteNAS is designed with the principle of least privilege in mind:
+LiteNAS is intended to be designed with the principle of least privilege in mind:
 
 - Services should operate with only the permissions they require
 - Access between components should be restricted by default
@@ -371,9 +371,9 @@ The goal is to maintain a balance between strong security practices and system u
 
 ## Development Approach
 
-LiteNAS is developed incrementally, with a focus on building a solid foundation before introducing higher-level functionality.
+LiteNAS is intended to be developed incrementally, with a focus on building a solid foundation before introducing higher-level functionality.
 
-The development process starts from the system itself. Core infrastructure, security hardening, and baseline configuration are first established and validated manually. This ensures that the platform is grounded in a working and well-understood environment before automation is introduced.
+The development process starts from the system itself. Core infrastructure, security hardening, and baseline configuration are first established and validated manually in the reference environment. This ensures that the platform is grounded in a working and well-understood setup before automation is introduced.
 
 ### Foundation First
 
@@ -387,13 +387,13 @@ This approach helps ensure that each part of the system remains understandable a
 
 ### Code Quality and Tooling
 
-Early emphasis is placed on code quality, consistency, and maintainability:
+Early emphasis is intended for code quality, consistency, and maintainability:
 
-- Linting and formatting rules are defined from the start
-- Automated checks are integrated into development workflows
-- Continuous integration pipelines are used to enforce standards
+- Linting and formatting rules should be defined from the start
+- Automated checks should be integrated into development workflows
+- Continuous integration pipelines are expected to enforce standards once implementation begins
 
-A target level of test coverage is maintained to ensure reliability and reduce the risk of regressions.
+A target level of test coverage is expected to be defined to help ensure reliability and reduce the risk of regressions.
 
 ### Iterative Development
 
@@ -416,15 +416,14 @@ By establishing clear foundations early, LiteNAS aims to support long-term evolu
 
 ## Subprojects & Documentation
 
-LiteNAS is structured as a monorepo containing multiple components and services that evolve together.
+LiteNAS is intended to be structured as a monorepo containing multiple components and services that evolve together.
 
-Each subproject is expected to include its own documentation, with dedicated README files providing more detailed information about functionality, usage, and design decisions where applicable.
+As implementation begins, each subproject is expected to include its own documentation, with dedicated README files providing more detailed information about functionality, usage, and design decisions where applicable.
 
-As the platform grows, this approach allows individual parts of the system to remain well-documented without overloading the top-level repository.
+Until then, the top-level repository serves primarily as the project definition and architectural starting point.
 
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3).
 
 See the LICENSE file for details.
-
