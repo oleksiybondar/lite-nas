@@ -46,3 +46,9 @@ branch or otherwise provides a pushed source branch.
 - Prefer `./scripts/run-ci.sh` for the full local static-analysis check.
 - Prefer scripts under `scripts/ci/` for CI-equivalent checks.
 - Prefer scripts under `scripts/format/` for manual formatting.
+- Shell scripts should resolve repository helpers and sourced script modules
+  dynamically from their own location, for example with `$SCRIPT_DIR`.
+- It is acceptable and preferred to disable ShellCheck `SC1091` inline for
+  intentional dynamic `source` calls that load repository helpers or script
+  modules. Keep the suppression directly above the affected `source` line and
+  do not use it for unrelated missing-file warnings.

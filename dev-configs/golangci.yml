@@ -8,8 +8,6 @@ linters:
     - dupl
     - errcheck
     - gocyclo
-    - gofumpt
-    - goimports
     - govet
     - ineffassign
     - staticcheck
@@ -24,3 +22,9 @@ formatters:
   enable:
     - gofumpt
     - goimports
+  settings:
+    gofumpt:
+      module-path: lite-nas
+    goimports:
+      local-prefixes:
+        - lite-nas

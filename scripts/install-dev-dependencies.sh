@@ -15,7 +15,7 @@ run_as_user() {
 	if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
 		local user_home
 		user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
-		sudo -H -u "$SUDO_USER" env HOME="$user_home" "$@"
+		sudo -H -u "$SUDO_USER" env HOME="$user_home" GOBIN="$GOBIN" PATH="$PATH" "$@"
 	else
 		"$@"
 	fi

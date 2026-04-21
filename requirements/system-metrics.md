@@ -190,6 +190,8 @@ The service MUST publish metrics update events via the messaging system.
 
 ## Notes
 
+f
+
 - The service follows a continuous polling and publishing model
 - No change-detection or threshold-based filtering is performed
 - Consumers are responsible for interpreting and filtering metrics
