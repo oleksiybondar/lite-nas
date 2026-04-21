@@ -6,6 +6,8 @@ without extra command-line flags.
 
 ## Required tools
 
+### Developer tools
+
 - Node.js and npm
 - Go
 - Git
@@ -22,12 +24,16 @@ without extra command-line flags.
   - jscpd
   - markdownlint-cli2
 
+### Runtime dependencies
+
+- NATS Server
+
 ## Install developer dependencies
 
 Run:
 
 ```bash
-./scripts/install-dev-dependencies.sh
+sudo ./scripts/install-dev-dependencies.sh
 ```
 
 The script is safe to re-run. It installs Node dependencies, Go tools, and
@@ -38,9 +44,8 @@ with `apt-get`:
 git nodejs npm golang-go shellcheck shfmt
 ```
 
-Run the script as your normal user when possible. If you run it with
-`sudo bash scripts/install-dev-dependencies.sh`, system packages are installed
-as root and repo-local installs are run as the original sudo user.
+Run the script with `sudo`. System packages are installed as root and
+repo-local installs are run as the original sudo user.
 
 Go-based developer tools are installed into the repo-local `.bin/` directory so
 Git hooks and scripts can find consistent tool versions without relying on a
@@ -50,6 +55,46 @@ On macOS, install base tools with:
 
 ```bash
 brew install node go shellcheck shfmt actionlint
+```
+
+## Install runtime dependencies
+
+Run:
+
+```bash
+sudo ./scripts/install-runtime-dependencies.sh
+```
+
+The script is safe to re-run. On Debian/Ubuntu, it installs missing runtime
+packages with `apt-get`:
+
+```bash
+nats-server
+```
+
+On macOS, install runtime dependencies with:
+
+```bash
+brew install nats-server
+```
+
+## Deploy runtime configs
+
+Deploy repository-managed files from `configs/etc` into `/etc`:
+
+```bash
+sudo ./scripts/deploy-configs.sh
+```
+
+The deployment script overwrites matching files under `/etc`, normalizes
+permissions for LiteNAS-managed NATS config paths, and restarts affected
+services. The currently affected service list contains `nats-server`.
+
+For validation without touching `/etc`, deploy to another target directory and
+skip service restarts:
+
+```bash
+sudo ./scripts/deploy-configs.sh --target-dir /tmp/lite-nas-etc --no-restart
 ```
 
 ## Git hooks

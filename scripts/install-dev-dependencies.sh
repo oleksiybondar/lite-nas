@@ -5,7 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/logger.sh"
 # shellcheck disable=SC1091
+source "$SCRIPT_DIR/helpers/sudo-guard.sh"
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/tool-paths.sh"
+
+sudo.guard.requireRoot "scripts/install-dev-dependencies.sh"
 
 run_as_user() {
 	if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
@@ -14,6 +18,16 @@ run_as_user() {
 		sudo -H -u "$SUDO_USER" env HOME="$user_home" "$@"
 	else
 		"$@"
+	fi
+}
+
+ensure_user_writable_directory() {
+	local directory="$1"
+
+	mkdir -p "$directory"
+
+	if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+		chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$directory"
 	fi
 }
 
@@ -29,20 +43,11 @@ MSG
 		exit 1
 	fi
 
-	local apt_prefix=()
-	if [ "$(id -u)" -ne 0 ]; then
-		if ! command -v sudo >/dev/null 2>&1; then
-			log.error "Missing sudo; install Node.js, npm, Go, shellcheck, and shfmt manually."
-			exit 1
-		fi
-		apt_prefix=(sudo)
-	fi
-
 	log.pushTask "Installing Debian/Ubuntu base packages"
-	"${apt_prefix[@]}" apt-get update
-	if ! "${apt_prefix[@]}" apt-get install -y git nodejs npm golang-go shellcheck shfmt; then
+	apt-get update
+	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt; then
 		log.warn "Could not install shfmt with apt-get; it will be installed with go install instead."
-		"${apt_prefix[@]}" apt-get install -y git nodejs npm golang-go shellcheck
+		apt-get install -y git nodejs npm golang-go shellcheck
 	fi
 	log.popTask
 }
@@ -73,7 +78,7 @@ run_as_user npm install
 log.popTask
 
 log.pushTask "Installing Go developer tools"
-mkdir -p "$GOBIN"
+ensure_user_writable_directory "$GOBIN"
 run_as_user go install mvdan.cc/gofumpt@latest
 run_as_user go install golang.org/x/tools/cmd/goimports@latest
 run_as_user go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
