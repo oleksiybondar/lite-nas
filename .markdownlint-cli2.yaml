@@ -1,6 +1,5 @@
-config: dev-configs/markdownlint.json
-globs:
-  - "**/*.md"
+config:
+  extends: dev-configs/markdownlint.json
 ignores:
   - "node_modules/**"
   - "dist/**"

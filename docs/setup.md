@@ -60,36 +60,56 @@ re-stages modified files, and fails the commit when issues remain.
 
 ## Manual linting
 
+Run the full local CI static analysis suite:
+
+```bash
+./scripts/run-ci.sh
+```
+
+This calls the same analysis scripts used by GitHub Actions. It expects local
+developer dependencies to already be installed with
+`./scripts/install-dev-dependencies.sh`.
+
 Run Markdown analysis:
 
 ```bash
-npx markdownlint-cli2
+./scripts/ci/markdown-analysis.sh
 ```
 
 Run JS/TS/JSON analysis:
 
 ```bash
-npx biome ci .
+./scripts/ci/js-ts-analysis.sh
 ```
 
-Run JS/TS duplication detection:
+Run Go analysis:
 
 ```bash
-npx jscpd .
-```
-
-Run Go analysis from a Go module directory:
-
-```bash
-golangci-lint run
+./scripts/ci/go-analysis.sh
 ```
 
 Run shell analysis:
 
 ```bash
-shellcheck path/to/script.sh
-shfmt -d path/to/script.sh
+./scripts/ci/shell-analysis.sh
 ```
+
+## CI scripts
+
+Reusable CI scripts live in `scripts/ci/`.
+
+Analysis scripts are shared by local on-demand checks and GitHub Actions:
+
+- `markdown-analysis.sh`
+- `shell-analysis.sh`
+- `js-ts-analysis.sh`
+- `go-analysis.sh`
+
+CI-specific dependency setup scripts are separate from local developer setup:
+
+- `install-node-dependencies.sh`
+- `install-shell-dependencies.sh`
+- `install-go-dependencies.sh`
 
 ## CI static analysis
 
