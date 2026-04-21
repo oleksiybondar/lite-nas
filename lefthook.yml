@@ -29,3 +29,7 @@ pre-commit:
     shellcheck:
       glob: "*.{sh,bash,zsh}"
       run: shellcheck {staged_files}
+
+    actionlint:
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: scripts/hooks/actionlint.sh {staged_files}

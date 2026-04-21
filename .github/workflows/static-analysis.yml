@@ -11,6 +11,24 @@ permissions:
   contents: read
 
 jobs:
+  github-actions-analysis:
+    name: GitHub Actions analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install GitHub Actions tooling
+        run: scripts/ci/install-github-actions-dependencies.sh
+
+      - name: Run actionlint
+        run: scripts/ci/github-actions-analysis.sh
+
   markdown-analysis:
     name: Markdown analysis
     runs-on: ubuntu-latest

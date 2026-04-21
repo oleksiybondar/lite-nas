@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/logger.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/helpers/tool-paths.sh"
 
 run_as_user() {
 	if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
@@ -22,7 +24,7 @@ Missing required base tooling, and apt-get is not available.
 
 Install Node.js, npm, Go, shellcheck, and shfmt manually, then re-run this script.
 On macOS, use Homebrew:
-  brew install node go shellcheck shfmt
+  brew install node go shellcheck shfmt actionlint
 MSG
 		exit 1
 	fi
@@ -71,9 +73,11 @@ run_as_user npm install
 log.popTask
 
 log.pushTask "Installing Go developer tools"
+mkdir -p "$GOBIN"
 run_as_user go install mvdan.cc/gofumpt@latest
 run_as_user go install golang.org/x/tools/cmd/goimports@latest
 run_as_user go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+run_as_user go install github.com/rhysd/actionlint/cmd/actionlint@latest
 run_as_user go install mvdan.cc/sh/v3/cmd/shfmt@latest
 log.popTask
 
@@ -82,4 +86,5 @@ run_as_user npx lefthook install
 log.popTask
 
 log.info "Developer tooling is installed."
-log.info "Ensure your Go bin directory is on PATH, for example: export PATH=\"\$(go env GOPATH)/bin:\$PATH\""
+log.info "Repo-local Go tools are installed in ${GOBIN}."
+log.info "Add ${GOBIN} to PATH for direct shell usage, or use the repository scripts."

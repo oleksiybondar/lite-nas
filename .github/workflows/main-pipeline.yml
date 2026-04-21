@@ -6,8 +6,6 @@ on:
       - Static analysis
     types:
       - completed
-    branches:
-      - main
 
 permissions:
   contents: read

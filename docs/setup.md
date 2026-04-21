@@ -11,6 +11,7 @@ without extra command-line flags.
 - Git
 - `shellcheck`
 - Go-installed tools:
+  - `actionlint`
   - `gofumpt`
   - `goimports`
   - `golangci-lint`
@@ -41,10 +42,14 @@ Run the script as your normal user when possible. If you run it with
 `sudo bash scripts/install-dev-dependencies.sh`, system packages are installed
 as root and repo-local installs are run as the original sudo user.
 
+Go-based developer tools are installed into the repo-local `.bin/` directory so
+Git hooks and scripts can find consistent tool versions without relying on a
+global Go bin path.
+
 On macOS, install base tools with:
 
 ```bash
-brew install node go shellcheck shfmt
+brew install node go shellcheck shfmt actionlint
 ```
 
 ## Git hooks
@@ -120,6 +125,7 @@ Reusable CI scripts live in `scripts/ci/`.
 
 Analysis scripts are shared by local on-demand checks and GitHub Actions:
 
+- `github-actions-analysis.sh`
 - `markdown-analysis.sh`
 - `shell-analysis.sh`
 - `js-ts-analysis.sh`
@@ -128,6 +134,7 @@ Analysis scripts are shared by local on-demand checks and GitHub Actions:
 CI-specific dependency setup scripts are separate from local developer setup:
 
 - `install-node-dependencies.sh`
+- `install-github-actions-dependencies.sh`
 - `install-shell-dependencies.sh`
 - `install-go-dependencies.sh`
 
@@ -138,14 +145,21 @@ scripts work from any launch path.
 ## CI static analysis
 
 GitHub Actions runs separate static analysis jobs for Markdown, shell, JS/TS,
-and Go. Jobs explicitly pass when no matching files or Go modules exist.
+Go, and GitHub Actions workflows. Jobs explicitly pass when no matching files
+or Go modules exist.
 
 CI workflow order:
 
 1. `Static analysis` runs on pull requests and pushes to `main` or `master`.
-2. `Main pipeline` runs only after `Static analysis` completes successfully.
+2. `Main pipeline` runs only after `Static analysis` completes successfully on
+   any branch.
 3. `Release pipeline` runs only after `Main pipeline` completes successfully
    on `main`.
+
+GitHub only evaluates `workflow_run` workflows that already exist on the
+default branch. When these workflow files are introduced for the first time in a
+pull request, only `Static analysis` may appear until the PR is merged. After
+that initial merge, future branches will use the full chained workflow order.
 
 `Main pipeline` currently contains a manual approval gate. Configure the GitHub
 environment `main-pipeline-approval` with required reviewers in repository
