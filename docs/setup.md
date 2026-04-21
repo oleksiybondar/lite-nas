@@ -58,6 +58,26 @@ npx lefthook install
 The pre-commit hook runs only on staged files. It auto-fixes when possible,
 re-stages modified files, and fails the commit when issues remain.
 
+## Manual formatting
+
+Run all available formatters and safe autofixes:
+
+```bash
+./scripts/format/all.sh
+```
+
+Run individual formatters:
+
+```bash
+./scripts/format/markdown.sh
+./scripts/format/js-ts.sh
+./scripts/format/go.sh
+./scripts/format/shell.sh
+```
+
+Markdown formatting uses `markdownlint-cli2 --fix`. It fixes only rules that
+markdownlint can safely autofix; remaining findings still require manual edits.
+
 ## Manual linting
 
 Run the full local CI static analysis suite:
