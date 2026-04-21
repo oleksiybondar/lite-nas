@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/helpers/logger.sh
+source "$SCRIPT_DIR/../helpers/logger.sh"
+
 cd "$(git rev-parse --show-toplevel)"
 
 mapfile -t files < <(find . -type f \( \
@@ -10,8 +14,10 @@ mapfile -t files < <(find . -type f \( \
   -not -path './build/*')
 
 if [ "${#files[@]}" -eq 0 ]; then
-  echo "No JS/TS/JSON files found."
+  log.info "No JS/TS/JSON files found."
   exit 0
 fi
 
+log.pushTask "Running Biome autofix"
 npx --no-install biome check --write .
+log.popTask

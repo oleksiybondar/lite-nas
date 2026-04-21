@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/helpers/logger.sh
+source "$SCRIPT_DIR/../helpers/logger.sh"
+
 cd "$(git rev-parse --show-toplevel)"
 
 mapfile -t files < <(find . -type f -name '*.md' \
@@ -9,8 +13,10 @@ mapfile -t files < <(find . -type f -name '*.md' \
   -not -path './build/*')
 
 if [ "${#files[@]}" -eq 0 ]; then
-  echo "No Markdown files found."
+  log.info "No Markdown files found."
   exit 0
 fi
 
+log.pushTask "Running markdownlint autofix"
 npx --no-install markdownlint-cli2 --fix "**/*.md" "#node_modules" "#dist" "#build"
+log.popTask

@@ -131,6 +131,10 @@ CI-specific dependency setup scripts are separate from local developer setup:
 - `install-shell-dependencies.sh`
 - `install-go-dependencies.sh`
 
+Shell scripts share logging helpers from `scripts/helpers/logger.sh`. Source
+that helper relative to the script file, not the current working directory, so
+scripts work from any launch path.
+
 ## CI static analysis
 
 GitHub Actions runs separate static analysis jobs for Markdown, shell, JS/TS,

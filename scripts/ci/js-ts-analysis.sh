@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/helpers/logger.sh
+source "$SCRIPT_DIR/../helpers/logger.sh"
+
 cd "$(git rev-parse --show-toplevel)"
 
 mapfile -t biome_files < <(find . -type f \( \
@@ -10,9 +14,11 @@ mapfile -t biome_files < <(find . -type f \( \
   -not -path './build/*')
 
 if [ "${#biome_files[@]}" -eq 0 ]; then
-  echo "No JS/TS/JSON files found."
+  log.info "No JS/TS/JSON files found."
 else
+  log.pushTask "Running Biome"
   npx --no-install biome ci .
+  log.popTask
 fi
 
 mapfile -t duplicate_files < <(find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) \
@@ -21,8 +27,10 @@ mapfile -t duplicate_files < <(find . -type f \( -name '*.js' -o -name '*.jsx' -
   -not -path './build/*')
 
 if [ "${#duplicate_files[@]}" -eq 0 ]; then
-  echo "No JS/TS files found for duplication detection."
+  log.info "No JS/TS files found for duplication detection."
   exit 0
 fi
 
+log.pushTask "Running JS/TS duplication detection"
 npx --no-install jscpd .
+log.popTask

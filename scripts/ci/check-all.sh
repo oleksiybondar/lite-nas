@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/helpers/logger.sh
+source "$SCRIPT_DIR/../helpers/logger.sh"
+
 cd "$(git rev-parse --show-toplevel)"
 
 checks=(
@@ -11,8 +15,9 @@ checks=(
 )
 
 for check in "${checks[@]}"; do
-  printf '\n==> Running %s\n' "$check"
+  log.pushTask "Running $check"
   "scripts/ci/${check}.sh"
+  log.popTask
 done
 
-printf '\nAll local CI checks passed.\n'
+log.info "All local CI checks passed."
