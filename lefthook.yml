@@ -1,0 +1,31 @@
+pre-commit:
+  parallel: false
+  commands:
+    biome:
+      glob: "*.{js,jsx,ts,tsx,json,jsonc}"
+      run: npx biome check --write {staged_files}
+      stage_fixed: true
+
+    gofumpt:
+      glob: "*.go"
+      run: gofumpt -w {staged_files}
+      stage_fixed: true
+
+    goimports:
+      glob: "*.go"
+      run: goimports -w {staged_files}
+      stage_fixed: true
+
+    markdownlint:
+      glob: "*.md"
+      run: npx markdownlint-cli2 --fix {staged_files}
+      stage_fixed: true
+
+    shfmt:
+      glob: "*.{sh,bash,zsh}"
+      run: shfmt -w {staged_files}
+      stage_fixed: true
+
+    shellcheck:
+      glob: "*.{sh,bash,zsh}"
+      run: shellcheck {staged_files}

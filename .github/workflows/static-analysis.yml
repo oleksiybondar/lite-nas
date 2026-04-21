@@ -1,0 +1,143 @@
+name: Static analysis
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  markdown-analysis:
+    name: Markdown analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node tooling
+        run: npm install
+
+      - name: Run markdownlint
+        shell: bash
+        run: |
+          mapfile -t files < <(find . -type f -name '*.md' \
+            -not -path './node_modules/*' \
+            -not -path './dist/*' \
+            -not -path './build/*')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No Markdown files found."
+            exit 0
+          fi
+          npx markdownlint-cli2
+
+  shell-analysis:
+    name: Shell analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install shell tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          go install mvdan.cc/sh/v3/cmd/shfmt@latest
+
+      - name: Run shellcheck and shfmt
+        shell: bash
+        run: |
+          mapfile -t files < <(find . -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \) \
+            -not -path './node_modules/*' \
+            -not -path './dist/*' \
+            -not -path './build/*')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shell files found."
+            exit 0
+          fi
+          shellcheck "${files[@]}"
+          shfmt -d "${files[@]}"
+
+  js-ts-analysis:
+    name: JS/TS analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node tooling
+        run: npm install
+
+      - name: Run Biome
+        shell: bash
+        run: |
+          mapfile -t files < <(find . -type f \( \
+            -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.json' -o -name '*.jsonc' \) \
+            -not -path './node_modules/*' \
+            -not -path './dist/*' \
+            -not -path './build/*')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No JS/TS/JSON files found."
+            exit 0
+          fi
+          npx biome ci .
+
+      - name: Run JS/TS duplication detection
+        shell: bash
+        run: |
+          mapfile -t files < <(find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) \
+            -not -path './node_modules/*' \
+            -not -path './dist/*' \
+            -not -path './build/*')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No JS/TS files found."
+            exit 0
+          fi
+          npx jscpd .
+
+  go-analysis:
+    name: Go analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Run golangci-lint
+        shell: bash
+        run: |
+          mapfile -t modules < <(find . -name go.mod -not -path './vendor/*')
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No Go modules found."
+            exit 0
+          fi
+
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+
+          for module in "${modules[@]}"; do
+            dir="$(dirname "$module")"
+            echo "Running golangci-lint in ${dir}"
+            (cd "$dir" && golangci-lint run)
+          done
