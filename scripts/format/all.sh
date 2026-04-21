@@ -8,16 +8,16 @@ source "$SCRIPT_DIR/../helpers/logger.sh"
 cd "$(git rev-parse --show-toplevel)"
 
 formatters=(
-  "markdown"
-  "js-ts"
-  "go"
-  "shell"
+	"markdown"
+	"js-ts"
+	"go"
+	"shell"
 )
 
 for formatter in "${formatters[@]}"; do
-  log.pushTask "Formatting $formatter"
-  "scripts/format/${formatter}.sh"
-  log.popTask
+	log.pushTask "Formatting $formatter"
+	"scripts/format/${formatter}.sh"
+	log.popTask
 done
 
 log.info "Formatting complete."

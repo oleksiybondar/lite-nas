@@ -10,8 +10,8 @@ cd "$(git rev-parse --show-toplevel)"
 mapfile -t modules < <(find . -name go.mod -not -path './vendor/*')
 
 if [ "${#modules[@]}" -eq 0 ]; then
-  log.info "No Go modules found; skipping CI Go dependency installation."
-  exit 0
+	log.info "No Go modules found; skipping CI Go dependency installation."
+	exit 0
 fi
 
 log.pushTask "Installing CI Go analysis dependencies"

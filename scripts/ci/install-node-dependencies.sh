@@ -9,8 +9,8 @@ cd "$(git rev-parse --show-toplevel)"
 
 log.pushTask "Installing CI Node dependencies"
 if [ -f package-lock.json ]; then
-  npm ci
+	npm ci
 else
-  npm install
+	npm install
 fi
 log.popTask
