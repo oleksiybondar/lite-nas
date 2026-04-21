@@ -27,6 +27,7 @@ without extra command-line flags.
 ### Runtime dependencies
 
 - NATS Server
+- OpenSSL
 
 ## Install developer dependencies
 
@@ -69,13 +70,13 @@ The script is safe to re-run. On Debian/Ubuntu, it installs missing runtime
 packages with `apt-get`:
 
 ```bash
-nats-server
+nats-server openssl
 ```
 
 On macOS, install runtime dependencies with:
 
 ```bash
-brew install nats-server
+brew install nats-server openssl
 ```
 
 ## Deploy runtime configs
@@ -96,6 +97,31 @@ skip service restarts:
 ```bash
 sudo ./scripts/deploy-configs.sh --target-dir /tmp/lite-nas-etc --no-restart
 ```
+
+## Rotate NATS certificates
+
+Create or reuse the NATS root CA, rotate the NATS server certificate, rotate
+client certificates, normalize certificate permissions, and restart NATS:
+
+```bash
+sudo ./scripts/rotate-nats-certificates.sh
+```
+
+By default, client certificates are generated for:
+
+```text
+system-metrics-svc system-metrics-cli
+```
+
+Override the list with repeated `--user` options:
+
+```bash
+sudo ./scripts/rotate-nats-certificates.sh --user system-metrics-svc --user system-metrics-cli
+```
+
+The script stores NATS server CA and server certificate material under
+`/etc/nats-server/certificates`, and client certificate material under
+`/etc/liteNAS/certificates`.
 
 ## Git hooks
 
