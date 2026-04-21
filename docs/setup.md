@@ -34,17 +34,17 @@ Lefthook Git hooks. On Debian/Ubuntu, it also installs missing base packages
 with `apt-get`:
 
 ```bash
-git nodejs npm golang-go shellcheck
+git nodejs npm golang-go shellcheck shfmt
 ```
 
 Run the script as your normal user when possible. If you run it with
 `sudo bash scripts/install-dev-dependencies.sh`, system packages are installed
 as root and repo-local installs are run as the original sudo user.
 
-On macOS, install `shellcheck` with:
+On macOS, install base tools with:
 
 ```bash
-brew install node go shellcheck
+brew install node go shellcheck shfmt
 ```
 
 ## Git hooks

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/helpers/logger.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/logger.sh"
 
 run_as_user() {
@@ -20,9 +20,9 @@ install_apt_packages() {
 		cat <<'MSG' >&2
 Missing required base tooling, and apt-get is not available.
 
-Install Node.js, npm, Go, and shellcheck manually, then re-run this script.
+Install Node.js, npm, Go, shellcheck, and shfmt manually, then re-run this script.
 On macOS, use Homebrew:
-  brew install node go shellcheck
+  brew install node go shellcheck shfmt
 MSG
 		exit 1
 	fi
@@ -30,7 +30,7 @@ MSG
 	local apt_prefix=()
 	if [ "$(id -u)" -ne 0 ]; then
 		if ! command -v sudo >/dev/null 2>&1; then
-			log.error "Missing sudo; install Node.js, npm, Go, and shellcheck manually."
+			log.error "Missing sudo; install Node.js, npm, Go, shellcheck, and shfmt manually."
 			exit 1
 		fi
 		apt_prefix=(sudo)
@@ -38,12 +38,15 @@ MSG
 
 	log.pushTask "Installing Debian/Ubuntu base packages"
 	"${apt_prefix[@]}" apt-get update
-	"${apt_prefix[@]}" apt-get install -y git nodejs npm golang-go shellcheck
+	if ! "${apt_prefix[@]}" apt-get install -y git nodejs npm golang-go shellcheck shfmt; then
+		log.warn "Could not install shfmt with apt-get; it will be installed with go install instead."
+		"${apt_prefix[@]}" apt-get install -y git nodejs npm golang-go shellcheck
+	fi
 	log.popTask
 }
 
 missing_base_tools=()
-for tool in node npm go shellcheck; do
+for tool in node npm go shellcheck shfmt; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		missing_base_tools+=("$tool")
 	fi
@@ -55,7 +58,7 @@ if [ "${#missing_base_tools[@]}" -gt 0 ]; then
 fi
 
 log.pushTask "Checking base tooling"
-for tool in node npm go shellcheck; do
+for tool in node npm go shellcheck shfmt; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		log.error "Missing required command after installation attempt: $tool"
 		exit 1
