@@ -140,6 +140,18 @@ scripts work from any launch path.
 GitHub Actions runs separate static analysis jobs for Markdown, shell, JS/TS,
 and Go. Jobs explicitly pass when no matching files or Go modules exist.
 
+CI workflow order:
+
+1. `Static analysis` runs on pull requests and pushes to `main` or `master`.
+2. `Main pipeline` runs only after `Static analysis` completes successfully.
+3. `Release pipeline` runs only after `Main pipeline` completes successfully
+   on `main`.
+
+`Main pipeline` currently contains a manual approval gate. Configure the GitHub
+environment `main-pipeline-approval` with required reviewers in repository
+settings to make GitHub pause the job for approval. Without environment
+protection rules, GitHub will run the stub without pausing.
+
 Duplication policy:
 
 - Go duplication is enforced by `golangci-lint` using `dupl`.
