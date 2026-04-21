@@ -30,16 +30,21 @@ Run:
 ```
 
 The script is safe to re-run. It installs Node dependencies, Go tools, and
-Lefthook Git hooks. On Debian/Ubuntu, install `shellcheck` with:
+Lefthook Git hooks. On Debian/Ubuntu, it also installs missing base packages
+with `apt-get`:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y shellcheck
+git nodejs npm golang-go shellcheck
 ```
+
+Run the script as your normal user when possible. If you run it with
+`sudo bash scripts/install-dev-dependencies.sh`, system packages are installed
+as root and repo-local installs are run as the original sudo user.
 
 On macOS, install `shellcheck` with:
 
 ```bash
-brew install shellcheck
+brew install node go shellcheck
 ```
 
 ## Git hooks
