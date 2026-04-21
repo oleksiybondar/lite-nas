@@ -1,0 +1,35 @@
+name: Main pipeline
+
+on:
+  workflow_run:
+    workflows:
+      - Static analysis
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+jobs:
+  approval-gate:
+    name: Manual approval gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: main-pipeline-approval
+    steps:
+      - name: Await approval
+        run: |
+          echo "Static analysis passed."
+          echo "Main pipeline is currently a manual approval stub."
+
+  main-pipeline-stub:
+    name: Main pipeline stub
+    runs-on: ubuntu-latest
+    needs:
+      - approval-gate
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Placeholder
+        run: |
+          echo "Future build and test steps will run here."

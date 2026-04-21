@@ -1,0 +1,20 @@
+{
+  "name": "lite-nas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "scripts/format/all.sh",
+    "format:js": "scripts/format/js-ts.sh",
+    "format:md": "scripts/format/markdown.sh",
+    "lint:md": "markdownlint-cli2",
+    "lint:js": "biome ci .",
+    "lint:dup:js": "jscpd .",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "jscpd": "^4.0.5",
+    "lefthook": "^1.8.2",
+    "markdownlint-cli2": "^0.18.1"
+  }
+}
