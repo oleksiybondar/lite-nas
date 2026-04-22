@@ -6,17 +6,41 @@ run:
 linters:
   enable:
     - dupl
+    - copyloopvar
+    - durationcheck
+    - errorlint
     - errcheck
+    - funlen
+    - gocognit
     - gocyclo
+    - gosec
     - govet
     - ineffassign
+    - maintidx
+    - makezero
+    - misspell
+    - nestif
+    - nilerr
+    - nilnil
+    - nolintlint
+    - predeclared
     - staticcheck
     - unused
   settings:
     dupl:
       threshold: 100
+    funlen:
+      lines: 40
+      statements: 25
+      ignore-comments: true
+    gocognit:
+      min-complexity: 6
     gocyclo:
-      min-complexity: 9
+      min-complexity: 6
+    maintidx:
+      under: 20
+    nestif:
+      min-complexity: 4
 
 formatters:
   enable:

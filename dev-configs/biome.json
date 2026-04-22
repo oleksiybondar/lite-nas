@@ -34,9 +34,33 @@
         "noExcessiveCognitiveComplexity": {
           "level": "error",
           "options": {
-            "maxAllowedComplexity": 8
+            "maxAllowedComplexity": 5
+          }
+        },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": {
+            "maxLines": 40,
+            "skipBlankLines": true
+          }
+        },
+        "useMaxParams": {
+          "level": "error",
+          "options": {
+            "max": 4
           }
         }
+      },
+      "suspicious": {
+        "noConsole": "error",
+        "noImportCycles": "error",
+        "noExplicitAny": "error"
+      },
+      "style": {
+        "noNestedTernary": "error",
+        "useCollapsedElseIf": "error",
+        "useCollapsedIf": "error",
+        "useDefaultParameterLast": "error"
       }
     }
   }

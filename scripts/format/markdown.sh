@@ -19,5 +19,5 @@ fi
 
 log.pushTask "Running markdownlint autofix"
 log.requireCommand "npx" "Run ./scripts/install-dev-dependencies.sh to install Node developer dependencies."
-npx --no-install markdownlint-cli2 --fix "**/*.md" "#node_modules" "#dist" "#build"
+npx --no-install markdownlint-cli2 --fix "**/*.md"
 log.popTask
