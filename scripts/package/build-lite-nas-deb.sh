@@ -134,6 +134,8 @@ chmod 0755 \
 
 copy_tree "$package_template_dir/usr/share/doc" "$package_root/usr/share/doc"
 gzip -n -9 "$package_root/usr/share/doc/$package_name/changelog.Debian"
+mv "$package_root/usr/share/doc/$package_name/changelog.Debian.gz" \
+	"$package_root/usr/share/doc/$package_name/changelog.gz"
 
 copy_tree "$LITE_NAS_REPO_ROOT/configs" "$package_root/usr/libexec/lite-nas/configs"
 copy_tree "$LITE_NAS_REPO_ROOT/scripts/helpers" "$package_root/usr/libexec/lite-nas/scripts/helpers"
@@ -152,6 +154,8 @@ install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
+
+find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
 find "$package_root/usr" -type d -exec chmod 0755 {} +
 find "$package_root/usr" -type f -exec chmod 0644 {} +

@@ -20,11 +20,12 @@ Type: boolean
 Default: true
 Description: Replace the local NATS configuration with the LiteNAS configuration?
  LiteNAS expects NATS Server to use the configuration shipped with this package.
- Selecting Yes installs the LiteNAS NATS configuration into /etc/nats-server*
- and restarts nats-server.
+ Allowing this change installs the LiteNAS NATS configuration into
+ /etc/nats-server and restarts nats-server.
  .
- Selecting No keeps the current NATS configuration unchanged. In that case you
- must configure NATS manually so LiteNAS services can work correctly.
+ Refusing this change keeps the current NATS configuration unchanged.
+ In that case you must configure NATS manually so LiteNAS services
+ can work correctly.
 
 Template: lite-nas/manual-nats-config-note
 Type: note

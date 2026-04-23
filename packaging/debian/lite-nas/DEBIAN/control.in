@@ -8,5 +8,6 @@ Pre-Depends: debconf (>= 1.5.0)
 Depends: zfsutils-linux, nats-server, openssl, systemd
 Recommends: aide, clamav, ufw, usbguard
 Description: LiteNAS bootstrap and host profile package
- Applies the LiteNAS host profile, deploys managed configuration, provisions
- common LiteNAS identities, and installs bundled LiteNAS service and app binaries.
+ Applies the LiteNAS host profile, deploys managed configuration,
+ provisions common LiteNAS identities, and installs bundled LiteNAS
+ service and app binaries.

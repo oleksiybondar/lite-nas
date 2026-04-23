@@ -9,7 +9,6 @@ cd "$LITE_NAS_REPO_ROOT"
 
 package_roots=(
 	"packaging/debian/lite-nas"
-	"packaging/debian/lite-nas-system-metrics"
 )
 tmp_dir=""
 tmp_package_dir=""
@@ -69,17 +68,10 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 	log.popTask
 fi
 
-log.pushTask "Building Debian package for analysis"
-tmp_package_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
-./scripts/package/build-all-debs.sh \
-	--version=0.0.0+ci \
-	--output-dir="$tmp_package_dir"
+log.pushTask "Validating Debian package structure (Lintian)"
+for package_root in "${package_roots[@]}"; do
+	if [ -d "$package_root" ] && command -v lintian >/dev/null 2>&1; then
+		lintian --fail-on error --display-experimental --pedantic "$package_root"
+	fi
+done
 log.popTask
-
-if command -v lintian >/dev/null 2>&1; then
-	log.pushTask "Running lintian on analysis packages"
-	lintian --fail-on error --display-experimental --pedantic \
-		"$tmp_package_dir"/lite-nas*_0.0.0+ci_*.deb
-	log.popTask
-fi

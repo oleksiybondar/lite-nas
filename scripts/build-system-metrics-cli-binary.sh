@@ -63,7 +63,9 @@ mkdir -p "$GOCACHE"
 log.pushTask "Building system-metrics-cli binary for linux/${target_arch}"
 (
 	cd "$LITE_NAS_SYSTEM_METRICS_CLI_APP_MODULE"
-	GOOS=linux GOARCH="$target_arch" go build -o "$output_path" .
+	CGO_ENABLED=0 GOOS=linux GOARCH="$target_arch" go build \
+		-ldflags="-s -w" \
+		-o "$output_path" .
 )
 log.popTask
 
