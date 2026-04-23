@@ -31,12 +31,24 @@ ensure_user_writable_directory() {
 	fi
 }
 
+install_go_tool_if_missing() {
+	local binary_name="$1"
+	local package_spec="$2"
+
+	if [ -x "$GOBIN/$binary_name" ]; then
+		log.info "Keeping existing Go tool: $binary_name"
+		return 0
+	fi
+
+	run_as_user go install "$package_spec"
+}
+
 install_apt_packages() {
 	if ! command -v apt-get >/dev/null 2>&1; then
 		cat <<'MSG' >&2
 Missing required base tooling, and apt-get is not available.
 
-Install Node.js, npm, Go, shellcheck, and shfmt manually, then re-run this script.
+Install Node.js, npm, Go, shellcheck, shfmt, and Debian packaging tools manually, then re-run this script.
 On macOS, use Homebrew:
   brew install node go shellcheck shfmt actionlint
 MSG
@@ -45,9 +57,9 @@ MSG
 
 	log.pushTask "Installing Debian/Ubuntu base packages"
 	apt-get update
-	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt; then
+	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt lintian debconf; then
 		log.warn "Could not install shfmt with apt-get; it will be installed with go install instead."
-		apt-get install -y git nodejs npm golang-go shellcheck
+		apt-get install -y git nodejs npm golang-go shellcheck lintian debconf
 	fi
 	log.popTask
 }
@@ -79,11 +91,11 @@ log.popTask
 
 log.pushTask "Installing Go developer tools"
 ensure_user_writable_directory "$GOBIN"
-run_as_user go install mvdan.cc/gofumpt@latest
-run_as_user go install golang.org/x/tools/cmd/goimports@latest
-run_as_user go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-run_as_user go install github.com/rhysd/actionlint/cmd/actionlint@latest
-run_as_user go install mvdan.cc/sh/v3/cmd/shfmt@latest
+install_go_tool_if_missing "gofumpt" "mvdan.cc/gofumpt@latest"
+install_go_tool_if_missing "goimports" "golang.org/x/tools/cmd/goimports@latest"
+install_go_tool_if_missing "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
+install_go_tool_if_missing "actionlint" "github.com/rhysd/actionlint/cmd/actionlint@latest"
+install_go_tool_if_missing "shfmt" "mvdan.cc/sh/v3/cmd/shfmt@latest"
 log.popTask
 
 log.pushTask "Installing Git hooks"

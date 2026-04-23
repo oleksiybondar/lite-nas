@@ -1,0 +1,12 @@
+Package: lite-nas
+Version: @PACKAGE_VERSION@
+Section: admin
+Priority: optional
+Architecture: @PACKAGE_ARCH@
+Maintainer: Oleksiy Bondar <bondaroleksiyandroyovich@gmail.com>
+Pre-Depends: debconf (>= 1.5.0)
+Depends: zfsutils-linux, nats-server, openssl, systemd
+Recommends: aide, clamav, ufw, usbguard
+Description: LiteNAS bootstrap and host profile package
+ Applies the LiteNAS host profile, deploys managed configuration, provisions
+ common LiteNAS identities, and installs bundled LiteNAS service and app binaries.

@@ -63,6 +63,9 @@ func TestLoadConfigMessagingFields(t *testing.T) {
 	}{
 		{name: "url", got: func(cfg Config) any { return cfg.Messaging.URL }, want: "nats://localhost:4222"},
 		{name: "client name", got: func(cfg Config) any { return cfg.Messaging.ClientName }, want: "system-metrics"},
+		{name: "ca path", got: func(cfg Config) any { return cfg.Messaging.CA }, want: "/etc/liteNAS/certificates/root-ca.crt"},
+		{name: "cert path", got: func(cfg Config) any { return cfg.Messaging.Cert }, want: "/etc/liteNAS/certificates/lite-nas-system-metrics/client.crt"},
+		{name: "key path", got: func(cfg Config) any { return cfg.Messaging.Key }, want: "/etc/liteNAS/certificates/lite-nas-system-metrics/client.key"},
 		{name: "timeout", got: func(cfg Config) any { return cfg.Messaging.Timeout }, want: 9 * time.Second},
 	}
 
@@ -144,6 +147,9 @@ func loadConfigFixture(t *testing.T) Config {
 				"[messaging]\n" +
 				"url=nats://localhost:4222\n" +
 				"client_name=system-metrics\n" +
+				"ca=/etc/liteNAS/certificates/root-ca.crt\n" +
+				"cert=/etc/liteNAS/certificates/lite-nas-system-metrics/client.crt\n" +
+				"key=/etc/liteNAS/certificates/lite-nas-system-metrics/client.key\n" +
 				"timeout=9s\n" +
 				"[logging]\n" +
 				"level=debug\n" +

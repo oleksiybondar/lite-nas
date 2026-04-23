@@ -44,6 +44,43 @@ mkdir -p "$GOCACHE"
 
 log.requireCommand "go" "Install Go and retry."
 
+run_go_test_with_coverage() {
+	local profile_path="$1"
+	local output_path
+
+	if ! go tool covdata >/dev/null 2>&1; then
+		mapfile -t test_packages < <(list_test_packages)
+		go test -covermode=atomic -coverprofile="$profile_path" "${test_packages[@]}"
+		return 0
+	fi
+
+	output_path="$(mktemp)"
+	if go test -covermode=atomic -coverpkg=./... -coverprofile="$profile_path" ./... >"$output_path" 2>&1; then
+		cat "$output_path"
+		rm -f "$output_path"
+		return 0
+	fi
+
+	if ! grep -q 'no such tool "covdata"' "$output_path"; then
+		cat "$output_path"
+		rm -f "$output_path"
+		return 1
+	fi
+
+	cat "$output_path"
+	rm -f "$output_path"
+
+	mapfile -t test_packages < <(list_test_packages)
+	go test -covermode=atomic -coverprofile="$profile_path" "${test_packages[@]}"
+}
+
+list_test_packages() {
+	find . -name '*_test.go' -not -path '*/vendor/*' -exec dirname {} \; |
+		sed 's|^\./|./|' |
+		sed 's|^\.$|.|' |
+		LC_ALL=C sort -u
+}
+
 if ! find "$module_dir" -name '*_test.go' -not -path '*/vendor/*' -print -quit | grep -q .; then
 	log.warn "No Go tests found in ${module_dir}; skipping test run."
 	exit 0
@@ -60,7 +97,7 @@ if [ "$with_coverage" -eq 1 ]; then
 	log.pushTask "Running Go tests with coverage in ${module_dir}"
 	(
 		cd "$module_dir"
-		go test -covermode=atomic -coverpkg=./... -coverprofile="$profile_path" ./...
+		run_go_test_with_coverage "$profile_path"
 	)
 
 	coverage_pct="$(

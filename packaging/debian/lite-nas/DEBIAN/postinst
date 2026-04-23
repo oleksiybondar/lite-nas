@@ -1,0 +1,42 @@
+#!/bin/sh
+set -e
+
+PACKAGE_ROOT="/usr/libexec/lite-nas"
+BOOTSTRAP_SCRIPT="$PACKAGE_ROOT/scripts/deploy-lite-nas.sh"
+DEPLOY_SYSTEM_METRICS_SCRIPT="$PACKAGE_ROOT/scripts/deploy-system-metrics.sh"
+DEPLOY_SYSTEM_METRICS_CLI_SCRIPT="$PACKAGE_ROOT/scripts/deploy-system-metrics-cli.sh"
+
+configure_package() {
+	# shellcheck disable=SC1091
+	. /usr/share/debconf/confmodule
+	db_get lite-nas/replace-nats-config || true
+	REPLACE_NATS_CONFIG="$RET"
+	db_stop || true
+
+	if [ "$REPLACE_NATS_CONFIG" = "true" ]; then
+		"$BOOTSTRAP_SCRIPT"
+	else
+		"$BOOTSTRAP_SCRIPT" --no-nats-config
+	fi
+
+	"$DEPLOY_SYSTEM_METRICS_SCRIPT" \
+		--binary "$PACKAGE_ROOT/system-metrics" \
+		--skip-bootstrap
+	"$DEPLOY_SYSTEM_METRICS_CLI_SCRIPT" \
+		--binary "$PACKAGE_ROOT/system-metrics-cli" \
+		--skip-bootstrap
+}
+
+case "$1" in
+configure)
+	configure_package "$@"
+	;;
+abort-upgrade | abort-remove | abort-deconfigure)
+	;;
+*)
+	echo "postinst called with unsupported argument: $1" >&2
+	exit 1
+	;;
+esac
+
+exit 0

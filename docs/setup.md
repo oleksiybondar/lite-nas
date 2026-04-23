@@ -98,6 +98,154 @@ skip service restarts:
 sudo ./scripts/deploy-configs.sh --target-dir /tmp/lite-nas-etc --no-restart
 ```
 
+## Build the system-metrics binary
+
+Build an installable Linux binary artifact for the local machine architecture:
+
+```bash
+./scripts/build-system-metrics-binary.sh
+```
+
+Override the target architecture or output path when needed:
+
+```bash
+./scripts/build-system-metrics-binary.sh --arch=arm64
+./scripts/build-system-metrics-binary.sh --output=/tmp/system-metrics
+```
+
+The default output path is:
+
+```text
+.build/system-metrics/linux-<arch>/system-metrics
+```
+
+## Build the system-metrics CLI binary
+
+Build the read-only NATS client used to request the latest snapshot or the
+snapshot history:
+
+```bash
+./scripts/build-system-metrics-cli-binary.sh
+```
+
+Override the target architecture or output path when needed:
+
+```bash
+./scripts/build-system-metrics-cli-binary.sh --arch=arm64
+./scripts/build-system-metrics-cli-binary.sh --output=/tmp/system-metrics-cli
+```
+
+The default output path is:
+
+```text
+.build/system-metrics-cli/linux-<arch>/system-metrics-cli
+```
+
+The default client config template is deployed to:
+
+```text
+/etc/liteNAS/system-metrics-cli.conf
+```
+
+Usage:
+
+```bash
+sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli
+sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --cpu
+sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --ram
+sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --history
+```
+
+## Deploy the system-metrics CLI app
+
+Install the binary, deploy the client config, and prepare the LiteNAS
+bootstrap prerequisites:
+
+```bash
+sudo ./scripts/deploy-system-metrics-cli.sh
+```
+
+Install an already-built binary instead of building during deployment:
+
+```bash
+sudo ./scripts/deploy-system-metrics-cli.sh --binary /tmp/system-metrics-cli
+```
+
+## Deploy the system-metrics service
+
+Install the binary, deploy the service config, prepare the service account and
+log file, install a hardened systemd unit, and start the service:
+
+```bash
+sudo ./scripts/deploy-system-metrics.sh
+```
+
+Install an already-built binary instead of building during deployment:
+
+```bash
+sudo ./scripts/deploy-system-metrics.sh --binary /tmp/system-metrics
+```
+
+To validate file installation and unit rendering without starting the service:
+
+```bash
+sudo ./scripts/deploy-system-metrics.sh --no-start
+```
+
+By default, the deployment uses:
+
+- binary path `/usr/libexec/lite-nas/system-metrics`
+- config path `/etc/liteNAS/system-metrics.conf`
+- log path `/var/log/liteNAS/system-metrics.log`
+- systemd service `lite-nas-system-metrics.service`
+- runtime user `lite-nas-system-metrics`
+- runtime group `lite-nas-system-metrics`
+- supplementary config group `lite-nas`
+
+The installed systemd unit is rendered from a template. Placeholder values such
+as `@SYSTEM_METRICS_RUNTIME_USER@` are not used literally on the machine; the
+deploy script replaces them with the configured runtime values before writing
+the final unit file under `/lib/systemd/system/`.
+
+## Build Debian packages
+
+Build the current LiteNAS package set:
+
+```bash
+./scripts/package/build-all-debs.sh --version=0.1.0+local
+```
+
+Build the architecture-specific LiteNAS package directly when needed:
+
+```bash
+./scripts/package/build-lite-nas-deb.sh --arch=arm64 --version=0.1.0+local
+./scripts/package/build-lite-nas-deb.sh --arch=amd64 --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
+```
+
+The package output currently contains one architecture-specific package:
+
+- `lite-nas`: bootstrap/profile package that also bundles the system metrics service and CLI binaries
+
+The `lite-nas` package:
+
+- depends on `zfsutils-linux`, `nats-server`, `openssl`, and `systemd`
+- recommends future hardening packages such as `aide`, `clamav`, `ufw`, and `usbguard`
+- shows a GPLv3 notice during installation
+- explains that it applies a managed LiteNAS host profile
+- asks whether LiteNAS may replace the local NATS configuration
+- rotates or creates NATS certificates only when one or more expected files are missing or stale
+- stores the shared CA under `/etc/liteNAS/certificates/root-ca.crt`
+- stores service certificates under `/etc/liteNAS/certificates/<service>/`
+
+The `lite-nas` package installs the system metrics service and CLI app under
+that profile.
+
+Lint a built package with:
+
+```bash
+./scripts/package/lint-system-metrics-deb.sh .build/packages/lite-nas_0.1.0_amd64.deb
+```
+
 ## Rotate NATS certificates
 
 Create or reuse the NATS root CA, rotate the NATS server certificate, rotate
@@ -110,18 +258,20 @@ sudo ./scripts/rotate-nats-certificates.sh
 By default, client certificates are generated for:
 
 ```text
-system-metrics-svc system-metrics-cli
+lite-nas-system-metrics
+lite-nas-system-metrics-cli
 ```
 
 Override the list with repeated `--user` options:
 
 ```bash
-sudo ./scripts/rotate-nats-certificates.sh --user system-metrics-svc --user system-metrics-cli
+sudo ./scripts/rotate-nats-certificates.sh --user lite-nas-system-metrics --user lite-nas-other-service
 ```
 
 The script stores NATS server CA and server certificate material under
-`/etc/nats-server/certificates`, and client certificate material under
-`/etc/liteNAS/certificates`.
+`/etc/nats-server/certificates`, the shared LiteNAS CA under
+`/etc/liteNAS/certificates`, and service client certificate material under
+`/etc/liteNAS/certificates/<service>/`.
 
 ## Git hooks
 
@@ -223,6 +373,8 @@ CI-specific dependency setup scripts are separate from local developer setup:
 - `install-github-actions-dependencies.sh`
 - `install-shell-dependencies.sh`
 - `install-go-dependencies.sh`
+- `install-debian-packaging-dependencies.sh`
+- `package-analysis.sh`
 
 Shell scripts share logging helpers from `scripts/helpers/logger.sh`. Source
 that helper relative to the script file, not the current working directory, so
@@ -241,6 +393,11 @@ CI workflow order:
    any branch.
 3. `Release pipeline` runs only after `Main pipeline` completes successfully
    on `main`.
+
+`Main pipeline` uploads the built `system-metrics` binaries as short-lived
+workflow artifacts together with the built `system-metrics-cli` binaries.
+GitHub Actions only supports whole-day retention values, so the workflow uses
+the minimum supported retention of 1 day.
 
 GitHub only evaluates `workflow_run` workflows that already exist on the
 default branch. When these workflow files are introduced for the first time in a

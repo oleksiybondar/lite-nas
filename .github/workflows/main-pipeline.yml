@@ -1,4 +1,4 @@
-name: Build and test
+name: Main pipeline
 
 on:
   workflow_run:
@@ -10,9 +10,13 @@ on:
 permissions:
   contents: read
 
+env:
+  GO_TEST_MIN_COVERAGE: "75"
+
 # Pipeline memo:
 # - Stage 1 is Static analysis and must remain the upstream gate for this workflow.
-# - Stage 2 is build and test only. It should never publish artifacts or deploy.
+# - Stage 2 is build and test only. It may publish short-lived build artifacts,
+#   but it must not package or deploy.
 # - Stage 3 will be a separate release workflow for packaging/publishing after merge.
 # - When stage 3 is introduced, it should depend on successful completion of this workflow,
 #   not replace or bypass the stage 1 -> stage 2 gating chain.
@@ -45,8 +49,6 @@ jobs:
         uses: ./.github/actions/setup-go-job
 
       - name: Run shared Go tests with coverage
-        env:
-          GO_TEST_MIN_COVERAGE: "75"
         run: scripts/test-shared.sh --with-coverage
 
   system-metrics-build:
@@ -63,8 +65,15 @@ jobs:
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
-      - name: Build system metrics module for ${{ matrix.arch }}
-        run: scripts/build-system-metrics.sh --arch=${{ matrix.arch }}
+      - name: Build system metrics binary for ${{ matrix.arch }}
+        run: scripts/build-system-metrics-binary.sh --arch=${{ matrix.arch }} --output=.build/artifacts/system-metrics/${{ matrix.arch }}/system-metrics
+
+      - name: Upload system metrics binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-metrics-linux-${{ matrix.arch }}
+          path: .build/artifacts/system-metrics/${{ matrix.arch }}/system-metrics
+          retention-days: 1
 
   system-metrics-tests:
     name: System metrics tests
@@ -77,6 +86,41 @@ jobs:
         uses: ./.github/actions/setup-go-job
 
       - name: Run system metrics tests with coverage
-        env:
-          GO_TEST_MIN_COVERAGE: "75"
         run: scripts/test-system-metrics.sh --with-coverage
+
+  system-metrics-cli-build:
+    name: System metrics CLI build
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Setup Go job
+        uses: ./.github/actions/setup-go-job
+
+      - name: Build system metrics CLI binary for ${{ matrix.arch }}
+        run: scripts/build-system-metrics-cli-binary.sh --arch=${{ matrix.arch }} --output=.build/artifacts/system-metrics-cli/${{ matrix.arch }}/system-metrics-cli
+
+      - name: Upload system metrics CLI binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-metrics-cli-linux-${{ matrix.arch }}
+          path: .build/artifacts/system-metrics-cli/${{ matrix.arch }}/system-metrics-cli
+          retention-days: 1
+
+  system-metrics-cli-tests:
+    name: System metrics CLI tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs:
+      - system-metrics-cli-build
+    steps:
+      - name: Setup Go job
+        uses: ./.github/actions/setup-go-job
+
+      - name: Run system metrics CLI tests
+        run: scripts/test-system-metrics-cli.sh

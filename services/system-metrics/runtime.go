@@ -40,7 +40,6 @@ func run(ctx context.Context) error {
 		channels,
 		ioModule,
 	)
-
 	stateModule := modules.NewStateModule(infra.Config().Metrics.HistorySize)
 	if err := registerRPCHandlers(infra.Server(), stateModule.SnapshotStore()); err != nil {
 		return err

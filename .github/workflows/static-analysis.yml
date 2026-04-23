@@ -85,3 +85,19 @@ jobs:
 
       - name: Run golangci-lint
         run: scripts/ci/go-analysis.sh
+
+  package-analysis:
+    name: Package analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go job
+        uses: ./.github/actions/setup-go-job
+
+      - name: Install shell tooling
+        run: scripts/ci/install-shell-dependencies.sh
+
+      - name: Install Debian packaging tooling
+        run: scripts/ci/install-debian-packaging-dependencies.sh
+
+      - name: Run package and config analysis
+        run: scripts/ci/package-analysis.sh

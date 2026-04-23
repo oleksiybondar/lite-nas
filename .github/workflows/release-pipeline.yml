@@ -11,14 +11,78 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
-  release-pipeline-stub:
-    name: Release pipeline stub
+  lite-nas-deb:
+    name: LiteNAS Debian package (${{ matrix.arch }})
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
     steps:
-      - name: Placeholder
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Debian packaging dependencies
+        run: scripts/ci/install-debian-packaging-dependencies.sh
+
+      - name: Compute package version
+        id: package-version
         run: |
-          echo "Main pipeline passed."
-          echo "Future release packaging, publishing, or deployment steps will run here."
+          echo "value=0.1.0+main.${{ github.event.workflow_run.run_number }}.$(printf '%s' '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Download system metrics build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          ARTIFACT_NAME: system-metrics-linux-${{ matrix.arch }}
+        run: |
+          mkdir -p .artifacts/${{ matrix.arch }}/system-metrics
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${WORKFLOW_RUN_ID}/artifacts" --paginate | jq -r --arg NAME "$ARTIFACT_NAME" '.artifacts[] | select(.name == $NAME) | .id' | head -n1)"
+          if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
+            echo "Missing upstream artifact: $ARTIFACT_NAME" >&2
+            exit 1
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > ".artifacts/${{ matrix.arch }}/system-metrics/artifact.zip"
+          unzip -o ".artifacts/${{ matrix.arch }}/system-metrics/artifact.zip" -d ".artifacts/${{ matrix.arch }}/system-metrics"
+
+      - name: Download system metrics CLI build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          ARTIFACT_NAME: system-metrics-cli-linux-${{ matrix.arch }}
+        run: |
+          mkdir -p .artifacts/${{ matrix.arch }}/system-metrics-cli
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${WORKFLOW_RUN_ID}/artifacts" --paginate | jq -r --arg NAME "$ARTIFACT_NAME" '.artifacts[] | select(.name == $NAME) | .id' | head -n1)"
+          if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
+            echo "Missing upstream artifact: $ARTIFACT_NAME" >&2
+            exit 1
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > ".artifacts/${{ matrix.arch }}/system-metrics-cli/artifact.zip"
+          unzip -o ".artifacts/${{ matrix.arch }}/system-metrics-cli/artifact.zip" -d ".artifacts/${{ matrix.arch }}/system-metrics-cli"
+
+      - name: Build LiteNAS Debian package
+        run: |
+          scripts/package/build-lite-nas-deb.sh \
+            --arch=${{ matrix.arch }} \
+            --version=${{ steps.package-version.outputs.value }} \
+            --system-metrics-binary=.artifacts/${{ matrix.arch }}/system-metrics/system-metrics \
+            --system-metrics-cli-binary=.artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli \
+            --output-dir=.build/packages/${{ matrix.arch }}
+
+      - name: Lint Debian package
+        run: |
+          scripts/package/lint-system-metrics-deb.sh \
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb
+
+      - name: Upload LiteNAS Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lite-nas-deb-${{ matrix.arch }}
+          path: .build/packages/${{ matrix.arch }}/*.deb
+          retention-days: 30
