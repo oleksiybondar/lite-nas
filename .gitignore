@@ -37,3 +37,8 @@ go.work.sum
 # NODE
 node_modules/
 package-lock.json
+
+# AI agents
+/.codex
+/.claude
+/.cursor

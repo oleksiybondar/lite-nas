@@ -86,11 +86,7 @@ func newConnection(
 		return nil, fmt.Errorf("%w: %w", ErrNotConnected, err)
 	}
 
-	log.Info(
-		"nats connected",
-		"url", cfg.URL,
-		"client", cfg.ClientName,
-	)
+	logConnectionReady(log, conn, cfg)
 
 	return &connection{
 		conn:   conn,
@@ -147,7 +143,7 @@ func (c *connection) subscribe(
 	subject string,
 	handler nats.MsgHandler,
 ) error {
-	if !c.isConnected() {
+	if !c.canSubscribe() {
 		return ErrNotConnected
 	}
 
@@ -199,6 +195,20 @@ func (c *connection) isConnected() bool {
 	return c != nil && c.conn != nil && c.conn.IsConnected()
 }
 
+// canSubscribe reports whether subscription registration can be attempted on
+// the underlying connection.
+//
+// Design choice:
+//   - subscriptions should be allowed while reconnecting so startup can
+//     complete before the first successful broker connection
+//   - closed or draining connections remain invalid for new subscriptions
+func (c *connection) canSubscribe() bool {
+	return c != nil &&
+		c.conn != nil &&
+		!c.conn.IsClosed() &&
+		!c.conn.IsDraining()
+}
+
 // buildConnectionOptions constructs NATS connection options from messaging
 // configuration.
 //
@@ -213,6 +223,7 @@ func buildConnectionOptions(
 	opts := []nats.Option{
 		nats.Name(cfg.ClientName),
 		nats.Timeout(cfg.Timeout),
+		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(defaultMaxReconnects),
 		nats.ReconnectWait(defaultReconnectWait),
 		nats.DisconnectErrHandler(buildConnErrHandler(log, handleDisconnectErr)),
@@ -231,6 +242,28 @@ func buildConnectionOptions(
 	}
 
 	return opts, nil
+}
+
+func logConnectionReady(
+	log logger.Logger,
+	conn *nats.Conn,
+	cfg config.MessagingConfig,
+) {
+	if conn.IsConnected() {
+		log.Info(
+			"nats connected",
+			"url", cfg.URL,
+			"client", cfg.ClientName,
+		)
+		return
+	}
+
+	log.Warn(
+		"nats initial connect deferred",
+		"url", cfg.URL,
+		"client", cfg.ClientName,
+		"status", conn.Status().String(),
+	)
 }
 
 // hasTLSConfig reports whether any TLS-related settings are configured.

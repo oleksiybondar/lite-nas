@@ -108,8 +108,8 @@ func TestBuildConnectionOptionsWithoutTLS(t *testing.T) {
 		Timeout:    5 * time.Second,
 	})
 
-	if len(options) != 8 {
-		t.Fatalf("len(options) = %d, want 8", len(options))
+	if len(options) != 9 {
+		t.Fatalf("len(options) = %d, want 9", len(options))
 	}
 }
 
@@ -125,8 +125,8 @@ func TestBuildConnectionOptionsWithTLS(t *testing.T) {
 		CA:         caPath,
 	})
 
-	if len(options) != 9 {
-		t.Fatalf("len(options) = %d, want 9", len(options))
+	if len(options) != 10 {
+		t.Fatalf("len(options) = %d, want 10", len(options))
 	}
 }
 

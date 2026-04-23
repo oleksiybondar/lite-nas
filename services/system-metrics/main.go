@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"os/signal"
 	"syscall"
 )
@@ -12,6 +14,7 @@ func main() {
 	defer stop()
 
 	if err := run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		panic(err)
+		_, _ = fmt.Fprintf(os.Stderr, "system-metrics: %v\n", err)
+		os.Exit(1)
 	}
 }
