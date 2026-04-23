@@ -119,6 +119,13 @@ create_root_ca_if_missing() {
 		-subj "/CN=LiteNAS NATS Root CA"
 }
 
+publish_client_ca_certificate() {
+	local source_ca="$nats_certificate_dir/root-ca.crt"
+	local target_ca="$litenas_certificate_dir/root-ca.crt"
+
+	install -m 0640 "$source_ca" "$target_ca"
+}
+
 create_signed_certificate() {
 	local common_name="$1"
 	local certificate_dir="$2"
@@ -214,6 +221,7 @@ log.popTask
 
 log.pushTask "Rotating NATS certificates"
 create_root_ca_if_missing
+publish_client_ca_certificate
 rotate_server_certificate
 rotate_client_certificates
 log.popTask

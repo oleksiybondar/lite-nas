@@ -1,0 +1,13 @@
+name: Setup Go job
+description: Checkout the repository and install the default Go toolchain for CI jobs.
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: stable

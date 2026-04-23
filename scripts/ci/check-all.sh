@@ -15,6 +15,7 @@ checks=(
 	"shell-analysis"
 	"js-ts-analysis"
 	"go-analysis"
+	"go-test-coverage"
 )
 
 for check in "${checks[@]}"; do

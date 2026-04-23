@@ -8,7 +8,6 @@ source "$SCRIPT_DIR/helpers/logger.sh"
 source "$SCRIPT_DIR/helpers/tool-paths.sh"
 
 cd "$(git rev-parse --show-toplevel)"
-log.warn "scripts/run-ci.sh is kept as a compatibility wrapper. Use scripts/run-ci-analysis.sh."
 log.pushTask "Running local CI static analysis checks"
-scripts/run-ci-analysis.sh
+scripts/ci/check-all.sh
 log.popTask

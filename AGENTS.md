@@ -52,3 +52,12 @@ branch or otherwise provides a pushed source branch.
   intentional dynamic `source` calls that load repository helpers or script
   modules. Keep the suppression directly above the affected `source` line and
   do not use it for unrelated missing-file warnings.
+
+## Project Conventions
+
+- Repository-wide coding and testing conventions are documented in
+  [CONTRIBUTING.md](/home/oleksiybondar/Documents/development/lite-nas/CONTRIBUTING.md).
+- Follow those conventions by default unless the user explicitly requests a
+  different style for the current task.
+- This includes requirement-traceable tests when requirement documents exist;
+  use source-qualified IDs such as `system-metrics-svc/FR-001`.

@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "ci:analysis": "scripts/run-ci-analysis.sh",
+    "ci:build": "scripts/run-ci-build.sh",
+    "ci:test": "scripts/run-ci-test.sh",
     "format": "scripts/format/all.sh",
     "format:js": "scripts/format/js-ts.sh",
     "format:md": "scripts/format/markdown.sh",

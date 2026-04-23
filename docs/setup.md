@@ -159,12 +159,27 @@ markdownlint can safely autofix; remaining findings still require manual edits.
 Run the full local CI static analysis suite:
 
 ```bash
-./scripts/run-ci.sh
+./scripts/run-ci-analysis.sh
 ```
 
 This calls the same analysis scripts used by GitHub Actions. It expects local
 developer dependencies to already be installed with
 `./scripts/install-dev-dependencies.sh`.
+
+`./scripts/run-ci.sh` remains as a compatibility wrapper around
+`./scripts/run-ci-analysis.sh`.
+
+Run the local CI build checks:
+
+```bash
+./scripts/run-ci-build.sh
+```
+
+Run the local CI test and coverage checks:
+
+```bash
+./scripts/run-ci-test.sh
+```
 
 Run Markdown analysis:
 
