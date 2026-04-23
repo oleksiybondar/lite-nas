@@ -32,6 +32,9 @@ jobs:
           - amd64
           - arm64
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -45,6 +48,9 @@ jobs:
     needs:
       - shared-go-build
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -62,6 +68,9 @@ jobs:
           - amd64
           - arm64
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -83,6 +92,9 @@ jobs:
     needs:
       - system-metrics-build
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -100,6 +112,9 @@ jobs:
           - amd64
           - arm64
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -121,6 +136,9 @@ jobs:
     needs:
       - system-metrics-cli-build
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 

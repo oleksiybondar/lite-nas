@@ -35,8 +35,19 @@ readability, maintenance, and consistent review quality.
 - Keep module constructors deterministic and easy to test. They should mostly
   transform explicit inputs into assembled outputs.
 
+## Software Requirements and Traceability
+
+- All services and apps must be defined by traceable and testable software
+  requirements before implementation begins.
+- Requirements documents must exist in the `requirements/` directory and
+  provide a clear foundation for drafting the service or app.
+- This approach ensures that all functionality is traceable back to a specific
+  requirement and is inherently testable.
+
 ## Testing
 
+- Prefer requirement-traceable tests; use source-qualified IDs such as
+  `system-metrics-svc/FR-001`.
 - Prefer small, single-purpose tests. A test should usually verify one
   behavior and use at most 2-3 closely related assertions.
 - When a matching requirement exists, annotate the test with the requirement

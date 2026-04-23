@@ -15,6 +15,9 @@ jobs:
     name: GitHub Actions analysis
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -46,6 +49,9 @@ jobs:
     name: Shell analysis
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -77,6 +83,9 @@ jobs:
     name: Go analysis
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
@@ -90,6 +99,9 @@ jobs:
     name: Package analysis
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Go job
         uses: ./.github/actions/setup-go-job
 
