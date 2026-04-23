@@ -73,6 +73,7 @@ jobs:
         with:
           name: system-metrics-linux-${{ matrix.arch }}
           path: .build/artifacts/system-metrics/${{ matrix.arch }}/system-metrics
+          # GitHub Actions artifact retention is whole days only; 1 day is the minimum.
           retention-days: 1
 
   system-metrics-tests:
@@ -110,6 +111,7 @@ jobs:
         with:
           name: system-metrics-cli-linux-${{ matrix.arch }}
           path: .build/artifacts/system-metrics-cli/${{ matrix.arch }}/system-metrics-cli
+          # GitHub Actions artifact retention is whole days only; 1 day is the minimum.
           retention-days: 1
 
   system-metrics-cli-tests:

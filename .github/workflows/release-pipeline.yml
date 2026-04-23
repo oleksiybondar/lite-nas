@@ -28,6 +28,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Install Debian packaging dependencies
         run: scripts/ci/install-debian-packaging-dependencies.sh
 
@@ -79,6 +82,12 @@ jobs:
         run: |
           scripts/package/lint-system-metrics-deb.sh \
             .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb
+
+      - name: Validate Debian package installability
+        run: |
+          scripts/ci/validate-lite-nas-deb-install.sh \
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+            ${{ matrix.arch }}
 
       - name: Upload LiteNAS Debian package artifact
         uses: actions/upload-artifact@v4

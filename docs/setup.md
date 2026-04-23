@@ -240,6 +240,17 @@ The `lite-nas` package:
 The `lite-nas` package installs the system metrics service and CLI app under
 that profile.
 
+Install a built package with dependency resolution:
+
+```bash
+sudo ./scripts/package/install-lite-nas-deb.sh --package .build/packages/lite-nas_0.1.0_amd64.deb
+```
+
+For local testing, prefer `apt-get install <package.deb>` or the helper above
+instead of `dpkg -i`. The package already declares dependencies such as
+`zfsutils-linux` and `nats-server`, but `dpkg` does not resolve or install
+them automatically.
+
 Lint a built package with:
 
 ```bash
@@ -398,6 +409,11 @@ CI workflow order:
 workflow artifacts together with the built `system-metrics-cli` binaries.
 GitHub Actions only supports whole-day retention values, so the workflow uses
 the minimum supported retention of 1 day.
+
+`Release pipeline` downloads those upstream binary artifacts by name, builds
+the architecture-specific `lite-nas` package, validates that the package can be
+installed in an Ubuntu container for the target architecture, and only then
+uploads the `.deb` artifact.
 
 GitHub only evaluates `workflow_run` workflows that already exist on the
 default branch. When these workflow files are introduced for the first time in a

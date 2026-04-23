@@ -5,8 +5,24 @@ PACKAGE_ROOT="/usr/libexec/lite-nas"
 BOOTSTRAP_SCRIPT="$PACKAGE_ROOT/scripts/deploy-lite-nas.sh"
 DEPLOY_SYSTEM_METRICS_SCRIPT="$PACKAGE_ROOT/scripts/deploy-system-metrics.sh"
 DEPLOY_SYSTEM_METRICS_CLI_SCRIPT="$PACKAGE_ROOT/scripts/deploy-system-metrics-cli.sh"
+INSTALL_MODE="${LITE_NAS_PACKAGE_INSTALL_MODE:-}"
+
+configure_package_validation_mode() {
+	"$DEPLOY_SYSTEM_METRICS_SCRIPT" \
+		--binary "$PACKAGE_ROOT/system-metrics" \
+		--skip-bootstrap \
+		--no-start
+	"$DEPLOY_SYSTEM_METRICS_CLI_SCRIPT" \
+		--binary "$PACKAGE_ROOT/system-metrics-cli" \
+		--skip-bootstrap
+}
 
 configure_package() {
+	if [ "$INSTALL_MODE" = "validate" ]; then
+		configure_package_validation_mode
+		return 0
+	fi
+
 	# shellcheck disable=SC1091
 	. /usr/share/debconf/confmodule
 	db_get lite-nas/replace-nats-config || true
