@@ -9,7 +9,7 @@ cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas-system-metrics"
 package_arch=""
-package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.0}"
+package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
 binary_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"

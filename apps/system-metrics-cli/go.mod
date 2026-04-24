@@ -2,8 +2,11 @@ module lite-nas/apps/system-metrics-cli
 
 go 1.25.0
 
-require lite-nas/shared v0.0.0
+// lite-nas/shared is a local module dependency used by this application.
+require lite-nas/shared v0.0.1
 
+// These indirect dependencies are pulled in through shared packages and other
+// direct dependencies of this application.
 require (
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/nats-io/nats.go v1.51.0 // indirect

@@ -9,7 +9,7 @@ cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas"
 package_arch=""
-package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.0}"
+package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
 system_metrics_binary_path=""
 system_metrics_cli_binary_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
