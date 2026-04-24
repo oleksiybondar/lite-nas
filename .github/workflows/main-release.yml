@@ -10,19 +10,137 @@ permissions:
   contents: read
 
 jobs:
-  build-release-binaries:
-    name: Build release binaries
-    uses: ./.github/workflows/main-pipeline.yml
-    with:
-      run_tests: false
-      binary_artifact_retention_days: 1
+  shared-go-build:
+    name: Shared Go build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shared Go build
+        uses: ./.github/actions/shared-go-build-test
+        with:
+          run_tests: "false"
+
+  service-build:
+    name: ${{ matrix.service.name }} build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs:
+      - shared-go-build
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        service:
+          - name: System metrics
+            artifact_name: system-metrics-linux
+            build_script: scripts/build-system-metrics-binary.sh
+            output_dir: .build/artifacts/system-metrics
+            output_name: system-metrics
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.service.name }}
+        uses: ./.github/actions/go-binary-build-test
+        with:
+          build_script: ${{ matrix.service.build_script }}
+          arch: ${{ matrix.arch }}
+          output_dir: ${{ matrix.service.output_dir }}
+          output_name: ${{ matrix.service.output_name }}
+          run_tests: "false"
+
+      - name: Upload ${{ matrix.service.name }} binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service.artifact_name }}-${{ matrix.arch }}
+          path: ${{ matrix.service.output_dir }}/${{ matrix.arch }}/${{ matrix.service.output_name }}
+          retention-days: 1
+
+  app-build:
+    name: ${{ matrix.app.name }} build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs:
+      - shared-go-build
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+        app:
+          - name: System metrics CLI
+            artifact_name: system-metrics-cli-linux
+            build_script: scripts/build-system-metrics-cli-binary.sh
+            output_dir: .build/artifacts/system-metrics-cli
+            output_name: system-metrics-cli
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ${{ matrix.app.name }}
+        uses: ./.github/actions/go-binary-build-test
+        with:
+          build_script: ${{ matrix.app.build_script }}
+          arch: ${{ matrix.arch }}
+          output_dir: ${{ matrix.app.output_dir }}
+          output_name: ${{ matrix.app.output_name }}
+          run_tests: "false"
+
+      - name: Upload ${{ matrix.app.name }} binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app.artifact_name }}-${{ matrix.arch }}
+          path: ${{ matrix.app.output_dir }}/${{ matrix.arch }}/${{ matrix.app.output_name }}
+          retention-days: 1
 
   build-release-package:
-    name: Build release package
+    name: LiteNAS release package (${{ matrix.arch }})
+    runs-on: ubuntu-latest
     needs:
-      - build-release-binaries
-    uses: ./.github/workflows/release-pipeline.yml
-    with:
-      package_artifact_retention_days: 1
-      package_version_channel: main
-      run_package_validation: false
+      - service-build
+      - app-build
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute package version
+        id: package-version
+        run: |
+          echo "value=0.1.0+main.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Download system metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-metrics
+
+      - name: Download system metrics CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-metrics-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-metrics-cli
+
+      - name: Build LiteNAS Debian package
+        uses: ./.github/actions/lite-nas-package-build
+        with:
+          arch: ${{ matrix.arch }}
+          version: ${{ steps.package-version.outputs.value }}
+          system_metrics_binary: .artifacts/${{ matrix.arch }}/system-metrics/system-metrics
+          system_metrics_cli_binary: .artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli
+          run_package_validation: "false"
+
+      - name: Upload LiteNAS Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lite-nas-deb-${{ matrix.arch }}
+          path: .build/packages/${{ matrix.arch }}/*.deb
+          retention-days: 1

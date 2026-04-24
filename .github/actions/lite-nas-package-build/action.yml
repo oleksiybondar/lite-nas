@@ -1,0 +1,55 @@
+name: LiteNAS package build
+description: Build the LiteNAS Debian package and optionally validate it.
+
+inputs:
+  arch:
+    description: Debian package architecture.
+    required: true
+  version:
+    description: Package version string.
+    required: true
+  system_metrics_binary:
+    description: Path to the system-metrics binary.
+    required: true
+  system_metrics_cli_binary:
+    description: Path to the system-metrics-cli binary.
+    required: true
+  run_package_validation:
+    description: Whether to lint and validate installability.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Install Debian packaging dependencies
+      shell: bash
+      run: scripts/ci/install-debian-packaging-dependencies.sh
+
+    - name: Build LiteNAS Debian package
+      shell: bash
+      run: |
+        scripts/package/build-lite-nas-deb.sh \
+          --arch=${{ inputs.arch }} \
+          --version=${{ inputs.version }} \
+          --system-metrics-binary=${{ inputs.system_metrics_binary }} \
+          --system-metrics-cli-binary=${{ inputs.system_metrics_cli_binary }} \
+          --output-dir=.build/packages/${{ inputs.arch }}
+
+    - name: Lint Debian package
+      if: ${{ inputs.run_package_validation == 'true' }}
+      shell: bash
+      run: |
+        scripts/package/lint-system-metrics-deb.sh \
+          .build/packages/${{ inputs.arch }}/lite-nas_${{ inputs.version }}_${{ inputs.arch }}.deb
+
+    - name: Validate Debian package installability
+      if: ${{ inputs.run_package_validation == 'true' }}
+      shell: bash
+      run: |
+        scripts/ci/validate-lite-nas-deb-install.sh \
+          .build/packages/${{ inputs.arch }}/lite-nas_${{ inputs.version }}_${{ inputs.arch }}.deb \
+          ${{ inputs.arch }}

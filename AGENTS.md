@@ -52,6 +52,9 @@ branch or otherwise provides a pushed source branch.
   intentional dynamic `source` calls that load repository helpers or script
   modules. Keep the suppression directly above the affected `source` line and
   do not use it for unrelated missing-file warnings.
+- For CI workflow reuse, prefer composite actions under `.github/actions/` for
+  repeated step sequences. Keep job dependencies and artifact upload/download
+  explicit in top-level workflow files when downstream jobs depend on them.
 
 ## Project Conventions
 

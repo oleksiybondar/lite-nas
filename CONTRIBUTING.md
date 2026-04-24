@@ -125,3 +125,26 @@ readability, maintenance, and consistent review quality.
   intentional dynamic `source` calls that load repository helpers or script
   modules. Keep the suppression directly above the affected `source` line and
   do not use it for unrelated missing-file warnings.
+
+## CI Workflow Shape
+
+- Prefer CI graphs that reflect real dependency gates instead of flattening all
+  build and test work into one broad stage.
+- Keep shared-module validation as an explicit upstream gate when services or
+  apps depend on shared modules.
+- Prefer combining closely coupled build and test work into the same CI job
+  when repeated environment setup would dominate runtime, especially for Go
+  jobs where toolchain setup is a large fraction of job cost.
+- Prefer splitting CI jobs by category, such as shared modules, services,
+  apps, and packaging, when that improves graph readability and failure
+  localization.
+- Use matrices inside a category to keep parallelism, but keep the category as
+  a distinct job boundary when it represents a meaningful stage in the
+  pipeline.
+- Keep artifact upload and download explicit in top-level workflow files when
+  later jobs depend on them. Do not hide artifact flow behind reusable
+  workflow boundaries.
+- Prefer composite actions under `.github/actions/` for repeated CI step
+  sequences such as toolchain setup, Go build/test execution, and package
+  build/validation, while leaving job dependencies and artifact flow visible
+  in the workflow YAML.
