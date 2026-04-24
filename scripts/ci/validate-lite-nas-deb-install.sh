@@ -20,6 +20,8 @@ if [ ! -f "$package_path" ]; then
 	exit 1
 fi
 
+package_path="$(realpath "$package_path")"
+
 case "$target_arch" in
 amd64 | arm64) ;;
 *)
