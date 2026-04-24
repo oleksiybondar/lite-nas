@@ -56,8 +56,18 @@ jobs:
         run: scripts/ci/package-analysis.sh
 
   go-analysis:
-    name: Go analysis
+    name: Go analysis (${{ matrix.module.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        module:
+          - name: Shared Go
+            dir: ./shared/go
+          - name: System metrics service
+            dir: ./services/system-metrics
+          - name: System metrics CLI app
+            dir: ./apps/system-metrics-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,8 +78,13 @@ jobs:
       - name: Install Go analysis tooling
         run: scripts/ci/install-go-dependencies.sh
 
-      - name: Run golangci-lint
-        run: scripts/ci/go-analysis.sh
+      - name: Run golangci-lint in ${{ matrix.module.dir }}
+        run: |
+          export GOLANGCI_LINT_CACHE="${GOLANGCI_LINT_CACHE:-$(pwd)/.cache/golangci-lint}"
+          export GOCACHE="${GOCACHE:-$(pwd)/.cache/go-build}"
+          mkdir -p "$GOLANGCI_LINT_CACHE" "$GOCACHE"
+          cd "${{ matrix.module.dir }}"
+          golangci-lint run
 
   markdown-analysis:
     name: Markdown analysis
@@ -121,7 +136,7 @@ jobs:
       - name: Placeholder for future JS/TS app test lane
         run: echo "No JS/TS app tests are defined in this repository yet."
 
-  build-and-test:
+  shared-go-build-and-test:
     name: Shared Go build and test
     needs:
       - go-analysis
@@ -139,7 +154,7 @@ jobs:
     name: ${{ matrix.service.name }} build and test (${{ matrix.arch }})
     runs-on: ubuntu-latest
     needs:
-      - build-and-test
+      - shared-go-build-and-test
     strategy:
       fail-fast: false
       matrix:
@@ -167,7 +182,7 @@ jobs:
           test_script: ${{ matrix.service.test_script }}
           run_tests: "true"
 
-      - name: Verify ${{ matrix.service.name }} binary exists
+      - name: Verify ${{ matrix.service.name }} binary artifact path
         run: test -f ${{ matrix.service.output_dir }}/${{ matrix.arch }}/${{ matrix.service.output_name }}
 
       - name: Upload ${{ matrix.service.name }} binary artifact
@@ -182,7 +197,7 @@ jobs:
     name: ${{ matrix.app.name }} build and test (${{ matrix.arch }})
     runs-on: ubuntu-latest
     needs:
-      - build-and-test
+      - shared-go-build-and-test
     strategy:
       fail-fast: false
       matrix:
@@ -210,7 +225,7 @@ jobs:
           test_script: ${{ matrix.app.test_script }}
           run_tests: "true"
 
-      - name: Verify ${{ matrix.app.name }} binary exists
+      - name: Verify ${{ matrix.app.name }} binary artifact path
         run: test -f ${{ matrix.app.output_dir }}/${{ matrix.arch }}/${{ matrix.app.output_name }}
 
       - name: Upload ${{ matrix.app.name }} binary artifact
