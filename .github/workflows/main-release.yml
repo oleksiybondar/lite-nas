@@ -1,0 +1,28 @@
+name: Main release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build-release-binaries:
+    name: Build release binaries
+    uses: ./.github/workflows/main-pipeline.yml
+    with:
+      run_tests: false
+      binary_artifact_retention_days: 1
+
+  build-release-package:
+    name: Build release package
+    needs:
+      - build-release-binaries
+    uses: ./.github/workflows/release-pipeline.yml
+    with:
+      package_artifact_retention_days: 1
+      package_version_channel: main
+      run_package_validation: false

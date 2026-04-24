@@ -1,0 +1,129 @@
+name: PR validation
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  github-actions-analysis:
+    name: GitHub Actions analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go job
+        uses: ./.github/actions/setup-go-job
+
+      - name: Install GitHub Actions tooling
+        run: scripts/ci/install-github-actions-dependencies.sh
+
+      - name: Run actionlint
+        run: scripts/ci/github-actions-analysis.sh
+
+  shell-analysis:
+    name: Shell analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go job
+        uses: ./.github/actions/setup-go-job
+
+      - name: Install shell tooling
+        run: scripts/ci/install-shell-dependencies.sh
+
+      - name: Run shellcheck and shfmt
+        run: scripts/ci/shell-analysis.sh
+
+  package-analysis:
+    name: Package analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shell tooling
+        run: scripts/ci/install-shell-dependencies.sh
+
+      - name: Install Debian packaging tooling
+        run: scripts/ci/install-debian-packaging-dependencies.sh
+
+      - name: Run package and config analysis
+        run: scripts/ci/package-analysis.sh
+
+  go-analysis:
+    name: Go analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go job
+        uses: ./.github/actions/setup-go-job
+
+      - name: Install Go analysis tooling
+        run: scripts/ci/install-go-dependencies.sh
+
+      - name: Run golangci-lint
+        run: scripts/ci/go-analysis.sh
+
+  markdown-analysis:
+    name: Markdown analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run markdownlint
+        run: scripts/ci/markdown-analysis.sh
+
+  js-ts-analysis:
+    name: JS/TS analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run JS/TS analysis
+        run: scripts/ci/js-ts-analysis.sh
+
+  build-and-test:
+    name: Build and test
+    needs:
+      - go-analysis
+    uses: ./.github/workflows/main-pipeline.yml
+    with:
+      run_tests: true
+      binary_artifact_retention_days: 1
+
+  package-validation:
+    name: Package validation
+    needs:
+      - package-analysis
+      - build-and-test
+      - js-ts-analysis
+    uses: ./.github/workflows/release-pipeline.yml
+    with:
+      package_artifact_retention_days: 1
+      package_version_channel: pr
+      run_package_validation: true
