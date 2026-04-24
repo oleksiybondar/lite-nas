@@ -46,3 +46,21 @@ branch or otherwise provides a pushed source branch.
 - Prefer `./scripts/run-ci.sh` for the full local static-analysis check.
 - Prefer scripts under `scripts/ci/` for CI-equivalent checks.
 - Prefer scripts under `scripts/format/` for manual formatting.
+- Shell scripts should resolve repository helpers and sourced script modules
+  dynamically from their own location, for example with `$SCRIPT_DIR`.
+- It is acceptable and preferred to disable ShellCheck `SC1091` inline for
+  intentional dynamic `source` calls that load repository helpers or script
+  modules. Keep the suppression directly above the affected `source` line and
+  do not use it for unrelated missing-file warnings.
+- For CI workflow reuse, prefer composite actions under `.github/actions/` for
+  repeated step sequences. Keep job dependencies and artifact upload/download
+  explicit in top-level workflow files when downstream jobs depend on them.
+
+## Project Conventions
+
+- Repository-wide coding and testing conventions are documented in
+  [CONTRIBUTING.md](/home/oleksiybondar/Documents/development/lite-nas/CONTRIBUTING.md).
+- Follow those conventions by default unless the user explicitly requests a
+  different style for the current task.
+- This includes requirement-traceable tests when requirement documents exist;
+  use source-qualified IDs such as `system-metrics-svc/FR-001`.

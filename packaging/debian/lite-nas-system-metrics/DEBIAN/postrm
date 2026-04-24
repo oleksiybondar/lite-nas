@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+	purge)
+	if command -v systemctl >/dev/null 2>&1; then
+		systemctl daemon-reload >/dev/null 2>&1 || true
+	fi
+
+	if [ -x /usr/share/debconf/confmodule ]; then
+		# shellcheck disable=SC1091
+		. /usr/share/debconf/confmodule
+		db_purge || true
+	fi
+	;;
+remove)
+	if command -v systemctl >/dev/null 2>&1; then
+		systemctl daemon-reload >/dev/null 2>&1 || true
+	fi
+	;;
+upgrade | failed-upgrade | disappear)
+	;;
+*)
+	echo "postrm called with unsupported argument: $1" >&2
+	exit 1
+	;;
+esac
+
+exit 0

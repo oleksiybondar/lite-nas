@@ -5,7 +5,8 @@ if [ -n "${LITE_NAS_TOOL_PATHS_LOADED:-}" ]; then
 fi
 readonly LITE_NAS_TOOL_PATHS_LOADED=1
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+TOOL_PATHS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$TOOL_PATHS_DIR/../.." && pwd)"
 export GOBIN="${REPO_ROOT}/.bin"
 GO_PATH="$(go env GOPATH 2>/dev/null || true)"
 export PATH="${GOBIN}:${GO_PATH}/bin:${PATH}"

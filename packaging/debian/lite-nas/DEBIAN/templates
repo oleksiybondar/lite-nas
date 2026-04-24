@@ -1,0 +1,35 @@
+Template: lite-nas/gpl-notice
+Type: note
+Description: LiteNAS is distributed under GPLv3
+ LiteNAS is licensed under the GNU General Public License v3.
+ Installing this package places GPLv3-licensed software on this machine.
+ The full license text is available in /usr/share/doc/lite-nas/copyright.
+
+Template: lite-nas/profile-transform-note
+Type: note
+Description: LiteNAS applies a managed host profile
+ LiteNAS is not just an application package. It transforms this machine toward
+ a LiteNAS-managed host profile with secure defaults, managed services, and
+ controlled configuration.
+ .
+ Today the profile is still small, but it is intended to grow to cover more
+ host hardening, validation, and platform services over time.
+
+Template: lite-nas/replace-nats-config
+Type: boolean
+Default: true
+Description: Replace the local NATS configuration with the LiteNAS configuration?
+ LiteNAS expects NATS Server to use the configuration shipped with this package.
+ Allowing this change installs the LiteNAS NATS configuration into
+ /etc/nats-server and restarts nats-server.
+ .
+ Refusing this change keeps the current NATS configuration unchanged.
+ In that case you must configure NATS manually so LiteNAS services
+ can work correctly.
+
+Template: lite-nas/manual-nats-config-note
+Type: note
+Description: Manual NATS configuration will be required
+ The existing NATS configuration will be kept.
+ You must configure NATS manually for LiteNAS before LiteNAS services can
+ communicate successfully.

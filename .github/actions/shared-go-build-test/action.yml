@@ -1,0 +1,27 @@
+name: Shared Go build and test
+description: Build the shared Go module for all supported architectures and optionally run tests.
+
+inputs:
+  run_tests:
+    description: Whether to run shared Go tests.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Go job
+      uses: ./.github/actions/setup-go-job
+
+    - name: Build shared Go module for amd64
+      shell: bash
+      run: scripts/build-shared.sh --arch=amd64
+
+    - name: Build shared Go module for arm64
+      shell: bash
+      run: scripts/build-shared.sh --arch=arm64
+
+    - name: Run shared Go tests with coverage
+      if: ${{ inputs.run_tests == 'true' }}
+      shell: bash
+      run: scripts/test-shared.sh --with-coverage

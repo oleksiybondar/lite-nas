@@ -2,8 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/helpers/logger.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/logger.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../helpers/tool-paths.sh"
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -21,5 +23,5 @@ log.popTask
 
 log.pushTask "Running goimports"
 log.requireCommand "goimports" "Run ./scripts/install-dev-dependencies.sh to install goimports."
-goimports -w "${files[@]}"
+goimports -local lite-nas -w "${files[@]}"
 log.popTask

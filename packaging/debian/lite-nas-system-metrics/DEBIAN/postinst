@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+PACKAGE_ROOT="/usr/libexec/lite-nas"
+SCRIPTS_DIR="$PACKAGE_ROOT/scripts"
+DEPLOY_SYSTEM_METRICS_SCRIPT="$SCRIPTS_DIR/deploy-system-metrics.sh"
+
+configure_package() {
+	"$DEPLOY_SYSTEM_METRICS_SCRIPT" \
+		--binary "$PACKAGE_ROOT/system-metrics"
+}
+
+case "$1" in
+configure)
+	configure_package
+	;;
+abort-upgrade | abort-remove | abort-deconfigure)
+	;;
+*)
+	echo "postinst called with unsupported argument: $1" >&2
+	exit 1
+	;;
+esac
+
+exit 0

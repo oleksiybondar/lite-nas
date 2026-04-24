@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/helpers/logger.sh
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/logger.sh"
 
 cd "$(git rev-parse --show-toplevel)"
@@ -19,5 +19,5 @@ fi
 
 log.pushTask "Running markdownlint"
 log.requireCommand "npx" "Run ./scripts/install-dev-dependencies.sh or scripts/ci/install-node-dependencies.sh."
-npx --no-install markdownlint-cli2 "**/*.md" "#node_modules" "#dist" "#build"
+npx --no-install markdownlint-cli2 "**/*.md"
 log.popTask

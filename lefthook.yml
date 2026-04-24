@@ -8,12 +8,12 @@ pre-commit:
 
     gofumpt:
       glob: "*.go"
-      run: gofumpt -w {staged_files}
+      run: scripts/hooks/go-format.sh gofumpt {staged_files}
       stage_fixed: true
 
     goimports:
       glob: "*.go"
-      run: goimports -w {staged_files}
+      run: scripts/hooks/go-format.sh goimports {staged_files}
       stage_fixed: true
 
     markdownlint:

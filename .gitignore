@@ -24,6 +24,7 @@ profile.cov
 go.work
 go.work.sum
 .bin/
+.cache/
 
 # env file
 .env
@@ -36,3 +37,11 @@ go.work.sum
 # NODE
 node_modules/
 package-lock.json
+
+# AI agents
+.codex/
+.claude/
+.cursor/
+.codex
+.claude
+.cursor

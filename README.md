@@ -508,6 +508,9 @@ decisions where applicable.
 Until then, the top-level repository serves primarily as the project definition and architectural
 starting point.
 
+Implementation notes and early project rationale are tracked in
+[`docs/development-notes.md`](docs/development-notes.md).
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3).

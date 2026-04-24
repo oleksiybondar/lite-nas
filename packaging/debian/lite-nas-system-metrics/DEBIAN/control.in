@@ -1,0 +1,10 @@
+Package: lite-nas-system-metrics
+Version: @PACKAGE_VERSION@
+Section: admin
+Priority: optional
+Architecture: @PACKAGE_ARCH@
+Maintainer: Oleksiy Bondar <bondaroleksiyandroyovich@gmail.com>
+Depends: nats-server, openssl, systemd
+Description: LiteNAS system metrics service
+ Collects system metrics from /proc, publishes them over the local NATS bus,
+ and installs the hardened lite-nas-system-metrics systemd service.
