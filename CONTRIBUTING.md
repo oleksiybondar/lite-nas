@@ -148,3 +148,23 @@ readability, maintenance, and consistent review quality.
   sequences such as toolchain setup, Go build/test execution, and package
   build/validation, while leaving job dependencies and artifact flow visible
   in the workflow YAML.
+
+## Release Notes
+
+- Keep release notes in a dedicated repository document rather than inferring
+  release intent from commit history alone.
+- Use the format documented in [docs/release-notes.md](docs/release-notes.md).
+- Use release-qualified subsection headings such as `RL-0.1.0 Summary` so
+  repeated sections remain markdownlint-compliant and easy to scan.
+- Early LiteNAS releases may legitimately emphasize platform, packaging,
+  deployment, and reproducibility work even when direct end-user value is low.
+- When a change mainly completes infrastructure needed for later product work,
+  say that explicitly in release notes instead of overstating user-facing value.
+
+## Versioning Workflows
+
+- Prefer a dedicated developer script for coordinated version bumps instead of
+  manual multi-file edits.
+- Use `scripts/dev/bump-versions.sh` when updating the default Debian package
+  version and the `lite-nas/shared` dependency version referenced by services
+  and apps.

@@ -55,12 +55,20 @@ branch or otherwise provides a pushed source branch.
 - For CI workflow reuse, prefer composite actions under `.github/actions/` for
   repeated step sequences. Keep job dependencies and artifact upload/download
   explicit in top-level workflow files when downstream jobs depend on them.
+- Prefer dedicated repository scripts for coordinated version or release-note
+  maintenance work when such scripts exist, rather than editing many related
+  files manually.
 
 ## Project Conventions
 
 - Repository-wide coding and testing conventions are documented in
-  [CONTRIBUTING.md](/home/oleksiybondar/Documents/development/lite-nas/CONTRIBUTING.md).
+  [CONTRIBUTING.md](CONTRIBUTING.md).
 - Follow those conventions by default unless the user explicitly requests a
   different style for the current task.
 - This includes requirement-traceable tests when requirement documents exist;
   use source-qualified IDs such as `system-metrics-svc/FR-001`.
+- Follow the release-note format documented in
+  [docs/release-notes.md](docs/release-notes.md)
+  when the task involves preparing or updating release-facing documentation.
+- Use release-qualified subsection headings such as `RL-0.1.0 Summary` when
+  editing release notes so repeated sections remain unique and lint-clean.
