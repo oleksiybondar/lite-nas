@@ -8,11 +8,8 @@ inputs:
   arch:
     description: Target architecture.
     required: true
-  output_dir:
-    description: Directory for the built binary artifact.
-    required: true
-  output_name:
-    description: Binary filename.
+  output_path:
+    description: Repository-relative output path for the built binary artifact.
     required: true
   test_script:
     description: Script that runs tests for the module.
@@ -31,7 +28,7 @@ runs:
 
     - name: Build binary
       shell: bash
-      run: ${{ inputs.build_script }} --arch=${{ inputs.arch }} --output=${{ inputs.output_dir }}/${{ inputs.arch }}/${{ inputs.output_name }}
+      run: ${{ inputs.build_script }} --arch=${{ inputs.arch }} --output=${{ github.workspace }}/${{ inputs.output_path }}
 
     - name: Run tests
       if: ${{ inputs.run_tests == 'true' && inputs.test_script != '' }}

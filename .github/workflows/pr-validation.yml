@@ -165,8 +165,8 @@ jobs:
           - name: System metrics
             artifact_name: system-metrics-linux
             build_script: scripts/build-system-metrics-binary.sh
-            output_dir: .build/artifacts/system-metrics
-            output_name: system-metrics
+            output_path: .build/system-metrics/linux-amd64/system-metrics
+            output_path_arm64: .build/system-metrics/linux-arm64/system-metrics
             test_script: scripts/test-system-metrics.sh --with-coverage
     steps:
       - name: Checkout
@@ -177,19 +177,18 @@ jobs:
         with:
           build_script: ${{ matrix.service.build_script }}
           arch: ${{ matrix.arch }}
-          output_dir: ${{ matrix.service.output_dir }}
-          output_name: ${{ matrix.service.output_name }}
+          output_path: ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
           test_script: ${{ matrix.service.test_script }}
           run_tests: "true"
 
       - name: Verify ${{ matrix.service.name }} binary artifact path
-        run: test -f ${{ matrix.service.output_dir }}/${{ matrix.arch }}/${{ matrix.service.output_name }}
+        run: test -f ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
 
       - name: Upload ${{ matrix.service.name }} binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.service.artifact_name }}-${{ matrix.arch }}
-          path: ${{ matrix.service.output_dir }}/${{ matrix.arch }}/${{ matrix.service.output_name }}
+          path: ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
           if-no-files-found: error
           retention-days: 1
 
@@ -208,8 +207,8 @@ jobs:
           - name: System metrics CLI
             artifact_name: system-metrics-cli-linux
             build_script: scripts/build-system-metrics-cli-binary.sh
-            output_dir: .build/artifacts/system-metrics-cli
-            output_name: system-metrics-cli
+            output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
+            output_path_arm64: .build/system-metrics-cli/linux-arm64/system-metrics-cli
             test_script: scripts/test-system-metrics-cli.sh
     steps:
       - name: Checkout
@@ -220,19 +219,18 @@ jobs:
         with:
           build_script: ${{ matrix.app.build_script }}
           arch: ${{ matrix.arch }}
-          output_dir: ${{ matrix.app.output_dir }}
-          output_name: ${{ matrix.app.output_name }}
+          output_path: ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
           test_script: ${{ matrix.app.test_script }}
           run_tests: "true"
 
       - name: Verify ${{ matrix.app.name }} binary artifact path
-        run: test -f ${{ matrix.app.output_dir }}/${{ matrix.arch }}/${{ matrix.app.output_name }}
+        run: test -f ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
 
       - name: Upload ${{ matrix.app.name }} binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app.artifact_name }}-${{ matrix.arch }}
-          path: ${{ matrix.app.output_dir }}/${{ matrix.arch }}/${{ matrix.app.output_name }}
+          path: ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
           if-no-files-found: error
           retention-days: 1
 
