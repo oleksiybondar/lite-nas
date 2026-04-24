@@ -39,6 +39,9 @@ node_modules/
 package-lock.json
 
 # AI agents
-/.codex
-/.claude
-/.cursor
+.codex/
+.claude/
+.cursor/
+.codex
+.claude
+.cursor
