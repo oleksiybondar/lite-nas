@@ -1,0 +1,2 @@
+lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-metrics]
+lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-metrics-cli]

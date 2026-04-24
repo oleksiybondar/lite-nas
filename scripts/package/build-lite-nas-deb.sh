@@ -132,7 +132,7 @@ chmod 0755 \
 	"$package_root/DEBIAN/prerm" \
 	"$package_root/DEBIAN/postrm"
 
-copy_tree "$package_template_dir/usr/share/doc" "$package_root/usr/share/doc"
+copy_tree "$package_template_dir/usr/share" "$package_root/usr/share"
 gzip -n -9 "$package_root/usr/share/doc/$package_name/changelog.Debian"
 mv "$package_root/usr/share/doc/$package_name/changelog.Debian.gz" \
 	"$package_root/usr/share/doc/$package_name/changelog.gz"
@@ -166,9 +166,8 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics-cli.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/helpers/go-modules.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/helpers/tool-paths.sh"
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh"
+find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
 (
 	cd "$package_root"
