@@ -18,7 +18,7 @@ root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
 server_alt_names="${LITE_NAS_NATS_SERVER_ALT_NAMES:-DNS:localhost,DNS:lite-nas,DNS:lite-nas.local,IP:127.0.0.1}"
 
-read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-system-metrics-cli}"
+read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-system-metrics-cli lite-nas-web-gateway}"
 rotate_only_if_missing=0
 
 usage() {
