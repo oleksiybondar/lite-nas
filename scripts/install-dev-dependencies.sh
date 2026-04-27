@@ -64,25 +64,50 @@ MSG
 	log.popTask
 }
 
+has_pam_development_headers() {
+	if ! command -v gcc >/dev/null 2>&1; then
+		return 1
+	fi
+
+	printf '#include <security/pam_appl.h>\n' |
+		gcc -x c -fsyntax-only - >/dev/null 2>&1
+}
+
 missing_base_tools=()
-for tool in node npm go shellcheck shfmt; do
+for tool in node npm go shellcheck shfmt gcc; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		missing_base_tools+=("$tool")
 	fi
 done
 
-if [ "${#missing_base_tools[@]}" -gt 0 ]; then
+missing_dev_components=()
+
+if ! has_pam_development_headers; then
+	missing_dev_components+=("libpam0g-dev")
+fi
+
+if [ "${#missing_base_tools[@]}" -gt 0 ] || [ "${#missing_dev_components[@]}" -gt 0 ]; then
 	log.info "Missing base tooling: ${missing_base_tools[*]}"
+	if [ "${#missing_dev_components[@]}" -gt 0 ]; then
+		log.info "Missing development components: ${missing_dev_components[*]}"
+	fi
 	install_apt_packages
 fi
 
 log.pushTask "Checking base tooling"
-for tool in node npm go shellcheck shfmt; do
+for tool in node npm go shellcheck shfmt gcc; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		log.error "Missing required command after installation attempt: $tool"
 		exit 1
 	fi
 done
+log.popTask
+
+log.pushTask "Checking PAM build dependencies"
+if ! has_pam_development_headers; then
+	log.error "Missing PAM development headers after installation attempt: security/pam_appl.h"
+	exit 1
+fi
 log.popTask
 
 log.pushTask "Installing Node developer dependencies"
