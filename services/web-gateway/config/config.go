@@ -19,15 +19,18 @@ type Config struct {
 	Logging   config.LoggingConfig
 }
 
-// LoadConfig reads configuration data from the provided Reader and parses it
-// into a Config struct.
+// LoadConfig reads gateway configuration from a file abstraction and returns a
+// parsed Config value.
+//
+// Parameters:
+//   - reader: source of the INI configuration document
 //
 // The function performs the following steps:
 //   - reads raw configuration data using the Reader abstraction
 //   - parses INI content using the ini library
 //   - delegates section-specific parsing to dedicated helpers
 //
-// An error is returned if reading, parsing, or validation fails.
+// Returns an error if reading, parsing, or validation fails.
 func LoadConfig(reader fileio.Reader) (Config, error) {
 	data, err := reader.Read()
 	if err != nil {

@@ -7,11 +7,11 @@ func TestNewChannelsModuleUsesConfiguredBufferSize(t *testing.T) {
 
 	module := NewChannelsModule(3)
 
-	if cap(module.RawSnapshots()) != 3 {
-		t.Fatalf("RawSnapshots() cap = %d, want 3", cap(module.RawSnapshots()))
+	if cap(module.RawSnapshots) != 3 {
+		t.Fatalf("RawSnapshots cap = %d, want 3", cap(module.RawSnapshots))
 	}
 
-	if cap(module.SystemSnapshots()) != 3 {
-		t.Fatalf("SystemSnapshots() cap = %d, want 3", cap(module.SystemSnapshots()))
+	if cap(module.SystemSnapshots) != 3 {
+		t.Fatalf("SystemSnapshots cap = %d, want 3", cap(module.SystemSnapshots))
 	}
 }

@@ -3,6 +3,21 @@
 These instructions apply to all AI agents working in this repository, including
 CLI-based agents and IDE-integrated agents.
 
+## Instruction Precedence
+
+Repository-level instructions in this file apply by default across the whole
+monorepo.
+
+For each subproject, such as an app, service, or shared component library, a
+more specific `AGENTS.md` within that subproject should also be used when it is
+available.
+
+When both this repository-level file and a subproject-level `AGENTS.md` apply:
+
+- agents must follow both when the instructions are compatible
+- the subproject-level `AGENTS.md` takes precedence when the instructions
+  conflict
+
 ## Git and Repository Operations
 
 Agents may:
@@ -38,6 +53,8 @@ branch or otherwise provides a pushed source branch.
 - Preserve user changes already present in the worktree.
 - Do not revert unrelated files.
 - Report validation performed and any commands that could not be run.
+- When tests repeat the same setup within a package, prefer package-local
+  fixtures and helper files instead of copying the setup into each test.
 
 ## Tooling Conventions
 
@@ -52,6 +69,12 @@ branch or otherwise provides a pushed source branch.
   intentional dynamic `source` calls that load repository helpers or script
   modules. Keep the suppression directly above the affected `source` line and
   do not use it for unrelated missing-file warnings.
+- Treat Debian packaging in this repository as a single-package workflow.
+  Do not introduce or propose per-service or per-app `.deb` splits unless the
+  user explicitly asks to redesign packaging.
+- When the user refers to local build or local deployment work, prefer the
+  local `scripts/build-*.sh`, `scripts/deploy-*.sh`, `scripts/build-all.sh`,
+  and `scripts/deploy-all.sh` flows rather than changing Debian packaging.
 - For CI workflow reuse, prefer composite actions under `.github/actions/` for
   repeated step sequences. Keep job dependencies and artifact upload/download
   explicit in top-level workflow files when downstream jobs depend on them.

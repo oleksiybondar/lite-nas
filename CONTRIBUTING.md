@@ -63,6 +63,9 @@ readability, maintenance, and consistent review quality.
 - Prefer fixtures and helper builders for repetitive test data preparation.
   Helpers should create valid baseline inputs by default, and tests should
   override only the fields relevant to the behavior under test.
+- When multiple tests in one package repeat the same setup shape, extract that
+  setup into package-local fixtures or helper functions instead of duplicating
+  inline construction across test bodies.
 - Keep fixtures focused on data preparation. Avoid helpers that both build data
   and perform assertions unless the helper is a narrow assertion helper.
 - For config parsing and similar tests, separate success-path assertions from
@@ -125,6 +128,17 @@ readability, maintenance, and consistent review quality.
   intentional dynamic `source` calls that load repository helpers or script
   modules. Keep the suppression directly above the affected `source` line and
   do not use it for unrelated missing-file warnings.
+
+## Packaging And Local Deployment
+
+- Treat Debian packaging in this repository as a single-package workflow.
+- Do not split services or apps into separate `.deb` outputs unless packaging
+  redesign is an explicit goal of the task.
+- When the goal is local build or local redeploy work, prefer updating the
+  local build and deployment scripts instead of changing Debian packaging.
+- Prefer ordered aggregate orchestration scripts for full local redeploy work
+  when shared infrastructure steps such as config deployment, certificate
+  rotation, and NATS restart must run only once.
 
 ## CI Workflow Shape
 

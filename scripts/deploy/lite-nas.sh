@@ -50,8 +50,4 @@ deploy.liteNAS.bootstrap() {
 	else
 		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
 	fi
-
-	if systemctl list-unit-files lite-nas-system-metrics.service >/dev/null 2>&1; then
-		systemctl restart lite-nas-system-metrics.service || true
-	fi
 }

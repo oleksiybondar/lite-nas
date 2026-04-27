@@ -16,7 +16,7 @@ import (
 func TestServeSnapshotsStoresAndPublishesSnapshot(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := modules.NewStateModule(2).SnapshotStore
 	client := &recordingClient{}
 	log := &recordingLogger{}
 	input := make(chan metrics.SystemSnapshot, 1)
@@ -51,7 +51,7 @@ func TestServeSnapshotsStoresAndPublishesSnapshot(t *testing.T) {
 func TestServeSnapshotsStoresSnapshotWhenPublishFails(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := modules.NewStateModule(2).SnapshotStore
 	client := &recordingClient{publishErr: errors.New("publish failed")}
 	log := &recordingLogger{}
 	input := make(chan metrics.SystemSnapshot, 1)
@@ -81,7 +81,7 @@ func TestServeSnapshotsStoresSnapshotWhenPublishFails(t *testing.T) {
 func TestServeSnapshotsReturnsContextErrorOnCancellation(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(1).SnapshotStore()
+	store := modules.NewStateModule(1).SnapshotStore
 	client := &recordingClient{}
 	log := &recordingLogger{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,7 +119,7 @@ func TestRegisterRPCHandlersStatsReturnsEmptySnapshotBeforeData(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := modules.NewStateModule(2).SnapshotStore
 
 	if err := registerRPCHandlers(server, store); err != nil {
 		t.Fatalf("registerRPCHandlers() error = %v", err)
@@ -145,7 +145,7 @@ func TestRegisterRPCHandlersStatsReturnsLatestSnapshot(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := modules.NewStateModule(2).SnapshotStore
 	snapshot := metrics.SystemSnapshot{Timestamp: time.Unix(102, 0)}
 	store.Add(snapshot)
 
@@ -173,7 +173,7 @@ func TestRegisterRPCHandlersHistoryReturnsEmptyListBeforeData(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := modules.NewStateModule(2).SnapshotStore
 
 	if err := registerRPCHandlers(server, store); err != nil {
 		t.Fatalf("registerRPCHandlers() error = %v", err)
@@ -199,7 +199,7 @@ func TestRegisterRPCHandlersHistoryReturnsChronologicalHistory(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(3).SnapshotStore()
+	store := modules.NewStateModule(3).SnapshotStore
 	first := metrics.SystemSnapshot{Timestamp: time.Unix(103, 0)}
 	second := metrics.SystemSnapshot{Timestamp: time.Unix(104, 0)}
 	store.Add(first)
@@ -233,7 +233,7 @@ func TestRegisterRPCHandlersReturnsStatsRegistrationError(t *testing.T) {
 		registerRPCErrors: map[string]error{statsRPCSubject: expectedErr},
 	}
 
-	err := registerRPCHandlers(server, modules.NewStateModule(1).SnapshotStore())
+	err := registerRPCHandlers(server, modules.NewStateModule(1).SnapshotStore)
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("registerRPCHandlers() error = %v, want %v", err, expectedErr)
 	}
@@ -247,7 +247,7 @@ func TestRegisterRPCHandlersReturnsHistoryRegistrationError(t *testing.T) {
 		registerRPCErrors: map[string]error{historyRPCSubject: expectedErr},
 	}
 
-	err := registerRPCHandlers(server, modules.NewStateModule(1).SnapshotStore())
+	err := registerRPCHandlers(server, modules.NewStateModule(1).SnapshotStore)
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("registerRPCHandlers() error = %v, want %v", err, expectedErr)
 	}
@@ -257,7 +257,7 @@ func TestRegisterRPCHandlersReturnsHistoryRegistrationError(t *testing.T) {
 func TestStoreAndPublishSnapshotStoresLatestSnapshot(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(1).SnapshotStore()
+	store := modules.NewStateModule(1).SnapshotStore
 	client := &recordingClient{}
 	log := &recordingLogger{}
 	snapshot := metrics.SystemSnapshot{Timestamp: time.Unix(105, 0)}

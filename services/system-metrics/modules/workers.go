@@ -6,32 +6,30 @@ import (
 )
 
 // Workers groups the worker instances used by the service runtime.
+//
+// The fields are populated once during startup and are expected to be treated
+// as logically read-only after construction.
 type Workers struct {
-	polling    workers.PollingWorker
-	processing workers.ProcessingWorker
+	Polling    workers.PollingWorker
+	Processing workers.ProcessingWorker
 }
 
-// NewWorkersModule creates the workers required by the metrics pipeline.
+// NewWorkersModule assembles the workers required by the metrics pipeline.
+//
+// Parameters:
+//   - cfg: polling and retention settings used by the workers
+//   - channels: runtime pipeline channels shared between workers
+//   - io: procfs readers consumed by the polling worker
 func NewWorkersModule(
 	cfg serviceconfig.MetricsConfig,
 	channels Channels,
 	io IO,
 ) Workers {
 	return Workers{
-		polling: workers.NewPollingWorker(cfg, io.CPUReader(), io.MemReader(), channels.rawSnapshots),
-		processing: workers.NewProcessingWorker(
-			channels.rawSnapshots,
-			channels.systemSnapshots,
+		Polling: workers.NewPollingWorker(cfg, io.CPUReader, io.MemReader, channels.RawSnapshots),
+		Processing: workers.NewProcessingWorker(
+			channels.RawSnapshots,
+			channels.SystemSnapshots,
 		),
 	}
-}
-
-// Polling returns the polling worker.
-func (m Workers) Polling() workers.PollingWorker {
-	return m.polling
-}
-
-// Processing returns the processing worker.
-func (m Workers) Processing() workers.ProcessingWorker {
-	return m.processing
 }

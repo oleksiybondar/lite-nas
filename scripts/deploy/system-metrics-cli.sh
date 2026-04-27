@@ -25,12 +25,23 @@ MSG
 deploy.systemMetricsCLI.requireTools() {
 	local tool
 	local tools=(
+		getent
+		groupadd
 		install
 	)
 
 	for tool in "${tools[@]}"; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
+}
+
+deploy.systemMetricsCLI.ensureConfigGroup() {
+	if getent group "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	log.info "Creating system group: $LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
+	groupadd --system "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
 }
 
 deploy.systemMetricsCLI.installBinary() {
@@ -63,4 +74,12 @@ deploy.systemMetricsCLI.installConfig() {
 	install -m 0640 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE" \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET"
+}
+
+deploy.systemMetricsCLI.deploy() {
+	local source_binary="$1"
+
+	deploy.systemMetricsCLI.ensureConfigGroup
+	deploy.systemMetricsCLI.installBinary "$source_binary"
+	deploy.systemMetricsCLI.installConfig
 }

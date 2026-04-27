@@ -46,43 +46,43 @@ func TestNewInfraModuleReturnsLoggerError(t *testing.T) {
 	}
 }
 
-func TestInfraConfigAccessorReturnsConfig(t *testing.T) {
+func TestInfraConfigFieldExposesConfig(t *testing.T) {
 	t.Parallel()
 
 	module, _, _, _ := loadInfraFixture()
 
-	if module.Config() != (serviceconfig.Config{}) {
-		t.Fatal("expected config accessor to return module config")
+	if module.Config != (serviceconfig.Config{}) {
+		t.Fatal("expected Config field to expose module config")
 	}
 }
 
-func TestInfraLoggerAccessorReturnsLogger(t *testing.T) {
+func TestInfraLoggerFieldExposesLogger(t *testing.T) {
 	t.Parallel()
 
 	module, _, _, _ := loadInfraFixture()
 
-	if module.Logger() == nil {
-		t.Fatal("expected logger accessor to return module logger")
+	if module.Logger == nil {
+		t.Fatal("expected Logger field to expose module logger")
 	}
 }
 
-func TestInfraClientAccessorReturnsClient(t *testing.T) {
+func TestInfraClientFieldExposesClient(t *testing.T) {
 	t.Parallel()
 
 	module, client, _, _ := loadInfraFixture()
 
-	if module.Client() != client {
-		t.Fatal("expected client accessor to return module client")
+	if module.Client != client {
+		t.Fatal("expected Client field to expose module client")
 	}
 }
 
-func TestInfraServerAccessorReturnsServer(t *testing.T) {
+func TestInfraServerFieldExposesServer(t *testing.T) {
 	t.Parallel()
 
 	module, _, server, _ := loadInfraFixture()
 
-	if module.Server() != server {
-		t.Fatal("expected server accessor to return module server")
+	if module.Server != server {
+		t.Fatal("expected Server field to expose module server")
 	}
 }
 

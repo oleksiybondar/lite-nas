@@ -74,32 +74,8 @@ else
 	log.info "Skipping LiteNAS bootstrap."
 fi
 
-log.pushTask "Preparing system-metrics service identity"
-deploy.systemMetrics.ensureRuntimeUser
+log.pushTask "Deploying system-metrics service"
+deploy.systemMetrics.deploy "$binary_path" "$should_start"
 log.popTask
-
-log.pushTask "Installing system-metrics binary"
-deploy.systemMetrics.installBinary "$binary_path"
-log.popTask
-
-log.pushTask "Installing system-metrics config"
-deploy.systemMetrics.installConfig
-log.popTask
-
-log.pushTask "Preparing system-metrics log target"
-deploy.systemMetrics.installLogTarget
-log.popTask
-
-log.pushTask "Installing system-metrics service unit"
-deploy.systemMetrics.installUnitFile
-log.popTask
-
-if [ "$should_start" -eq 1 ]; then
-	log.pushTask "Enabling and starting system-metrics service"
-	deploy.systemMetrics.enableAndStart
-	log.popTask
-else
-	log.info "Skipping service enable/start."
-fi
 
 log.info "system-metrics deployment completed."

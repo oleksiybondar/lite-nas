@@ -38,7 +38,7 @@ func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 	)
 	stateModule := modules.NewStateModule(4)
 	server := &recordingServer{}
-	if err := registerRPCHandlers(server, stateModule.SnapshotStore()); err != nil {
+	if err := registerRPCHandlers(server, stateModule.SnapshotStore); err != nil {
 		t.Fatalf("registerRPCHandlers() error = %v", err)
 	}
 
@@ -49,7 +49,7 @@ func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 	startWorkers(ctx, workerModule)
 	go updateMetricsFixtureFilesAfterDelay(t, 10*time.Millisecond, cpuPath, memPath, updatedCPUFixture(), updatedMemFixture())
 
-	err = serveSnapshots(ctx, channels.SystemSnapshots(), stateModule.SnapshotStore(), client, &recordingLogger{})
+	err = serveSnapshots(ctx, channels.SystemSnapshots, stateModule.SnapshotStore, client, &recordingLogger{})
 	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatalf("serveSnapshots() error = %v", err)
 	}
@@ -57,7 +57,7 @@ func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 	return serviceCycleResult{
 		client: client,
 		server: server,
-		store:  stateModule.SnapshotStore(),
+		store:  stateModule.SnapshotStore,
 	}
 }
 

@@ -176,3 +176,21 @@ deploy.systemMetrics.enableAndStart() {
 	systemctl daemon-reload
 	systemctl enable --now "$LITE_NAS_SYSTEM_METRICS_SERVICE_NAME.service"
 }
+
+deploy.systemMetrics.deploy() {
+	local source_binary="$1"
+	local should_start="${2:-1}"
+
+	deploy.systemMetrics.ensureRuntimeUser
+	deploy.systemMetrics.installBinary "$source_binary"
+	deploy.systemMetrics.installConfig
+	deploy.systemMetrics.installLogTarget
+	deploy.systemMetrics.installUnitFile
+
+	if [ "$should_start" = "1" ]; then
+		deploy.systemMetrics.enableAndStart
+		return 0
+	fi
+
+	log.info "Skipping system-metrics enable/start."
+}

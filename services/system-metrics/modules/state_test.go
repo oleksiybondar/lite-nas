@@ -12,7 +12,7 @@ import (
 func TestNewStateModuleLatestReturnsFalseWhenEmpty(t *testing.T) {
 	t.Parallel()
 
-	_, ok := NewStateModule(2).SnapshotStore().Latest()
+	_, ok := NewStateModule(2).SnapshotStore.Latest()
 	if ok {
 		t.Fatal("expected empty latest result")
 	}
@@ -22,7 +22,7 @@ func TestNewStateModuleLatestReturnsFalseWhenEmpty(t *testing.T) {
 func TestSnapshotStoreRetainsChronologicalHistoryAndLatestSnapshot(t *testing.T) {
 	t.Parallel()
 
-	store := NewStateModule(2).SnapshotStore()
+	store := NewStateModule(2).SnapshotStore
 	first := metrics.SystemSnapshot{Timestamp: time.Unix(10, 0)}
 	second := metrics.SystemSnapshot{Timestamp: time.Unix(11, 0)}
 

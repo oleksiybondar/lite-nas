@@ -6,13 +6,13 @@ func TestNewIOModuleCPUReaderReadsConfiguredFile(t *testing.T) {
 	t.Parallel()
 
 	module := loadIOModuleFixture(t)
-	cpuData, err := module.CPUReader().Read()
+	cpuData, err := module.CPUReader.Read()
 	if err != nil {
-		t.Fatalf("CPUReader().Read() error = %v", err)
+		t.Fatalf("CPUReader.Read() error = %v", err)
 	}
 
 	if string(cpuData) != "cpu data" {
-		t.Fatalf("CPUReader().Read() = %q, want %q", string(cpuData), "cpu data")
+		t.Fatalf("CPUReader.Read() = %q, want %q", string(cpuData), "cpu data")
 	}
 }
 
@@ -20,13 +20,13 @@ func TestNewIOModuleMemReaderReadsConfiguredFile(t *testing.T) {
 	t.Parallel()
 
 	module := loadIOModuleFixture(t)
-	memData, err := module.MemReader().Read()
+	memData, err := module.MemReader.Read()
 	if err != nil {
-		t.Fatalf("MemReader().Read() error = %v", err)
+		t.Fatalf("MemReader.Read() error = %v", err)
 	}
 
 	if string(memData) != "mem data" {
-		t.Fatalf("MemReader().Read() = %q, want %q", string(memData), "mem data")
+		t.Fatalf("MemReader.Read() = %q, want %q", string(memData), "mem data")
 	}
 }
 

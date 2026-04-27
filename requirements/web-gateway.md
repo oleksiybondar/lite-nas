@@ -36,7 +36,7 @@ application.
 
 #### FR-001 Acceptance Criteria
 
-- The gateway serves packaged frontend assets from a configured asset root
+- The gateway serves packaged frontend assets from its owned packaged asset area
 - Static asset serving does not require direct access to domain services
 - The gateway serves only its owned static application assets
 

@@ -1,4 +1,4 @@
-module lite-nas/services/web-gataway
+module lite-nas/services/web-gateway
 
 go 1.25.0
 

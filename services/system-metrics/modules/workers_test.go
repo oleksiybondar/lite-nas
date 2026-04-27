@@ -33,11 +33,11 @@ func TestNewWorkersModuleBuildsPollingAndProcessingWorkers(t *testing.T) {
 
 	module := NewWorkersModule(serviceconfig.MetricsConfig{PollInterval: time.Second}, channels, ioModule)
 
-	if reflect.ValueOf(module.Polling()).IsZero() {
+	if reflect.ValueOf(module.Polling).IsZero() {
 		t.Fatal("expected polling worker")
 	}
 
-	if reflect.ValueOf(module.Processing()).IsZero() {
+	if reflect.ValueOf(module.Processing).IsZero() {
 		t.Fatal("expected processing worker")
 	}
 }

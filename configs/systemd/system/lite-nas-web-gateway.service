@@ -1,0 +1,43 @@
+[Unit]
+Description=LiteNAS web gateway service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=@WEB_GATEWAY_RUNTIME_USER@
+Group=@WEB_GATEWAY_RUNTIME_GROUP@
+SupplementaryGroups=@WEB_GATEWAY_CONFIG_GROUP@
+ExecStart=@WEB_GATEWAY_BINARY@
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=@WEB_GATEWAY_CONFIG_DIR@ @WEB_GATEWAY_SHARE_DIR@
+ReadWritePaths=@WEB_GATEWAY_LOG_FILE@
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

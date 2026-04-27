@@ -69,12 +69,8 @@ else
 	log.info "Skipping LiteNAS bootstrap."
 fi
 
-log.pushTask "Installing system-metrics-cli binary"
-deploy.systemMetricsCLI.installBinary "$binary_path"
-log.popTask
-
-log.pushTask "Installing system-metrics-cli config"
-deploy.systemMetricsCLI.installConfig
+log.pushTask "Deploying system-metrics-cli app"
+deploy.systemMetricsCLI.deploy "$binary_path"
 log.popTask
 
 log.info "system-metrics-cli deployment completed."

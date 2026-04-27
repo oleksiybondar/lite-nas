@@ -12,12 +12,12 @@ func loadInfraFixture() (Infra, *recordingMessagingClient, *recordingMessagingSe
 	cleanupCalls := 0
 
 	return Infra{
-		config: serviceconfig.Config{},
-		logger: log,
+		Config: serviceconfig.Config{},
+		Logger: log,
 		logCleanup: func() {
 			cleanupCalls++
 		},
-		client: client,
-		server: server,
+		Client: client,
+		Server: server,
 	}, client, server, &cleanupCalls
 }

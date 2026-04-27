@@ -26,7 +26,7 @@ type requestClient interface {
 func run(ctx context.Context, args []string) error {
 	workerModule := modules.NewWorkersModule(defaultConfigPath)
 
-	invocation, err := workerModule.ArgsProcessor().Process(args)
+	invocation, err := workerModule.ArgsProcessor.Process(args)
 	if err != nil {
 		if errors.Is(err, workers.ErrHelpRequested) {
 			printUsage(os.Stdout)
@@ -42,7 +42,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	defer infra.Close()
 
-	return executeCommand(ctx, invocation, infra.Client(), workerModule.OutputWriter(), os.Stdout)
+	return executeCommand(ctx, invocation, infra.Client, workerModule.OutputWriter, os.Stdout)
 }
 
 func executeCommand(
