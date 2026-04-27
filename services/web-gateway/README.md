@@ -18,6 +18,7 @@ It does not own:
 
 - core domain logic
 - authorization policy
+- host authentication policy
 - general file upload or file download behavior
 
 Instead, it acts as the HTTP entrypoint that translates browser-facing
@@ -43,9 +44,11 @@ concerns such as handling HTTP-only token delivery at the web boundary.
 
 It is not the authorization authority.
 
-Authorization policy, token issuance, and token semantics are expected
-to be owned by dedicated backend services. File-service short-lived JWT
-mechanics are intentionally out of scope for this component.
+Authorization policy, host authentication, token issuance, and token
+semantics are expected to be owned by dedicated backend services.
+`auth-service` fills that role. File-service
+short-lived JWT mechanics are intentionally out of scope for this
+component.
 
 The gateway currently distinguishes three token transport policies:
 
@@ -168,8 +171,8 @@ The current skeleton HTTP surface is:
 - `/assets/index.js`
   serves the packaged browser JavaScript bundle
 - `/auth/...`
-  browser-facing auth transport endpoints, currently backed by a
-  simplified auth service implementation
+  browser-facing auth transport endpoints intended to adapt requests to
+  the dedicated `auth-service` over NATS
 - `/system-metrics/...`
   browser-facing JSON endpoints backed by internal system metrics NATS
   calls
@@ -200,5 +203,6 @@ The gateway should not slowly turn into a general backend that owns
 business logic.
 
 If a feature requires domain ownership, authorization policy ownership,
-or broad file-transfer ownership, that logic should remain in dedicated
-backend services rather than being absorbed into the gateway.
+host authentication ownership, or broad file-transfer ownership, that
+logic should remain in dedicated backend services rather than being
+absorbed into the gateway.

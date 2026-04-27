@@ -9,7 +9,8 @@ the web application, and adapts browser-facing requests to internal
 service interfaces behind the messaging layer.
 
 The Web Gateway is intentionally a thin layer. It does not own core
-domain logic, authorization policy, or file-transfer logic.
+domain logic, authorization policy, host authentication policy, or
+file-transfer logic.
 
 This document follows the requirement classification defined in
 `requirement-types.md`.
@@ -95,7 +96,8 @@ requests to internal services over the messaging layer.
 #### FR-004 Description
 
 The Web Gateway MUST handle browser-facing secure token transport
-concerns without owning authorization policy.
+concerns without owning authorization policy or host-authentication
+policy.
 
 #### FR-004 Input
 
@@ -110,6 +112,7 @@ concerns without owning authorization policy.
 
 - The gateway can set and forward HTTP-only secure token material as required
 - The gateway does not issue authorization policy decisions itself
+- The gateway does not evaluate PAM-backed auth outcomes itself
 - Token transport handling remains separate from domain service logic
 
 ---
@@ -161,6 +164,7 @@ internal services.
 - Internal service communication is performed through the messaging client
 - Messaging client construction is injectable into gateway runtime wiring
 - Browser-facing HTTP handling remains decoupled from direct domain implementation
+- Browser-facing auth handling remains decoupled from direct PAM integration
 
 ---
 
@@ -226,6 +230,22 @@ The Web Gateway MUST NOT own authorization policy decisions.
 
 ---
 
+### SR-003 Exclude host-authentication ownership from the gateway
+
+#### SR-003 Description
+
+The Web Gateway MUST NOT own host-authentication or PAM account-state
+evaluation.
+
+#### SR-003 Acceptance Criteria
+
+- PAM-backed host-authentication behavior is delegated to the dedicated auth
+  service
+- The gateway only transports and adapts auth requests and responses
+- Gateway auth behavior remains valid when auth-service internals evolve
+
+---
+
 ## Testability Requirements
 
 ### TR-001 Keep HTTP adaptation logic testable without live infrastructure
@@ -248,4 +268,5 @@ mapping testable without requiring a full deployed environment.
 
 - The initial implementation is expected to use `chi` for routing and middleware
 - The initial implementation is expected to use `huma` for OpenAPI generation
-- Authorization service token issuance and file-service token mechanics are out of scope for this document
+- Auth-service PAM behavior, token issuance semantics, and file-service token
+  mechanics are out of scope for this document

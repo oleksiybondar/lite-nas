@@ -106,6 +106,9 @@ The current implemented architecture is intentionally small, but it already refl
 direction: thin service boundaries, shared foundations, explicit messaging, and reproducible build
 and packaging flow.
 
+A dedicated auth authority keeps PAM-backed host authentication, token
+issuance, and emergency auth-state control out of the browser gateway.
+
 ## Monorepo Structure
 
 LiteNAS is organized as a monorepo so that services, apps, packaging, CI/CD, and shared logic can
@@ -157,6 +160,12 @@ Current implemented focus:
   Analysis, build, test, package, and installability checks wired into the repository workflow.
 
 Planned expansion areas:
+
+- **Dedicated host auth authority**
+  `auth-service` verifies real login-capable users of the managed machine
+  through PAM-backed flows, issues short-lived JWT access tokens plus
+  refresh-backed sessions, and publishes auth-state events such as lockdown
+  transitions over NATS.
 
 - **ZFS-based storage management**
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient
@@ -541,7 +550,7 @@ Useful starting points:
   Why early slices are intentionally infrastructure-heavy and low immediate business value.
 
 - [`RELEASE_NOTES.md`](RELEASE_NOTES.md)
-  Release-level summary of what has already been established and what the next planned slice adds.
+  Release-level summary of what has already been established and what later slices add.
 
 - [`requirements/system-metrics.md`](requirements/system-metrics.md)
   Example requirements for an initial backend service slice.
@@ -550,10 +559,16 @@ Useful starting points:
   Example requirements for an initial consumer app slice.
 
 - [`requirements/web-gateway.md`](requirements/web-gateway.md)
-  Requirements for the planned browser-facing gateway.
+  Requirements for the browser-facing gateway.
+
+- [`requirements/auth-service.md`](requirements/auth-service.md)
+  Requirements for the PAM-backed authentication authority.
 
 - [`services/web-gateway/README.md`](services/web-gateway/README.md)
-  Architectural role and boundaries of the planned browser-facing gateway.
+  Architectural role and boundaries of the browser-facing gateway.
+
+- [`services/auth/README.md`](services/auth/README.md)
+  Architectural role and boundaries of the auth service.
 
 - [`apps/admin-panel/README.md`](apps/admin-panel/README.md)
   Naming and role of the planned browser application.
