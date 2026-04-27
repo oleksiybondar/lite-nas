@@ -67,6 +67,30 @@ deploy.normalizeLiteNAS() {
 	log.popTask
 }
 
+deploy.normalizeUFW() {
+	log.pushTask "Normalizing UFW config permissions"
+	deploy.normalizePath 0755 "$default_dir" "$owner"
+	deploy.normalizePath 0755 "$ufw_config_dir" "$owner"
+	deploy.normalizePath 0644 "$ufw_default_config" "$owner"
+	deploy.normalizePath 0644 "$ufw_runtime_config" "$owner"
+	log.popTask
+}
+
+deploy.normalizeNginx() {
+	log.pushTask "Normalizing nginx config permissions"
+	deploy.normalizePath 0755 "$nginx_config_dir" "$owner"
+	deploy.normalizePath 0755 "$nginx_sites_available_dir" "$owner"
+	deploy.normalizePath 0755 "$nginx_sites_enabled_dir" "$owner"
+
+	if [ -d "$nginx_sites_available_dir" ]; then
+		while IFS= read -r -d '' config_file; do
+			deploy.normalizePath 0644 "$config_file" "$owner"
+		done < <(find "$nginx_sites_available_dir" -maxdepth 1 -type f -print0)
+	fi
+
+	log.popTask
+}
+
 deploy.normalizeEtcPermissions() {
 	local target_dir="${1:-${LITE_NAS_ETC_TARGET:-/etc}}"
 	local owner="${LITE_NAS_ETC_OWNER:-root:root}"
@@ -79,6 +103,13 @@ deploy.normalizeEtcPermissions() {
 	local litenas_config_dir="$target_dir/liteNAS"
 	local litenas_certificates_dir="$litenas_config_dir/certificates"
 	local litenas_ca_cert="$litenas_certificates_dir/root-ca.crt"
+	local default_dir="$target_dir/default"
+	local ufw_config_dir="$target_dir/ufw"
+	local ufw_default_config="$default_dir/ufw"
+	local ufw_runtime_config="$ufw_config_dir/ufw.conf"
+	local nginx_config_dir="$target_dir/nginx"
+	local nginx_sites_available_dir="$nginx_config_dir/sites-available"
+	local nginx_sites_enabled_dir="$nginx_config_dir/sites-enabled"
 	local config_file
 	local certificate_file
 	local identity_dir
@@ -99,6 +130,9 @@ deploy.normalizeEtcPermissions() {
 		nats_certificate_owner="root:nats"
 	fi
 
+	deploy.normalizePath 0755 "$target_dir" "$owner"
 	deploy.normalizeNATS
 	deploy.normalizeLiteNAS
+	deploy.normalizeUFW
+	deploy.normalizeNginx
 }

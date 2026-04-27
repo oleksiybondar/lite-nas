@@ -3,6 +3,8 @@
 DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/nginx.sh"
 
 readonly LITE_NAS_WEB_GATEWAY_SERVICE_NAME="${LITE_NAS_WEB_GATEWAY_SERVICE_NAME:-lite-nas-web-gateway}"
 readonly LITE_NAS_WEB_GATEWAY_RUNTIME_USER="${LITE_NAS_WEB_GATEWAY_RUNTIME_USER:-lite-nas-web-gateway}"
@@ -53,6 +55,8 @@ deploy.webGateway.requireTools() {
 	for tool in "${tools[@]}"; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
+
+	deploy.nginx.requireTools
 }
 
 deploy.webGateway.ensureGroup() {
@@ -232,9 +236,11 @@ deploy.webGateway.deploy() {
 	deploy.webGateway.installSharedAssets
 	deploy.webGateway.installLogTarget
 	deploy.webGateway.installUnitFile
+	deploy.nginx.deploy 0
 
 	if [ "$should_start" = "1" ]; then
 		deploy.webGateway.enableAndStart
+		deploy.nginx.enableAndStart
 		return 0
 	fi
 

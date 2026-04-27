@@ -3,6 +3,8 @@
 DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/ufw.sh"
 
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 
@@ -27,6 +29,8 @@ deploy.liteNAS.requireTools() {
 	for tool in "${tools[@]}"; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
+
+	deploy.ufw.requireTools
 }
 
 deploy.liteNAS.ensureCommonGroup() {
@@ -41,6 +45,7 @@ deploy.liteNAS.ensureCommonGroup() {
 deploy.liteNAS.bootstrap() {
 	local manage_nats_config="$1"
 
+	"$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh"
 	deploy.liteNAS.ensureCommonGroup
 
 	if [ "$manage_nats_config" = "1" ]; then
@@ -50,4 +55,7 @@ deploy.liteNAS.bootstrap() {
 	else
 		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
 	fi
+
+	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing
+	deploy.ufw.deploy
 }

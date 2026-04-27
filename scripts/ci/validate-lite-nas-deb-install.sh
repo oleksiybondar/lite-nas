@@ -49,8 +49,14 @@ docker run --rm \
 		dpkg -s lite-nas >/dev/null
 		test -x /usr/libexec/lite-nas/system-metrics
 		test -x /usr/libexec/lite-nas/system-metrics-cli
+		test -x /usr/libexec/lite-nas/web-gateway
 		test -f /etc/liteNAS/system-metrics.conf
 		test -f /etc/liteNAS/system-metrics-cli.conf
+		test -f /etc/liteNAS/web-gateway.conf
+		test -f /etc/nginx/sites-available/lite-nas-web-gateway.conf
+		test -f /etc/default/ufw
+		test -f /etc/ufw/ufw.conf
+		test -f /usr/share/lite-nas/web-gateway/assets/index.html || test -d /usr/libexec/lite-nas/services/web-gateway/assets
 	"
 log.popTask
 

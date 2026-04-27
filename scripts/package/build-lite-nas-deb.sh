@@ -12,6 +12,7 @@ package_arch=""
 package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
 system_metrics_binary_path=""
 system_metrics_cli_binary_path=""
+web_gateway_binary_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
 package_root=""
@@ -25,6 +26,7 @@ Options:
   --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or 0.1.0.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
+  --web-gateway-binary=PATH          Use an existing web-gateway binary.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
 MSG
@@ -46,6 +48,9 @@ for arg in "$@"; do
 		;;
 	--system-metrics-cli-binary=*)
 		system_metrics_cli_binary_path="${arg#--system-metrics-cli-binary=}"
+		;;
+	--web-gateway-binary=*)
+		web_gateway_binary_path="${arg#--web-gateway-binary=}"
 		;;
 	--output-dir=*)
 		output_dir="${arg#--output-dir=}"
@@ -85,6 +90,13 @@ if [ -z "$system_metrics_cli_binary_path" ]; then
 		"--output=${system_metrics_cli_binary_path}"
 fi
 
+if [ -z "$web_gateway_binary_path" ]; then
+	web_gateway_binary_path="$output_dir/${package_name}-${package_arch}/web-gateway"
+	"$LITE_NAS_REPO_ROOT/scripts/build-web-gateway-binary.sh" \
+		"--arch=${package_arch}" \
+		"--output=${web_gateway_binary_path}"
+fi
+
 if [ ! -f "$system_metrics_binary_path" ]; then
 	log.error "Missing system-metrics binary: $system_metrics_binary_path"
 	exit 1
@@ -92,6 +104,11 @@ fi
 
 if [ ! -f "$system_metrics_cli_binary_path" ]; then
 	log.error "Missing system-metrics-cli binary: $system_metrics_cli_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$web_gateway_binary_path" ]; then
+	log.error "Missing web-gateway binary: $web_gateway_binary_path"
 	exit 1
 fi
 
@@ -148,12 +165,22 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics-cli.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics-cli.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-web-gateway.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/deploy-web-gateway.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
+install -D -m 0755 "$web_gateway_binary_path" \
+	"$package_root/usr/libexec/lite-nas/web-gateway"
+copy_tree "$LITE_NAS_REPO_ROOT/services/web-gateway/assets" \
+	"$package_root/usr/libexec/lite-nas/services/web-gateway/assets"
 
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
@@ -162,11 +189,15 @@ find "$package_root/usr" -type f -exec chmod 0644 {} +
 chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
+	"$package_root/usr/libexec/lite-nas/web-gateway" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics-cli.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh"
+	"$package_root/usr/libexec/lite-nas/scripts/deploy-web-gateway.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
 (
