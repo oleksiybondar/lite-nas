@@ -57,9 +57,9 @@ MSG
 
 	log.pushTask "Installing Debian/Ubuntu base packages"
 	apt-get update
-	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt lintian debconf; then
+	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt lintian debconf gcc libc6-dev libpam0g-dev; then
 		log.warn "Could not install shfmt with apt-get; it will be installed with go install instead."
-		apt-get install -y git nodejs npm golang-go shellcheck lintian debconf
+		apt-get install -y git nodejs npm golang-go shellcheck lintian debconf gcc libc6-dev libpam0g-dev
 	fi
 	log.popTask
 }

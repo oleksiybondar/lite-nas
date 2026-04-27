@@ -14,7 +14,7 @@ import (
 	"lite-nas/shared/logger/formatters/rfc5424"
 )
 
-var allowedLogDir = "/var/log/liteNAS"
+var allowedLogDir = "/var/lib/lite-nas"
 
 // NewAppLogger creates a project-standard application logger from the shared
 // logging configuration.

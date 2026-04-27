@@ -9,28 +9,13 @@ source "$SCRIPT_DIR/../helpers/tool-paths.sh"
 
 cd "$(git rev-parse --show-toplevel)"
 
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-	log.error "Usage: scripts/ci/go-build-module.sh <module-dir> [--arch=amd64|arm64]"
+if [ "$#" -ne 1 ]; then
+	log.error "Usage: scripts/ci/go-build-module.sh <module-dir>"
 	exit 64
 fi
 
 module_dir="$1"
 target_arch="$(go env GOARCH)"
-
-if [ "$#" -eq 2 ]; then
-	case "$2" in
-	--arch=amd64)
-		target_arch="amd64"
-		;;
-	--arch=arm64)
-		target_arch="arm64"
-		;;
-	*)
-		log.error "Unsupported build option: $2"
-		exit 64
-		;;
-	esac
-fi
 
 if [ ! -f "${module_dir}/go.mod" ]; then
 	log.error "Go module not found: ${module_dir}"

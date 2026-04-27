@@ -9,7 +9,6 @@ source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 
 binary_path=""
 should_start=1
-target_arch=""
 should_bootstrap=1
 
 while [ "$#" -gt 0 ]; do
@@ -22,10 +21,6 @@ while [ "$#" -gt 0 ]; do
 		fi
 		binary_path="$2"
 		shift 2
-		;;
-	--arch=amd64 | --arch=arm64)
-		target_arch="${1#--arch=}"
-		shift
 		;;
 	--no-start)
 		should_start=0
@@ -57,9 +52,6 @@ if [ -z "$binary_path" ]; then
 
 	binary_path="$tmp_dir/web-gateway"
 	build_args=("--output=$binary_path")
-	if [ -n "$target_arch" ]; then
-		build_args+=("--arch=$target_arch")
-	fi
 
 	log.pushTask "Building web-gateway deploy artifact"
 	"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"

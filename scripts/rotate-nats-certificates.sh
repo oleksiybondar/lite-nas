@@ -10,7 +10,7 @@ source "$SCRIPT_DIR/deploy/normalize-etc-permissions.sh"
 source "$SCRIPT_DIR/deploy/restart-affected-services.sh"
 
 nats_certificate_dir="${LITE_NAS_NATS_CERTIFICATE_DIR:-/etc/nats-server/certificates}"
-litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/liteNAS}"
+litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 litenas_certificates_dir="${LITE_NAS_CERTIFICATES_DIR:-$litenas_config_dir/certificates}"
 litenas_group="${LITE_NAS_GROUP:-lite-nas}"
 certificate_days="${LITE_NAS_CERTIFICATE_DAYS:-825}"
@@ -18,7 +18,7 @@ root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
 server_alt_names="${LITE_NAS_NATS_SERVER_ALT_NAMES:-DNS:localhost,DNS:lite-nas,DNS:lite-nas.local,IP:127.0.0.1}"
 
-read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-system-metrics-cli lite-nas-web-gateway}"
+read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-system-metrics-cli lite-nas-web-gateway lite-nas-auth-service}"
 rotate_only_if_missing=0
 
 usage() {
@@ -32,7 +32,7 @@ Options:
 
 Environment:
   LITE_NAS_NATS_CERT_USERS         Space-separated users when --user is not set.
-  LITE_NAS_GROUP                   Local shared group for /etc/liteNAS. Default: lite-nas.
+  LITE_NAS_GROUP                   Local shared group for /etc/lite-nas. Default: lite-nas.
   LITE_NAS_CERTIFICATE_DAYS        Leaf certificate validity days. Default: 825.
   LITE_NAS_ROOT_CA_DAYS            Root CA validity days. Default: 3650.
   LITE_NAS_NATS_SERVER_ALT_NAMES   OpenSSL SAN list for the NATS server cert.

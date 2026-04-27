@@ -51,9 +51,9 @@ func TestLoadConfigMessagingFields(t *testing.T) {
 	}{
 		{name: "url", got: func(cfg Config) any { return cfg.Messaging.URL }, want: "tls://127.0.0.1:4222"},
 		{name: "client name", got: func(cfg Config) any { return cfg.Messaging.ClientName }, want: "web-gateway"},
-		{name: "ca path", got: func(cfg Config) any { return cfg.Messaging.CA }, want: "/etc/liteNAS/certificates/root-ca.crt"},
-		{name: "cert path", got: func(cfg Config) any { return cfg.Messaging.Cert }, want: "/etc/liteNAS/certificates/lite-nas-web-gateway/client.crt"},
-		{name: "key path", got: func(cfg Config) any { return cfg.Messaging.Key }, want: "/etc/liteNAS/certificates/lite-nas-web-gateway/client.key"},
+		{name: "ca path", got: func(cfg Config) any { return cfg.Messaging.CA }, want: "/etc/lite-nas/certificates/root-ca.crt"},
+		{name: "cert path", got: func(cfg Config) any { return cfg.Messaging.Cert }, want: "/etc/lite-nas/certificates/lite-nas-web-gateway/client.crt"},
+		{name: "key path", got: func(cfg Config) any { return cfg.Messaging.Key }, want: "/etc/lite-nas/certificates/lite-nas-web-gateway/client.key"},
 		{name: "timeout", got: func(cfg Config) any { return cfg.Messaging.Timeout }, want: 5 * time.Second},
 	}
 
@@ -81,7 +81,7 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 		{name: "level", got: func(cfg Config) any { return cfg.Logging.Level }, want: "info"},
 		{name: "format", got: func(cfg Config) any { return cfg.Logging.Format }, want: "rfc5424"},
 		{name: "output", got: func(cfg Config) any { return cfg.Logging.Output }, want: "file"},
-		{name: "file path", got: func(cfg Config) any { return cfg.Logging.FilePath }, want: "/var/log/liteNAS/web-gateway.log"},
+		{name: "file path", got: func(cfg Config) any { return cfg.Logging.FilePath }, want: "/var/lib/lite-nas/web-gateway.log"},
 	}
 
 	for _, testCase := range testCases {
@@ -137,15 +137,15 @@ func loadConfigFixture(t *testing.T) Config {
 				"[messaging]\n" +
 				"url=tls://127.0.0.1:4222\n" +
 				"client_name=web-gateway\n" +
-				"ca=/etc/liteNAS/certificates/root-ca.crt\n" +
-				"cert=/etc/liteNAS/certificates/lite-nas-web-gateway/client.crt\n" +
-				"key=/etc/liteNAS/certificates/lite-nas-web-gateway/client.key\n" +
+				"ca=/etc/lite-nas/certificates/root-ca.crt\n" +
+				"cert=/etc/lite-nas/certificates/lite-nas-web-gateway/client.crt\n" +
+				"key=/etc/lite-nas/certificates/lite-nas-web-gateway/client.key\n" +
 				"timeout=5s\n" +
 				"[logging]\n" +
 				"level=info\n" +
 				"format=rfc5424\n" +
 				"output=file\n" +
-				"file_path=/var/log/liteNAS/web-gateway.log\n",
+				"file_path=/var/lib/lite-nas/web-gateway.log\n",
 		),
 	})
 	if err != nil {

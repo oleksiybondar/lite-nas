@@ -7,7 +7,6 @@ source "$SCRIPT_DIR/helpers/common.sh"
 
 cd "$LITE_NAS_REPO_ROOT"
 
-target_arch=""
 output_path=""
 
 usage() {
@@ -15,7 +14,6 @@ usage() {
 Usage: scripts/build-system-metrics-cli-binary.sh [options]
 
 Options:
-  --arch=amd64|arm64  Target linux architecture. Defaults to current GOARCH.
   --output PATH       Output binary path. Defaults to .build/system-metrics-cli/linux-<arch>/system-metrics-cli
   -h, --help          Show this help.
 MSG
@@ -23,12 +21,6 @@ MSG
 
 for arg in "$@"; do
 	case "$arg" in
-	--arch=amd64)
-		target_arch="amd64"
-		;;
-	--arch=arm64)
-		target_arch="arm64"
-		;;
 	--output=*)
 		output_path="${arg#--output=}"
 		;;
@@ -46,9 +38,7 @@ done
 
 log.requireCommand "go" "Install Go and retry."
 
-if [ -z "$target_arch" ]; then
-	target_arch="$(go env GOARCH)"
-fi
+target_arch="$(go env GOARCH)"
 
 if [ -z "$output_path" ]; then
 	output_path="$LITE_NAS_REPO_ROOT/.build/system-metrics-cli/linux-${target_arch}/system-metrics-cli"

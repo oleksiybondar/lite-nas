@@ -121,9 +121,9 @@ func loadConfigFromFixture(t *testing.T) (Config, error) {
 			"url=nats://127.0.0.1:4222\n" +
 			"client_name=system-metrics-cli\n" +
 			"timeout=5s\n" +
-			"ca=/etc/liteNAS/certificates/root-ca.crt\n" +
-			"cert=/etc/liteNAS/certificates/lite-nas-system-metrics-cli/client.crt\n" +
-			"key=/etc/liteNAS/certificates/lite-nas-system-metrics-cli/client.key\n" +
+			"ca=/etc/lite-nas/certificates/root-ca.crt\n" +
+			"cert=/etc/lite-nas/certificates/lite-nas-system-metrics-cli/client.crt\n" +
+			"key=/etc/lite-nas/certificates/lite-nas-system-metrics-cli/client.key\n" +
 			"[logging]\n" +
 			"level=info\n" +
 			"format=rfc5424\n" +

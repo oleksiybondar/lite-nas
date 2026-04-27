@@ -8,8 +8,8 @@ source "$SCRIPT_DIR/../helpers/common.sh"
 cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas"
-package_arch=""
 package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
+auth_service_binary_path=""
 system_metrics_binary_path=""
 system_metrics_cli_binary_path=""
 web_gateway_binary_path=""
@@ -22,8 +22,8 @@ usage() {
 Usage: scripts/package/build-lite-nas-deb.sh [options]
 
 Options:
-  --arch=amd64|arm64                 Debian package architecture to build.
   --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or 0.1.0.
+  --auth-service-binary=PATH         Use an existing auth-service binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
@@ -34,14 +34,11 @@ MSG
 
 for arg in "$@"; do
 	case "$arg" in
-	--arch=amd64)
-		package_arch="amd64"
-		;;
-	--arch=arm64)
-		package_arch="arm64"
-		;;
 	--version=*)
 		package_version="${arg#--version=}"
+		;;
+	--auth-service-binary=*)
+		auth_service_binary_path="${arg#--auth-service-binary=}"
 		;;
 	--system-metrics-binary=*)
 		system_metrics_binary_path="${arg#--system-metrics-binary=}"
@@ -67,34 +64,38 @@ for arg in "$@"; do
 	esac
 done
 
-if [ -z "$package_arch" ]; then
-	log.error "Missing required option: --arch=amd64|arm64"
-	usage >&2
-	exit 64
-fi
-
 log.requireCommand "dpkg-deb" "Install dpkg-deb and retry."
 log.requireCommand "gzip" "Install gzip and retry."
+
+package_arch="$(dpkg --print-architecture)"
+
+if [ -z "$auth_service_binary_path" ]; then
+	auth_service_binary_path="$output_dir/${package_name}-${package_arch}/auth-service"
+	"$LITE_NAS_REPO_ROOT/scripts/build-auth-service-binary.sh" \
+		"--output=${auth_service_binary_path}"
+fi
 
 if [ -z "$system_metrics_binary_path" ]; then
 	system_metrics_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
-		"--arch=${package_arch}" \
 		"--output=${system_metrics_binary_path}"
 fi
 
 if [ -z "$system_metrics_cli_binary_path" ]; then
 	system_metrics_cli_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics-cli"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-cli-binary.sh" \
-		"--arch=${package_arch}" \
 		"--output=${system_metrics_cli_binary_path}"
 fi
 
 if [ -z "$web_gateway_binary_path" ]; then
 	web_gateway_binary_path="$output_dir/${package_name}-${package_arch}/web-gateway"
 	"$LITE_NAS_REPO_ROOT/scripts/build-web-gateway-binary.sh" \
-		"--arch=${package_arch}" \
 		"--output=${web_gateway_binary_path}"
+fi
+
+if [ ! -f "$auth_service_binary_path" ]; then
+	log.error "Missing auth-service binary: $auth_service_binary_path"
+	exit 1
 fi
 
 if [ ! -f "$system_metrics_binary_path" ]; then
@@ -161,6 +162,8 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-lite-nas.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-auth-service.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/deploy-auth-service.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics-cli.sh" \
@@ -173,6 +176,8 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
+install -D -m 0755 "$auth_service_binary_path" \
+	"$package_root/usr/libexec/lite-nas/auth-service"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
@@ -187,9 +192,11 @@ find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chm
 find "$package_root/usr" -type d -exec chmod 0755 {} +
 find "$package_root/usr" -type f -exec chmod 0644 {} +
 chmod 0755 \
+	"$package_root/usr/libexec/lite-nas/auth-service" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
+	"$package_root/usr/libexec/lite-nas/scripts/deploy-auth-service.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh" \

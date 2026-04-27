@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	packagedConfigPath  = "/etc/liteNAS/web-gateway.conf"
+	packagedConfigPath  = "/etc/lite-nas/web-gateway.conf"
 	packagedAssetRoot   = "/usr/share/lite-nas/web-gateway/assets"
 	serviceName         = "web-gateway"
 	apiVersion          = "0.1.0"

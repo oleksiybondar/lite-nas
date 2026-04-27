@@ -11,8 +11,16 @@ permissions:
 
 jobs:
   shared-go-build:
-    name: Shared Go build
-    runs-on: ubuntu-latest
+    name: Shared Go build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,62 +31,108 @@ jobs:
           run_tests: "false"
 
   service-build:
-    name: ${{ matrix.service.name }} build (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    name: ${{ matrix.component.name }} build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     needs:
       - shared-go-build
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm64
-        service:
-          - name: System metrics
-            artifact_name: system-metrics-linux
-            build_script: scripts/build-system-metrics-binary.sh
-            output_path: .build/system-metrics/linux-amd64/system-metrics
-            output_path_arm64: .build/system-metrics/linux-arm64/system-metrics
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Auth service
+              artifact_name: auth-service-linux
+              build_script: scripts/build-auth-service-binary.sh
+              output_path: .build/auth-service/linux-amd64/auth-service
+              apt_packages: gcc libc6-dev libpam0g-dev
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: System metrics
+              artifact_name: system-metrics-linux
+              build_script: scripts/build-system-metrics-binary.sh
+              output_path: .build/system-metrics/linux-amd64/system-metrics
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Web gateway
+              artifact_name: web-gateway-linux
+              build_script: scripts/build-web-gateway-binary.sh
+              output_path: .build/web-gateway/linux-amd64/web-gateway
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Auth service
+              artifact_name: auth-service-linux
+              build_script: scripts/build-auth-service-binary.sh
+              output_path: .build/auth-service/linux-arm64/auth-service
+              apt_packages: gcc libc6-dev libpam0g-dev
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: System metrics
+              artifact_name: system-metrics-linux
+              build_script: scripts/build-system-metrics-binary.sh
+              output_path: .build/system-metrics/linux-arm64/system-metrics
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Web gateway
+              artifact_name: web-gateway-linux
+              build_script: scripts/build-web-gateway-binary.sh
+              output_path: .build/web-gateway/linux-arm64/web-gateway
+              apt_packages: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build ${{ matrix.service.name }}
+      - name: Build ${{ matrix.component.name }}
         uses: ./.github/actions/go-binary-build-test
         with:
-          build_script: ${{ matrix.service.build_script }}
-          arch: ${{ matrix.arch }}
-          output_path: ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
+          build_script: ${{ matrix.component.build_script }}
+          output_path: ${{ matrix.component.output_path }}
+          apt_packages: ${{ matrix.component.apt_packages }}
           run_tests: "false"
 
-      - name: Verify ${{ matrix.service.name }} binary exists
-        run: test -f ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
+      - name: Verify ${{ matrix.component.name }} binary exists
+        run: test -f ${{ matrix.component.output_path }}
 
-      - name: Upload ${{ matrix.service.name }} binary artifact
+      - name: Upload ${{ matrix.component.name }} binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.service.artifact_name }}-${{ matrix.arch }}
-          path: ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
+          name: ${{ matrix.component.artifact_name }}-${{ matrix.arch }}
+          path: ${{ matrix.component.output_path }}
           if-no-files-found: error
           retention-days: 1
 
   app-build:
     name: ${{ matrix.app.name }} build (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs:
       - shared-go-build
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm64
-        app:
-          - name: System metrics CLI
-            artifact_name: system-metrics-cli-linux
-            build_script: scripts/build-system-metrics-cli-binary.sh
-            output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
-            output_path_arm64: .build/system-metrics-cli/linux-arm64/system-metrics-cli
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: System metrics CLI
+              artifact_name: system-metrics-cli-linux
+              build_script: scripts/build-system-metrics-cli-binary.sh
+              output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: System metrics CLI
+              artifact_name: system-metrics-cli-linux
+              build_script: scripts/build-system-metrics-cli-binary.sh
+              output_path: .build/system-metrics-cli/linux-arm64/system-metrics-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,33 +141,34 @@ jobs:
         uses: ./.github/actions/go-binary-build-test
         with:
           build_script: ${{ matrix.app.build_script }}
-          arch: ${{ matrix.arch }}
-          output_path: ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
+          output_path: ${{ matrix.app.output_path }}
           run_tests: "false"
 
       - name: Verify ${{ matrix.app.name }} binary exists
-        run: test -f ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
+        run: test -f ${{ matrix.app.output_path }}
 
       - name: Upload ${{ matrix.app.name }} binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app.artifact_name }}-${{ matrix.arch }}
-          path: ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
+          path: ${{ matrix.app.output_path }}
           if-no-files-found: error
           retention-days: 1
 
   build-release-package:
     name: LiteNAS release package (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs:
       - service-build
       - app-build
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm64
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -122,6 +177,12 @@ jobs:
         id: package-version
         run: |
           echo "value=0.1.0+main.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Download auth service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: auth-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/auth-service
 
       - name: Download system metrics build artifact
         uses: actions/download-artifact@v4
@@ -135,16 +196,24 @@ jobs:
           name: system-metrics-cli-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/system-metrics-cli
 
+      - name: Download web gateway build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-gateway-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/web-gateway
+
       - name: Build LiteNAS Debian package
         uses: ./.github/actions/lite-nas-package-build
         with:
-          arch: ${{ matrix.arch }}
           version: ${{ steps.package-version.outputs.value }}
+          auth_service_binary: .artifacts/${{ matrix.arch }}/auth-service/auth-service
           system_metrics_binary: .artifacts/${{ matrix.arch }}/system-metrics/system-metrics
           system_metrics_cli_binary: .artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli
+          web_gateway_binary: .artifacts/${{ matrix.arch }}/web-gateway/web-gateway
+          package_arch: ${{ matrix.arch }}
           run_package_validation: "false"
 
-      - name: Upload LiteNAS Debian package artifact
+      - name: Publish LiteNAS Debian package artifact
         uses: actions/upload-artifact@v4
         with:
           name: lite-nas-deb-${{ matrix.arch }}

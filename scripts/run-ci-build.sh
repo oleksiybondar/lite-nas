@@ -9,10 +9,9 @@ source "$SCRIPT_DIR/helpers/tool-paths.sh"
 
 cd "$(git rev-parse --show-toplevel)"
 log.pushTask "Running local CI build checks"
-scripts/build-system-metrics.sh --arch=amd64
-scripts/build-system-metrics.sh --arch=arm64
-scripts/build-system-metrics-cli.sh --arch=amd64
-scripts/build-system-metrics-cli.sh --arch=arm64
-scripts/build-shared.sh --arch=amd64
-scripts/build-shared.sh --arch=arm64
+scripts/build-auth-service.sh
+scripts/build-system-metrics.sh
+scripts/build-system-metrics-cli.sh
+scripts/build-shared.sh
+scripts/build-web-gateway.sh
 log.popTask

@@ -3,12 +3,17 @@ set -e
 
 PACKAGE_ROOT="/usr/libexec/lite-nas"
 BOOTSTRAP_SCRIPT="$PACKAGE_ROOT/scripts/deploy-lite-nas.sh"
+DEPLOY_AUTH_SERVICE_SCRIPT="$PACKAGE_ROOT/scripts/deploy-auth-service.sh"
 DEPLOY_SYSTEM_METRICS_SCRIPT="$PACKAGE_ROOT/scripts/deploy-system-metrics.sh"
 DEPLOY_SYSTEM_METRICS_CLI_SCRIPT="$PACKAGE_ROOT/scripts/deploy-system-metrics-cli.sh"
 DEPLOY_WEB_GATEWAY_SCRIPT="$PACKAGE_ROOT/scripts/deploy-web-gateway.sh"
 INSTALL_MODE="${LITE_NAS_PACKAGE_INSTALL_MODE:-}"
 
 configure_package_validation_mode() {
+	"$DEPLOY_AUTH_SERVICE_SCRIPT" \
+		--binary "$PACKAGE_ROOT/auth-service" \
+		--skip-bootstrap \
+		--no-start
 	"$DEPLOY_SYSTEM_METRICS_SCRIPT" \
 		--binary "$PACKAGE_ROOT/system-metrics" \
 		--skip-bootstrap \
@@ -40,6 +45,9 @@ configure_package() {
 		"$BOOTSTRAP_SCRIPT" --no-nats-config
 	fi
 
+	"$DEPLOY_AUTH_SERVICE_SCRIPT" \
+		--binary "$PACKAGE_ROOT/auth-service" \
+		--skip-bootstrap
 	"$DEPLOY_SYSTEM_METRICS_SCRIPT" \
 		--binary "$PACKAGE_ROOT/system-metrics" \
 		--skip-bootstrap

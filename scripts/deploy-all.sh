@@ -5,16 +5,18 @@ ENTRYPOINT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/lite-nas.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/auth-service.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 
+auth_service_binary=""
 system_metrics_binary=""
 system_metrics_cli_binary=""
 web_gateway_binary=""
-target_arch=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -24,7 +26,7 @@ usage() {
 Usage: scripts/deploy-all.sh [options]
 
 Options:
-  --arch=amd64|arm64              Build target architecture when binary paths are not set.
+  --auth-service-binary PATH      Install an existing auth-service binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
   --system-metrics-cli-binary PATH
                                   Install an existing system-metrics-cli binary.
@@ -38,9 +40,14 @@ MSG
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-	--arch=amd64 | --arch=arm64)
-		target_arch="${1#--arch=}"
-		shift
+	--auth-service-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --auth-service-binary"
+			usage >&2
+			exit 2
+		fi
+		auth_service_binary="$2"
+		shift 2
 		;;
 	--system-metrics-binary)
 		if [ -z "${2:-}" ]; then
@@ -95,38 +102,36 @@ done
 
 sudo.guard.requireRoot "scripts/deploy-all.sh"
 deploy.liteNAS.requireTools
+deploy.authService.requireTools
 deploy.systemMetrics.requireTools
 deploy.systemMetricsCLI.requireTools
 deploy.webGateway.requireTools
 
 tmp_dir=""
-if [ -z "$system_metrics_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
+	if [ -z "$auth_service_binary" ]; then
+		build_args=("--output=$tmp_dir/auth-service")
+		"$ENTRYPOINT_DIR/build-auth-service-binary.sh" "${build_args[@]}"
+		auth_service_binary="$tmp_dir/auth-service"
+	fi
+
 	if [ -z "$system_metrics_binary" ]; then
 		build_args=("--output=$tmp_dir/system-metrics")
-		if [ -n "$target_arch" ]; then
-			build_args+=("--arch=$target_arch")
-		fi
 		"$ENTRYPOINT_DIR/build-system-metrics-binary.sh" "${build_args[@]}"
 		system_metrics_binary="$tmp_dir/system-metrics"
 	fi
 
 	if [ -z "$system_metrics_cli_binary" ]; then
 		build_args=("--output=$tmp_dir/system-metrics-cli")
-		if [ -n "$target_arch" ]; then
-			build_args+=("--arch=$target_arch")
-		fi
 		"$ENTRYPOINT_DIR/build-system-metrics-cli-binary.sh" "${build_args[@]}"
 		system_metrics_cli_binary="$tmp_dir/system-metrics-cli"
 	fi
 
 	if [ -z "$web_gateway_binary" ]; then
 		build_args=("--output=$tmp_dir/web-gateway")
-		if [ -n "$target_arch" ]; then
-			build_args+=("--arch=$target_arch")
-		fi
 		"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"
 		web_gateway_binary="$tmp_dir/web-gateway"
 	fi
@@ -139,6 +144,10 @@ if [ "$should_bootstrap" -eq 1 ]; then
 else
 	log.info "Skipping shared LiteNAS bootstrap."
 fi
+
+log.pushTask "Deploying auth-service"
+deploy.authService.deploy "$auth_service_binary" "$should_start"
+log.popTask
 
 log.pushTask "Deploying system-metrics service"
 deploy.systemMetrics.deploy "$system_metrics_binary" "$should_start"

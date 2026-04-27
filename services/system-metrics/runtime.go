@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	packagedConfigPath = "/etc/liteNAS/system-metrics.conf"
+	packagedConfigPath = "/etc/lite-nas/system-metrics.conf"
 	procStatPath       = "/proc/stat"
 	procMemInfoPath    = "/proc/meminfo"
 

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultConfigPath = "/etc/liteNAS/system-metrics-cli.conf"
+	defaultConfigPath = "/etc/lite-nas/system-metrics-cli.conf"
 	statsRPCSubject   = "system.metrics.rpc.stats.get"
 	historyRPCSubject = "system.metrics.rpc.history.get"
 	serviceName       = "system-metrics-cli"
@@ -94,6 +94,6 @@ func executeHistoryCommand(
 func printUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(
 		writer,
-		"Usage: system-metrics-cli [--config=/etc/liteNAS/system-metrics-cli.conf] [--cpu] [--ram] [--history]",
+		"Usage: system-metrics-cli [--config=/etc/lite-nas/system-metrics-cli.conf] [--cpu] [--ram] [--history]",
 	)
 }

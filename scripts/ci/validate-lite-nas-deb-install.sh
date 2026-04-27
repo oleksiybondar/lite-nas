@@ -47,12 +47,14 @@ docker run --rm \
 		apt-get update
 		apt-get install -y /packages/${package_name}
 		dpkg -s lite-nas >/dev/null
+		test -x /usr/libexec/lite-nas/auth-service
 		test -x /usr/libexec/lite-nas/system-metrics
 		test -x /usr/libexec/lite-nas/system-metrics-cli
 		test -x /usr/libexec/lite-nas/web-gateway
-		test -f /etc/liteNAS/system-metrics.conf
-		test -f /etc/liteNAS/system-metrics-cli.conf
-		test -f /etc/liteNAS/web-gateway.conf
+		test -f /etc/lite-nas/auth.conf
+		test -f /etc/lite-nas/system-metrics.conf
+		test -f /etc/lite-nas/system-metrics-cli.conf
+		test -f /etc/lite-nas/web-gateway.conf
 		test -f /etc/nginx/sites-available/lite-nas-web-gateway.conf
 		test -f /etc/default/ufw
 		test -f /etc/ufw/ufw.conf

@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/helpers/common.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/deploy/normalize-etc-permissions.sh"
 
-litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/liteNAS}"
+litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 certificate_dir="${LITE_NAS_NGINX_CERTIFICATE_DIR:-$litenas_config_dir/certificates/nginx}"
 certificate_days="${LITE_NAS_CERTIFICATE_DAYS:-825}"
 certificate_common_name="${LITE_NAS_NGINX_CERTIFICATE_COMMON_NAME:-lite-nas-web-gateway}"

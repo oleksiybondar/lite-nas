@@ -8,7 +8,6 @@ source "$ENTRYPOINT_DIR/deploy/lite-nas.sh"
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
 
 binary_path=""
-target_arch=""
 should_bootstrap=1
 
 while [ "$#" -gt 0 ]; do
@@ -21,10 +20,6 @@ while [ "$#" -gt 0 ]; do
 		fi
 		binary_path="$2"
 		shift 2
-		;;
-	--arch=amd64 | --arch=arm64)
-		target_arch="${1#--arch=}"
-		shift
 		;;
 	--skip-bootstrap)
 		should_bootstrap=0
@@ -52,9 +47,6 @@ if [ -z "$binary_path" ]; then
 
 	binary_path="$tmp_dir/system-metrics-cli"
 	build_args=("--output=$binary_path")
-	if [ -n "$target_arch" ]; then
-		build_args+=("--arch=$target_arch")
-	fi
 
 	log.pushTask "Building system-metrics-cli deploy artifact"
 	"$ENTRYPOINT_DIR/build-system-metrics-cli-binary.sh" "${build_args[@]}"

@@ -280,7 +280,7 @@ func TestPrintUsageWritesCLIUsage(t *testing.T) {
 
 	printUsage(&output)
 
-	want := "Usage: system-metrics-cli [--config=/etc/liteNAS/system-metrics-cli.conf] [--cpu] [--ram] [--history]\n"
+	want := "Usage: system-metrics-cli [--config=/etc/lite-nas/system-metrics-cli.conf] [--cpu] [--ram] [--history]\n"
 	if output.String() != want {
 		t.Fatalf("printUsage() output = %q, want %q", output.String(), want)
 	}

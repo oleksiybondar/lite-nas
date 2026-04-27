@@ -1,15 +1,15 @@
 [Unit]
-Description=LiteNAS web gateway service
+Description=LiteNAS system metrics service
 After=network-online.target nats-server.service
 Wants=network-online.target
 Requires=nats-server.service
 
 [Service]
 Type=simple
-User=@WEB_GATEWAY_RUNTIME_USER@
-Group=@WEB_GATEWAY_RUNTIME_GROUP@
-SupplementaryGroups=@WEB_GATEWAY_CONFIG_GROUP@
-ExecStart=@WEB_GATEWAY_BINARY@
+User=lite-nas-system-metrics
+Group=lite-nas-system-metrics
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/system-metrics
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/
@@ -34,8 +34,8 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0027
-ReadOnlyPaths=@WEB_GATEWAY_CONFIG_DIR@ @WEB_GATEWAY_SHARE_DIR@
-ReadWritePaths=@WEB_GATEWAY_LOG_FILE@
+ReadOnlyPaths=/etc/lite-nas /proc/stat /proc/meminfo
+ReadWritePaths=/var/lib/lite-nas/system-metrics.log
 StandardOutput=null
 StandardError=journal
 

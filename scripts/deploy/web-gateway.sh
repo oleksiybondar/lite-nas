@@ -11,12 +11,12 @@ readonly LITE_NAS_WEB_GATEWAY_RUNTIME_USER="${LITE_NAS_WEB_GATEWAY_RUNTIME_USER:
 readonly LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP="${LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP:-$LITE_NAS_WEB_GATEWAY_RUNTIME_USER}"
 readonly LITE_NAS_WEB_GATEWAY_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_WEB_GATEWAY_BINARY_TARGET="${LITE_NAS_WEB_GATEWAY_BINARY_TARGET:-/usr/libexec/lite-nas/web-gateway}"
-readonly LITE_NAS_WEB_GATEWAY_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/liteNAS}"
-readonly LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE="${LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/liteNAS/web-gateway.conf}"
+readonly LITE_NAS_WEB_GATEWAY_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
+readonly LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE="${LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/web-gateway.conf}"
 readonly LITE_NAS_WEB_GATEWAY_CONFIG_TARGET="${LITE_NAS_WEB_GATEWAY_CONFIG_TARGET:-$LITE_NAS_WEB_GATEWAY_CONFIG_DIR/web-gateway.conf}"
-readonly LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE="${LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/systemd/system/lite-nas-web-gateway.service}"
-readonly LITE_NAS_WEB_GATEWAY_UNIT_TARGET="${LITE_NAS_WEB_GATEWAY_UNIT_TARGET:-/lib/systemd/system/lite-nas-web-gateway.service}"
-readonly LITE_NAS_WEB_GATEWAY_LOG_DIR="${LITE_NAS_WEB_GATEWAY_LOG_DIR:-/var/log/liteNAS}"
+readonly LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE="${LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-web-gateway.service}"
+readonly LITE_NAS_WEB_GATEWAY_UNIT_TARGET="${LITE_NAS_WEB_GATEWAY_UNIT_TARGET:-/etc/systemd/system/lite-nas-web-gateway.service}"
+readonly LITE_NAS_WEB_GATEWAY_LOG_DIR="${LITE_NAS_WEB_GATEWAY_LOG_DIR:-/var/lib/lite-nas}"
 readonly LITE_NAS_WEB_GATEWAY_LOG_FILE="${LITE_NAS_WEB_GATEWAY_LOG_FILE:-$LITE_NAS_WEB_GATEWAY_LOG_DIR/web-gateway.log}"
 readonly LITE_NAS_WEB_GATEWAY_SHARE_ROOT="${LITE_NAS_WEB_GATEWAY_SHARE_ROOT:-/usr/share/lite-nas/web-gateway}"
 readonly LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="${LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE:-$LITE_NAS_REPO_ROOT/services/web-gateway/assets}"
@@ -27,7 +27,6 @@ Usage: scripts/deploy-web-gateway.sh [options]
 
 Options:
   --binary PATH       Install an existing binary instead of building one.
-  --arch=amd64|arm64  Build target architecture when --binary is not set.
   --no-start          Install files but do not enable or start the service.
   --skip-bootstrap    Install files without running LiteNAS bootstrap first.
   -h, --help          Show this help.
@@ -45,7 +44,6 @@ deploy.webGateway.requireTools() {
 		chown
 		realpath
 		rm
-		sed
 		systemctl
 		touch
 		useradd
@@ -166,7 +164,7 @@ deploy.webGateway.validateAssetsSource() {
 }
 
 deploy.webGateway.installLogTarget() {
-	install -d -m 0750 -o root -g "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_DIR"
+	install -d -m 0750 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_DIR"
 
 	if [ ! -f "$LITE_NAS_WEB_GATEWAY_LOG_FILE" ]; then
 		install -m 0640 -o "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" -g "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \
@@ -179,46 +177,13 @@ deploy.webGateway.installLogTarget() {
 	chmod 0640 "$LITE_NAS_WEB_GATEWAY_LOG_FILE"
 }
 
-deploy.webGateway.escapeSedReplacement() {
-	printf '%s' "$1" | sed -e 's/[&|]/\\&/g'
-}
-
 deploy.webGateway.installUnitFile() {
-	local binary_target
-	local config_dir
-	local config_group
-	local log_file
-	local runtime_group
-	local runtime_user
-	local share_dir
-	local rendered_unit
-
 	if [ ! -f "$LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE" ]; then
 		log.error "Missing systemd unit template: $LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE"
 		exit 1
 	fi
 
-	binary_target="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_BINARY_TARGET")"
-	config_dir="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_CONFIG_DIR")"
-	config_group="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP")"
-	log_file="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_LOG_FILE")"
-	runtime_group="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP")"
-	runtime_user="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER")"
-	share_dir="$(deploy.webGateway.escapeSedReplacement "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT")"
-
-	rendered_unit="$(mktemp)"
-	sed \
-		-e "s|@WEB_GATEWAY_BINARY@|$binary_target|g" \
-		-e "s|@WEB_GATEWAY_CONFIG_DIR@|$config_dir|g" \
-		-e "s|@WEB_GATEWAY_CONFIG_GROUP@|$config_group|g" \
-		-e "s|@WEB_GATEWAY_LOG_FILE@|$log_file|g" \
-		-e "s|@WEB_GATEWAY_RUNTIME_GROUP@|$runtime_group|g" \
-		-e "s|@WEB_GATEWAY_RUNTIME_USER@|$runtime_user|g" \
-		-e "s|@WEB_GATEWAY_SHARE_DIR@|$share_dir|g" \
-		"$LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE" >"$rendered_unit"
-
-	install -D -m 0644 "$rendered_unit" "$LITE_NAS_WEB_GATEWAY_UNIT_TARGET"
-	rm -f "$rendered_unit"
+	install -D -m 0644 "$LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE" "$LITE_NAS_WEB_GATEWAY_UNIT_TARGET"
 }
 
 deploy.webGateway.enableAndStart() {

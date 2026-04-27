@@ -1,15 +1,15 @@
 [Unit]
-Description=LiteNAS system metrics service
+Description=LiteNAS auth service
 After=network-online.target nats-server.service
 Wants=network-online.target
 Requires=nats-server.service
 
 [Service]
 Type=simple
-User=@SYSTEM_METRICS_RUNTIME_USER@
-Group=@SYSTEM_METRICS_RUNTIME_GROUP@
-SupplementaryGroups=@SYSTEM_METRICS_CONFIG_GROUP@
-ExecStart=@SYSTEM_METRICS_BINARY@
+User=root
+Group=root
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/auth-service
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/
@@ -34,8 +34,8 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0027
-ReadOnlyPaths=@SYSTEM_METRICS_CONFIG_DIR@ /proc/stat /proc/meminfo
-ReadWritePaths=@SYSTEM_METRICS_LOG_FILE@
+ReadOnlyPaths=/etc/lite-nas
+ReadWritePaths=/var/lib/lite-nas/auth-service.log
 StandardOutput=null
 StandardError=journal
 

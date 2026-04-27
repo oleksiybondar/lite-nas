@@ -91,6 +91,20 @@ deploy.normalizeNginx() {
 	log.popTask
 }
 
+deploy.normalizeSystemd() {
+	log.pushTask "Normalizing systemd unit permissions"
+	deploy.normalizePath 0755 "$systemd_dir" "$owner"
+	deploy.normalizePath 0755 "$systemd_system_dir" "$owner"
+
+	if [ -d "$systemd_system_dir" ]; then
+		while IFS= read -r -d '' unit_file; do
+			deploy.normalizePath 0644 "$unit_file" "$owner"
+		done < <(find "$systemd_system_dir" -maxdepth 1 -type f -name 'lite-nas-*.service' -print0)
+	fi
+
+	log.popTask
+}
+
 deploy.normalizeEtcPermissions() {
 	local target_dir="${1:-${LITE_NAS_ETC_TARGET:-/etc}}"
 	local owner="${LITE_NAS_ETC_OWNER:-root:root}"
@@ -100,7 +114,7 @@ deploy.normalizeEtcPermissions() {
 	local nats_main_config="$target_dir/nats-server.conf"
 	local nats_config_dir="$target_dir/nats-server"
 	local nats_certificate_dir="$nats_config_dir/certificates"
-	local litenas_config_dir="$target_dir/liteNAS"
+	local litenas_config_dir="$target_dir/lite-nas"
 	local litenas_certificates_dir="$litenas_config_dir/certificates"
 	local litenas_ca_cert="$litenas_certificates_dir/root-ca.crt"
 	local default_dir="$target_dir/default"
@@ -110,6 +124,8 @@ deploy.normalizeEtcPermissions() {
 	local nginx_config_dir="$target_dir/nginx"
 	local nginx_sites_available_dir="$nginx_config_dir/sites-available"
 	local nginx_sites_enabled_dir="$nginx_config_dir/sites-enabled"
+	local systemd_dir="$target_dir/systemd"
+	local systemd_system_dir="$systemd_dir/system"
 	local config_file
 	local certificate_file
 	local identity_dir
@@ -135,4 +151,5 @@ deploy.normalizeEtcPermissions() {
 	deploy.normalizeLiteNAS
 	deploy.normalizeUFW
 	deploy.normalizeNginx
+	deploy.normalizeSystemd
 }

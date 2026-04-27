@@ -106,10 +106,9 @@ Build an installable Linux binary artifact for the local machine architecture:
 ./scripts/build-system-metrics-binary.sh
 ```
 
-Override the target architecture or output path when needed:
+Override the output path when needed:
 
 ```bash
-./scripts/build-system-metrics-binary.sh --arch=arm64
 ./scripts/build-system-metrics-binary.sh --output=/tmp/system-metrics
 ```
 
@@ -122,16 +121,15 @@ The default output path is:
 ## Build the system-metrics CLI binary
 
 Build the read-only NATS client used to request the latest snapshot or the
-snapshot history:
+snapshot history for the local machine architecture:
 
 ```bash
 ./scripts/build-system-metrics-cli-binary.sh
 ```
 
-Override the target architecture or output path when needed:
+Override the output path when needed:
 
 ```bash
-./scripts/build-system-metrics-cli-binary.sh --arch=arm64
 ./scripts/build-system-metrics-cli-binary.sh --output=/tmp/system-metrics-cli
 ```
 
@@ -144,7 +142,7 @@ The default output path is:
 The default client config template is deployed to:
 
 ```text
-/etc/liteNAS/system-metrics-cli.conf
+/etc/lite-nas/system-metrics-cli.conf
 ```
 
 Usage:
@@ -186,7 +184,7 @@ Install an already-built binary instead of building during deployment:
 sudo ./scripts/deploy-system-metrics.sh --binary /tmp/system-metrics
 ```
 
-To validate file installation and unit rendering without starting the service:
+To validate file installation and unit deployment without starting the service:
 
 ```bash
 sudo ./scripts/deploy-system-metrics.sh --no-start
@@ -195,17 +193,15 @@ sudo ./scripts/deploy-system-metrics.sh --no-start
 By default, the deployment uses:
 
 - binary path `/usr/libexec/lite-nas/system-metrics`
-- config path `/etc/liteNAS/system-metrics.conf`
-- log path `/var/log/liteNAS/system-metrics.log`
+- config path `/etc/lite-nas/system-metrics.conf`
+- log path `/var/lib/lite-nas/system-metrics.log`
 - systemd service `lite-nas-system-metrics.service`
 - runtime user `lite-nas-system-metrics`
 - runtime group `lite-nas-system-metrics`
 - supplementary config group `lite-nas`
 
-The installed systemd unit is rendered from a template. Placeholder values such
-as `@SYSTEM_METRICS_RUNTIME_USER@` are not used literally on the machine; the
-deploy script replaces them with the configured runtime values before writing
-the final unit file under `/lib/systemd/system/`.
+The installed systemd unit is deployed under `/etc/systemd/system/` with the
+repository-managed LiteNAS defaults.
 
 ## Build Debian packages
 
@@ -215,30 +211,30 @@ Build the current LiteNAS package set:
 ./scripts/package/build-all-debs.sh --version=0.1.0+local
 ```
 
-Build the architecture-specific LiteNAS package directly when needed:
+Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
-./scripts/package/build-lite-nas-deb.sh --arch=arm64 --version=0.1.0+local
-./scripts/package/build-lite-nas-deb.sh --arch=amd64 --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
+./scripts/package/build-lite-nas-deb.sh --version=0.1.0+local
+./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
 ```
 
-The package output currently contains one architecture-specific package:
+The package output currently contains one native-architecture package:
 
 - `lite-nas`: bootstrap/profile package that also bundles the system metrics service and CLI binaries
 
 The `lite-nas` package:
 
-- depends on `zfsutils-linux`, `nats-server`, `openssl`, and `systemd`
+- depends on `libpam0g`, `zfsutils-linux`, `nats-server`, `openssl`, and `systemd`
 - recommends future hardening packages such as `aide`, `clamav`, `ufw`, and `usbguard`
 - shows a GPLv3 notice during installation
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration
 - rotates or creates NATS certificates only when one or more expected files are missing or stale
-- stores the shared CA under `/etc/liteNAS/certificates/root-ca.crt`
-- stores service certificates under `/etc/liteNAS/certificates/<service>/`
+- stores the shared CA under `/etc/lite-nas/certificates/root-ca.crt`
+- stores service certificates under `/etc/lite-nas/certificates/<service>/`
 
-The `lite-nas` package installs the system metrics service and CLI app under
-that profile.
+The `lite-nas` package installs the auth service, system metrics service,
+system metrics CLI app, and web gateway under that profile.
 
 Install a built package with dependency resolution:
 
@@ -271,6 +267,8 @@ By default, client certificates are generated for:
 ```text
 lite-nas-system-metrics
 lite-nas-system-metrics-cli
+lite-nas-web-gateway
+lite-nas-auth-service
 ```
 
 Override the list with repeated `--user` options:
@@ -281,8 +279,8 @@ sudo ./scripts/rotate-nats-certificates.sh --user lite-nas-system-metrics --user
 
 The script stores NATS server CA and server certificate material under
 `/etc/nats-server/certificates`, the shared LiteNAS CA under
-`/etc/liteNAS/certificates`, and service client certificate material under
-`/etc/liteNAS/certificates/<service>/`.
+`/etc/lite-nas/certificates`, and service client certificate material under
+`/etc/lite-nas/certificates/<service>/`.
 
 ## Git hooks
 

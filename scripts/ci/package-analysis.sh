@@ -51,20 +51,18 @@ if command -v nats-server >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1;
 fi
 
 if command -v systemd-analyze >/dev/null 2>&1; then
-	log.pushTask "Validating systemd unit template"
+	log.pushTask "Validating systemd units"
 	if [ -z "${tmp_dir:-}" ]; then
 		tmp_dir="$(mktemp -d)"
 		trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
 	fi
-	sed \
-		-e 's|@SYSTEM_METRICS_BINARY@|/bin/true|g' \
-		-e 's|@SYSTEM_METRICS_CONFIG_DIR@|/etc/liteNAS|g' \
-		-e 's|@SYSTEM_METRICS_CONFIG_GROUP@|lite-nas|g' \
-		-e 's|@SYSTEM_METRICS_LOG_FILE@|/var/log/liteNAS/system-metrics.log|g' \
-		-e 's|@SYSTEM_METRICS_RUNTIME_GROUP@|lite-nas-system-metrics|g' \
-		-e 's|@SYSTEM_METRICS_RUNTIME_USER@|lite-nas-system-metrics|g' \
-		configs/systemd/system/lite-nas-system-metrics.service >"$tmp_dir/lite-nas-system-metrics.service"
-	systemd-analyze verify "$tmp_dir/lite-nas-system-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-auth.service "$tmp_dir/lite-nas-auth.service"
+	cp configs/etc/systemd/system/lite-nas-system-metrics.service "$tmp_dir/lite-nas-system-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-web-gateway.service "$tmp_dir/lite-nas-web-gateway.service"
+	systemd-analyze verify \
+		"$tmp_dir/lite-nas-auth.service" \
+		"$tmp_dir/lite-nas-system-metrics.service" \
+		"$tmp_dir/lite-nas-web-gateway.service"
 	log.popTask
 fi
 

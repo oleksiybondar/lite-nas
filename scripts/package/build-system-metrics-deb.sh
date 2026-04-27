@@ -8,7 +8,6 @@ source "$SCRIPT_DIR/../helpers/common.sh"
 cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas-system-metrics"
-package_arch=""
 package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
 binary_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
@@ -20,7 +19,6 @@ usage() {
 Usage: scripts/package/build-system-metrics-deb.sh [options]
 
 Options:
-  --arch=amd64|arm64  Debian package architecture to build.
   --version=VERSION   Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or 0.1.0.
   --binary PATH       Use an existing system-metrics binary.
   --output-dir PATH   Directory where the package and build root will be written.
@@ -30,12 +28,6 @@ MSG
 
 for arg in "$@"; do
 	case "$arg" in
-	--arch=amd64)
-		package_arch="amd64"
-		;;
-	--arch=arm64)
-		package_arch="arm64"
-		;;
 	--version=*)
 		package_version="${arg#--version=}"
 		;;
@@ -57,19 +49,14 @@ for arg in "$@"; do
 	esac
 done
 
-if [ -z "$package_arch" ]; then
-	log.error "Missing required option: --arch=amd64|arm64"
-	usage >&2
-	exit 64
-fi
-
 log.requireCommand "dpkg-deb" "Install dpkg-deb and retry."
 log.requireCommand "gzip" "Install gzip and retry."
+
+package_arch="$(dpkg --print-architecture)"
 
 if [ -z "$binary_path" ]; then
 	binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
-		"--arch=${package_arch}" \
 		"--output=${binary_path}"
 fi
 

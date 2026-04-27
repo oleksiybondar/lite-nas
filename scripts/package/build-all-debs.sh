@@ -17,5 +17,4 @@ done
 
 common_args=("$@")
 
-"$SCRIPT_DIR/build-lite-nas-deb.sh" --arch=amd64 "${common_args[@]}"
-"$SCRIPT_DIR/build-lite-nas-deb.sh" --arch=arm64 "${common_args[@]}"
+"$SCRIPT_DIR/build-lite-nas-deb.sh" "${common_args[@]}"
