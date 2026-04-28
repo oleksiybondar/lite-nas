@@ -1,10 +1,10 @@
 package config
 
 import (
-	"errors"
 	"testing"
 	"time"
 
+	"lite-nas/shared/testutil/configtest"
 	"lite-nas/shared/testutil/fileiotest"
 	"lite-nas/shared/testutil/testcasetest"
 )
@@ -13,11 +13,7 @@ import (
 func TestLoadConfigReturnsReaderError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("read failed")
-
-	if _, err := LoadConfig(fileiotest.Reader{Err: expectedErr}); !errors.Is(err, expectedErr) {
-		t.Fatalf("LoadConfig() error = %v, want %v", err, expectedErr)
-	}
+	configtest.RunReaderErrorCase(t, LoadConfig)
 }
 
 // Requirements: auth-service/OR-002

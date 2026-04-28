@@ -58,38 +58,53 @@ func TestNewHandlerRejectsMissingDependencies(t *testing.T) {
 	}
 }
 
-func TestHandlerHandleReturnsFormatterError(t *testing.T) {
+func TestHandlerHandleReturnsExpectedError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("format failed")
-	handler := newFormatterErrorHandler(t, expectedErr)
+	formatterErr := errors.New("format failed")
+	writerErr := errors.New("write failed")
 
-	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-	if err := handler.Handle(context.Background(), record); !errors.Is(err, expectedErr) {
-		t.Fatalf("Handle() error = %v, want %v", err, expectedErr)
+	testCases := []struct {
+		name    string
+		build   func(*testing.T) *Handler
+		wantErr error
+	}{
+		{
+			name: "formatter error",
+			build: func(t *testing.T) *Handler {
+				t.Helper()
+				return newFormatterErrorHandler(t, formatterErr)
+			},
+			wantErr: formatterErr,
+		},
+		{
+			name: "short write",
+			build: func(t *testing.T) *Handler {
+				t.Helper()
+				return newShortWriteHandler(t)
+			},
+			wantErr: io.ErrShortWrite,
+		},
+		{
+			name: "writer error",
+			build: func(t *testing.T) *Handler {
+				t.Helper()
+				return newWriterErrorHandler(t, writerErr)
+			},
+			wantErr: writerErr,
+		},
 	}
-}
 
-func TestHandlerHandleReturnsShortWrite(t *testing.T) {
-	t.Parallel()
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-	handler := newShortWriteHandler(t)
-
-	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-	if err := handler.Handle(context.Background(), record); !errors.Is(err, io.ErrShortWrite) {
-		t.Fatalf("Handle() error = %v, want %v", err, io.ErrShortWrite)
-	}
-}
-
-func TestHandlerHandleReturnsWriterError(t *testing.T) {
-	t.Parallel()
-
-	expectedErr := errors.New("write failed")
-	handler := newWriterErrorHandler(t, expectedErr)
-
-	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-	if err := handler.Handle(context.Background(), record); !errors.Is(err, expectedErr) {
-		t.Fatalf("Handle() error = %v, want %v", err, expectedErr)
+			handler := testCase.build(t)
+			record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
+			if err := handler.Handle(context.Background(), record); !errors.Is(err, testCase.wantErr) {
+				t.Fatalf("Handle() error = %v, want %v", err, testCase.wantErr)
+			}
+		})
 	}
 }
 

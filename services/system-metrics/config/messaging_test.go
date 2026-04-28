@@ -1,10 +1,10 @@
 package config
 
 import (
-	"errors"
 	"testing"
 	"time"
 
+	"lite-nas/shared/testutil/configtest"
 	"lite-nas/shared/testutil/fileiotest"
 	"lite-nas/shared/testutil/testcasetest"
 )
@@ -12,11 +12,7 @@ import (
 func TestLoadConfigReturnsReaderError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("read failed")
-
-	if _, err := LoadConfig(fileiotest.Reader{Err: expectedErr}); !errors.Is(err, expectedErr) {
-		t.Fatalf("LoadConfig() error = %v, want %v", err, expectedErr)
-	}
+	configtest.RunReaderErrorCase(t, LoadConfig)
 }
 
 func TestLoadConfigMetricsFields(t *testing.T) {
@@ -60,31 +56,25 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 func TestLoadConfigRejectsInvalidMetricsValues(t *testing.T) {
 	t.Parallel()
 
-	reader := fileiotest.Reader{
-		Data: []byte("[metrics]\npoll_interval=nope\nhistory_size=10\n"),
-	}
-
-	if _, err := LoadConfig(reader); err == nil {
-		t.Fatal("expected invalid metrics error")
-	}
+	configtest.RunRejectsInvalidConfigCase(
+		t,
+		LoadConfig,
+		"[metrics]\npoll_interval=nope\nhistory_size=10\n",
+	)
 }
 
 func TestLoadConfigRejectsInvalidLoggingValues(t *testing.T) {
 	t.Parallel()
 
-	reader := fileiotest.Reader{
-		Data: []byte(
-			"[metrics]\n" +
-				"poll_interval=1s\n" +
-				"history_size=10\n" +
-				"[logging]\n" +
-				"output=file\n",
-		),
-	}
-
-	if _, err := LoadConfig(reader); err == nil {
-		t.Fatal("expected invalid logging error")
-	}
+	configtest.RunRejectsInvalidConfigCase(
+		t,
+		LoadConfig,
+		"[metrics]\n"+
+			"poll_interval=1s\n"+
+			"history_size=10\n"+
+			"[logging]\n"+
+			"output=file\n",
+	)
 }
 
 func loadConfigFixture(t *testing.T) Config {

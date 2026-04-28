@@ -1,10 +1,10 @@
 package config
 
 import (
-	"errors"
 	"testing"
 	"time"
 
+	"lite-nas/shared/testutil/configtest"
 	"lite-nas/shared/testutil/fileiotest"
 	"lite-nas/shared/testutil/testcasetest"
 )
@@ -13,11 +13,7 @@ import (
 func TestLoadConfigReturnsReaderError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("read failed")
-
-	if _, err := LoadConfig(fileiotest.Reader{Err: expectedErr}); !errors.Is(err, expectedErr) {
-		t.Fatalf("LoadConfig() error = %v, want %v", err, expectedErr)
-	}
+	configtest.RunReaderErrorCase(t, LoadConfig)
 }
 
 // Requirements: web-gateway/OR-001
@@ -64,31 +60,25 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 func TestLoadConfigRejectsInvalidHTTPValues(t *testing.T) {
 	t.Parallel()
 
-	reader := fileiotest.Reader{
-		Data: []byte("[http]\naddress=   \n"),
-	}
-
-	if _, err := LoadConfig(reader); err == nil {
-		t.Fatal("expected invalid http error")
-	}
+	configtest.RunRejectsInvalidConfigCase(
+		t,
+		LoadConfig,
+		"[http]\naddress=   \n",
+	)
 }
 
 // Requirements: web-gateway/OR-001
 func TestLoadConfigRejectsInvalidLoggingValues(t *testing.T) {
 	t.Parallel()
 
-	reader := fileiotest.Reader{
-		Data: []byte(
-			"[http]\n" +
-				"address=127.0.0.1:9191\n" +
-				"[logging]\n" +
-				"output=file\n",
-		),
-	}
-
-	if _, err := LoadConfig(reader); err == nil {
-		t.Fatal("expected invalid logging error")
-	}
+	configtest.RunRejectsInvalidConfigCase(
+		t,
+		LoadConfig,
+		"[http]\n"+
+			"address=127.0.0.1:9191\n"+
+			"[logging]\n"+
+			"output=file\n",
+	)
 }
 
 func loadConfigFixture(t *testing.T) Config {
