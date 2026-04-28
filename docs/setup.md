@@ -364,6 +364,18 @@ Run shell analysis:
 ./scripts/ci/shell-analysis.sh
 ```
 
+Run repo-wide Go duplication analysis:
+
+```bash
+./scripts/ci/go-duplication-analysis.sh
+```
+
+Run repo-wide shell duplication analysis:
+
+```bash
+./scripts/ci/bash-duplication-analysis.sh
+```
+
 ## CI scripts
 
 Reusable CI scripts live in `scripts/ci/`.
@@ -373,6 +385,8 @@ Analysis scripts are shared by local on-demand checks and GitHub Actions:
 - `github-actions-analysis.sh`
 - `markdown-analysis.sh`
 - `shell-analysis.sh`
+- `go-duplication-analysis.sh`
+- `bash-duplication-analysis.sh`
 - `js-ts-analysis.sh`
 - `go-analysis.sh`
 
@@ -391,9 +405,9 @@ scripts work from any launch path.
 
 ## CI static analysis
 
-GitHub Actions runs separate static analysis jobs for Markdown, shell, JS/TS,
-Go, and GitHub Actions workflows. Jobs explicitly pass when no matching files
-or Go modules exist.
+GitHub Actions runs separate static analysis jobs for Markdown, shell, Go
+duplication, shell duplication, JS/TS, Go, and GitHub Actions workflows. Jobs
+explicitly pass when no matching files or Go modules exist.
 
 CI workflow order:
 
@@ -425,6 +439,10 @@ protection rules, GitHub will run the stub without pausing.
 
 Duplication policy:
 
-- Go duplication is enforced by `golangci-lint` using `dupl`.
+- Repo-wide Go duplication is enforced by `jscpd`, which scans the repository
+  as a single tree rather than respecting `go.mod` boundaries.
+- Repo-wide shell duplication is enforced by `jscpd`.
+- Go duplication is also enforced inside individual Go modules by
+  `golangci-lint` using `dupl`.
 - JS/TS duplication is enforced by `jscpd` in CI only.
 - JS/TS duplication is not part of pre-commit hooks.

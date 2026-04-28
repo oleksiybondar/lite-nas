@@ -1,17 +1,16 @@
 package routes
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"lite-nas/services/web-gateway/controllers"
 	"lite-nas/services/web-gateway/modules"
 	"lite-nas/services/web-gateway/services"
+	webtest "lite-nas/services/web-gateway/testutil"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/metrics"
 )
@@ -152,20 +151,13 @@ func TestRouterLoginReturnsCookies(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(nil)
-	body := []byte(`{"login":"john.doe","password":"pass"}`)
-	request := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(body))
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
+	recorder := webtest.ServeRequest(
+		handler,
+		webtest.NewRequest(http.MethodPost, "/auth/login", []byte(`{"login":"john.doe","password":"pass"}`)),
+	)
 
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
-
-	if len(recorder.Result().Cookies()) != 2 {
-		t.Fatalf("cookie count = %d, want 2", len(recorder.Result().Cookies()))
-	}
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+	webtest.AssertCookieCount(t, recorder, 2)
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
@@ -173,47 +165,23 @@ func TestRouterProtectedAuthEndpointRejectsMissingToken(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/auth/me", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
 }
 
 func assertStaticRouteResponse(t *testing.T, handler http.Handler, path string, wantContentType string) {
 	t.Helper()
 
-	request := httptest.NewRequest(http.MethodGet, path, nil)
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
-
-	if got := recorder.Header().Get("Content-Type"); got != wantContentType {
-		t.Fatalf("Content-Type = %q, want %q", got, wantContentType)
-	}
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, path, nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+	webtest.AssertContentType(t, recorder, wantContentType)
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
 func TestRouterProtectedAuthEndpointAcceptsAccessTokenCookie(t *testing.T) {
 	t.Parallel()
 
-	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
-	request.AddCookie(&http.Cookie{Name: services.AccessTokenCookieName, Value: "AT-cookie"})
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/auth/me", nil, http.StatusOK)
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
@@ -221,31 +189,19 @@ func TestRouterRefreshRejectsMissingRefreshToken(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodPost, "/auth/refresh", bytes.NewReader([]byte(`{}`)))
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodPost, "/auth/refresh", []byte(`{}`)))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
 func TestRouterLogoutAcceptsRefreshTokenPayload(t *testing.T) {
 	t.Parallel()
 
-	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodPost, "/auth/logout", bytes.NewReader([]byte(`{"refresh_token":"RT-logout"}`)))
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(
+		routerFixture(nil),
+		webtest.NewRequest(http.MethodPost, "/auth/logout", []byte(`{"refresh_token":"RT-logout"}`)),
+	)
+	webtest.AssertStatus(t, recorder, http.StatusOK)
 }
 
 // Requirements: web-gateway/FR-003, web-gateway/TR-001
@@ -253,30 +209,15 @@ func TestRouterSystemMetricsHistoryRequiresAuthentication(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodGet, "/system-metrics/history", nil)
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/system-metrics/history", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
 }
 
 // Requirements: web-gateway/FR-003, web-gateway/TR-001
 func TestRouterSystemMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	t.Parallel()
 
-	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodGet, "/system-metrics/history", nil)
-	request.AddCookie(&http.Cookie{Name: services.AccessTokenCookieName, Value: "AT-cookie"})
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/system-metrics/history", nil, http.StatusOK)
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
@@ -284,15 +225,8 @@ func TestRouterMapsUnauthorizedAuthServiceError(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(routeAuthService{meErr: services.ErrUnauthorized})
-	request := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
-	request.AddCookie(&http.Cookie{Name: services.AccessTokenCookieName, Value: "AT-cookie"})
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(http.MethodGet, "/auth/me", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
 }
 
 // Requirements: web-gateway/TR-001
@@ -300,15 +234,11 @@ func TestRouterMapsUnexpectedAuthServiceError(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(routeAuthService{refreshErr: errors.New("boom")})
-	request := httptest.NewRequest(http.MethodPost, "/auth/refresh", bytes.NewReader([]byte(`{"refresh_token":"RT-refresh"}`)))
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(
+		handler,
+		webtest.NewRequest(http.MethodPost, "/auth/refresh", []byte(`{"refresh_token":"RT-refresh"}`)),
+	)
+	webtest.AssertStatus(t, recorder, http.StatusInternalServerError)
 }
 
 // Requirements: web-gateway/IR-001
@@ -316,12 +246,20 @@ func TestRouterExposesOpenAPIDocs(t *testing.T) {
 	t.Parallel()
 
 	handler := routerFixture(nil)
-	request := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
-	recorder := httptest.NewRecorder()
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/openapi.json", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
 
-	handler.ServeHTTP(recorder, request)
+func assertAuthenticatedRouteStatus(
+	t *testing.T,
+	handler http.Handler,
+	method string,
+	path string,
+	body []byte,
+	wantStatus int,
+) {
+	t.Helper()
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
+	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(method, path, body))
+	webtest.AssertStatus(t, recorder, wantStatus)
 }

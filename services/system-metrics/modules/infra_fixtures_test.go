@@ -3,21 +3,20 @@ package modules
 import (
 	serviceconfig "lite-nas/services/system-metrics/config"
 	sharedlogger "lite-nas/shared/logger"
+	sharedmodules "lite-nas/shared/modules"
+	"lite-nas/shared/testutil/messagingtest"
 )
 
-func loadInfraFixture() (Infra, *recordingMessagingClient, *recordingMessagingServer, *int) {
-	client := &recordingMessagingClient{}
-	server := &recordingMessagingServer{}
-	log := sharedlogger.NewNop()
-	cleanupCalls := 0
+func loadInfraFixture() (Infra, *messagingtest.RecordingClient, *messagingtest.RecordingServer, *int) {
+	client := &messagingtest.RecordingClient{}
+	server := &messagingtest.RecordingServer{}
 
 	return Infra{
-		Config: serviceconfig.Config{},
-		Logger: log,
-		logCleanup: func() {
-			cleanupCalls++
+		CoreInfra: sharedmodules.CoreInfra{
+			Logger: sharedlogger.NewNop(),
+			Client: client,
+			Server: server,
 		},
-		Client: client,
-		Server: server,
-	}, client, server, &cleanupCalls
+		Config: serviceconfig.Config{},
+	}, client, server, nil
 }

@@ -21,3 +21,9 @@ source "$COMMON_DIR/sudo-guard.sh"
 source "$COMMON_DIR/tool-paths.sh"
 # shellcheck disable=SC1091
 source "$COMMON_DIR/go-modules.sh"
+# shellcheck disable=SC1091
+source "$COMMON_DIR/args.sh"
+# shellcheck disable=SC1091
+source "$COMMON_DIR/build.sh"
+# shellcheck disable=SC1091
+source "$COMMON_DIR/packaging.sh"

@@ -30,6 +30,11 @@ The working format and guidance are documented in
   packaging stages.
 - Planned NATS configuration updates required for the web-facing slice.
 - Planned service hardening updates needed to support the next platform stage.
+- Added repo-wide duplication enforcement for Go and shell code, including
+  cross-module detection instead of relying only on per-module checks.
+- Established a repository testing discipline that moves repeated setup into
+  shared `testutil`, subproject-local `testutil`, and package-local fixtures
+  rather than allowing test-only duplication to accumulate.
 
 ### RL-0.1.1 Notes
 

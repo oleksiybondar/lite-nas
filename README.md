@@ -512,9 +512,16 @@ The repository already emphasizes code quality, consistency, and maintainability
 - Linting and formatting rules are defined from the start
 - Automated checks are integrated into development workflows
 - CI pipelines enforce analysis, build, test, and package validation
+- Repo-wide duplication checks are enforced for Go and shell code rather than
+  only within individual language-module boundaries
 
 A target level of test coverage is used to help ensure reliability and reduce the risk of
 regressions.
+
+The repository also treats test duplication as real maintenance debt. Repeated
+test setup is expected to move into named helpers, fixture builders, and
+`testutil` packages when reuse crosses package, subproject, or module
+boundaries.
 
 ### Iterative Development
 

@@ -55,6 +55,9 @@ branch or otherwise provides a pushed source branch.
 - Report validation performed and any commands that could not be run.
 - When tests repeat the same setup within a package, prefer package-local
   fixtures and helper files instead of copying the setup into each test.
+- Treat test duplication as repository-wide maintenance debt, not as a
+  package-local issue only. Reuse that crosses Go module boundaries should move
+  into shared test helpers instead of being copied.
 
 ## Tooling Conventions
 
@@ -81,6 +84,9 @@ branch or otherwise provides a pushed source branch.
 - Prefer dedicated repository scripts for coordinated version or release-note
   maintenance work when such scripts exist, rather than editing many related
   files manually.
+- Prefer `./scripts/ci/go-duplication-analysis.sh` and
+  `./scripts/ci/bash-duplication-analysis.sh` when validating repo-wide
+  duplication changes locally.
 
 ## Project Conventions
 
@@ -90,6 +96,9 @@ branch or otherwise provides a pushed source branch.
   different style for the current task.
 - This includes requirement-traceable tests when requirement documents exist;
   use source-qualified IDs such as `system-metrics-svc/FR-001`.
+- Follow the repository testing split for helper placement:
+  - package-local or subproject-local `testutil` for local reuse
+  - `shared/go/testutil/...` only for cross-module reusable testing primitives
 - Follow the release-note format documented in
   [docs/release-notes.md](docs/release-notes.md)
   when the task involves preparing or updating release-facing documentation.

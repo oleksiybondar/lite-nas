@@ -39,6 +39,38 @@ jobs:
       - name: Run shellcheck and shfmt
         run: scripts/ci/shell-analysis.sh
 
+  go-duplication-analysis:
+    name: Go duplication analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run repo-wide Go duplication analysis
+        run: scripts/ci/go-duplication-analysis.sh
+
+  bash-duplication-analysis:
+    name: Shell duplication analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run repo-wide shell duplication analysis
+        run: scripts/ci/bash-duplication-analysis.sh
+
   package-analysis:
     name: Package analysis
     runs-on: ubuntu-latest

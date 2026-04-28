@@ -5,17 +5,13 @@ import (
 	"strings"
 )
 
-var (
-	errMissingServiceName = errors.New("pam service name is required")
-	errPAMUnavailable     = errors.New("pam support is not compiled in")
-)
+var errMissingServiceName = errors.New("pam service name is required")
 
 // OutcomeCode identifies the stable auth outcome exposed by the service layer.
 type OutcomeCode string
 
 const (
 	OutcomeAuthenticated        OutcomeCode = "authenticated"
-	OutcomeInvalidCredentials   OutcomeCode = "invalid_credentials"
 	OutcomePasswordChangeNeeded OutcomeCode = "password_change_required"
 	OutcomeDenied               OutcomeCode = "denied"
 	OutcomeServiceUnavailable   OutcomeCode = "service_unavailable"

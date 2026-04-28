@@ -32,42 +32,49 @@ Options:
 MSG
 }
 
-for arg in "$@"; do
-	case "$arg" in
-	--version=*)
-		package_version="${arg#--version=}"
-		;;
-	--auth-service-binary=*)
-		auth_service_binary_path="${arg#--auth-service-binary=}"
-		;;
-	--system-metrics-binary=*)
-		system_metrics_binary_path="${arg#--system-metrics-binary=}"
-		;;
-	--system-metrics-cli-binary=*)
-		system_metrics_cli_binary_path="${arg#--system-metrics-cli-binary=}"
-		;;
-	--web-gateway-binary=*)
-		web_gateway_binary_path="${arg#--web-gateway-binary=}"
-		;;
-	--output-dir=*)
-		output_dir="${arg#--output-dir=}"
-		;;
-	-h | --help)
-		usage
-		exit 0
-		;;
-	*)
-		log.error "Unknown option: $arg"
-		usage >&2
-		exit 64
-		;;
-	esac
-done
+args.parse "$@"
+if ! args.assertKnown version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary output-dir help h | head -n 1)"
+	usage >&2
+	exit 64
+fi
+if args.has h || args.has help; then
+	usage
+	exit 0
+fi
+if args.has version && ! package_version="$(args.require_arg version)"; then
+	log.error "Missing value for --version"
+	usage >&2
+	exit 64
+fi
+if args.has auth-service-binary && ! auth_service_binary_path="$(args.require_arg auth-service-binary)"; then
+	log.error "Missing value for --auth-service-binary"
+	usage >&2
+	exit 64
+fi
+if args.has system-metrics-binary && ! system_metrics_binary_path="$(args.require_arg system-metrics-binary)"; then
+	log.error "Missing value for --system-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has system-metrics-cli-binary && ! system_metrics_cli_binary_path="$(args.require_arg system-metrics-cli-binary)"; then
+	log.error "Missing value for --system-metrics-cli-binary"
+	usage >&2
+	exit 64
+fi
+if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg web-gateway-binary)"; then
+	log.error "Missing value for --web-gateway-binary"
+	usage >&2
+	exit 64
+fi
+if args.has output-dir && ! output_dir="$(args.require_arg output-dir)"; then
+	log.error "Missing value for --output-dir"
+	usage >&2
+	exit 64
+fi
 
-log.requireCommand "dpkg-deb" "Install dpkg-deb and retry."
-log.requireCommand "gzip" "Install gzip and retry."
-
-package_arch="$(dpkg --print-architecture)"
+package.requireBuildCommands
+package_arch="$(package.resolveArchitecture)"
 
 if [ -z "$auth_service_binary_path" ]; then
 	auth_service_binary_path="$output_dir/${package_name}-${package_arch}/auth-service"
@@ -116,48 +123,25 @@ fi
 package_root="$output_dir/${package_name}_${package_version}_${package_arch}.root"
 deb_path="$output_dir/${package_name}_${package_version}_${package_arch}.deb"
 
-rm -rf "$package_root"
-mkdir -p "$package_root/DEBIAN"
-
-render_template() {
-	local template_path="$1"
-	local destination_path="$2"
-
-	sed \
-		-e "s|@PACKAGE_ARCH@|$package_arch|g" \
-		-e "s|@PACKAGE_VERSION@|$package_version|g" \
-		"$template_path" >"$destination_path"
-}
-
-copy_tree() {
-	local source_dir="$1"
-	local destination_dir="$2"
-
-	mkdir -p "$destination_dir"
-	cp -a "$source_dir/." "$destination_dir/"
-}
-
 log.pushTask "Preparing Debian package root for ${package_name} ${package_version} (${package_arch})"
-render_template "$package_template_dir/DEBIAN/control.in" "$package_root/DEBIAN/control"
+package.prepareMetadata \
+	"$package_arch" \
+	"$package_version" \
+	"$package_template_dir" \
+	"$package_root"
 cp "$package_template_dir/DEBIAN/templates" "$package_root/DEBIAN/templates"
-cp "$package_template_dir/DEBIAN/config" "$package_root/DEBIAN/config"
-cp "$package_template_dir/DEBIAN/postinst" "$package_root/DEBIAN/postinst"
-cp "$package_template_dir/DEBIAN/prerm" "$package_root/DEBIAN/prerm"
-cp "$package_template_dir/DEBIAN/postrm" "$package_root/DEBIAN/postrm"
-chmod 0755 \
-	"$package_root/DEBIAN/config" \
-	"$package_root/DEBIAN/postinst" \
-	"$package_root/DEBIAN/prerm" \
-	"$package_root/DEBIAN/postrm"
+for maintainer_script in config postinst prerm postrm; do
+	package.installMaintainerScript "$package_template_dir" "$package_root" "$maintainer_script"
+done
 
-copy_tree "$package_template_dir/usr/share" "$package_root/usr/share"
+package.copyTree "$package_template_dir/usr/share" "$package_root/usr/share"
 gzip -n -9 "$package_root/usr/share/doc/$package_name/changelog.Debian"
 mv "$package_root/usr/share/doc/$package_name/changelog.Debian.gz" \
 	"$package_root/usr/share/doc/$package_name/changelog.gz"
 
-copy_tree "$LITE_NAS_REPO_ROOT/configs" "$package_root/usr/libexec/lite-nas/configs"
-copy_tree "$LITE_NAS_REPO_ROOT/scripts/helpers" "$package_root/usr/libexec/lite-nas/scripts/helpers"
-copy_tree "$LITE_NAS_REPO_ROOT/scripts/deploy" "$package_root/usr/libexec/lite-nas/scripts/deploy"
+package.copyTree "$LITE_NAS_REPO_ROOT/configs" "$package_root/usr/libexec/lite-nas/configs"
+package.copyTree "$LITE_NAS_REPO_ROOT/scripts/helpers" "$package_root/usr/libexec/lite-nas/scripts/helpers"
+package.copyTree "$LITE_NAS_REPO_ROOT/scripts/deploy" "$package_root/usr/libexec/lite-nas/scripts/deploy"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-lite-nas.sh" \
@@ -184,7 +168,7 @@ install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
-copy_tree "$LITE_NAS_REPO_ROOT/services/web-gateway/assets" \
+package.copyTree "$LITE_NAS_REPO_ROOT/services/web-gateway/assets" \
 	"$package_root/usr/libexec/lite-nas/services/web-gateway/assets"
 
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
@@ -207,14 +191,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
-(
-	cd "$package_root"
-	while IFS= read -r -d '' file; do
-		printf '%s  %s\n' \
-			"$(md5sum "$file" | awk '{print $1}')" \
-			"${file#./}"
-	done < <(find . -path './DEBIAN' -prune -o -type f -print0 | LC_ALL=C sort -z) >DEBIAN/md5sums
-)
+package.writeMd5sums "$package_root"
 log.popTask
 
 log.pushTask "Building Debian package ${deb_path}"

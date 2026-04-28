@@ -11,44 +11,8 @@ import (
 	"lite-nas/apps/system-metrics-cli/workers"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/metrics"
+	"lite-nas/shared/testutil/systemmetricstest"
 )
-
-type stubRequestClient struct {
-	subject  string
-	request  any
-	response any
-	err      error
-}
-
-func (c *stubRequestClient) Request(_ context.Context, subject string, request any, response any) error {
-	c.subject = subject
-	c.request = request
-
-	if c.err != nil {
-		return c.err
-	}
-
-	switch payload := c.response.(type) {
-	case systemmetricscontract.GetSnapshotResponse:
-		target, ok := response.(*systemmetricscontract.GetSnapshotResponse)
-		if !ok {
-			return errors.New("unexpected current response target")
-		}
-
-		*target = payload
-	case systemmetricscontract.GetHistoryResponse:
-		target, ok := response.(*systemmetricscontract.GetHistoryResponse)
-		if !ok {
-			return errors.New("unexpected history response target")
-		}
-
-		*target = payload
-	default:
-		return errors.New("unexpected stub response type")
-	}
-
-	return nil
-}
 
 type stubOutputWriter struct {
 	currentSnapshot  metrics.SystemSnapshot
@@ -80,17 +44,13 @@ func (w *stubOutputWriter) WriteHistory(_ io.Writer, history []metrics.SystemSna
 func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	t.Parallel()
 
-	client := &stubRequestClient{
-		response: systemmetricscontract.GetSnapshotResponse{
-			Available: true,
-			Snapshot: metrics.SystemSnapshot{
-				Timestamp: time.Unix(1700000000, 0).UTC(),
-			},
-		},
-	}
+	client := systemmetricstest.NewSnapshotClient(metrics.SystemSnapshot{
+		Timestamp: time.Unix(1700000000, 0).UTC(),
+	})
 	output := &stubOutputWriter{}
 
-	err := executeCommand(
+	mustExecuteCommand(
+		t,
 		context.Background(),
 		workers.Invocation{
 			Mode:             workers.ModeCurrent,
@@ -100,12 +60,9 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 		output,
 		&bytes.Buffer{},
 	)
-	if err != nil {
-		t.Fatalf("executeCommand() error = %v", err)
-	}
 
-	if client.subject != systemmetricscontract.SnapshotRPCSubject {
-		t.Fatalf("Request() subject = %q, want %q", client.subject, systemmetricscontract.SnapshotRPCSubject)
+	if client.Subject != systemmetricscontract.SnapshotRPCSubject {
+		t.Fatalf("Request() subject = %q, want %q", client.Subject, systemmetricscontract.SnapshotRPCSubject)
 	}
 }
 
@@ -113,27 +70,7 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 	t.Parallel()
 
-	client := &stubRequestClient{
-		response: systemmetricscontract.GetSnapshotResponse{
-			Available: true,
-			Snapshot:  metrics.SystemSnapshot{},
-		},
-	}
-	output := &stubOutputWriter{}
-
-	err := executeCommand(
-		context.Background(),
-		workers.Invocation{
-			Mode:             workers.ModeCurrent,
-			CurrentSelection: workers.CurrentSelection{CPU: true, RAM: true},
-		},
-		client,
-		output,
-		&bytes.Buffer{},
-	)
-	if err != nil {
-		t.Fatalf("executeCommand() error = %v", err)
-	}
+	_, output := executeCurrentCommandFixture(t)
 
 	if !output.currentSelection.CPU {
 		t.Fatalf("current selection CPU = %t, want true", output.currentSelection.CPU)
@@ -144,27 +81,7 @@ func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 func TestExecuteCommandPassesRAMSelection(t *testing.T) {
 	t.Parallel()
 
-	client := &stubRequestClient{
-		response: systemmetricscontract.GetSnapshotResponse{
-			Available: true,
-			Snapshot:  metrics.SystemSnapshot{},
-		},
-	}
-	output := &stubOutputWriter{}
-
-	err := executeCommand(
-		context.Background(),
-		workers.Invocation{
-			Mode:             workers.ModeCurrent,
-			CurrentSelection: workers.CurrentSelection{CPU: true, RAM: true},
-		},
-		client,
-		output,
-		&bytes.Buffer{},
-	)
-	if err != nil {
-		t.Fatalf("executeCommand() error = %v", err)
-	}
+	_, output := executeCurrentCommandFixture(t)
 
 	if !output.currentSelection.RAM {
 		t.Fatalf("current selection RAM = %t, want true", output.currentSelection.RAM)
@@ -175,26 +92,20 @@ func TestExecuteCommandPassesRAMSelection(t *testing.T) {
 func TestExecuteCommandRequestsHistory(t *testing.T) {
 	t.Parallel()
 
-	client := &stubRequestClient{
-		response: systemmetricscontract.GetHistoryResponse{
-			Items: []metrics.SystemSnapshot{{Timestamp: time.Unix(1700000000, 0).UTC()}},
-		},
-	}
+	client := systemmetricstest.NewHistoryClient([]metrics.SystemSnapshot{{Timestamp: time.Unix(1700000000, 0).UTC()}})
 	output := &stubOutputWriter{}
 
-	err := executeCommand(
+	mustExecuteCommand(
+		t,
 		context.Background(),
 		workers.Invocation{Mode: workers.ModeHistory},
 		client,
 		output,
 		&bytes.Buffer{},
 	)
-	if err != nil {
-		t.Fatalf("executeCommand() error = %v", err)
-	}
 
-	if client.subject != systemmetricscontract.HistoryRPCSubject {
-		t.Fatalf("Request() subject = %q, want %q", client.subject, systemmetricscontract.HistoryRPCSubject)
+	if client.Subject != systemmetricscontract.HistoryRPCSubject {
+		t.Fatalf("Request() subject = %q, want %q", client.Subject, systemmetricscontract.HistoryRPCSubject)
 	}
 
 	if len(output.history) != 1 {
@@ -209,7 +120,7 @@ func TestExecuteCommandRejectsUnsupportedMode(t *testing.T) {
 	err := executeCommand(
 		context.Background(),
 		workers.Invocation{Mode: workers.Mode("invalid")},
-		&stubRequestClient{},
+		&systemmetricstest.RequestClient{},
 		&stubOutputWriter{},
 		&bytes.Buffer{},
 	)
@@ -227,7 +138,7 @@ func TestExecuteCurrentCommandReturnsRequestError(t *testing.T) {
 	err := executeCurrentCommand(
 		context.Background(),
 		workers.Invocation{CurrentSelection: workers.CurrentSelection{CPU: true}},
-		&stubRequestClient{err: wantErr},
+		systemmetricstest.NewRequestErrorClient(wantErr),
 		&stubOutputWriter{},
 		&bytes.Buffer{},
 	)
@@ -245,12 +156,7 @@ func TestExecuteCurrentCommandReturnsOutputError(t *testing.T) {
 	err := executeCurrentCommand(
 		context.Background(),
 		workers.Invocation{CurrentSelection: workers.CurrentSelection{CPU: true}},
-		&stubRequestClient{
-			response: systemmetricscontract.GetSnapshotResponse{
-				Available: true,
-				Snapshot:  metrics.SystemSnapshot{},
-			},
-		},
+		systemmetricstest.NewSnapshotClient(metrics.SystemSnapshot{}),
 		&stubOutputWriter{err: wantErr},
 		&bytes.Buffer{},
 	)
@@ -267,7 +173,7 @@ func TestExecuteHistoryCommandReturnsRequestError(t *testing.T) {
 
 	err := executeHistoryCommand(
 		context.Background(),
-		&stubRequestClient{err: wantErr},
+		systemmetricstest.NewRequestErrorClient(wantErr),
 		&stubOutputWriter{},
 		&bytes.Buffer{},
 	)
@@ -284,9 +190,7 @@ func TestExecuteHistoryCommandReturnsOutputError(t *testing.T) {
 
 	err := executeHistoryCommand(
 		context.Background(),
-		&stubRequestClient{
-			response: systemmetricscontract.GetHistoryResponse{Items: []metrics.SystemSnapshot{}},
-		},
+		systemmetricstest.NewHistoryClient([]metrics.SystemSnapshot{}),
 		&stubOutputWriter{err: wantErr},
 		&bytes.Buffer{},
 	)
@@ -307,4 +211,40 @@ func TestPrintUsageWritesCLIUsage(t *testing.T) {
 	if output.String() != want {
 		t.Fatalf("printUsage() output = %q, want %q", output.String(), want)
 	}
+}
+
+func mustExecuteCommand(
+	t *testing.T,
+	ctx context.Context,
+	invocation workers.Invocation,
+	client *systemmetricstest.RequestClient,
+	output *stubOutputWriter,
+	stdout io.Writer,
+) {
+	t.Helper()
+
+	if err := executeCommand(ctx, invocation, client, output, stdout); err != nil {
+		t.Fatalf("executeCommand() error = %v", err)
+	}
+}
+
+func executeCurrentCommandFixture(t *testing.T) (*systemmetricstest.RequestClient, *stubOutputWriter) {
+	t.Helper()
+
+	client := systemmetricstest.NewSnapshotClient(metrics.SystemSnapshot{})
+	output := &stubOutputWriter{}
+
+	mustExecuteCommand(
+		t,
+		context.Background(),
+		workers.Invocation{
+			Mode:             workers.ModeCurrent,
+			CurrentSelection: workers.CurrentSelection{CPU: true, RAM: true},
+		},
+		client,
+		output,
+		&bytes.Buffer{},
+	)
+
+	return client, output
 }

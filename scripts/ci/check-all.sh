@@ -13,6 +13,8 @@ checks=(
 	"github-actions-analysis"
 	"markdown-analysis"
 	"shell-analysis"
+	"go-duplication-analysis"
+	"bash-duplication-analysis"
 	"js-ts-analysis"
 	"go-analysis"
 	"go-test-coverage"

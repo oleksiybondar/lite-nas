@@ -62,13 +62,7 @@ func TestHandlerHandleReturnsFormatterError(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("format failed")
-	handler, err := NewHandler(HandlerConfig{
-		Writer:    io.Discard,
-		Formatter: errFormatter{err: expectedErr},
-	})
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
+	handler := newFormatterErrorHandler(t, expectedErr)
 
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
 	if err := handler.Handle(context.Background(), record); !errors.Is(err, expectedErr) {
@@ -79,13 +73,7 @@ func TestHandlerHandleReturnsFormatterError(t *testing.T) {
 func TestHandlerHandleReturnsShortWrite(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler(HandlerConfig{
-		Writer:    shortWriter{},
-		Formatter: internalStubFormatter{},
-	})
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
+	handler := newShortWriteHandler(t)
 
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
 	if err := handler.Handle(context.Background(), record); !errors.Is(err, io.ErrShortWrite) {
@@ -97,13 +85,7 @@ func TestHandlerHandleReturnsWriterError(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("write failed")
-	handler, err := NewHandler(HandlerConfig{
-		Writer:    errWriter{err: expectedErr},
-		Formatter: internalStubFormatter{},
-	})
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
+	handler := newWriterErrorHandler(t, expectedErr)
 
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
 	if err := handler.Handle(context.Background(), record); !errors.Is(err, expectedErr) {
@@ -173,4 +155,42 @@ func (internalStubFormatter) Format(record slog.Record, attrs []slog.Attr, _ Rec
 		buffer.WriteString(attr.Key)
 	}
 	return buffer.Bytes(), nil
+}
+
+func mustNewInternalHandler(t *testing.T, cfg HandlerConfig) *Handler {
+	t.Helper()
+
+	handler, err := NewHandler(cfg)
+	if err != nil {
+		t.Fatalf("NewHandler() error = %v", err)
+	}
+
+	return handler
+}
+
+func newFormatterErrorHandler(t *testing.T, err error) *Handler {
+	t.Helper()
+
+	return mustNewInternalHandler(t, HandlerConfig{
+		Writer:    io.Discard,
+		Formatter: errFormatter{err: err},
+	})
+}
+
+func newShortWriteHandler(t *testing.T) *Handler {
+	t.Helper()
+
+	return mustNewInternalHandler(t, HandlerConfig{
+		Writer:    shortWriter{},
+		Formatter: internalStubFormatter{},
+	})
+}
+
+func newWriterErrorHandler(t *testing.T, err error) *Handler {
+	t.Helper()
+
+	return mustNewInternalHandler(t, HandlerConfig{
+		Writer:    errWriter{err: err},
+		Formatter: internalStubFormatter{},
+	})
 }

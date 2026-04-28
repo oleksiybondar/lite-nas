@@ -60,6 +60,10 @@ Recommended structure:
   product work.
 - When a release introduces or changes installation, packaging, runtime
   dependencies, or deployment behavior, record that explicitly.
+- When a release materially changes repository-wide quality enforcement or
+  contributor workflow, such as duplication gates, shared test-helper
+  conventions, or CI validation policy, record that under the release
+  `Platform` section.
 - Use release-qualified subsection headings such as `RL-0.1.0 Summary` and
   `RL-0.1.0 Platform` so markdown headings stay globally unique inside the
   document.

@@ -66,6 +66,18 @@ readability, maintenance, and consistent review quality.
 - When multiple tests in one package repeat the same setup shape, extract that
   setup into package-local fixtures or helper functions instead of duplicating
   inline construction across test bodies.
+- Treat test duplication as real duplication. Do not leave repeated setup,
+  request builders, or assertion scaffolding inline just because the code is
+  test-only.
+- Prefer package-local or subproject-local `testutil` helpers when the reuse is
+  local to one package or subproject.
+- Prefer `shared/go/testutil/...` only when the same testing primitive is
+  reused across multiple Go modules or subprojects.
+- For success-path setup that is expected to succeed, prefer `must...` helpers
+  so test bodies stay focused on the behavior under test.
+- For repeated positive and negative setup shapes, prefer named builders such
+  as `newValidX`, `newFailingX`, `newUnauthorizedX`, or similarly explicit
+  helpers instead of repeated direct struct literals.
 - Keep fixtures focused on data preparation. Avoid helpers that both build data
   and perform assertions unless the helper is a narrow assertion helper.
 - For config parsing and similar tests, separate success-path assertions from
@@ -81,6 +93,9 @@ readability, maintenance, and consistent review quality.
 - Name helpers clearly and idiomatically based on purpose, for example valid
   fixture builders such as `validConfigFixture` or `newTestEnvelope`, and
   focused assertion helpers such as `assertTimeout` or `assertInvalidConfig`.
+- Repository-wide duplication is checked in CI and local analysis scripts for
+  Go and shell code, so repeated test scaffolding can fail validation even when
+  it is spread across separate Go modules.
 
 ## Large Test Suites
 

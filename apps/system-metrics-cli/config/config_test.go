@@ -8,29 +8,13 @@ import (
 	"time"
 
 	sharedfileio "lite-nas/shared/fileio"
+	"lite-nas/shared/testutil/fileiotest"
 )
-
-type stubReader struct {
-	data []byte
-	err  error
-}
-
-func (reader stubReader) Read() ([]byte, error) {
-	if reader.err != nil {
-		return nil, reader.err
-	}
-
-	return reader.data, nil
-}
 
 func TestLoadConfigReturnsMessagingURL(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := loadConfigFromFixture(t)
-	if err != nil {
-		t.Fatalf("loadConfigFromFixture() error = %v", err)
-	}
-
+	cfg := mustLoadConfigFromFixture(t)
 	if cfg.Messaging.URL != "nats://127.0.0.1:4222" {
 		t.Fatalf("Messaging.URL = %q, want nats://127.0.0.1:4222", cfg.Messaging.URL)
 	}
@@ -39,11 +23,7 @@ func TestLoadConfigReturnsMessagingURL(t *testing.T) {
 func TestLoadConfigReturnsMessagingClientName(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := loadConfigFromFixture(t)
-	if err != nil {
-		t.Fatalf("loadConfigFromFixture() error = %v", err)
-	}
-
+	cfg := mustLoadConfigFromFixture(t)
 	if cfg.Messaging.ClientName != "system-metrics-cli" {
 		t.Fatalf("Messaging.ClientName = %q, want system-metrics-cli", cfg.Messaging.ClientName)
 	}
@@ -52,11 +32,7 @@ func TestLoadConfigReturnsMessagingClientName(t *testing.T) {
 func TestLoadConfigReturnsMessagingTimeout(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := loadConfigFromFixture(t)
-	if err != nil {
-		t.Fatalf("loadConfigFromFixture() error = %v", err)
-	}
-
+	cfg := mustLoadConfigFromFixture(t)
 	if cfg.Messaging.Timeout != 5*time.Second {
 		t.Fatalf("Messaging.Timeout = %v, want 5s", cfg.Messaging.Timeout)
 	}
@@ -65,11 +41,7 @@ func TestLoadConfigReturnsMessagingTimeout(t *testing.T) {
 func TestLoadConfigReturnsLoggingOutput(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := loadConfigFromFixture(t)
-	if err != nil {
-		t.Fatalf("loadConfigFromFixture() error = %v", err)
-	}
-
+	cfg := mustLoadConfigFromFixture(t)
 	if cfg.Logging.Output != "stderr" {
 		t.Fatalf("Logging.Output = %q, want stderr", cfg.Logging.Output)
 	}
@@ -80,7 +52,7 @@ func TestLoadConfigReturnsReaderError(t *testing.T) {
 
 	wantErr := errors.New("read failed")
 
-	_, err := LoadConfig(stubReader{err: wantErr})
+	_, err := LoadConfig(fileiotest.Reader{Err: wantErr})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("LoadConfig() error = %v, want %v", err, wantErr)
 	}
@@ -89,7 +61,7 @@ func TestLoadConfigReturnsReaderError(t *testing.T) {
 func TestLoadConfigReturnsINIParseError(t *testing.T) {
 	t.Parallel()
 
-	_, err := LoadConfig(stubReader{data: []byte("[messaging")})
+	_, err := LoadConfig(fileiotest.Reader{Data: []byte("[messaging")})
 	if err == nil {
 		t.Fatal("LoadConfig() error = nil, want parse error")
 	}
@@ -98,8 +70,8 @@ func TestLoadConfigReturnsINIParseError(t *testing.T) {
 func TestLoadConfigReturnsLoggingConfigError(t *testing.T) {
 	t.Parallel()
 
-	_, err := LoadConfig(stubReader{
-		data: []byte(
+	_, err := LoadConfig(fileiotest.Reader{
+		Data: []byte(
 			"[messaging]\n" +
 				"url=nats://127.0.0.1:4222\n" +
 				"timeout=5s\n" +
@@ -140,4 +112,15 @@ func loadConfigFromFixture(t *testing.T) (Config, error) {
 	}
 
 	return LoadConfig(reader)
+}
+
+func mustLoadConfigFromFixture(t *testing.T) Config {
+	t.Helper()
+
+	cfg, err := loadConfigFromFixture(t)
+	if err != nil {
+		t.Fatalf("loadConfigFromFixture() error = %v", err)
+	}
+
+	return cfg
 }

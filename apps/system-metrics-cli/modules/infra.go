@@ -2,10 +2,8 @@ package modules
 
 import (
 	serviceconfig "lite-nas/apps/system-metrics-cli/config"
-	"lite-nas/shared/applog"
 	sharedfileio "lite-nas/shared/fileio"
-	sharedlogger "lite-nas/shared/logger"
-	"lite-nas/shared/messaging"
+	sharedmodules "lite-nas/shared/modules"
 )
 
 // Infra groups the CLI infrastructure dependencies.
@@ -13,10 +11,8 @@ import (
 // The exported fields expose constructed runtime dependencies directly. They
 // are expected to be treated as logically read-only after initialization.
 type Infra struct {
-	Config     serviceconfig.Config
-	Logger     sharedlogger.Logger
-	logCleanup func()
-	Client     messaging.Client
+	sharedmodules.CoreInfra
+	Config serviceconfig.Config
 }
 
 // NewInfraModule loads configuration and constructs infrastructure shared by
@@ -36,33 +32,13 @@ func NewInfraModule(configPath string, serviceName string) (Infra, error) {
 		return Infra{}, err
 	}
 
-	log, logCleanup, err := applog.NewAppLogger(serviceName, cfg.Logging)
+	core, err := sharedmodules.NewCoreClientInfra(serviceName, cfg.Logging, cfg.Messaging)
 	if err != nil {
-		return Infra{}, err
-	}
-
-	client, err := messaging.NewClient(cfg.Messaging, log, messaging.NewJSONCodec())
-	if err != nil {
-		logCleanup()
 		return Infra{}, err
 	}
 
 	return Infra{
-		Config:     cfg,
-		Logger:     log,
-		logCleanup: logCleanup,
-		Client:     client,
+		CoreInfra: core,
+		Config:    cfg,
 	}, nil
-}
-
-// Close releases infrastructure resources created by NewInfraModule.
-func (m Infra) Close() {
-	if m.Client != nil {
-		_ = m.Client.Drain()
-		m.Client.Close()
-	}
-
-	if m.logCleanup != nil {
-		m.logCleanup()
-	}
 }

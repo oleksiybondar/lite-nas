@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
-	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
 )
 
@@ -32,15 +30,7 @@ func TestServicePipelineStatsRPCReturnsLatestSnapshot(t *testing.T) {
 	result := runServiceCycleFixture(t)
 	publishedSnapshot := extractPublishedSnapshot(t, result.client)
 
-	response, err := result.server.rpcHandlers[systemmetricscontract.SnapshotRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("stats handler error = %v", err)
-	}
-
-	snapshotResponse, ok := response.(systemmetricscontract.GetSnapshotResponse)
-	if !ok {
-		t.Fatalf("stats response type = %T, want systemmetrics.GetSnapshotResponse", response)
-	}
+	snapshotResponse := mustInvokeSnapshotRPC(t, result.server)
 
 	if !snapshotResponse.Available {
 		t.Fatal("stats response Available = false, want true")
@@ -58,15 +48,7 @@ func TestServicePipelineHistoryRPCReturnsCollectedSnapshot(t *testing.T) {
 	result := runServiceCycleFixture(t)
 	publishedSnapshot := extractPublishedSnapshot(t, result.client)
 
-	response, err := result.server.rpcHandlers[systemmetricscontract.HistoryRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("history handler error = %v", err)
-	}
-
-	historyResponse, ok := response.(systemmetricscontract.GetHistoryResponse)
-	if !ok {
-		t.Fatalf("history response type = %T, want systemmetrics.GetHistoryResponse", response)
-	}
+	historyResponse := mustInvokeHistoryRPC(t, result.server)
 
 	wantHistory := []metrics.SystemSnapshot{publishedSnapshot}
 	if !reflect.DeepEqual(historyResponse.Items, wantHistory) {

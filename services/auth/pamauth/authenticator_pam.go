@@ -104,7 +104,7 @@ func (c *authenticateConversation) respond(style pam.Style, msg string) (string,
 
 func (c *authenticateConversation) resultForAuthError(username string, err error) Result {
 	return Result{
-		Code:     OutcomeInvalidCredentials,
+		Code:     OutcomeDenied,
 		Username: username,
 		Messages: buildMessages(c.messages, Message{Level: MessageLevelError, Text: err.Error()}),
 	}

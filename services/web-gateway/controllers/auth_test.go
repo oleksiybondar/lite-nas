@@ -54,21 +54,93 @@ func authSessionFixture() services.Session {
 	}
 }
 
-// Requirements: web-gateway/FR-004, web-gateway/TR-001
-func TestAuthControllerLoginReturnsSessionAndCookies(t *testing.T) {
-	t.Parallel()
+func newAuthControllerWithLoginResult() AuthController {
+	return NewAuthController(stubAuthService{loginResult: authSessionFixture()})
+}
 
-	controller := NewAuthController(stubAuthService{loginResult: authSessionFixture()})
+func newAuthControllerWithRefreshResult() AuthController {
+	return NewAuthController(stubAuthService{refreshResult: authSessionFixture()})
+}
 
-	got, err := controller.Login(context.Background(), &authdto.LoginInput{
+func newAuthControllerWithLogoutResult() AuthController {
+	return NewAuthController(stubAuthService{logoutResult: authSessionFixture()})
+}
+
+func newAuthControllerWithMeResult() AuthController {
+	return NewAuthController(stubAuthService{meResult: authSessionFixture()})
+}
+
+func authLoginInput() *authdto.LoginInput {
+	return &authdto.LoginInput{
 		Body: authdto.LoginRequestBody{
 			Login:    "john.doe",
 			Password: "pass",
 		},
-	})
+	}
+}
+
+func authRefreshInput(token string) *authdto.RefreshInput {
+	return &authdto.RefreshInput{
+		Body: authdto.RefreshRequestBody{RefreshToken: token},
+	}
+}
+
+func authLogoutInput(token string) *authdto.LogoutInput {
+	return &authdto.LogoutInput{
+		Body: authdto.LogoutRequestBody{RefreshToken: token},
+	}
+}
+
+func mustLogin(t *testing.T, controller AuthController) *authdto.SessionOutput {
+	t.Helper()
+
+	got, err := controller.Login(context.Background(), authLoginInput())
 	if err != nil {
 		t.Fatalf("Login() error = %v", err)
 	}
+
+	return got
+}
+
+func mustRefresh(t *testing.T, controller AuthController, input *authdto.RefreshInput) *authdto.SessionOutput {
+	t.Helper()
+
+	got, err := controller.Refresh(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Refresh() error = %v", err)
+	}
+
+	return got
+}
+
+func mustLogout(t *testing.T, controller AuthController, input *authdto.LogoutInput) *authdto.LogoutOutput {
+	t.Helper()
+
+	got, err := controller.Logout(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Logout() error = %v", err)
+	}
+
+	return got
+}
+
+func mustMe(t *testing.T, controller AuthController, accessToken string) *authdto.MeOutput {
+	t.Helper()
+
+	got, err := controller.Me(context.Background(), &authdto.MeInput{AccessToken: accessToken})
+	if err != nil {
+		t.Fatalf("Me() error = %v", err)
+	}
+
+	return got
+}
+
+// Requirements: web-gateway/FR-004, web-gateway/TR-001
+func TestAuthControllerLoginReturnsSessionAndCookies(t *testing.T) {
+	t.Parallel()
+
+	controller := newAuthControllerWithLoginResult()
+	got := mustLogin(t, controller)
 
 	if len(got.SetCookie) != 2 {
 		t.Fatalf("cookie count = %d, want 2", len(got.SetCookie))
@@ -83,17 +155,13 @@ func TestAuthControllerLoginReturnsSessionAndCookies(t *testing.T) {
 func TestAuthControllerRefreshPrefersPayloadToken(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{refreshResult: authSessionFixture()})
-
-	got, err := controller.Refresh(context.Background(), &authdto.RefreshInput{
+	controller := newAuthControllerWithRefreshResult()
+	got := mustRefresh(t, controller, &authdto.RefreshInput{
 		RefreshTokenCookie: "RT-cookie",
 		Body: authdto.RefreshRequestBody{
 			RefreshToken: "RT-body",
 		},
 	})
-	if err != nil {
-		t.Fatalf("Refresh() error = %v", err)
-	}
 
 	if got.Body.Data.RefreshToken != "RT-token" {
 		t.Fatalf("RefreshToken = %q, want %q", got.Body.Data.RefreshToken, "RT-token")
@@ -120,16 +188,8 @@ func TestAuthControllerRefreshRejectsMissingToken(t *testing.T) {
 func TestAuthControllerLogoutClearsCookies(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{logoutResult: authSessionFixture()})
-
-	got, err := controller.Logout(context.Background(), &authdto.LogoutInput{
-		Body: authdto.LogoutRequestBody{
-			RefreshToken: "RT-body",
-		},
-	})
-	if err != nil {
-		t.Fatalf("Logout() error = %v", err)
-	}
+	controller := newAuthControllerWithLogoutResult()
+	got := mustLogout(t, controller, authLogoutInput("RT-body"))
 
 	if len(got.SetCookie) != 2 {
 		t.Fatalf("cookie count = %d, want 2", len(got.SetCookie))
@@ -146,12 +206,8 @@ func TestAuthControllerLogoutClearsCookies(t *testing.T) {
 func TestAuthControllerMeReturnsAuthenticatedUser(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{meResult: authSessionFixture()})
-
-	got, err := controller.Me(context.Background(), &authdto.MeInput{AccessToken: "AT-token"})
-	if err != nil {
-		t.Fatalf("Me() error = %v", err)
-	}
+	controller := newAuthControllerWithMeResult()
+	got := mustMe(t, controller, "AT-token")
 
 	if !got.Body.Data.Authenticated {
 		t.Fatalf("Authenticated = false, want true")
@@ -167,9 +223,7 @@ func TestAuthControllerLoginMapsMissingCredentialsToUnauthorized(t *testing.T) {
 	t.Parallel()
 
 	assertAuthControllerUnauthorizedError(t, stubAuthService{loginErr: services.ErrMissingCredentials()}, func(controller AuthController) error {
-		_, err := controller.Login(context.Background(), &authdto.LoginInput{
-			Body: authdto.LoginRequestBody{Login: "john.doe", Password: "pass"},
-		})
+		_, err := controller.Login(context.Background(), authLoginInput())
 		return err
 	})
 }
@@ -179,9 +233,7 @@ func TestAuthControllerRefreshMapsMissingRefreshTokenToUnauthorized(t *testing.T
 	t.Parallel()
 
 	assertAuthControllerUnauthorizedError(t, stubAuthService{refreshErr: services.ErrMissingRefreshToken()}, func(controller AuthController) error {
-		_, err := controller.Refresh(context.Background(), &authdto.RefreshInput{
-			Body: authdto.RefreshRequestBody{RefreshToken: "RT-token"},
-		})
+		_, err := controller.Refresh(context.Background(), authRefreshInput("RT-token"))
 		return err
 	})
 }
@@ -191,9 +243,7 @@ func TestAuthControllerLogoutMapsMissingRefreshTokenToUnauthorized(t *testing.T)
 	t.Parallel()
 
 	assertAuthControllerUnauthorizedError(t, stubAuthService{logoutErr: services.ErrMissingRefreshToken()}, func(controller AuthController) error {
-		_, err := controller.Logout(context.Background(), &authdto.LogoutInput{
-			Body: authdto.LogoutRequestBody{RefreshToken: "RT-token"},
-		})
+		_, err := controller.Logout(context.Background(), authLogoutInput("RT-token"))
 		return err
 	})
 }
@@ -214,9 +264,7 @@ func TestAuthControllerMapsUnexpectedServiceErrorToInternalError(t *testing.T) {
 
 	controller := NewAuthController(stubAuthService{refreshErr: errors.New("boom")})
 
-	_, err := controller.Refresh(context.Background(), &authdto.RefreshInput{
-		Body: authdto.RefreshRequestBody{RefreshToken: "RT-token"},
-	})
+	_, err := controller.Refresh(context.Background(), authRefreshInput("RT-token"))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -308,13 +356,8 @@ func TestMapAuthErrorReturnsInternalErrorForUnexpectedErrors(t *testing.T) {
 func TestAuthControllerLogoutSetsCookieHeaders(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{logoutResult: authSessionFixture()})
-	got, err := controller.Logout(context.Background(), &authdto.LogoutInput{
-		Body: authdto.LogoutRequestBody{RefreshToken: "RT-body"},
-	})
-	if err != nil {
-		t.Fatalf("Logout() error = %v", err)
-	}
+	controller := newAuthControllerWithLogoutResult()
+	got := mustLogout(t, controller, authLogoutInput("RT-body"))
 
 	assertSecureCookieHeaders(t, got.SetCookie)
 }
@@ -322,13 +365,8 @@ func TestAuthControllerLogoutSetsCookieHeaders(t *testing.T) {
 func TestAuthControllerLoginSetsCookieHeaders(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{loginResult: authSessionFixture()})
-	got, err := controller.Login(context.Background(), &authdto.LoginInput{
-		Body: authdto.LoginRequestBody{Login: "john.doe", Password: "pass"},
-	})
-	if err != nil {
-		t.Fatalf("Login() error = %v", err)
-	}
+	controller := newAuthControllerWithLoginResult()
+	got := mustLogin(t, controller)
 
 	assertSecureCookieHeaders(t, got.SetCookie)
 }
@@ -336,11 +374,8 @@ func TestAuthControllerLoginSetsCookieHeaders(t *testing.T) {
 func TestAuthControllerMeDoesNotSetCookies(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{meResult: authSessionFixture()})
-	got, err := controller.Me(context.Background(), &authdto.MeInput{AccessToken: "AT-token"})
-	if err != nil {
-		t.Fatalf("Me() error = %v", err)
-	}
+	controller := newAuthControllerWithMeResult()
+	got := mustMe(t, controller, "AT-token")
 
 	if got.Body.Success != true {
 		t.Fatalf("Success = %v, want true", got.Body.Success)
@@ -350,13 +385,8 @@ func TestAuthControllerMeDoesNotSetCookies(t *testing.T) {
 func TestAuthControllerRefreshSetsCookieHeaders(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{refreshResult: authSessionFixture()})
-	got, err := controller.Refresh(context.Background(), &authdto.RefreshInput{
-		Body: authdto.RefreshRequestBody{RefreshToken: "RT-token"},
-	})
-	if err != nil {
-		t.Fatalf("Refresh() error = %v", err)
-	}
+	controller := newAuthControllerWithRefreshResult()
+	got := mustRefresh(t, controller, authRefreshInput("RT-token"))
 
 	for _, cookie := range got.SetCookie {
 		if cookie.Path != "/" {
@@ -369,9 +399,7 @@ func TestAuthControllerLoginMapsUnauthorizedStatus(t *testing.T) {
 	t.Parallel()
 
 	controller := NewAuthController(stubAuthService{loginErr: services.ErrMissingCredentials()})
-	_, err := controller.Login(context.Background(), &authdto.LoginInput{
-		Body: authdto.LoginRequestBody{Login: "john.doe", Password: "pass"},
-	})
+	_, err := controller.Login(context.Background(), authLoginInput())
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -383,10 +411,7 @@ func TestAuthControllerMeUsesAccessTokenInput(t *testing.T) {
 	session := authSessionFixture()
 	session.AccessToken = "AT-custom"
 	controller := NewAuthController(stubAuthService{meResult: session})
-	got, err := controller.Me(context.Background(), &authdto.MeInput{AccessToken: "AT-custom"})
-	if err != nil {
-		t.Fatalf("Me() error = %v", err)
-	}
+	got := mustMe(t, controller, "AT-custom")
 
 	if got.Body.Data.AuthType != "jwt" {
 		t.Fatalf("AuthType = %q, want jwt", got.Body.Data.AuthType)
@@ -440,13 +465,8 @@ func assertCookieSecure(t *testing.T, cookie http.Cookie) {
 func TestAuthControllerLogoutResponseMessage(t *testing.T) {
 	t.Parallel()
 
-	controller := NewAuthController(stubAuthService{logoutResult: authSessionFixture()})
-	got, err := controller.Logout(context.Background(), &authdto.LogoutInput{
-		Body: authdto.LogoutRequestBody{RefreshToken: "RT-token"},
-	})
-	if err != nil {
-		t.Fatalf("Logout() error = %v", err)
-	}
+	controller := newAuthControllerWithLogoutResult()
+	got := mustLogout(t, controller, authLogoutInput("RT-token"))
 
 	if got.Body.Message != "logged out" {
 		t.Fatalf("Message = %q, want %q", got.Body.Message, "logged out")
