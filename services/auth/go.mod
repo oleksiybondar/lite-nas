@@ -6,6 +6,7 @@ go 1.25.0
 require lite-nas/shared v0.0.1
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/msteinert/pam/v2 v2.1.0
 	gopkg.in/ini.v1 v1.67.1
 )

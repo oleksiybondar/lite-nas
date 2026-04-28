@@ -10,11 +10,13 @@ import (
 // It groups configuration by domain to reflect service responsibilities:
 //   - HTTP: browser-facing HTTP listener settings
 //   - Messaging: internal messaging system connectivity
+//   - AuthTokens: access-token verification policy
 //   - Logging: application logging behavior
 type Config struct {
-	HTTP      config.HTTPConfig
-	Messaging config.MessagingConfig
-	Logging   config.LoggingConfig
+	HTTP       config.HTTPConfig
+	Messaging  config.MessagingConfig
+	AuthTokens config.AuthTokenConfig
+	Logging    config.LoggingConfig
 }
 
 // LoadConfig reads gateway configuration from a file abstraction and returns a
@@ -45,9 +47,15 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
+	authTokenConfig, err := config.LoadAuthTokenConfig(cfgFile)
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
-		HTTP:      httpConfig,
-		Messaging: sharedCfg.Messaging,
-		Logging:   sharedCfg.Logging,
+		HTTP:       httpConfig,
+		Messaging:  sharedCfg.Messaging,
+		AuthTokens: authTokenConfig,
+		Logging:    sharedCfg.Logging,
 	}, nil
 }

@@ -12,7 +12,10 @@ source "$SCRIPT_DIR/deploy/restart-affected-services.sh"
 nats_certificate_dir="${LITE_NAS_NATS_CERTIFICATE_DIR:-/etc/nats-server/certificates}"
 litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 litenas_certificates_dir="${LITE_NAS_CERTIFICATES_DIR:-$litenas_config_dir/certificates}"
+litenas_transport_certificates_dir="${LITE_NAS_TRANSPORT_CERTIFICATE_DIR:-$litenas_certificates_dir/transport}"
 litenas_group="${LITE_NAS_GROUP:-lite-nas}"
+cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
+cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
 certificate_days="${LITE_NAS_CERTIFICATE_DAYS:-825}"
 root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
@@ -32,7 +35,13 @@ Options:
 
 Environment:
   LITE_NAS_NATS_CERT_USERS         Space-separated users when --user is not set.
+  LITE_NAS_TRANSPORT_CERTIFICATE_DIR
+                                   Directory for LiteNAS transport client certs.
+                                   Default: /etc/lite-nas/certificates/transport.
   LITE_NAS_GROUP                   Local shared group for /etc/lite-nas. Default: lite-nas.
+  LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP
+                                   Group allowed to read CLI config/cert material.
+                                   Default: users.
   LITE_NAS_CERTIFICATE_DAYS        Leaf certificate validity days. Default: 825.
   LITE_NAS_ROOT_CA_DAYS            Root CA validity days. Default: 3650.
   LITE_NAS_NATS_SERVER_ALT_NAMES   OpenSSL SAN list for the NATS server cert.
@@ -85,6 +94,11 @@ ensure_litenas_groups() {
 		groupadd --system "$litenas_group"
 	fi
 
+	if ! getent group "$cli_access_group" >/dev/null 2>&1; then
+		log.info "Creating CLI access group: $cli_access_group"
+		groupadd --system "$cli_access_group"
+	fi
+
 	for certificate_user in "${certificate_users[@]}"; do
 		if ! getent group "$certificate_user" >/dev/null 2>&1; then
 			log.info "Creating service group: $certificate_user"
@@ -97,15 +111,16 @@ ensure_directories() {
 	install -d -m 0750 "$nats_certificate_dir"
 	install -d -m 0750 -o root -g "$litenas_group" "$litenas_config_dir"
 	install -d -m 0750 -o root -g "$litenas_group" "$litenas_certificates_dir"
+	install -d -m 0750 -o root -g "$litenas_group" "$litenas_transport_certificates_dir"
 
 	for certificate_user in "${certificate_users[@]}"; do
-		install -d -m 0750 -o root -g "$certificate_user" "$litenas_certificates_dir/$certificate_user"
+		install -d -m 0750 -o root -g "$certificate_user" "$litenas_transport_certificates_dir/$certificate_user"
 	done
 }
 
 client_certificate_matches_identity() {
 	local certificate_user="$1"
-	local certificate_file="$litenas_certificates_dir/${certificate_user}/client.crt"
+	local certificate_file="$litenas_transport_certificates_dir/${certificate_user}/client.crt"
 
 	if [ ! -f "$certificate_file" ]; then
 		return 1
@@ -126,13 +141,13 @@ required_certificates_are_current() {
 		"$nats_certificate_dir/root-ca.crt"
 		"$nats_certificate_dir/server.key"
 		"$nats_certificate_dir/server.crt"
-		"$litenas_certificates_dir/root-ca.crt"
+		"$litenas_transport_certificates_dir/root-ca.crt"
 	)
 
 	for certificate_user in "${certificate_users[@]}"; do
 		required_files+=(
-			"$litenas_certificates_dir/${certificate_user}/client.key"
-			"$litenas_certificates_dir/${certificate_user}/client.crt"
+			"$litenas_transport_certificates_dir/${certificate_user}/client.key"
+			"$litenas_transport_certificates_dir/${certificate_user}/client.crt"
 		)
 	done
 
@@ -175,7 +190,7 @@ create_root_ca_if_missing() {
 
 publish_client_ca_certificate() {
 	local source_ca="$nats_certificate_dir/root-ca.crt"
-	local target_ca="$litenas_certificates_dir/root-ca.crt"
+	local target_ca="$litenas_transport_certificates_dir/root-ca.crt"
 
 	install -m 0640 -o root -g "$litenas_group" "$source_ca" "$target_ca"
 }
@@ -244,7 +259,7 @@ EOF
 	for certificate_user in "${certificate_users[@]}"; do
 		log.info "Rotating NATS client certificate: $certificate_user"
 		LITE_NAS_CERTIFICATE_USER="$certificate_user" \
-			create_signed_certificate "$certificate_user" "$litenas_certificates_dir/$certificate_user" "client" "$extension_file"
+			create_signed_certificate "$certificate_user" "$litenas_transport_certificates_dir/$certificate_user" "client" "$extension_file"
 	done
 	rm -f "$extension_file"
 }
@@ -262,18 +277,23 @@ normalize_certificate_permissions() {
 	find "$nats_certificate_dir" -type f -name '*.key' -exec chmod 0640 {} +
 	find "$nats_certificate_dir" -type f -name '*.srl' -exec chmod 0640 {} +
 
-	chown "root:$litenas_group" "$litenas_config_dir" "$litenas_certificates_dir"
-	chmod 0750 "$litenas_config_dir" "$litenas_certificates_dir"
-	chown "root:$litenas_group" "$litenas_certificates_dir/root-ca.crt"
-	chmod 0640 "$litenas_certificates_dir/root-ca.crt"
+	chown "root:$litenas_group" "$litenas_config_dir" "$litenas_certificates_dir" "$litenas_transport_certificates_dir"
+	chmod 0750 "$litenas_config_dir" "$litenas_certificates_dir" "$litenas_transport_certificates_dir"
+	chown root:root "$litenas_transport_certificates_dir/root-ca.crt"
+	chmod 0644 "$litenas_transport_certificates_dir/root-ca.crt"
 
 	for certificate_user in "${certificate_users[@]}"; do
-		chown -R "root:$certificate_user" "$litenas_certificates_dir/$certificate_user"
-		chmod 0750 "$litenas_certificates_dir/$certificate_user"
-		find "$litenas_certificates_dir/$certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
-		find "$litenas_certificates_dir/$certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
-		find "$litenas_certificates_dir/$certificate_user" -type f -name '*.csr' -exec chmod 0600 {} +
+		chown -R "root:$certificate_user" "$litenas_transport_certificates_dir/$certificate_user"
+		chmod 0750 "$litenas_transport_certificates_dir/$certificate_user"
+		find "$litenas_transport_certificates_dir/$certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
+		find "$litenas_transport_certificates_dir/$certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
+		find "$litenas_transport_certificates_dir/$certificate_user" -type f -name '*.csr' -exec chmod 0600 {} +
 	done
+
+	if [ -d "$litenas_transport_certificates_dir/$cli_certificate_user" ]; then
+		chown -R "root:$cli_access_group" "$litenas_transport_certificates_dir/$cli_certificate_user"
+		chmod 0750 "$litenas_transport_certificates_dir/$cli_certificate_user"
+	fi
 }
 
 log.pushTask "Preparing LiteNAS certificate identity"

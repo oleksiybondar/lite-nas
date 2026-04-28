@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	sharedconfig "lite-nas/shared/config"
 	"lite-nas/shared/testutil/configtest"
 	"lite-nas/shared/testutil/fileiotest"
 	"lite-nas/shared/testutil/testcasetest"
@@ -23,9 +24,9 @@ func TestLoadConfigMessagingFields(t *testing.T) {
 	testCases := []testcasetest.FieldCase[Config]{
 		{Name: "url", Got: func(cfg Config) any { return cfg.Messaging.URL }, Want: "tls://127.0.0.1:4222"},
 		{Name: "client name", Got: func(cfg Config) any { return cfg.Messaging.ClientName }, Want: "auth-service"},
-		{Name: "ca path", Got: func(cfg Config) any { return cfg.Messaging.CA }, Want: "/etc/lite-nas/certificates/root-ca.crt"},
-		{Name: "cert path", Got: func(cfg Config) any { return cfg.Messaging.Cert }, Want: "/etc/lite-nas/certificates/lite-nas-auth-service/client.crt"},
-		{Name: "key path", Got: func(cfg Config) any { return cfg.Messaging.Key }, Want: "/etc/lite-nas/certificates/lite-nas-auth-service/client.key"},
+		{Name: "ca path", Got: func(cfg Config) any { return cfg.Messaging.CA }, Want: "/etc/lite-nas/certificates/transport/root-ca.crt"},
+		{Name: "cert path", Got: func(cfg Config) any { return cfg.Messaging.Cert }, Want: "/etc/lite-nas/certificates/transport/lite-nas-auth-service/client.crt"},
+		{Name: "key path", Got: func(cfg Config) any { return cfg.Messaging.Key }, Want: "/etc/lite-nas/certificates/transport/lite-nas-auth-service/client.key"},
 		{Name: "timeout", Got: func(cfg Config) any { return cfg.Messaging.Timeout }, Want: 5 * time.Second},
 	}
 
@@ -46,6 +47,21 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
 }
 
+// Requirements: auth-service/OR-002
+func TestLoadConfigAuthTokenFields(t *testing.T) {
+	t.Parallel()
+
+	testCases := append(configtest.AuthTokenFieldCases(func(cfg Config) sharedconfig.AuthTokenConfig {
+		return cfg.AuthTokens
+	}), []testcasetest.FieldCase[Config]{
+		{Name: "signing key", Got: func(cfg Config) any { return cfg.AuthTokens.SigningKey }, Want: "/etc/lite-nas/certificates/auth/token-signing.key"},
+		{Name: "signing cert", Got: func(cfg Config) any { return cfg.AuthTokens.SigningCert }, Want: "/etc/lite-nas/certificates/auth/token-signing.crt"},
+		{Name: "verification cert", Got: func(cfg Config) any { return cfg.AuthTokens.VerificationCert }, Want: "/etc/lite-nas/certificates/auth/token-signing.crt"},
+	}...)
+
+	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
+}
+
 func loadConfigFixture(t *testing.T) Config {
 	t.Helper()
 
@@ -54,10 +70,18 @@ func loadConfigFixture(t *testing.T) Config {
 			"[messaging]\n" +
 				"url=tls://127.0.0.1:4222\n" +
 				"client_name=auth-service\n" +
-				"ca=/etc/lite-nas/certificates/root-ca.crt\n" +
-				"cert=/etc/lite-nas/certificates/lite-nas-auth-service/client.crt\n" +
-				"key=/etc/lite-nas/certificates/lite-nas-auth-service/client.key\n" +
+				"ca=/etc/lite-nas/certificates/transport/root-ca.crt\n" +
+				"cert=/etc/lite-nas/certificates/transport/lite-nas-auth-service/client.crt\n" +
+				"key=/etc/lite-nas/certificates/transport/lite-nas-auth-service/client.key\n" +
 				"timeout=5s\n" +
+				"[auth_tokens]\n" +
+				"issuer=lite-nas-auth\n" +
+				"audience=lite-nas-services\n" +
+				"access_lifetime=15m\n" +
+				"clock_skew=30s\n" +
+				"signing_key=/etc/lite-nas/certificates/auth/token-signing.key\n" +
+				"signing_cert=/etc/lite-nas/certificates/auth/token-signing.crt\n" +
+				"verification_cert=/etc/lite-nas/certificates/auth/token-signing.crt\n" +
 				"[logging]\n" +
 				"level=info\n" +
 				"format=rfc5424\n" +

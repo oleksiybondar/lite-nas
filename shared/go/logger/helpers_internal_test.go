@@ -58,53 +58,32 @@ func TestNewHandlerRejectsMissingDependencies(t *testing.T) {
 	}
 }
 
-func TestHandlerHandleReturnsExpectedError(t *testing.T) {
+func TestHandlerHandleReturnsFormatterError(t *testing.T) {
 	t.Parallel()
 
 	formatterErr := errors.New("format failed")
+	assertHandlerHandleError(t, newFormatterErrorHandler(t, formatterErr), formatterErr)
+}
+
+func TestHandlerHandleReturnsShortWriteError(t *testing.T) {
+	t.Parallel()
+
+	assertHandlerHandleError(t, newShortWriteHandler(t), io.ErrShortWrite)
+}
+
+func TestHandlerHandleReturnsWriterError(t *testing.T) {
+	t.Parallel()
+
 	writerErr := errors.New("write failed")
+	assertHandlerHandleError(t, newWriterErrorHandler(t, writerErr), writerErr)
+}
 
-	testCases := []struct {
-		name    string
-		build   func(*testing.T) *Handler
-		wantErr error
-	}{
-		{
-			name: "formatter error",
-			build: func(t *testing.T) *Handler {
-				t.Helper()
-				return newFormatterErrorHandler(t, formatterErr)
-			},
-			wantErr: formatterErr,
-		},
-		{
-			name: "short write",
-			build: func(t *testing.T) *Handler {
-				t.Helper()
-				return newShortWriteHandler(t)
-			},
-			wantErr: io.ErrShortWrite,
-		},
-		{
-			name: "writer error",
-			build: func(t *testing.T) *Handler {
-				t.Helper()
-				return newWriterErrorHandler(t, writerErr)
-			},
-			wantErr: writerErr,
-		},
-	}
+func assertHandlerHandleError(t *testing.T, handler *Handler, wantErr error) {
+	t.Helper()
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			handler := testCase.build(t)
-			record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-			if err := handler.Handle(context.Background(), record); !errors.Is(err, testCase.wantErr) {
-				t.Fatalf("Handle() error = %v, want %v", err, testCase.wantErr)
-			}
-		})
+	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
+	if err := handler.Handle(context.Background(), record); !errors.Is(err, wantErr) {
+		t.Fatalf("Handle() error = %v, want %v", err, wantErr)
 	}
 }
 

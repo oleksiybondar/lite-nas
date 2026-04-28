@@ -148,10 +148,10 @@ The default client config template is deployed to:
 Usage:
 
 ```bash
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --cpu
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --ram
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --history
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --cpu
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --ram
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --history
 ```
 
 ## Deploy the system-metrics CLI app
@@ -230,8 +230,11 @@ The `lite-nas` package:
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration
 - rotates or creates NATS certificates only when one or more expected files are missing or stale
-- stores the shared CA under `/etc/lite-nas/certificates/root-ca.crt`
-- stores service certificates under `/etc/lite-nas/certificates/<service>/`
+- stores the shared transport CA under `/etc/lite-nas/certificates/transport/root-ca.crt`
+- stores service NATS client certificates under
+  `/etc/lite-nas/certificates/transport/<service>/`
+- grants the `users` group read-only access to the system metrics CLI config
+  and client certificate by default
 
 The `lite-nas` package installs the auth service, system metrics service,
 system metrics CLI app, and web gateway under that profile.
@@ -278,9 +281,9 @@ sudo ./scripts/rotate-nats-certificates.sh --user lite-nas-system-metrics --user
 ```
 
 The script stores NATS server CA and server certificate material under
-`/etc/nats-server/certificates`, the shared LiteNAS CA under
-`/etc/lite-nas/certificates`, and service client certificate material under
-`/etc/lite-nas/certificates/<service>/`.
+`/etc/nats-server/certificates`, publishes the shared transport CA to
+`/etc/lite-nas/certificates/transport/root-ca.crt`, and stores service client
+certificate material under `/etc/lite-nas/certificates/transport/<service>/`.
 
 ## Git hooks
 

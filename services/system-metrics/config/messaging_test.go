@@ -32,9 +32,9 @@ func TestLoadConfigMessagingFields(t *testing.T) {
 	testCases := []testcasetest.FieldCase[Config]{
 		{Name: "url", Got: func(cfg Config) any { return cfg.Messaging.URL }, Want: "nats://localhost:4222"},
 		{Name: "client name", Got: func(cfg Config) any { return cfg.Messaging.ClientName }, Want: "system-metrics"},
-		{Name: "ca path", Got: func(cfg Config) any { return cfg.Messaging.CA }, Want: "/etc/lite-nas/certificates/root-ca.crt"},
-		{Name: "cert path", Got: func(cfg Config) any { return cfg.Messaging.Cert }, Want: "/etc/lite-nas/certificates/lite-nas-system-metrics/client.crt"},
-		{Name: "key path", Got: func(cfg Config) any { return cfg.Messaging.Key }, Want: "/etc/lite-nas/certificates/lite-nas-system-metrics/client.key"},
+		{Name: "ca path", Got: func(cfg Config) any { return cfg.Messaging.CA }, Want: "/etc/lite-nas/certificates/transport/root-ca.crt"},
+		{Name: "cert path", Got: func(cfg Config) any { return cfg.Messaging.Cert }, Want: "/etc/lite-nas/certificates/transport/lite-nas-system-metrics/client.crt"},
+		{Name: "key path", Got: func(cfg Config) any { return cfg.Messaging.Key }, Want: "/etc/lite-nas/certificates/transport/lite-nas-system-metrics/client.key"},
 		{Name: "timeout", Got: func(cfg Config) any { return cfg.Messaging.Timeout }, Want: 9 * time.Second},
 	}
 
@@ -88,9 +88,9 @@ func loadConfigFixture(t *testing.T) Config {
 				"[messaging]\n" +
 				"url=nats://localhost:4222\n" +
 				"client_name=system-metrics\n" +
-				"ca=/etc/lite-nas/certificates/root-ca.crt\n" +
-				"cert=/etc/lite-nas/certificates/lite-nas-system-metrics/client.crt\n" +
-				"key=/etc/lite-nas/certificates/lite-nas-system-metrics/client.key\n" +
+				"ca=/etc/lite-nas/certificates/transport/root-ca.crt\n" +
+				"cert=/etc/lite-nas/certificates/transport/lite-nas-system-metrics/client.crt\n" +
+				"key=/etc/lite-nas/certificates/transport/lite-nas-system-metrics/client.key\n" +
 				"timeout=9s\n" +
 				"[logging]\n" +
 				"level=debug\n" +
