@@ -58,6 +58,10 @@ branch or otherwise provides a pushed source branch.
 - Treat test duplication as repository-wide maintenance debt, not as a
   package-local issue only. Reuse that crosses Go module boundaries should move
   into shared test helpers instead of being copied.
+- In tests, prefer `must...` helpers not only for object construction but also
+  for controlled helper-driven actions that are expected to succeed, such as
+  invoking registered handlers or executing fixture flows. Keep inline error
+  assertions only for expected failure behavior.
 
 ## Tooling Conventions
 

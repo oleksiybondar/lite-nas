@@ -39,12 +39,12 @@ type MetricsConfig struct {
 //
 // An error is returned if reading, parsing, or validation fails.
 func LoadConfig(reader fileio.Reader) (Config, error) {
-	data, err := reader.Read()
+	cfgFile, err := config.LoadINI(reader)
 	if err != nil {
 		return Config{}, err
 	}
 
-	cfgFile, err := ini.Load(data)
+	sharedCfg, err := config.LoadSharedConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
@@ -54,20 +54,10 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
-	messagingConfig, err := config.LoadMessagingConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	loggingConfig, err := config.LoadLoggingConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
 	return Config{
 		Metrics:   metricsConfig,
-		Messaging: messagingConfig,
-		Logging:   loggingConfig,
+		Messaging: sharedCfg.Messaging,
+		Logging:   sharedCfg.Logging,
 	}, nil
 }
 

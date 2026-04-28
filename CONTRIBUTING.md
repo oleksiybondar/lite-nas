@@ -75,6 +75,10 @@ readability, maintenance, and consistent review quality.
   reused across multiple Go modules or subprojects.
 - For success-path setup that is expected to succeed, prefer `must...` helpers
   so test bodies stay focused on the behavior under test.
+- Apply the same `must...` rule to controlled helper-driven operations during
+  tests, such as invoking registered handlers, executing fixture flows, or
+  calling setup helpers that are expected to succeed. Keep explicit `err`
+  assertions inline only when failure is the behavior under test.
 - For repeated positive and negative setup shapes, prefer named builders such
   as `newValidX`, `newFailingX`, `newUnauthorizedX`, or similarly explicit
   helpers instead of repeated direct struct literals.

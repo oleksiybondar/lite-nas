@@ -44,22 +44,9 @@ func (w *stubOutputWriter) WriteHistory(_ io.Writer, history []metrics.SystemSna
 func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	t.Parallel()
 
-	client := systemmetricstest.NewSnapshotClient(metrics.SystemSnapshot{
+	client, _ := executeCurrentCommandFixture(t, metrics.SystemSnapshot{
 		Timestamp: time.Unix(1700000000, 0).UTC(),
 	})
-	output := &stubOutputWriter{}
-
-	mustExecuteCommand(
-		t,
-		context.Background(),
-		workers.Invocation{
-			Mode:             workers.ModeCurrent,
-			CurrentSelection: workers.CurrentSelection{CPU: true, RAM: true},
-		},
-		client,
-		output,
-		&bytes.Buffer{},
-	)
 
 	if client.Subject != systemmetricscontract.SnapshotRPCSubject {
 		t.Fatalf("Request() subject = %q, want %q", client.Subject, systemmetricscontract.SnapshotRPCSubject)
@@ -70,7 +57,7 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 	t.Parallel()
 
-	_, output := executeCurrentCommandFixture(t)
+	_, output := executeCurrentCommandFixture(t, metrics.SystemSnapshot{})
 
 	if !output.currentSelection.CPU {
 		t.Fatalf("current selection CPU = %t, want true", output.currentSelection.CPU)
@@ -81,7 +68,7 @@ func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 func TestExecuteCommandPassesRAMSelection(t *testing.T) {
 	t.Parallel()
 
-	_, output := executeCurrentCommandFixture(t)
+	_, output := executeCurrentCommandFixture(t, metrics.SystemSnapshot{})
 
 	if !output.currentSelection.RAM {
 		t.Fatalf("current selection RAM = %t, want true", output.currentSelection.RAM)
@@ -228,10 +215,13 @@ func mustExecuteCommand(
 	}
 }
 
-func executeCurrentCommandFixture(t *testing.T) (*systemmetricstest.RequestClient, *stubOutputWriter) {
+func executeCurrentCommandFixture(
+	t *testing.T,
+	snapshot metrics.SystemSnapshot,
+) (*systemmetricstest.RequestClient, *stubOutputWriter) {
 	t.Helper()
 
-	client := systemmetricstest.NewSnapshotClient(metrics.SystemSnapshot{})
+	client := systemmetricstest.NewSnapshotClient(snapshot)
 	output := &stubOutputWriter{}
 
 	mustExecuteCommand(

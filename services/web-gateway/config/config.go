@@ -3,8 +3,6 @@ package config
 import (
 	"lite-nas/shared/config"
 	"lite-nas/shared/fileio"
-
-	"gopkg.in/ini.v1"
 )
 
 // Config defines runtime configuration for the web gateway service.
@@ -32,12 +30,12 @@ type Config struct {
 //
 // Returns an error if reading, parsing, or validation fails.
 func LoadConfig(reader fileio.Reader) (Config, error) {
-	data, err := reader.Read()
+	cfgFile, err := config.LoadINI(reader)
 	if err != nil {
 		return Config{}, err
 	}
 
-	cfgFile, err := ini.Load(data)
+	sharedCfg, err := config.LoadSharedConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
@@ -47,19 +45,9 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
-	messagingConfig, err := config.LoadMessagingConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	loggingConfig, err := config.LoadLoggingConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
 	return Config{
 		HTTP:      httpConfig,
-		Messaging: messagingConfig,
-		Logging:   loggingConfig,
+		Messaging: sharedCfg.Messaging,
+		Logging:   sharedCfg.Logging,
 	}, nil
 }

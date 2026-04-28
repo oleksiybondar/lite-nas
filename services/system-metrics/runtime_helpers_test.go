@@ -100,13 +100,26 @@ func mustRegisterRPCHandlers(t *testing.T, server *recordingServer, store *modul
 	}
 }
 
+func mustInvokeRPCHandler(t *testing.T, server *recordingServer, subject string) any {
+	t.Helper()
+
+	handler, ok := server.rpcHandlers[subject]
+	if !ok {
+		t.Fatalf("rpcHandlers[%q] is not registered", subject)
+	}
+
+	response, err := handler(context.Background(), messaging.Envelope{})
+	if err != nil {
+		t.Fatalf("rpcHandlers[%q]() error = %v", subject, err)
+	}
+
+	return response
+}
+
 func mustInvokeSnapshotRPC(t *testing.T, server *recordingServer) systemmetricscontract.GetSnapshotResponse {
 	t.Helper()
 
-	response, err := server.rpcHandlers[systemmetricscontract.SnapshotRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("stats handler error = %v", err)
-	}
+	response := mustInvokeRPCHandler(t, server, systemmetricscontract.SnapshotRPCSubject)
 
 	snapshotResponse, ok := response.(systemmetricscontract.GetSnapshotResponse)
 	if !ok {
@@ -119,10 +132,7 @@ func mustInvokeSnapshotRPC(t *testing.T, server *recordingServer) systemmetricsc
 func mustInvokeHistoryRPC(t *testing.T, server *recordingServer) systemmetricscontract.GetHistoryResponse {
 	t.Helper()
 
-	response, err := server.rpcHandlers[systemmetricscontract.HistoryRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("history handler error = %v", err)
-	}
+	response := mustInvokeRPCHandler(t, server, systemmetricscontract.HistoryRPCSubject)
 
 	historyResponse, ok := response.(systemmetricscontract.GetHistoryResponse)
 	if !ok {

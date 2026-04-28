@@ -3,8 +3,6 @@ package config
 import (
 	"lite-nas/shared/config"
 	"lite-nas/shared/fileio"
-
-	"gopkg.in/ini.v1"
 )
 
 type Config struct {
@@ -13,28 +11,18 @@ type Config struct {
 }
 
 func LoadConfig(reader fileio.Reader) (Config, error) {
-	data, err := reader.Read()
+	cfgFile, err := config.LoadINI(reader)
 	if err != nil {
 		return Config{}, err
 	}
 
-	cfgFile, err := ini.Load(data)
-	if err != nil {
-		return Config{}, err
-	}
-
-	messagingConfig, err := config.LoadMessagingConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	loggingConfig, err := config.LoadLoggingConfig(cfgFile)
+	sharedCfg, err := config.LoadSharedConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
 
 	return Config{
-		Messaging: messagingConfig,
-		Logging:   loggingConfig,
+		Messaging: sharedCfg.Messaging,
+		Logging:   sharedCfg.Logging,
 	}, nil
 }
