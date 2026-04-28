@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"lite-nas/services/system-metrics/modules"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
@@ -14,10 +15,7 @@ const (
 	procStatPath       = "/proc/stat"
 	procMemInfoPath    = "/proc/meminfo"
 
-	statsEventSubject = "system.metrics.events.stats"
-	statsRPCSubject   = "system.metrics.rpc.stats.get"
-	historyRPCSubject = "system.metrics.rpc.history.get"
-	serviceName       = "system-metrics"
+	serviceName = "system-metrics"
 )
 
 // run assembles the system-metrics runtime, registers RPC handlers, starts the
@@ -74,19 +72,22 @@ func startWorkers(ctx context.Context, workerModule modules.Workers) {
 // registerRPCHandlers registers the runtime RPC handlers for latest snapshot
 // and snapshot history queries.
 func registerRPCHandlers(server messaging.Server, store *modules.SnapshotStore) error {
-	if err := server.RegisterRPC(statsRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
+	if err := server.RegisterRPC(systemmetricscontract.SnapshotRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
 		snapshot, ok := store.Latest()
 		if !ok {
-			return map[string]any{}, nil
+			return systemmetricscontract.GetSnapshotResponse{Available: false}, nil
 		}
 
-		return snapshot, nil
+		return systemmetricscontract.GetSnapshotResponse{
+			Available: true,
+			Snapshot:  snapshot,
+		}, nil
 	}); err != nil {
 		return err
 	}
 
-	if err := server.RegisterRPC(historyRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
-		return store.List(), nil
+	if err := server.RegisterRPC(systemmetricscontract.HistoryRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
+		return systemmetricscontract.GetHistoryResponse{Items: store.List()}, nil
 	}); err != nil {
 		return err
 	}
@@ -133,7 +134,14 @@ func storeAndPublishSnapshot(
 	log sharedlogger.Logger,
 ) {
 	store.Add(snapshot)
-	if err := client.Publish(ctx, statsEventSubject, snapshot); err != nil {
-		log.Warn("failed to publish system metrics snapshot", "subject", statsEventSubject, "error", err)
+	event := systemmetricscontract.SnapshotUpdatedEvent{Snapshot: snapshot}
+	if err := client.Publish(ctx, systemmetricscontract.SnapshotEventSubject, event); err != nil {
+		log.Warn(
+			"failed to publish system metrics snapshot",
+			"subject",
+			systemmetricscontract.SnapshotEventSubject,
+			"error",
+			err,
+		)
 	}
 }

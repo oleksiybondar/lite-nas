@@ -9,13 +9,11 @@ import (
 
 	"lite-nas/apps/system-metrics-cli/modules"
 	"lite-nas/apps/system-metrics-cli/workers"
-	"lite-nas/shared/metrics"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 )
 
 const (
 	defaultConfigPath = "/etc/lite-nas/system-metrics-cli.conf"
-	statsRPCSubject   = "system.metrics.rpc.stats.get"
-	historyRPCSubject = "system.metrics.rpc.history.get"
 	serviceName       = "system-metrics-cli"
 )
 
@@ -69,12 +67,12 @@ func executeCurrentCommand(
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	var snapshot metrics.SystemSnapshot
-	if err := client.Request(ctx, statsRPCSubject, map[string]any{}, &snapshot); err != nil {
+	var response systemmetricscontract.GetSnapshotResponse
+	if err := client.Request(ctx, systemmetricscontract.SnapshotRPCSubject, systemmetricscontract.GetSnapshotRequest{}, &response); err != nil {
 		return err
 	}
 
-	return output.WriteCurrent(writer, snapshot, invocation.CurrentSelection)
+	return output.WriteCurrent(writer, response.Snapshot, invocation.CurrentSelection)
 }
 
 func executeHistoryCommand(
@@ -83,12 +81,12 @@ func executeHistoryCommand(
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	var history []metrics.SystemSnapshot
-	if err := client.Request(ctx, historyRPCSubject, map[string]any{}, &history); err != nil {
+	var response systemmetricscontract.GetHistoryResponse
+	if err := client.Request(ctx, systemmetricscontract.HistoryRPCSubject, systemmetricscontract.GetHistoryRequest{}, &response); err != nil {
 		return err
 	}
 
-	return output.WriteHistory(writer, history)
+	return output.WriteHistory(writer, response.Items)
 }
 
 func printUsage(writer io.Writer) {

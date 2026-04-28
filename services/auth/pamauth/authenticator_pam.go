@@ -1,5 +1,3 @@
-//go:build pam
-
 package pamauth
 
 import (

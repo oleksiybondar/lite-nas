@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"lite-nas/apps/system-metrics-cli/workers"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/metrics"
 )
 
@@ -28,15 +29,15 @@ func (c *stubRequestClient) Request(_ context.Context, subject string, request a
 	}
 
 	switch payload := c.response.(type) {
-	case metrics.SystemSnapshot:
-		target, ok := response.(*metrics.SystemSnapshot)
+	case systemmetricscontract.GetSnapshotResponse:
+		target, ok := response.(*systemmetricscontract.GetSnapshotResponse)
 		if !ok {
 			return errors.New("unexpected current response target")
 		}
 
 		*target = payload
-	case []metrics.SystemSnapshot:
-		target, ok := response.(*[]metrics.SystemSnapshot)
+	case systemmetricscontract.GetHistoryResponse:
+		target, ok := response.(*systemmetricscontract.GetHistoryResponse)
 		if !ok {
 			return errors.New("unexpected history response target")
 		}
@@ -80,8 +81,11 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	t.Parallel()
 
 	client := &stubRequestClient{
-		response: metrics.SystemSnapshot{
-			Timestamp: time.Unix(1700000000, 0).UTC(),
+		response: systemmetricscontract.GetSnapshotResponse{
+			Available: true,
+			Snapshot: metrics.SystemSnapshot{
+				Timestamp: time.Unix(1700000000, 0).UTC(),
+			},
 		},
 	}
 	output := &stubOutputWriter{}
@@ -100,8 +104,8 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 		t.Fatalf("executeCommand() error = %v", err)
 	}
 
-	if client.subject != statsRPCSubject {
-		t.Fatalf("Request() subject = %q, want %q", client.subject, statsRPCSubject)
+	if client.subject != systemmetricscontract.SnapshotRPCSubject {
+		t.Fatalf("Request() subject = %q, want %q", client.subject, systemmetricscontract.SnapshotRPCSubject)
 	}
 }
 
@@ -109,7 +113,12 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 	t.Parallel()
 
-	client := &stubRequestClient{response: metrics.SystemSnapshot{}}
+	client := &stubRequestClient{
+		response: systemmetricscontract.GetSnapshotResponse{
+			Available: true,
+			Snapshot:  metrics.SystemSnapshot{},
+		},
+	}
 	output := &stubOutputWriter{}
 
 	err := executeCommand(
@@ -135,7 +144,12 @@ func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 func TestExecuteCommandPassesRAMSelection(t *testing.T) {
 	t.Parallel()
 
-	client := &stubRequestClient{response: metrics.SystemSnapshot{}}
+	client := &stubRequestClient{
+		response: systemmetricscontract.GetSnapshotResponse{
+			Available: true,
+			Snapshot:  metrics.SystemSnapshot{},
+		},
+	}
 	output := &stubOutputWriter{}
 
 	err := executeCommand(
@@ -162,7 +176,9 @@ func TestExecuteCommandRequestsHistory(t *testing.T) {
 	t.Parallel()
 
 	client := &stubRequestClient{
-		response: []metrics.SystemSnapshot{{Timestamp: time.Unix(1700000000, 0).UTC()}},
+		response: systemmetricscontract.GetHistoryResponse{
+			Items: []metrics.SystemSnapshot{{Timestamp: time.Unix(1700000000, 0).UTC()}},
+		},
 	}
 	output := &stubOutputWriter{}
 
@@ -177,8 +193,8 @@ func TestExecuteCommandRequestsHistory(t *testing.T) {
 		t.Fatalf("executeCommand() error = %v", err)
 	}
 
-	if client.subject != historyRPCSubject {
-		t.Fatalf("Request() subject = %q, want %q", client.subject, historyRPCSubject)
+	if client.subject != systemmetricscontract.HistoryRPCSubject {
+		t.Fatalf("Request() subject = %q, want %q", client.subject, systemmetricscontract.HistoryRPCSubject)
 	}
 
 	if len(output.history) != 1 {
@@ -229,7 +245,12 @@ func TestExecuteCurrentCommandReturnsOutputError(t *testing.T) {
 	err := executeCurrentCommand(
 		context.Background(),
 		workers.Invocation{CurrentSelection: workers.CurrentSelection{CPU: true}},
-		&stubRequestClient{response: metrics.SystemSnapshot{}},
+		&stubRequestClient{
+			response: systemmetricscontract.GetSnapshotResponse{
+				Available: true,
+				Snapshot:  metrics.SystemSnapshot{},
+			},
+		},
 		&stubOutputWriter{err: wantErr},
 		&bytes.Buffer{},
 	)
@@ -263,7 +284,9 @@ func TestExecuteHistoryCommandReturnsOutputError(t *testing.T) {
 
 	err := executeHistoryCommand(
 		context.Background(),
-		&stubRequestClient{response: []metrics.SystemSnapshot{}},
+		&stubRequestClient{
+			response: systemmetricscontract.GetHistoryResponse{Items: []metrics.SystemSnapshot{}},
+		},
 		&stubOutputWriter{err: wantErr},
 		&bytes.Buffer{},
 	)

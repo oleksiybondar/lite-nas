@@ -10,6 +10,7 @@ import (
 
 	serviceconfig "lite-nas/services/system-metrics/config"
 	"lite-nas/services/system-metrics/modules"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/metrics"
 )
 
@@ -117,10 +118,10 @@ func extractPublishedSnapshot(t *testing.T, client *recordingClient) metrics.Sys
 		t.Fatalf("publishCalls = %d, want 1", len(client.publishCalls))
 	}
 
-	snapshot, ok := client.publishCalls[0].payload.(metrics.SystemSnapshot)
+	event, ok := client.publishCalls[0].payload.(systemmetricscontract.SnapshotUpdatedEvent)
 	if !ok {
-		t.Fatalf("publish payload type = %T, want metrics.SystemSnapshot", client.publishCalls[0].payload)
+		t.Fatalf("publish payload type = %T, want systemmetrics.SnapshotUpdatedEvent", client.publishCalls[0].payload)
 	}
 
-	return snapshot
+	return event.Snapshot
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/metrics"
 )
 
@@ -22,10 +23,10 @@ func (c *recordingRequestClient) Request(_ context.Context, subject string, _ an
 	c.subject = subject
 
 	switch out := response.(type) {
-	case *metrics.SystemSnapshot:
-		*out = c.response.(metrics.SystemSnapshot)
-	case *[]metrics.SystemSnapshot:
-		*out = c.response.([]metrics.SystemSnapshot)
+	case *systemmetricscontract.GetSnapshotResponse:
+		*out = c.response.(systemmetricscontract.GetSnapshotResponse)
+	case *systemmetricscontract.GetHistoryResponse:
+		*out = c.response.(systemmetricscontract.GetHistoryResponse)
 	}
 
 	return nil
@@ -42,7 +43,12 @@ func TestSystemMetricsServiceRequestsSnapshotSubject(t *testing.T) {
 	t.Parallel()
 
 	want := metrics.SystemSnapshot{Timestamp: time.Unix(100, 0)}
-	client := &recordingRequestClient{response: want}
+	client := &recordingRequestClient{
+		response: systemmetricscontract.GetSnapshotResponse{
+			Available: true,
+			Snapshot:  want,
+		},
+	}
 	service := NewSystemMetricsService(client)
 
 	got, err := service.GetSnapshot(context.Background())
@@ -50,8 +56,8 @@ func TestSystemMetricsServiceRequestsSnapshotSubject(t *testing.T) {
 		t.Fatalf("GetSnapshot() error = %v", err)
 	}
 
-	if client.subject != statsRPCSubject {
-		t.Fatalf("subject = %q, want %q", client.subject, statsRPCSubject)
+	if client.subject != systemmetricscontract.SnapshotRPCSubject {
+		t.Fatalf("subject = %q, want %q", client.subject, systemmetricscontract.SnapshotRPCSubject)
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -67,7 +73,11 @@ func TestSystemMetricsServiceRequestsHistorySubject(t *testing.T) {
 		{Timestamp: time.Unix(100, 0)},
 		{Timestamp: time.Unix(101, 0)},
 	}
-	client := &recordingRequestClient{response: want}
+	client := &recordingRequestClient{
+		response: systemmetricscontract.GetHistoryResponse{
+			Items: want,
+		},
+	}
 	service := NewSystemMetricsService(client)
 
 	got, err := service.GetHistory(context.Background())
@@ -75,8 +85,8 @@ func TestSystemMetricsServiceRequestsHistorySubject(t *testing.T) {
 		t.Fatalf("GetHistory() error = %v", err)
 	}
 
-	if client.subject != historyRPCSubject {
-		t.Fatalf("subject = %q, want %q", client.subject, historyRPCSubject)
+	if client.subject != systemmetricscontract.HistoryRPCSubject {
+		t.Fatalf("subject = %q, want %q", client.subject, systemmetricscontract.HistoryRPCSubject)
 	}
 
 	if !reflect.DeepEqual(got, want) {

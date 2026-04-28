@@ -39,6 +39,14 @@ The browser is an HMI for managing the same host on which LiteNAS runs. The
 gateway relays auth requests to the auth service rather than embedding PAM
 logic directly.
 
+## Build Requirements
+
+`auth-service` is a PAM-only component.
+
+It is expected to build only in environments that provide PAM development
+headers and a working CGO toolchain. A non-PAM fallback build is not supported
+by the LiteNAS product model.
+
 ## Identity Model
 
 The auth service is intended to authenticate only real users who can actually

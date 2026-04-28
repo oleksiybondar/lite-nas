@@ -3,13 +3,9 @@ package services
 import (
 	"context"
 
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
-)
-
-const (
-	statsRPCSubject   = "system.metrics.rpc.stats.get"
-	historyRPCSubject = "system.metrics.rpc.history.get"
 )
 
 // SystemMetricsService defines the backend-facing system metrics flows used by
@@ -37,12 +33,12 @@ func NewSystemMetricsService(client messaging.Client) SystemMetricsService {
 // Parameters:
 //   - ctx: request-scoped context used for cancellation and deadlines
 func (s systemMetricsService) GetSnapshot(ctx context.Context) (metrics.SystemSnapshot, error) {
-	var snapshot metrics.SystemSnapshot
-	if err := s.client.Request(ctx, statsRPCSubject, map[string]any{}, &snapshot); err != nil {
+	var response systemmetricscontract.GetSnapshotResponse
+	if err := s.client.Request(ctx, systemmetricscontract.SnapshotRPCSubject, systemmetricscontract.GetSnapshotRequest{}, &response); err != nil {
 		return metrics.SystemSnapshot{}, err
 	}
 
-	return snapshot, nil
+	return response.Snapshot, nil
 }
 
 // GetHistory requests the system metrics history over messaging.
@@ -50,10 +46,10 @@ func (s systemMetricsService) GetSnapshot(ctx context.Context) (metrics.SystemSn
 // Parameters:
 //   - ctx: request-scoped context used for cancellation and deadlines
 func (s systemMetricsService) GetHistory(ctx context.Context) ([]metrics.SystemSnapshot, error) {
-	var history []metrics.SystemSnapshot
-	if err := s.client.Request(ctx, historyRPCSubject, map[string]any{}, &history); err != nil {
+	var response systemmetricscontract.GetHistoryResponse
+	if err := s.client.Request(ctx, systemmetricscontract.HistoryRPCSubject, systemmetricscontract.GetHistoryRequest{}, &response); err != nil {
 		return nil, err
 	}
 
-	return history, nil
+	return response.Items, nil
 }

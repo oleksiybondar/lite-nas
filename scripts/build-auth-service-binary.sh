@@ -57,7 +57,6 @@ log.pushTask "Building auth-service binary for linux/${target_arch}"
 (
 	cd "$LITE_NAS_AUTH_SERVICE_MODULE"
 	CGO_ENABLED=1 GOOS=linux GOARCH="$target_arch" go build \
-		-tags pam \
 		-ldflags="-s -w" \
 		-o "$output_path" .
 )
