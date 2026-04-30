@@ -47,7 +47,7 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 	testCases := []testcasetest.FieldCase[Config]{
 		{Name: "level", Got: func(cfg Config) any { return cfg.Logging.Level }, Want: "debug"},
 		{Name: "output", Got: func(cfg Config) any { return cfg.Logging.Output }, Want: "file"},
-		{Name: "file path", Got: func(cfg Config) any { return cfg.Logging.FilePath }, Want: "/var/lib/lite-nas/system-metrics.log"},
+		{Name: "file path", Got: func(cfg Config) any { return cfg.Logging.FilePath }, Want: "/var/log/lite-nas/system-metrics.log"},
 	}
 
 	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
@@ -96,7 +96,7 @@ func loadConfigFixture(t *testing.T) Config {
 				"level=debug\n" +
 				"format=rfc5424\n" +
 				"output=file\n" +
-				"file_path=/var/lib/lite-nas/system-metrics.log\n",
+				"file_path=/var/log/lite-nas/system-metrics.log\n",
 		),
 	})
 	if err != nil {

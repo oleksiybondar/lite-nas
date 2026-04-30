@@ -55,6 +55,11 @@ docker run --rm \
 		test -f /etc/lite-nas/system-metrics.conf
 		test -f /etc/lite-nas/system-metrics-cli.conf
 		test -f /etc/lite-nas/web-gateway.conf
+		test -d /var/log/lite-nas
+		test \"\$(stat -c '%U:%G %a' /var/log/lite-nas)\" = 'root:lite-nas 750'
+		test -f /var/log/lite-nas/auth-service.log
+		test -f /var/log/lite-nas/system-metrics.log
+		test -f /var/log/lite-nas/web-gateway.log
 		test -f /etc/nginx/sites-available/lite-nas-web-gateway.conf
 		test -f /etc/default/ufw
 		test -f /etc/ufw/ufw.conf

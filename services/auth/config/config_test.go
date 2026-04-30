@@ -41,7 +41,7 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 		{Name: "level", Got: func(cfg Config) any { return cfg.Logging.Level }, Want: "info"},
 		{Name: "format", Got: func(cfg Config) any { return cfg.Logging.Format }, Want: "rfc5424"},
 		{Name: "output", Got: func(cfg Config) any { return cfg.Logging.Output }, Want: "file"},
-		{Name: "file path", Got: func(cfg Config) any { return cfg.Logging.FilePath }, Want: "/var/lib/lite-nas/auth-service.log"},
+		{Name: "file path", Got: func(cfg Config) any { return cfg.Logging.FilePath }, Want: "/var/log/lite-nas/auth-service.log"},
 	}
 
 	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
@@ -87,7 +87,7 @@ func loadConfigFixture(t *testing.T) Config {
 				"level=info\n" +
 				"format=rfc5424\n" +
 				"output=file\n" +
-				"file_path=/var/lib/lite-nas/auth-service.log\n",
+				"file_path=/var/log/lite-nas/auth-service.log\n",
 		),
 	})
 	if err != nil {

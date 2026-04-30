@@ -35,7 +35,7 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0027
 ReadOnlyPaths=/etc/lite-nas /usr/share/lite-nas/web-gateway
-ReadWritePaths=/var/lib/lite-nas/web-gateway.log
+ReadWritePaths=/var/log/lite-nas/web-gateway.log
 StandardOutput=null
 StandardError=journal
 

@@ -7,6 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 source "$DEPLOY_HELPER_DIR/ufw.sh"
 
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
+readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_LOG_DIR:-/var/log/lite-nas}"
 
 deploy.liteNAS.usage() {
 	cat <<'MSG'
@@ -23,6 +24,7 @@ deploy.liteNAS.requireTools() {
 	local tools=(
 		getent
 		groupadd
+		install
 		systemctl
 	)
 
@@ -42,11 +44,16 @@ deploy.liteNAS.ensureCommonGroup() {
 	groupadd --system "$LITE_NAS_BOOTSTRAP_GROUP"
 }
 
+deploy.liteNAS.ensureLogDir() {
+	install -d -m 0750 -o root -g "$LITE_NAS_BOOTSTRAP_GROUP" "$LITE_NAS_BOOTSTRAP_LOG_DIR"
+}
+
 deploy.liteNAS.bootstrap() {
 	local manage_nats_config="$1"
 
 	"$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh"
 	deploy.liteNAS.ensureCommonGroup
+	deploy.liteNAS.ensureLogDir
 
 	if [ "$manage_nats_config" = "1" ]; then
 		"$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" --no-restart

@@ -35,7 +35,7 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0027
 ReadOnlyPaths=/etc/lite-nas /proc/stat /proc/meminfo
-ReadWritePaths=/var/lib/lite-nas/system-metrics.log
+ReadWritePaths=/var/log/lite-nas/system-metrics.log
 StandardOutput=null
 StandardError=journal
 

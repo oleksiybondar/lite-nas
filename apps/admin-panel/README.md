@@ -18,13 +18,28 @@ This separation keeps the frontend build flow explicit and allows the
 packaging process to copy built assets into the gateway-owned static
 asset area.
 
-## Scope of This Stage
+## Current Slice
 
-The first `admin-panel` slice is expected to be minimal.
+The first `admin-panel` slice is intentionally minimal.
 
-Its initial value is mainly platform-completion value:
+It establishes:
 
-- establish the frontend app location and name
-- establish the frontend build output flow
-- connect browser-facing assets to package assembly
-- prepare the platform for later, richer UI implementation
+- Vite + React + TypeScript app wiring
+- app-local providers, routes, hooks, contexts, and theme modules
+- path aliases matching the frontend template style
+- dark-mode default theme behavior
+- stable build output names for gateway-owned static assets:
+  - `dist/assets/index.css`
+  - `dist/assets/index.js`
+
+## Local Commands
+
+Run commands from this directory or with `npm --prefix apps/admin-panel ...`
+from the repository root.
+
+```sh
+npm install
+npm run dev
+npm run build
+npm run test:unit
+```

@@ -12,7 +12,7 @@ readonly LITE_NAS_AUTH_CONFIG_SOURCE="${LITE_NAS_AUTH_CONFIG_SOURCE:-$LITE_NAS_R
 readonly LITE_NAS_AUTH_CONFIG_TARGET="${LITE_NAS_AUTH_CONFIG_TARGET:-$LITE_NAS_AUTH_CONFIG_DIR/auth.conf}"
 readonly LITE_NAS_AUTH_UNIT_TEMPLATE="${LITE_NAS_AUTH_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-auth.service}"
 readonly LITE_NAS_AUTH_UNIT_TARGET="${LITE_NAS_AUTH_UNIT_TARGET:-/etc/systemd/system/lite-nas-auth.service}"
-readonly LITE_NAS_AUTH_LOG_DIR="${LITE_NAS_AUTH_LOG_DIR:-/var/lib/lite-nas}"
+readonly LITE_NAS_AUTH_LOG_DIR="${LITE_NAS_AUTH_LOG_DIR:-${LITE_NAS_LOG_DIR:-/var/log/lite-nas}}"
 readonly LITE_NAS_AUTH_LOG_FILE="${LITE_NAS_AUTH_LOG_FILE:-$LITE_NAS_AUTH_LOG_DIR/auth-service.log}"
 
 deploy.authService.usage() {
