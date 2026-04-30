@@ -230,9 +230,11 @@ The `lite-nas` package:
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration
 - rotates or creates NATS certificates only when one or more expected files are missing or stale
+- rotates or creates the auth token signing certificate when it is missing
 - stores the shared transport CA under `/etc/lite-nas/certificates/transport/root-ca.crt`
 - stores service NATS client certificates under
   `/etc/lite-nas/certificates/transport/<service>/`
+- stores auth token signing material under `/etc/lite-nas/certificates/auth/`
 - grants the `users` group read-only access to the system metrics CLI config
   and client certificate by default
 
@@ -284,6 +286,20 @@ The script stores NATS server CA and server certificate material under
 `/etc/nats-server/certificates`, publishes the shared transport CA to
 `/etc/lite-nas/certificates/transport/root-ca.crt`, and stores service client
 certificate material under `/etc/lite-nas/certificates/transport/<service>/`.
+
+## Rotate auth token certificates
+
+Create or reuse the Ed25519 JWT signing key and certificate used by the auth
+service and web gateway:
+
+```bash
+sudo ./scripts/rotate-auth-token-certificates.sh --if-missing
+```
+
+The script stores `token-signing.key` and `token-signing.crt` under
+`/etc/lite-nas/certificates/auth/`. The private key is readable only by root;
+the certificate is readable by the shared LiteNAS group so gateway services can
+verify access tokens.
 
 ## Git hooks
 

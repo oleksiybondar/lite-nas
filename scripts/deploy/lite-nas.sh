@@ -57,5 +57,6 @@ deploy.liteNAS.bootstrap() {
 	fi
 
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing
+	"$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.sh" --if-missing
 	deploy.ufw.deploy
 }
