@@ -3,14 +3,17 @@ package routes
 import (
 	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/modules"
-	"lite-nas/services/web-gateway/services"
 
 	"github.com/danielgtaylor/huma/v2"
 )
 
 // mountAuthRouter registers the documented auth routes on the shared API.
-func mountAuthRouter(api huma.API, controllerModule modules.Controllers) {
-	api.UseMiddleware(middlewares.ExtractAuthentication(services.AccessTokenCookieName))
+func mountAuthRouter(
+	api huma.API,
+	controllerModule modules.Controllers,
+	authentication middlewares.AuthenticationOptions,
+) {
+	api.UseMiddleware(middlewares.ExtractAuthentication(authentication))
 
 	authGroup := huma.NewGroup(api, "/auth")
 	authGroup.UseSimpleModifier(func(op *huma.Operation) {
@@ -23,6 +26,6 @@ func mountAuthRouter(api huma.API, controllerModule modules.Controllers) {
 	huma.Post(authGroup, "/refresh", controller.Refresh)
 
 	protected := huma.NewGroup(authGroup)
-	protected.UseMiddleware(middlewares.RequireAuthentication(api))
+	protected.UseMiddleware(middlewares.RequireAuthentication(api, authentication))
 	huma.Get(protected, "/me", controller.Me)
 }

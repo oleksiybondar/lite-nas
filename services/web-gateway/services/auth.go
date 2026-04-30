@@ -1,12 +1,16 @@
 package services
 
 import (
-	"crypto/rand"
+	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"lite-nas/shared/authtoken"
+	authcontract "lite-nas/shared/contracts/auth"
+	"lite-nas/shared/httpcookie"
+	"lite-nas/shared/messaging"
 )
 
 const (
@@ -17,20 +21,10 @@ const (
 	// #nosec G101 -- cookie identifier only, not a credential
 	RefreshTokenCookieName = "lite-nas-rt"
 
-	accessTokenPrefix  = "AT-"
-	refreshTokenPrefix = "RT-"
-	defaultUserID      = "stub-user"
-)
-
-const (
-	accessTokenTTL  = 15 * time.Minute
-	refreshTokenTTL = 24 * time.Hour
+	authTypeJWT = "jwt"
 )
 
 // Session contains the auth state returned by the gateway auth service.
-//
-// The current implementation is still a stub, so the values represent
-// placeholder identity and token data rather than persisted session state.
 type Session struct {
 	UserID        string
 	Login         string
@@ -48,111 +42,160 @@ var (
 	errMissingRefreshToken = errors.New("missing refresh token")
 )
 
+// AuthRequestContext contains caller metadata passed through to auth-service
+// token lifecycle RPCs.
+type AuthRequestContext struct {
+	ClientIP  string
+	UserAgent string
+}
+
+// AccessTokenVerifier defines the local JWT verification behavior needed by
+// the gateway service layer.
+type AccessTokenVerifier interface {
+	Verify(tokenText string) (authtoken.AccessClaims, error)
+}
+
 // AuthService defines the auth flows used by the gateway service layer.
 type AuthService interface {
-	Login(now time.Time, login string, password string) (Session, error)
-	Refresh(now time.Time, refreshToken string) (Session, error)
-	Logout(now time.Time, refreshToken string) (Session, error)
+	Login(ctx context.Context, now time.Time, login string, password string, requestContext AuthRequestContext) (Session, error)
+	Refresh(ctx context.Context, now time.Time, refreshToken string, requestContext AuthRequestContext) (Session, error)
+	Logout(ctx context.Context, now time.Time, refreshToken string, requestContext AuthRequestContext) (Session, error)
 	Me(now time.Time, accessToken string) (Session, error)
 }
 
-type authService struct{}
-
-// NewAuthService creates the current auth service implementation.
-//
-// The returned service is still a stub and exists to unblock the gateway
-// transport while the real auth backend is being integrated.
-func NewAuthService() AuthService {
-	return authService{}
+type authService struct {
+	client   messaging.Client
+	verifier AccessTokenVerifier
 }
 
-// Login issues a new auth token pair when both credentials are present.
+// NewAuthService creates an auth service backed by auth-service RPCs and local
+// access-token verification.
 //
 // Parameters:
-//   - now: clock value used to stamp the generated token expirations
+//   - client: messaging client used for auth-service request/reply calls
+//   - verifier: local verifier for JWT access tokens returned by auth-service
+func NewAuthService(client messaging.Client, verifier AccessTokenVerifier) AuthService {
+	return authService{
+		client:   client,
+		verifier: verifier,
+	}
+}
+
+// Login authenticates credentials through auth-service and maps the issued
+// token pair into a browser session.
+//
+// Parameters:
+//   - ctx: request-scoped context used for RPC cancellation
+//   - now: clock value used for responses that do not carry token expirations
 //   - login: submitted login identifier
 //   - password: submitted password
-//
-// Intentional simplification:
-//   - while the auth service is still a skeleton, login succeeds on the happy
-//     path when both fields are present
-//   - TODO: replace this with real credential verification once the auth
-//     service is implemented
-func (authService) Login(now time.Time, login string, password string) (Session, error) {
+//   - requestContext: caller metadata forwarded to auth-service
+func (s authService) Login(
+	ctx context.Context,
+	now time.Time,
+	login string,
+	password string,
+	requestContext AuthRequestContext,
+) (Session, error) {
 	if strings.TrimSpace(login) == "" || strings.TrimSpace(password) == "" {
 		return Session{}, errMissingCredentials
 	}
 
-	return newSession(now, login)
+	var response authcontract.LoginResponse
+	if err := s.client.Request(ctx, authcontract.LoginRPCSubject, authcontract.LoginRequest{
+		Username:  strings.TrimSpace(login),
+		Password:  password,
+		ClientIP:  requestContext.ClientIP,
+		UserAgent: requestContext.UserAgent,
+	}, &response); err != nil {
+		return Session{}, err
+	}
+
+	if response.Status != authcontract.StatusAuthenticated {
+		return Session{}, ErrUnauthorized
+	}
+
+	return s.sessionFromTokens(now, response.AccessToken, response.RefreshToken)
 }
 
-// Refresh issues a new token pair when a refresh token is present.
+// Refresh rotates the token pair through auth-service.
 //
 // Parameters:
-//   - now: clock value used to stamp the generated token expirations
+//   - ctx: request-scoped context used for RPC cancellation
+//   - now: clock value used for responses that do not carry token expirations
 //   - refreshToken: submitted refresh token value
-//
-// Intentional simplification:
-//   - while the auth service is still a skeleton, refresh succeeds on the
-//     happy path when a refresh token is present
-//   - TODO: replace this with real refresh-token verification once the auth
-//     service is implemented
-func (authService) Refresh(now time.Time, refreshToken string) (Session, error) {
+//   - requestContext: caller metadata forwarded to auth-service
+func (s authService) Refresh(
+	ctx context.Context,
+	now time.Time,
+	refreshToken string,
+	requestContext AuthRequestContext,
+) (Session, error) {
 	if strings.TrimSpace(refreshToken) == "" {
 		return Session{}, errMissingRefreshToken
 	}
 
-	return newSession(now, defaultUserID)
+	var response authcontract.RefreshResponse
+	if err := s.client.Request(ctx, authcontract.RefreshRPCSubject, authcontract.RefreshRequest{
+		RefreshToken: strings.TrimSpace(refreshToken),
+		ClientIP:     requestContext.ClientIP,
+		UserAgent:    requestContext.UserAgent,
+	}, &response); err != nil {
+		return Session{}, err
+	}
+
+	return s.sessionFromTokens(now, response.AccessToken, response.RefreshToken)
 }
 
-// Logout returns a session payload whose cookie timestamps force browser-side
-// token expiry.
+// Logout revokes the submitted refresh token through auth-service and returns
+// cookie timestamps that force browser-side token expiry.
 //
 // Parameters:
+//   - ctx: request-scoped context used for RPC cancellation
 //   - now: clock value used to compute expired cookie timestamps
 //   - refreshToken: submitted refresh token value
-//
-// Intentional simplification:
-//   - while the auth service is still a skeleton, logout succeeds on the happy
-//     path when a refresh token is present
-//   - TODO: replace this with real session invalidation once the auth service
-//     is implemented
-func (authService) Logout(now time.Time, refreshToken string) (Session, error) {
+//   - requestContext: caller metadata forwarded to auth-service
+func (s authService) Logout(
+	ctx context.Context,
+	now time.Time,
+	refreshToken string,
+	requestContext AuthRequestContext,
+) (Session, error) {
 	if strings.TrimSpace(refreshToken) == "" {
 		return Session{}, errMissingRefreshToken
 	}
 
-	return Session{
-		UserID:        defaultUserID,
-		AccessExpires: now.Add(-time.Hour),
-		RefreshExpiry: now.Add(-time.Hour),
-	}, nil
-}
-
-// Me validates the access token format and returns the current stub user
-// session.
-//
-// Parameters:
-//   - now: clock value used to compute access-token expiry in the response
-//   - accessToken: caller-provided access token extracted by transport logic
-func (authService) Me(now time.Time, accessToken string) (Session, error) {
-	if !strings.HasPrefix(strings.TrimSpace(accessToken), accessTokenPrefix) {
+	var response authcontract.LogoutResponse
+	if err := s.client.Request(ctx, authcontract.LogoutRPCSubject, authcontract.LogoutRequest{
+		RefreshToken: strings.TrimSpace(refreshToken),
+		ClientIP:     requestContext.ClientIP,
+		UserAgent:    requestContext.UserAgent,
+	}, &response); err != nil {
+		return Session{}, err
+	}
+	if !response.LoggedOut {
 		return Session{}, ErrUnauthorized
 	}
 
 	return Session{
-		UserID:        defaultUserID,
-		Login:         defaultUserID,
-		AccessToken:   accessToken,
-		AccessExpires: now.Add(accessTokenTTL),
-		AuthType:      "jwt",
-		Roles:         []string{"admin"},
-		Scopes: []string{
-			"auth.me.read",
-			"system-metrics.snapshot.read",
-			"system-metrics.history.read",
-		},
+		AccessExpires: now,
+		RefreshExpiry: now,
 	}, nil
+}
+
+// Me locally verifies the access token and returns the authenticated principal
+// represented by its JWT claims.
+//
+// Parameters:
+//   - now: clock value used to compute access-token expiry in the response
+//   - accessToken: caller-provided access token extracted by transport logic
+func (s authService) Me(now time.Time, accessToken string) (Session, error) {
+	claims, err := s.verifyAccessToken(accessToken)
+	if err != nil {
+		return Session{}, ErrUnauthorized
+	}
+
+	return sessionFromClaims(now, strings.TrimSpace(accessToken), "", claims)
 }
 
 // AccessCookie converts session access-token data into the browser cookie that
@@ -185,79 +228,58 @@ func RefreshCookie(session Session) http.Cookie {
 
 // ClearAccessCookie returns an expired access-token cookie for logout flows.
 func ClearAccessCookie(now time.Time) http.Cookie {
-	return expiredCookie(AccessTokenCookieName, now)
+	return httpcookie.Expired(AccessTokenCookieName, now)
 }
 
 // ClearRefreshCookie returns an expired refresh-token cookie for logout flows.
 func ClearRefreshCookie(now time.Time) http.Cookie {
-	return expiredCookie(RefreshTokenCookieName, now)
+	return httpcookie.Expired(RefreshTokenCookieName, now)
 }
 
-func newSession(now time.Time, login string) (Session, error) {
-	accessToken, err := newToken(accessTokenPrefix)
-	if err != nil {
-		return Session{}, err
+func (s authService) sessionFromTokens(now time.Time, accessToken string, refreshToken string) (Session, error) {
+	if strings.TrimSpace(refreshToken) == "" {
+		return Session{}, errMissingRefreshToken
 	}
 
-	refreshToken, err := newToken(refreshTokenPrefix)
+	claims, err := s.verifyAccessToken(accessToken)
 	if err != nil {
-		return Session{}, err
+		return Session{}, ErrUnauthorized
+	}
+
+	return sessionFromClaims(now, strings.TrimSpace(accessToken), strings.TrimSpace(refreshToken), claims)
+}
+
+func (s authService) verifyAccessToken(accessToken string) (authtoken.AccessClaims, error) {
+	token := strings.TrimSpace(accessToken)
+	if token == "" {
+		return authtoken.AccessClaims{}, ErrUnauthorized
+	}
+	if s.verifier == nil {
+		return authtoken.AccessClaims{}, ErrUnauthorized
+	}
+
+	return s.verifier.Verify(token)
+}
+
+func sessionFromClaims(
+	now time.Time,
+	accessToken string,
+	refreshToken string,
+	claims authtoken.AccessClaims,
+) (Session, error) {
+	if claims.ExpiresAt == nil {
+		return Session{}, ErrUnauthorized
 	}
 
 	return Session{
-		UserID:        defaultUserID,
-		Login:         login,
+		UserID:        claims.Subject,
+		Login:         claims.Login,
 		AccessToken:   accessToken,
 		RefreshToken:  refreshToken,
-		AccessExpires: now.Add(accessTokenTTL),
-		RefreshExpiry: now.Add(refreshTokenTTL),
-		AuthType:      "jwt",
-		Roles:         []string{"admin"},
-		Scopes: []string{
-			"auth.me.read",
-			"system-metrics.snapshot.read",
-			"system-metrics.history.read",
-		},
+		AccessExpires: claims.ExpiresAt.Time,
+		RefreshExpiry: now.Add(24 * time.Hour),
+		AuthType:      authTypeJWT,
+		Roles:         claims.Roles,
+		Scopes:        claims.Scopes,
 	}, nil
-}
-
-func newToken(prefix string) (string, error) {
-	id, err := newUUID()
-	if err != nil {
-		return "", err
-	}
-
-	return prefix + id, nil
-}
-
-func newUUID() (string, error) {
-	data := make([]byte, 16)
-	if _, err := rand.Read(data); err != nil {
-		return "", err
-	}
-
-	data[6] = (data[6] & 0x0f) | 0x40
-	data[8] = (data[8] & 0x3f) | 0x80
-
-	return fmt.Sprintf(
-		"%08x-%04x-%04x-%04x-%012x",
-		data[0:4],
-		data[4:6],
-		data[6:8],
-		data[8:10],
-		data[10:16],
-	), nil
-}
-
-func expiredCookie(name string, now time.Time) http.Cookie {
-	return http.Cookie{
-		Name:     name,
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  now.Add(-time.Hour),
-		MaxAge:   -1,
-	}
 }

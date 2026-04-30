@@ -4,6 +4,7 @@ package auth
 // persistent cookie transport.
 type RefreshInput struct {
 	RefreshTokenCookie string `cookie:"lite-nas-rt" doc:"Refresh token cookie."`
+	UserAgent          string `header:"User-Agent" doc:"Client user agent bound to the refresh session."`
 	Body               RefreshRequestBody
 }
 

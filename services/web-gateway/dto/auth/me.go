@@ -6,9 +6,10 @@ import (
 	"lite-nas/services/web-gateway/dto"
 )
 
-// MeInput reads the access token from the configured cookie.
+// MeInput reads the access token from supported browser-facing transports.
 type MeInput struct {
-	AccessToken string `cookie:"lite-nas-at" required:"true" doc:"Access token cookie."`
+	Authorization     string `header:"Authorization" doc:"Bearer access token header for explicit REST-style clients."`
+	AccessTokenCookie string `cookie:"lite-nas-at" doc:"Access token cookie."`
 }
 
 // MeOutput returns the current authenticated user state.

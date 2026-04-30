@@ -2,7 +2,8 @@ package auth
 
 // LoginInput documents the stub login request body.
 type LoginInput struct {
-	Body LoginRequestBody
+	UserAgent string `header:"User-Agent" doc:"Client user agent bound to the refresh session."`
+	Body      LoginRequestBody
 }
 
 // LoginRequestBody describes the draft login payload validated by the browser

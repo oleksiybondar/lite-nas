@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"lite-nas/services/web-gateway/controllers"
+	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/modules"
 	"lite-nas/services/web-gateway/services"
 	webtest "lite-nas/services/web-gateway/testutil"
+	"lite-nas/shared/authtoken"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/metrics"
 )
@@ -30,7 +32,13 @@ type routeAuthService struct {
 	meErr      error
 }
 
-func (s routeAuthService) Login(now time.Time, login string, password string) (services.Session, error) {
+func (s routeAuthService) Login(
+	_ context.Context,
+	now time.Time,
+	login string,
+	password string,
+	_ services.AuthRequestContext,
+) (services.Session, error) {
 	if s.loginErr != nil {
 		return services.Session{}, s.loginErr
 	}
@@ -45,7 +53,12 @@ func (s routeAuthService) Login(now time.Time, login string, password string) (s
 	}, nil
 }
 
-func (s routeAuthService) Refresh(now time.Time, refreshToken string) (services.Session, error) {
+func (s routeAuthService) Refresh(
+	_ context.Context,
+	now time.Time,
+	refreshToken string,
+	_ services.AuthRequestContext,
+) (services.Session, error) {
 	if s.refreshErr != nil {
 		return services.Session{}, s.refreshErr
 	}
@@ -60,7 +73,12 @@ func (s routeAuthService) Refresh(now time.Time, refreshToken string) (services.
 	}, nil
 }
 
-func (s routeAuthService) Logout(now time.Time, refreshToken string) (services.Session, error) {
+func (s routeAuthService) Logout(
+	_ context.Context,
+	now time.Time,
+	refreshToken string,
+	_ services.AuthRequestContext,
+) (services.Session, error) {
 	if s.logoutErr != nil {
 		return services.Session{}, s.logoutErr
 	}
@@ -100,6 +118,12 @@ func (routeSystemMetricsService) GetHistory(context.Context) ([]metrics.SystemSn
 	}, nil
 }
 
+type routeAuthVerifier struct{}
+
+func (routeAuthVerifier) Verify(string) (authtoken.AccessClaims, error) {
+	return authtoken.AccessClaims{}, nil
+}
+
 func routerFixture(authService controllers.AuthService) http.Handler {
 	if authService == nil {
 		authService = routeAuthService{}
@@ -119,7 +143,11 @@ func routerFixture(authService controllers.AuthService) http.Handler {
 		SystemMetrics: controllers.NewSystemMetricsController(routeSystemMetricsService{}),
 	}
 
-	return NewRouter("web-gateway", "0.1.0", controllerModule)
+	return NewRouter("web-gateway", "0.1.0", controllerModule, middlewares.AuthenticationOptions{
+		AccessCookieName:  services.AccessTokenCookieName,
+		RefreshCookieName: services.RefreshTokenCookieName,
+		Verifier:          routeAuthVerifier{},
+	})
 }
 
 // Requirements: web-gateway/FR-001, web-gateway/OR-002

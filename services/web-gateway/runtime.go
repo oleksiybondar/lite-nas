@@ -4,10 +4,15 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
+	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/modules"
 	"lite-nas/services/web-gateway/routes"
+	"lite-nas/services/web-gateway/services"
+	"lite-nas/shared/authtoken"
+	sharedconfig "lite-nas/shared/config"
 )
 
 const (
@@ -34,7 +39,12 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 
-	serviceModule := modules.NewServicesModule(infra.Client)
+	authVerifier, err := newAuthTokenVerifier(infra.Config.AuthTokens)
+	if err != nil {
+		return err
+	}
+
+	serviceModule := modules.NewServicesModule(infra.Client, authVerifier)
 	fileModule, err := modules.NewFilesModule(packagedAssetRoot)
 	if err != nil {
 		return err
@@ -45,6 +55,11 @@ func run(ctx context.Context) error {
 		serviceName,
 		apiVersion,
 		controllerModule,
+		middlewares.AuthenticationOptions{
+			AccessCookieName:  services.AccessTokenCookieName,
+			RefreshCookieName: services.RefreshTokenCookieName,
+			Verifier:          authVerifier,
+		},
 	)
 
 	server := &http.Server{
@@ -57,6 +72,28 @@ func run(ctx context.Context) error {
 	}
 
 	return serveHTTP(ctx, server, infra.Logger)
+}
+
+func newAuthTokenVerifier(cfg sharedconfig.AuthTokenConfig) (authtoken.Verifier, error) {
+	verificationCertData, err := os.ReadFile(cfg.VerificationCert) // #nosec G304 -- path comes from service config
+	if err != nil {
+		return authtoken.Verifier{}, err
+	}
+
+	verificationKey, err := authtoken.ParseEd25519CertificatePublicKeyPEM(verificationCertData)
+	if err != nil {
+		return authtoken.Verifier{}, err
+	}
+
+	return authtoken.NewVerifier(authTokenVerifierOptions(cfg), verificationKey)
+}
+
+func authTokenVerifierOptions(cfg sharedconfig.AuthTokenConfig) authtoken.VerifierOptions {
+	return authtoken.VerifierOptions{
+		Issuer:    cfg.Issuer,
+		Audience:  cfg.Audience,
+		ClockSkew: cfg.ClockSkew,
+	}
 }
 
 // serveHTTP runs the HTTP server and coordinates graceful shutdown.

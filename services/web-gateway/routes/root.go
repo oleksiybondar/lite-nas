@@ -3,6 +3,7 @@ package routes
 import (
 	"net/http"
 
+	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/modules"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -18,10 +19,12 @@ import (
 //   - serviceName: API title exposed through the generated Huma documents
 //   - version: API version exposed through the generated Huma documents
 //   - controllerModule: controller dependencies mounted into route slices
+//   - authentication: authentication middleware configuration
 func NewRouter(
 	serviceName string,
 	version string,
 	controllerModule modules.Controllers,
+	authentication middlewares.AuthenticationOptions,
 ) http.Handler {
 	root := chi.NewMux()
 	root.Use(chimiddleware.RequestID)
@@ -32,8 +35,8 @@ func NewRouter(
 
 	mountIndexRouter(root, controllerModule)
 	mountAssetsRouter(root, controllerModule)
-	mountAuthRouter(api, controllerModule)
-	mountSystemMetricsRouter(api, controllerModule)
+	mountAuthRouter(api, controllerModule, authentication)
+	mountSystemMetricsRouter(api, controllerModule, authentication)
 
 	return root
 }

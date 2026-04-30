@@ -9,12 +9,16 @@ import (
 
 // mountSystemMetricsRouter registers the documented system metrics routes on
 // the shared API.
-func mountSystemMetricsRouter(api huma.API, controllerModule modules.Controllers) {
+func mountSystemMetricsRouter(
+	api huma.API,
+	controllerModule modules.Controllers,
+	authentication middlewares.AuthenticationOptions,
+) {
 	group := huma.NewGroup(api, "/system-metrics")
 	group.UseSimpleModifier(func(op *huma.Operation) {
 		op.Tags = []string{"system-metrics"}
 	})
-	group.UseMiddleware(middlewares.RequireAuthentication(api))
+	group.UseMiddleware(middlewares.RequireAuthentication(api, authentication))
 
 	controller := controllerModule.SystemMetrics
 	huma.Get(group, "/snapshot", controller.GetSnapshot)

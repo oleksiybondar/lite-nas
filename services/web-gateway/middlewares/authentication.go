@@ -3,31 +3,61 @@ package middlewares
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"lite-nas/shared/authtoken"
+	"lite-nas/shared/httpcookie"
 )
 
-type accessTokenContextKey struct{}
+type (
+	accessTokenContextKey           struct{}
+	authenticationFailureContextKey struct{}
+)
+
+// AccessTokenVerifier defines the local JWT verification behavior needed by
+// authentication middleware.
+type AccessTokenVerifier interface {
+	Verify(tokenText string) (authtoken.AccessClaims, error)
+}
+
+// AuthenticationOptions configures gateway authentication extraction and
+// enforcement middleware.
+type AuthenticationOptions struct {
+	AccessCookieName  string
+	RefreshCookieName string
+	Verifier          AccessTokenVerifier
+}
+
+type authenticationFailure string
+
+const authenticationFailureExpired authenticationFailure = "expired"
 
 // ExtractAuthentication extracts an access token from supported transports and
 // stores it in the request context for downstream middleware and handlers.
 //
 // Parameters:
-//   - cookieName: name of the HTTP-only access-token cookie to inspect
+//   - options: cookie names and JWT verifier used by the middleware
 //
 // Supported access-token transport policies:
 //   - Authorization bearer header
 //   - HTTP-only access-token cookie
-//
-// Intentional simplification:
-//   - for now, token presence is treated as sufficient
-//   - TODO: replace this with real JWT validation once token issuance is backed
-//     by a real auth service
-func ExtractAuthentication(cookieName string) func(huma.Context, func(huma.Context)) {
+func ExtractAuthentication(options AuthenticationOptions) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
-		token := extractAccessToken(ctx, cookieName)
+		token := extractAccessToken(ctx, options.AccessCookieName)
 		if token == "" {
 			next(ctx)
+			return
+		}
+
+		if options.Verifier == nil {
+			next(ctx)
+			return
+		}
+
+		if _, err := options.Verifier.Verify(token); err != nil {
+			next(withAuthenticationFailure(ctx, err))
 			return
 		}
 
@@ -40,9 +70,14 @@ func ExtractAuthentication(cookieName string) func(huma.Context, func(huma.Conte
 //
 // Parameters:
 //   - api: Huma API instance used to render transport-level auth errors
-func RequireAuthentication(api huma.API) func(huma.Context, func(huma.Context)) {
+//   - options: cookie names used to clear expired browser auth sessions
+func RequireAuthentication(api huma.API, options AuthenticationOptions) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
 		if !hasAccessToken(ctx.Context()) {
+			if hasExpiredAuthentication(ctx.Context()) {
+				clearAuthCookies(ctx, options, time.Now())
+			}
+
 			_ = huma.WriteErr(api, ctx, 401, "missing or invalid access token")
 			return
 		}
@@ -87,4 +122,24 @@ func isAcceptedAccessToken(token string) bool {
 func hasAccessToken(ctx context.Context) bool {
 	token, _ := ctx.Value(accessTokenContextKey{}).(string)
 	return isAcceptedAccessToken(token)
+}
+
+func withAuthenticationFailure(ctx huma.Context, err error) huma.Context {
+	if authtoken.IsExpiredError(err) {
+		return huma.WithValue(ctx, authenticationFailureContextKey{}, authenticationFailureExpired)
+	}
+
+	return ctx
+}
+
+func hasExpiredAuthentication(ctx context.Context) bool {
+	failure, _ := ctx.Value(authenticationFailureContextKey{}).(authenticationFailure)
+	return failure == authenticationFailureExpired
+}
+
+func clearAuthCookies(ctx huma.Context, options AuthenticationOptions, now time.Time) {
+	accessCookie := httpcookie.Expired(options.AccessCookieName, now)
+	refreshCookie := httpcookie.Expired(options.RefreshCookieName, now)
+	ctx.AppendHeader("Set-Cookie", accessCookie.String())
+	ctx.AppendHeader("Set-Cookie", refreshCookie.String())
 }

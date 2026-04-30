@@ -16,9 +16,9 @@ import (
 // AuthService defines the auth behavior required by the browser-facing auth
 // controller.
 type AuthService interface {
-	Login(now time.Time, login string, password string) (services.Session, error)
-	Refresh(now time.Time, refreshToken string) (services.Session, error)
-	Logout(now time.Time, refreshToken string) (services.Session, error)
+	Login(context.Context, time.Time, string, string, services.AuthRequestContext) (services.Session, error)
+	Refresh(context.Context, time.Time, string, services.AuthRequestContext) (services.Session, error)
+	Logout(context.Context, time.Time, string, services.AuthRequestContext) (services.Session, error)
 	Me(now time.Time, accessToken string) (services.Session, error)
 }
 
@@ -42,11 +42,11 @@ func NewAuthController(service AuthService) AuthController {
 // Parameters:
 //   - input: validated login payload containing the submitted credentials
 func (c AuthController) Login(
-	_ context.Context,
+	ctx context.Context,
 	input *authdto.LoginInput,
 ) (*authdto.SessionOutput, error) {
 	now := time.Now()
-	session, err := c.service.Login(now, input.Body.Login, input.Body.Password)
+	session, err := c.service.Login(ctx, now, input.Body.Login, input.Body.Password, authRequestContext(input.UserAgent))
 	if err != nil {
 		return nil, huma.Error401Unauthorized("invalid login or password")
 	}
@@ -66,7 +66,7 @@ func (c AuthController) Login(
 // Parameters:
 //   - input: validated refresh request plus any extracted refresh-token cookie
 func (c AuthController) Refresh(
-	_ context.Context,
+	ctx context.Context,
 	input *authdto.RefreshInput,
 ) (*authdto.SessionOutput, error) {
 	now := time.Now()
@@ -75,7 +75,7 @@ func (c AuthController) Refresh(
 		return nil, huma.Error401Unauthorized("missing refresh token")
 	}
 
-	session, err := c.service.Refresh(now, refreshToken)
+	session, err := c.service.Refresh(ctx, now, refreshToken, authRequestContext(input.UserAgent))
 	if err != nil {
 		return nil, mapAuthError(err, "invalid refresh token")
 	}
@@ -94,7 +94,7 @@ func (c AuthController) Refresh(
 // Parameters:
 //   - input: validated logout request plus any extracted refresh-token cookie
 func (c AuthController) Logout(
-	_ context.Context,
+	ctx context.Context,
 	input *authdto.LogoutInput,
 ) (*authdto.LogoutOutput, error) {
 	now := time.Now()
@@ -103,7 +103,7 @@ func (c AuthController) Logout(
 		return nil, huma.Error401Unauthorized("missing refresh token")
 	}
 
-	session, err := c.service.Logout(now, refreshToken)
+	session, err := c.service.Logout(ctx, now, refreshToken, authRequestContext(input.UserAgent))
 	if err != nil {
 		return nil, mapAuthError(err, "invalid refresh token")
 	}
@@ -127,7 +127,7 @@ func (c AuthController) Me(
 	input *authdto.MeInput,
 ) (*authdto.MeOutput, error) {
 	now := time.Now()
-	session, err := c.service.Me(now, input.AccessToken)
+	session, err := c.service.Me(now, resolveAccessToken(input.Authorization, input.AccessTokenCookie))
 	if err != nil {
 		return nil, mapAuthError(err, "missing or invalid access token")
 	}
@@ -157,6 +157,18 @@ func buildSessionBody(now time.Time, session services.Session) authdto.SessionBo
 	})
 }
 
+func authRequestContext(userAgent string) services.AuthRequestContext {
+	return services.AuthRequestContext{UserAgent: strings.TrimSpace(userAgent)}
+}
+
+func resolveAccessToken(authorization string, cookieValue string) string {
+	if token := extractBearerToken(authorization); token != "" {
+		return token
+	}
+
+	return strings.TrimSpace(cookieValue)
+}
+
 func resolveRefreshToken(input *authdto.RefreshInput) string {
 	if input == nil {
 		return ""
@@ -176,7 +188,7 @@ func mapAuthError(err error, message string) error {
 		return huma.Error401Unauthorized(message)
 	}
 
-	return huma.Error500InternalServerError("failed to process auth token stub")
+	return huma.Error500InternalServerError("failed to process auth token")
 }
 
 func resolveLogoutRefreshToken(input *authdto.LogoutInput) string {
@@ -189,4 +201,14 @@ func resolveLogoutRefreshToken(input *authdto.LogoutInput) string {
 	}
 
 	return strings.TrimSpace(input.RefreshTokenCookie)
+}
+
+func extractBearerToken(header string) string {
+	const bearerPrefix = "Bearer "
+
+	if !strings.HasPrefix(header, bearerPrefix) {
+		return ""
+	}
+
+	return strings.TrimSpace(strings.TrimPrefix(header, bearerPrefix))
 }

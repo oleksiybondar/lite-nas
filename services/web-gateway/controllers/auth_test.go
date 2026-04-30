@@ -22,15 +22,31 @@ type stubAuthService struct {
 	meErr         error
 }
 
-func (s stubAuthService) Login(time.Time, string, string) (services.Session, error) {
+func (s stubAuthService) Login(
+	context.Context,
+	time.Time,
+	string,
+	string,
+	services.AuthRequestContext,
+) (services.Session, error) {
 	return s.loginResult, s.loginErr
 }
 
-func (s stubAuthService) Refresh(time.Time, string) (services.Session, error) {
+func (s stubAuthService) Refresh(
+	context.Context,
+	time.Time,
+	string,
+	services.AuthRequestContext,
+) (services.Session, error) {
 	return s.refreshResult, s.refreshErr
 }
 
-func (s stubAuthService) Logout(time.Time, string) (services.Session, error) {
+func (s stubAuthService) Logout(
+	context.Context,
+	time.Time,
+	string,
+	services.AuthRequestContext,
+) (services.Session, error) {
 	return s.logoutResult, s.logoutErr
 }
 
@@ -127,7 +143,7 @@ func mustLogout(t *testing.T, controller AuthController, input *authdto.LogoutIn
 func mustMe(t *testing.T, controller AuthController, accessToken string) *authdto.MeOutput {
 	t.Helper()
 
-	got, err := controller.Me(context.Background(), &authdto.MeInput{AccessToken: accessToken})
+	got, err := controller.Me(context.Background(), &authdto.MeInput{AccessTokenCookie: accessToken})
 	if err != nil {
 		t.Fatalf("Me() error = %v", err)
 	}
@@ -253,7 +269,7 @@ func TestAuthControllerMeMapsUnauthorizedToUnauthorized(t *testing.T) {
 	t.Parallel()
 
 	assertAuthControllerUnauthorizedError(t, stubAuthService{meErr: services.ErrUnauthorized}, func(controller AuthController) error {
-		_, err := controller.Me(context.Background(), &authdto.MeInput{AccessToken: "AT-token"})
+		_, err := controller.Me(context.Background(), &authdto.MeInput{AccessTokenCookie: "AT-token"})
 		return err
 	})
 }

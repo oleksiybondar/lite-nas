@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/golang-jwt/jwt/v5"
+
+	"lite-nas/shared/authtoken"
 )
 
 type stubHumaContext struct {
@@ -76,6 +79,18 @@ func (stubAPI) Unmarshal(string, []byte, any) error                     { return
 func (stubAPI) UseMiddleware(...func(huma.Context, func(huma.Context))) {}
 func (stubAPI) Middlewares() huma.Middlewares                           { return nil }
 
+type authenticationVerifierStub struct {
+	err error
+}
+
+func (v authenticationVerifierStub) Verify(string) (authtoken.AccessClaims, error) {
+	if v.err != nil {
+		return authtoken.AccessClaims{}, v.err
+	}
+
+	return authtoken.AccessClaims{}, nil
+}
+
 func TestExtractAuthenticationPrefersBearerHeader(t *testing.T) {
 	t.Parallel()
 
@@ -84,7 +99,7 @@ func TestExtractAuthenticationPrefersBearerHeader(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "AT-cookie"})
 
 	ctx := newStubHumaContext(request)
-	middleware := ExtractAuthentication("lite-nas-at")
+	middleware := ExtractAuthentication(authenticationOptionsFixture())
 
 	nextCalled := false
 	middleware(ctx, func(nextCtx huma.Context) {
@@ -106,7 +121,7 @@ func TestExtractAuthenticationFallsBackToCookie(t *testing.T) {
 	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "AT-cookie"})
 
 	ctx := newStubHumaContext(request)
-	middleware := ExtractAuthentication("lite-nas-at")
+	middleware := ExtractAuthentication(authenticationOptionsFixture())
 
 	middleware(ctx, func(nextCtx huma.Context) {
 		if !hasAccessToken(nextCtx.Context()) {
@@ -120,7 +135,7 @@ func TestExtractAuthenticationLeavesContextUntouchedWithoutToken(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	ctx := newStubHumaContext(request)
-	middleware := ExtractAuthentication("lite-nas-at")
+	middleware := ExtractAuthentication(authenticationOptionsFixture())
 
 	middleware(ctx, func(nextCtx huma.Context) {
 		if hasAccessToken(nextCtx.Context()) {
@@ -134,7 +149,7 @@ func TestRequireAuthenticationRejectsMissingToken(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	ctx := newStubHumaContext(request)
-	middleware := RequireAuthentication(stubAPI{})
+	middleware := RequireAuthentication(stubAPI{}, authenticationOptionsFixture())
 
 	nextCalled := false
 	middleware(ctx, func(huma.Context) {
@@ -151,7 +166,7 @@ func TestRequireAuthenticationAllowsRequestWithToken(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	ctx := huma.WithValue(newStubHumaContext(request), accessTokenContextKey{}, "AT-token")
-	middleware := RequireAuthentication(stubAPI{})
+	middleware := RequireAuthentication(stubAPI{}, authenticationOptionsFixture())
 
 	nextCalled := false
 	middleware(ctx, func(huma.Context) {
@@ -160,6 +175,52 @@ func TestRequireAuthenticationAllowsRequestWithToken(t *testing.T) {
 
 	if !nextCalled {
 		t.Fatal("expected request to continue")
+	}
+}
+
+func TestRequireAuthenticationClearsCookiesForExpiredToken(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	baseCtx := newStubHumaContext(request)
+	ctx := huma.WithValue(
+		baseCtx,
+		authenticationFailureContextKey{},
+		authenticationFailureExpired,
+	)
+	middleware := RequireAuthentication(stubAPI{}, authenticationOptionsFixture())
+
+	middleware(ctx, func(huma.Context) {
+		t.Fatal("expected request to be rejected")
+	})
+
+	cookies := baseCtx.headers.Values("Set-Cookie")
+	if len(cookies) != 2 {
+		t.Fatalf("Set-Cookie count = %d, want 2", len(cookies))
+	}
+}
+
+func TestExtractAuthenticationMarksExpiredToken(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "expired-token"})
+	ctx := newStubHumaContext(request)
+	options := authenticationOptionsFixture()
+	options.Verifier = authenticationVerifierStub{err: jwt.ErrTokenExpired}
+
+	ExtractAuthentication(options)(ctx, func(nextCtx huma.Context) {
+		if !hasExpiredAuthentication(nextCtx.Context()) {
+			t.Fatal("expected expired authentication marker")
+		}
+	})
+}
+
+func authenticationOptionsFixture() AuthenticationOptions {
+	return AuthenticationOptions{
+		AccessCookieName:  "lite-nas-at",
+		RefreshCookieName: "lite-nas-rt",
+		Verifier:          authenticationVerifierStub{},
 	}
 }
 

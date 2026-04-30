@@ -1,6 +1,10 @@
 package authtoken
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/golang-jwt/jwt/v5"
+)
 
 var (
 	errMissingSigningKey      = errors.New("auth token signing key is required")
@@ -18,3 +22,9 @@ var (
 	errUnsupportedSigningKey  = errors.New("unsupported auth token signing key type")
 	errUnsupportedPublicKey   = errors.New("unsupported auth token public key type")
 )
+
+// IsExpiredError reports whether an access-token verification error was caused
+// by an expired JWT.
+func IsExpiredError(err error) bool {
+	return errors.Is(err, jwt.ErrTokenExpired)
+}

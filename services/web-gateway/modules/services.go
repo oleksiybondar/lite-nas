@@ -19,9 +19,10 @@ type Services struct {
 //
 // Parameters:
 //   - client: messaging client used by services that call backend modules
-func NewServicesModule(client messaging.Client) Services {
+//   - authVerifier: local verifier for JWT access tokens
+func NewServicesModule(client messaging.Client, authVerifier services.AccessTokenVerifier) Services {
 	return Services{
-		Auth:          services.NewAuthService(),
+		Auth:          services.NewAuthService(client, authVerifier),
 		SystemMetrics: services.NewSystemMetricsService(client),
 	}
 }
