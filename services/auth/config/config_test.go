@@ -51,13 +51,14 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 func TestLoadConfigAuthTokenFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := append(configtest.AuthTokenFieldCases(func(cfg Config) sharedconfig.AuthTokenConfig {
-		return cfg.AuthTokens
-	}), []testcasetest.FieldCase[Config]{
-		{Name: "signing key", Got: func(cfg Config) any { return cfg.AuthTokens.SigningKey }, Want: "/etc/lite-nas/certificates/auth/token-signing.key"},
-		{Name: "signing cert", Got: func(cfg Config) any { return cfg.AuthTokens.SigningCert }, Want: "/etc/lite-nas/certificates/auth/token-signing.crt"},
-		{Name: "verification cert", Got: func(cfg Config) any { return cfg.AuthTokens.VerificationCert }, Want: "/etc/lite-nas/certificates/auth/token-signing.crt"},
-	}...)
+	testCases := configtest.AuthTokenFieldCases(
+		func(cfg Config) sharedconfig.AuthTokenConfig { return cfg.AuthTokens },
+		configtest.AuthTokenExpectedPaths{
+			SigningKey:       "/etc/lite-nas/certificates/auth/token-signing.key",
+			SigningCert:      "/etc/lite-nas/certificates/auth/token-signing.crt",
+			VerificationCert: "/etc/lite-nas/certificates/auth/token-signing.crt",
+		},
+	)
 
 	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
 }
@@ -76,7 +77,7 @@ func loadConfigFixture(t *testing.T) Config {
 				"timeout=5s\n" +
 				"[auth_tokens]\n" +
 				"issuer=lite-nas-auth\n" +
-				"audience=lite-nas-services\n" +
+				"audience=lite-nas-management-api\n" +
 				"access_lifetime=15m\n" +
 				"clock_skew=30s\n" +
 				"signing_key=/etc/lite-nas/certificates/auth/token-signing.key\n" +

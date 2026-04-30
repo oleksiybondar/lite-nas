@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ var (
 	errMissingAuthTokenAudience  = errors.New("auth token audience is required")
 	errInvalidAuthTokenLifetime  = errors.New("auth token access_lifetime must be greater than zero")
 	errInvalidAuthTokenClockSkew = errors.New("auth token clock_skew must not be negative")
+	errInvalidRefreshClientIP    = errors.New("auth token enforce_refresh_client_ip must be boolean")
 )
 
 // AuthTokenConfig defines [auth_tokens] settings for JWT access-token issuing
@@ -27,13 +29,14 @@ var (
 // Key and certificate paths are parsed as plain strings. File presence, PEM
 // format, key type, and certificate/key matching are validated by token setup.
 type AuthTokenConfig struct {
-	Issuer           string
-	Audience         string
-	AccessLifetime   time.Duration
-	ClockSkew        time.Duration
-	SigningKey       string
-	SigningCert      string
-	VerificationCert string
+	Issuer                 string
+	Audience               string
+	AccessLifetime         time.Duration
+	ClockSkew              time.Duration
+	SigningKey             string
+	SigningCert            string
+	VerificationCert       string
+	EnforceRefreshClientIP bool
 }
 
 // LoadAuthTokenConfig extracts and validates token policy values from the
@@ -60,6 +63,11 @@ func LoadAuthTokenConfig(cfgFile *ini.File) (AuthTokenConfig, error) {
 		return AuthTokenConfig{}, err
 	}
 
+	config.EnforceRefreshClientIP, err = parseAuthTokenBool(section, "enforce_refresh_client_ip", false)
+	if err != nil {
+		return AuthTokenConfig{}, err
+	}
+
 	if err := validateAuthTokenConfig(config); err != nil {
 		return AuthTokenConfig{}, err
 	}
@@ -71,6 +79,20 @@ func parseAuthTokenDuration(section *ini.Section, key string, defaultValue time.
 	value, err := time.ParseDuration(section.Key(key).MustString(defaultValue.String()))
 	if err != nil {
 		return 0, fmt.Errorf("parse auth token %s: %w", key, err)
+	}
+
+	return value, nil
+}
+
+func parseAuthTokenBool(section *ini.Section, key string, defaultValue bool) (bool, error) {
+	text := strings.TrimSpace(section.Key(key).String())
+	if text == "" {
+		return defaultValue, nil
+	}
+
+	value, err := strconv.ParseBool(text)
+	if err != nil {
+		return false, errInvalidRefreshClientIP
 	}
 
 	return value, nil

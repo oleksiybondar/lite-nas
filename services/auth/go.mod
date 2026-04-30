@@ -7,7 +7,10 @@ require lite-nas/shared v0.0.1
 
 require github.com/msteinert/pam/v2 v2.1.0
 
-require gopkg.in/ini.v1 v1.67.1 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+	gopkg.in/ini.v1 v1.67.1 // indirect
+)
 
 // These indirect dependencies are pulled in through shared packages and other
 // direct dependencies of this service.
