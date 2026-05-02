@@ -33,14 +33,15 @@ base infrastructure is reproducible, testable, and maintainable.
 In practice, `system-metrics` acts as an infrastructure-seeding service rather
 than a statement of final product priority.
 
-## Why the next web slice is still infrastructure-first
+## Why the web skeleton is still infrastructure-first
 
-The next planned slice is expected to add:
+The current web skeleton adds:
 
-- a simple Go web service
-- a simple Vite + React web app
+- `web-gateway` as the browser-facing Go HTTP boundary
+- `auth-service` as a dedicated PAM-backed auth authority
+- `admin-panel` as a Vite + React browser app
 - packaging and assembly wiring so web assets are consumed by backend packaging
-- CI/CD updates so JS/TS build artifacts become part of the reproducible build flow
+- CI/CD updates so JS/TS build artifacts are part of the reproducible build flow
 
 This is also intentionally low immediate business value.
 
@@ -57,14 +58,18 @@ This stage should make the platform feel operationally complete enough that the
 remaining effort is mostly product and domain implementation rather than
 continued build and deployment bootstrapping.
 
-## Planned focus for the platform-web-skeleton branch
+## Platform-web-skeleton branch outcome
 
-- scaffold a minimal Go web service with the same structural conventions used by
-  existing services
-- scaffold a minimal Vite + React web app with build output suitable for
-  packaging
-- wire the web app build output into the backend/package assembly flow
-- extend CI/CD so JS/TS build jobs produce real artifacts consumed by later
-  packaging jobs
-- keep the slice intentionally small in end-user behavior while maximizing
-  reproducibility and future expansion value
+- The platform now has several services and apps that build and install through
+  the same repository-owned flows.
+- Internal service communication is wired over NATS rather than direct browser
+  access to backend internals.
+- The browser gateway serves packaged admin-panel assets and exposes documented
+  browser-facing auth and system metrics surfaces.
+- The frontend build output is produced under `.build/admin-panel`, normalized
+  for gateway serving, and included in Debian package assembly.
+- CI/CD scripts cover frontend dependencies, frontend build, JS/TS analysis,
+  duplication checks, package analysis, and package install validation.
+- The branch remains intentionally small in end-user behavior, but it completes
+  enough of the skeleton that future branches can focus on actual NAS product
+  development rather than platform bootstrapping.

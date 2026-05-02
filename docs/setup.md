@@ -194,7 +194,7 @@ By default, the deployment uses:
 
 - binary path `/usr/libexec/lite-nas/system-metrics`
 - config path `/etc/lite-nas/system-metrics.conf`
-- log path `/var/lib/lite-nas/system-metrics.log`
+- log path `/var/log/lite-nas/system-metrics.log`
 - systemd service `lite-nas-system-metrics.service`
 - runtime user `lite-nas-system-metrics`
 - runtime group `lite-nas-system-metrics`
@@ -218,6 +218,16 @@ Build the native-architecture LiteNAS package directly when needed:
 ./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
 ```
 
+Build only the browser app assets:
+
+```bash
+./scripts/build-admin-panel.sh
+```
+
+By default this writes the Vite build output to `.build/admin-panel`. The
+gateway deploy and package flows normalize that output into the flat static
+asset layout served from `/usr/share/lite-nas/web-gateway/assets`.
+
 The package output currently contains one native-architecture package:
 
 - `lite-nas`: bootstrap/profile package that also bundles the system metrics service and CLI binaries
@@ -239,7 +249,8 @@ The `lite-nas` package:
   and client certificate by default
 
 The `lite-nas` package installs the auth service, system metrics service,
-system metrics CLI app, and web gateway under that profile.
+system metrics CLI app, web gateway, and packaged admin-panel assets under that
+profile.
 
 Install a built package with dependency resolution:
 
@@ -359,6 +370,8 @@ Run the local CI test and coverage checks:
 ./scripts/run-ci-test.sh
 ```
 
+This includes admin-panel unit tests through `scripts/test-admin-panel.sh`.
+
 Run Markdown analysis:
 
 ```bash
@@ -369,6 +382,13 @@ Run JS/TS/JSON analysis:
 
 ```bash
 ./scripts/ci/js-ts-analysis.sh
+```
+
+Build or test the browser app directly:
+
+```bash
+./scripts/build-admin-panel.sh
+./scripts/test-admin-panel.sh
 ```
 
 Run Go analysis:
@@ -428,6 +448,9 @@ GitHub Actions runs separate static analysis jobs for Markdown, shell, Go
 duplication, shell duplication, JS/TS, Go, and GitHub Actions workflows. Jobs
 explicitly pass when no matching files or Go modules exist.
 
+PR validation and the main package gate also run real JS/TS build and unit test
+jobs for the admin-panel application.
+
 CI workflow order:
 
 1. `Static analysis` runs on pull requests and pushes to `main` or `master`.
@@ -437,7 +460,9 @@ CI workflow order:
    on `main`.
 
 `Main pipeline` uploads the built `system-metrics` binaries as short-lived
-workflow artifacts together with the built `system-metrics-cli` binaries.
+workflow artifacts together with the built `system-metrics-cli`,
+`auth-service`, `web-gateway`, and `admin-panel` frontend asset artifacts. The
+downstream package job consumes those artifacts when assembling the `.deb`.
 GitHub Actions only supports whole-day retention values, so the workflow uses
 the minimum supported retention of 1 day.
 

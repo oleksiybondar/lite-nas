@@ -9,9 +9,10 @@ cd "$(git rev-parse --show-toplevel)"
 
 mapfile -t biome_files < <(find . -type f \( \
 	-name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.json' -o -name '*.jsonc' \) \
-	-not -path './node_modules/*' \
-	-not -path './dist/*' \
-	-not -path './build/*')
+	-not -path '*/node_modules/*' \
+	-not -path './.build/*' \
+	-not -path '*/dist/*' \
+	-not -path '*/build/*')
 
 if [ "${#biome_files[@]}" -eq 0 ]; then
 	log.info "No JS/TS/JSON files found."
@@ -23,9 +24,10 @@ else
 fi
 
 mapfile -t duplicate_files < <(find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) \
-	-not -path './node_modules/*' \
-	-not -path './dist/*' \
-	-not -path './build/*')
+	-not -path '*/node_modules/*' \
+	-not -path './.build/*' \
+	-not -path '*/dist/*' \
+	-not -path '*/build/*')
 
 if [ "${#duplicate_files[@]}" -eq 0 ]; then
 	log.info "No JS/TS files found for duplication detection."

@@ -8,6 +8,7 @@ source "$ENTRYPOINT_DIR/deploy/lite-nas.sh"
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 
 binary_path=""
+assets_source=""
 should_start=1
 should_bootstrap=1
 
@@ -20,6 +21,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		binary_path="$2"
+		shift 2
+		;;
+	--assets-source)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --assets-source"
+			deploy.webGateway.usage >&2
+			exit 2
+		fi
+		assets_source="$2"
 		shift 2
 		;;
 	--no-start)
@@ -55,6 +65,16 @@ if [ -z "$binary_path" ]; then
 
 	log.pushTask "Building web-gateway deploy artifact"
 	"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"
+	log.popTask
+fi
+
+if [ -n "$assets_source" ]; then
+	LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$assets_source"
+fi
+
+if [ ! -d "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE" ]; then
+	log.pushTask "Building admin-panel deploy assets"
+	"$ENTRYPOINT_DIR/build-admin-panel.sh" --output-dir="$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE"
 	log.popTask
 fi
 

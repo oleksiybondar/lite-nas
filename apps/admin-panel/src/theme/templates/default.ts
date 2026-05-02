@@ -1,3 +1,4 @@
+import type { ThemeOptions } from "@mui/material/styles";
 import type { ThemeTemplate } from "@theme/types";
 
 const fontFamily = [
@@ -8,8 +9,32 @@ const fontFamily = [
   "sans-serif",
 ].join(",");
 
+const commonTemplateOptions = {
+  shape: {
+    borderRadius: 8,
+  },
+  typography: {
+    fontFamily,
+    h1: {
+      fontSize: "2rem",
+      fontWeight: 700,
+      lineHeight: 1.15,
+    },
+    h2: {
+      fontSize: "1.5rem",
+      fontWeight: 700,
+      lineHeight: 1.2,
+    },
+    overline: {
+      fontWeight: 700,
+      letterSpacing: "0.08em",
+    },
+  },
+} satisfies Pick<ThemeOptions, "shape" | "typography">;
+
 export const defaultTheme: ThemeTemplate = {
   dark: {
+    ...commonTemplateOptions,
     palette: {
       mode: "dark",
       background: {
@@ -28,28 +53,9 @@ export const defaultTheme: ThemeTemplate = {
         secondary: "#cbd5e1",
       },
     },
-    shape: {
-      borderRadius: 8,
-    },
-    typography: {
-      fontFamily,
-      h1: {
-        fontSize: "2rem",
-        fontWeight: 700,
-        lineHeight: 1.15,
-      },
-      h2: {
-        fontSize: "1.5rem",
-        fontWeight: 700,
-        lineHeight: 1.2,
-      },
-      overline: {
-        fontWeight: 700,
-        letterSpacing: "0.08em",
-      },
-    },
   },
   light: {
+    ...commonTemplateOptions,
     palette: {
       mode: "light",
       background: {
@@ -65,26 +71,6 @@ export const defaultTheme: ThemeTemplate = {
       text: {
         primary: "#111827",
         secondary: "#475569",
-      },
-    },
-    shape: {
-      borderRadius: 8,
-    },
-    typography: {
-      fontFamily,
-      h1: {
-        fontSize: "2rem",
-        fontWeight: 700,
-        lineHeight: 1.15,
-      },
-      h2: {
-        fontSize: "1.5rem",
-        fontWeight: 700,
-        lineHeight: 1.2,
-      },
-      overline: {
-        fontWeight: 700,
-        letterSpacing: "0.08em",
       },
     },
   },

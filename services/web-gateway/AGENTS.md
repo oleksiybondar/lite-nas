@@ -41,8 +41,8 @@ Responsibilities are intentionally split as follows:
   named concept file such as `session_output.go` instead of a generic
   `shared.go`.
 - For auth transports, protected endpoints should use header-or-cookie access
-  token policies through middleware, while selected public auth endpoints may
-  define explicit token payload fields in their DTOs.
+  token policies through middleware. Browser refresh and logout flows should
+  use the HTTP-only refresh-token cookie instead of request-body token fields.
 
 ## Routing Rules
 
@@ -70,4 +70,6 @@ Responsibilities are intentionally split as follows:
 - Prefer explicit injected file readers for packaged frontend files over
   directory-backed static file serving.
 - Prefer explicit static `GET` routes for known packaged files instead of a
-  wildcard assets mount.
+  wildcard assets mount. A root-level SPA fallback may serve `index.html` for
+  non-API browser navigation paths, but `/api` routes must not fall back to the
+  SPA entrypoint.

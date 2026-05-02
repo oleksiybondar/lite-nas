@@ -9,6 +9,7 @@
   "gitignore": true,
   "ignore": [
     "**/node_modules/**",
+    "**/.build/**",
     "**/dist/**",
     "**/build/**",
     "**/coverage/**",

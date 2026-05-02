@@ -10,7 +10,7 @@ source "$SCRIPT_DIR/../helpers/tool-paths.sh"
 cd "$(git rev-parse --show-toplevel)"
 
 mapfile -t files < <(find . -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \) \
-	-not -path './node_modules/*' \
+	-not -path '*/node_modules/*' \
 	-not -path './dist/*' \
 	-not -path './build/*')
 

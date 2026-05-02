@@ -38,6 +38,10 @@ application.
 #### FR-001 Acceptance Criteria
 
 - The gateway serves packaged frontend assets from its owned packaged asset area
+- Non-API browser navigation paths return the packaged `index.html` entrypoint
+  so the frontend can own client-side routing
+- API paths under `/api` do not fall back to the frontend entrypoint when no API
+  route matches
 - Static asset serving does not require direct access to domain services
 - The gateway serves only its owned static application assets
 
@@ -60,7 +64,7 @@ application.
 
 #### FR-002 Acceptance Criteria
 
-- The HTTP API is routable through the gateway
+- The HTTP API is routable through the gateway under `/api`
 - API responses use formats suitable for browser application use
 - The API remains separate from static asset serving concerns
 
@@ -111,6 +115,10 @@ policy.
 #### FR-004 Acceptance Criteria
 
 - The gateway can set and forward HTTP-only secure token material as required
+- Browser refresh and logout flows use the HTTP-only refresh-token cookie
+  instead of exposing refresh tokens through request-body payload fields
+- Cookie-based auth flows remain usable by non-browser HTTP clients that support
+  cookie jars, such as `curl`, `wget`, Python `requests`, or API test clients
 - The gateway does not issue authorization policy decisions itself
 - The gateway does not evaluate PAM-backed auth outcomes itself
 - Token transport handling remains separate from domain service logic
@@ -165,6 +173,36 @@ internal services.
 - Messaging client construction is injectable into gateway runtime wiring
 - Browser-facing HTTP handling remains decoupled from direct domain implementation
 - Browser-facing auth handling remains decoupled from direct PAM integration
+
+---
+
+### IR-003 Preserve BFF cookie compatibility for automation clients
+
+#### IR-003 Description
+
+The Web Gateway MUST expose its browser-facing auth flow through normal HTTP
+cookie semantics so automation and test clients can exercise the same BFF
+contract without JavaScript token access.
+
+#### IR-003 Input
+
+- HTTP clients that can store and replay cookies
+- Login, refresh, logout, and authenticated API requests
+
+#### IR-003 Output
+
+- `Set-Cookie` responses for session transitions
+- Cookie-authenticated requests that do not require token values in JSON bodies
+
+#### IR-003 Acceptance Criteria
+
+- Login and refresh responses set the access-token and refresh-token cookies
+- Refresh and logout requests can be driven by replaying the refresh-token
+  cookie from a client cookie jar
+- Authenticated requests can be driven by replaying the access-token cookie
+  from a client cookie jar
+- Tests can exercise BFF auth flows without reading token values from JSON
+  response bodies
 
 ---
 

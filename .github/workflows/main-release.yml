@@ -155,12 +155,60 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  js-ts-build:
+    name: JS/TS build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Build admin-panel
+        run: scripts/build-admin-panel.sh
+
+      - name: Verify admin-panel asset output
+        run: |
+          test -f .build/admin-panel/index.html
+          test -f .build/admin-panel/assets/index.css
+          test -f .build/admin-panel/assets/index.js
+
+      - name: Upload admin-panel asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-panel-assets
+          path: .build/admin-panel
+          if-no-files-found: error
+          retention-days: 1
+
+  js-ts-test:
+    name: JS/TS test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Test admin-panel
+        run: scripts/test-admin-panel.sh
+
   build-release-package:
     name: LiteNAS release package (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     needs:
       - service-build
       - app-build
+      - js-ts-build
+      - js-ts-test
     strategy:
       fail-fast: false
       matrix:
@@ -202,6 +250,12 @@ jobs:
           name: web-gateway-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/web-gateway
 
+      - name: Download admin-panel asset artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-panel-assets
+          path: .artifacts/admin-panel
+
       - name: Build LiteNAS Debian package
         uses: ./.github/actions/lite-nas-package-build
         with:
@@ -210,6 +264,7 @@ jobs:
           system_metrics_binary: .artifacts/${{ matrix.arch }}/system-metrics/system-metrics
           system_metrics_cli_binary: .artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli
           web_gateway_binary: .artifacts/${{ matrix.arch }}/web-gateway/web-gateway
+          admin_panel_assets: .artifacts/admin-panel
           package_arch: ${{ matrix.arch }}
           run_package_validation: "false"
 

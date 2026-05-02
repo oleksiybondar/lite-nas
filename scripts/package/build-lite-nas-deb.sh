@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../helpers/admin-panel-assets.sh"
 
 cd "$LITE_NAS_REPO_ROOT"
 
@@ -13,6 +15,7 @@ auth_service_binary_path=""
 system_metrics_binary_path=""
 system_metrics_cli_binary_path=""
 web_gateway_binary_path=""
+admin_panel_assets_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
 package_root=""
@@ -27,14 +30,15 @@ Options:
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
+  --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
 MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -64,6 +68,11 @@ if args.has system-metrics-cli-binary && ! system_metrics_cli_binary_path="$(arg
 fi
 if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg web-gateway-binary)"; then
 	log.error "Missing value for --web-gateway-binary"
+	usage >&2
+	exit 64
+fi
+if args.has admin-panel-assets && ! admin_panel_assets_path="$(args.require_arg admin-panel-assets)"; then
+	log.error "Missing value for --admin-panel-assets"
 	usage >&2
 	exit 64
 fi
@@ -100,6 +109,12 @@ if [ -z "$web_gateway_binary_path" ]; then
 		"--output=${web_gateway_binary_path}"
 fi
 
+if [ -z "$admin_panel_assets_path" ]; then
+	admin_panel_assets_path="$output_dir/${package_name}-${package_arch}/admin-panel-assets"
+	"$LITE_NAS_REPO_ROOT/scripts/build-admin-panel.sh" \
+		"--output-dir=${admin_panel_assets_path}"
+fi
+
 if [ ! -f "$auth_service_binary_path" ]; then
 	log.error "Missing auth-service binary: $auth_service_binary_path"
 	exit 1
@@ -119,6 +134,8 @@ if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
 	exit 1
 fi
+
+adminPanelAssets.validateBuildOutput "$admin_panel_assets_path"
 
 package_root="$output_dir/${package_name}_${package_version}_${package_arch}.root"
 deb_path="$output_dir/${package_name}_${package_version}_${package_arch}.deb"
@@ -154,6 +171,8 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics-cli.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics-cli.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-web-gateway.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-web-gateway.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/build-admin-panel.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/build-admin-panel.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" \
@@ -170,8 +189,11 @@ install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
-package.copyTree "$LITE_NAS_REPO_ROOT/services/web-gateway/assets" \
-	"$package_root/usr/libexec/lite-nas/services/web-gateway/assets"
+package.copyTree "$admin_panel_assets_path" \
+	"$package_root/usr/libexec/lite-nas/admin-panel-assets"
+adminPanelAssets.installFlat \
+	"$admin_panel_assets_path" \
+	"$package_root/usr/share/lite-nas/web-gateway/assets"
 
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
@@ -182,6 +204,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
+	"$package_root/usr/libexec/lite-nas/scripts/build-admin-panel.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-auth-service.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh" \

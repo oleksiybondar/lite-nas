@@ -14,4 +14,5 @@ scripts/test-system-metrics.sh --with-coverage
 scripts/test-system-metrics-cli.sh
 scripts/test-shared.sh --with-coverage
 scripts/test-web-gateway.sh
+scripts/test-admin-panel.sh
 log.popTask

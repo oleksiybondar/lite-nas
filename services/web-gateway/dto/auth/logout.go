@@ -7,8 +7,7 @@ import (
 	"lite-nas/services/web-gateway/dto"
 )
 
-// LogoutInput accepts auth token material from explicit payload fields for
-// non-cookie clients.
+// LogoutInput accepts auth token material from browser cookies.
 type LogoutInput struct {
 	Authorization      string `header:"Authorization" doc:"Bearer access token header for explicit REST-style clients."`
 	AccessTokenCookie  string `cookie:"lite-nas-at" doc:"Access token cookie."`
@@ -17,11 +16,9 @@ type LogoutInput struct {
 	Body               LogoutRequestBody
 }
 
-// LogoutRequestBody defines the explicit payload-based logout transport.
-type LogoutRequestBody struct {
-	AccessToken  string `json:"access_token,omitempty" pattern:"^AT-[A-Za-z0-9-]+$" doc:"Explicit access token payload for non-cookie clients."`
-	RefreshToken string `json:"refresh_token,omitempty" pattern:"^RT-[A-Za-z0-9-]+$" doc:"Explicit refresh token payload for non-cookie clients."`
-}
+// LogoutRequestBody is intentionally empty for the BFF browser auth flow.
+// Refresh token material is read from the HTTP-only refresh-token cookie.
+type LogoutRequestBody struct{}
 
 // LogoutOutput clears auth cookies and reports logout completion.
 type LogoutOutput struct {

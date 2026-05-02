@@ -17,6 +17,10 @@ inputs:
   web_gateway_binary:
     description: Path to the web-gateway binary.
     required: true
+  admin_panel_assets:
+    description: Path to an existing admin-panel Vite build output directory.
+    required: false
+    default: ""
   package_arch:
     description: Debian package architecture for package output and validation.
     required: true
@@ -32,16 +36,32 @@ runs:
       shell: bash
       run: scripts/ci/install-debian-packaging-dependencies.sh
 
+    - name: Setup Node job
+      uses: ./.github/actions/setup-node-job
+
+    - name: Install Node dependencies
+      shell: bash
+      run: scripts/ci/install-node-dependencies.sh
+
     - name: Build LiteNAS Debian package
       shell: bash
+      env:
+        ADMIN_PANEL_ASSETS: ${{ inputs.admin_panel_assets }}
       run: |
-        scripts/package/build-lite-nas-deb.sh \
+        package_args=(
           --version=${{ inputs.version }} \
           --auth-service-binary=${{ inputs.auth_service_binary }} \
           --system-metrics-binary=${{ inputs.system_metrics_binary }} \
           --system-metrics-cli-binary=${{ inputs.system_metrics_cli_binary }} \
           --web-gateway-binary=${{ inputs.web_gateway_binary }} \
           --output-dir=.build/packages/${{ inputs.package_arch }}
+        )
+
+        if [ -n "$ADMIN_PANEL_ASSETS" ]; then
+          package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
+        fi
+
+        scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
 
     - name: Lint Debian package
       if: ${{ inputs.run_package_validation == 'true' }}

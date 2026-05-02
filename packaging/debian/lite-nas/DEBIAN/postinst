@@ -23,6 +23,7 @@ configure_package_validation_mode() {
 		--skip-bootstrap
 	"$DEPLOY_WEB_GATEWAY_SCRIPT" \
 		--binary "$PACKAGE_ROOT/web-gateway" \
+		--assets-source "$PACKAGE_ROOT/admin-panel-assets" \
 		--skip-bootstrap \
 		--no-start
 }
@@ -56,6 +57,7 @@ configure_package() {
 		--skip-bootstrap
 	"$DEPLOY_WEB_GATEWAY_SCRIPT" \
 		--binary "$PACKAGE_ROOT/web-gateway" \
+		--assets-source "$PACKAGE_ROOT/admin-panel-assets" \
 		--skip-bootstrap
 }
 

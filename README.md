@@ -6,13 +6,16 @@ set of small services, apps, and shared modules.
 The repository already contains the initial platform skeleton:
 
 - shared Go modules for logging, configuration, messaging, and metrics support
-- initial backend service and consumer app slices
-- NATS-based internal communication foundations
-- Debian packaging, deployment scripts, and CI validation
+- backend service slices for system metrics and authentication
+- a system metrics CLI app and browser-facing admin panel
+- NATS-based internal communication between services and consumers
+- a web gateway that serves packaged frontend assets and adapts browser API
+  calls to internal services
+- Debian packaging, deployment scripts, and CI/CD validation
 
 The broader platform vision still extends beyond what is implemented today. Storage management,
-web-facing administration, configuration validation, and further hardening are being added
-incrementally on top of this initial working slice.
+configuration validation, deeper administration flows, and further hardening are being added
+incrementally on top of this working skeleton.
 
 ## Table of Contents
 
@@ -40,14 +43,17 @@ operational baseline still matters, but the repository is no longer only a desig
 The project now has an implemented first slice that seeds the platform architecture:
 
 - a shared internal module layer
-- an initial backend service
-- an initial consumer app
+- multiple backend services
+- a CLI consumer app
+- a browser-facing web app and gateway
 - messaging-based service interaction over NATS
-- reproducible packaging and install validation
+- frontend build output consumed by deploy and package assembly
+- reproducible packaging, deployment, and install validation
 - CI/CD checks for analysis, build, test, packaging, and package installability
 
-This first slice is intentionally low direct business value. Its purpose is to establish the
-platform shape in a reproducible way before broader service, app, and interface layers are added.
+This skeleton is intentionally low direct business value, but it is now broad enough to support
+future product branches without repeating the core build, deploy, service, gateway, and packaging
+bootstrap work.
 
 ## Goals & Philosophy
 
@@ -150,22 +156,27 @@ Current implemented focus:
 - **Monitoring seed slice**
   An initial service/app slice used to establish service wiring, messaging flow, and packaging.
 
+- **Authentication authority**
+  `auth-service` owns PAM-backed host authentication, token issuance, and
+  auth-state events behind the internal messaging boundary.
+
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
 
+- **Browser-facing gateway and admin shell**
+  `web-gateway` serves packaged `admin-panel` assets and adapts browser-facing
+  `/api` auth and system metrics endpoints to internal service calls while
+  serving the SPA entrypoint for non-API browser navigation paths.
+
 - **Reproducible packaging and deployment**
-  Debian packaging, deployment scripts, and install validation for the current platform slice.
+  Debian packaging, deployment scripts, frontend asset handoff, and install validation for the
+  current platform slice.
 
 - **CI/CD validation**
-  Analysis, build, test, package, and installability checks wired into the repository workflow.
+  Analysis, build, test, package, frontend build, duplication, and installability checks wired into
+  the repository workflow.
 
 Planned expansion areas:
-
-- **Dedicated host auth authority**
-  `auth-service` verifies real login-capable users of the managed machine
-  through PAM-backed flows, issues short-lived JWT access tokens plus
-  refresh-backed sessions, and publishes auth-state events such as lockdown
-  transitions over NATS.
 
 - **ZFS-based storage management**
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient
@@ -187,7 +198,7 @@ Planned expansion areas:
   coupling and extensibility.
 
 - **Web-based administration**
-  Browser-facing administration built on top of the same service and packaging foundations.
+  Richer browser-facing administration built on top of the gateway and admin-panel skeleton.
 
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
@@ -505,6 +516,11 @@ blocks and infrastructure-completing slices:
 This approach helps ensure that each part of the system remains understandable and reliable as the
 platform evolves.
 
+The current branch completes the broad skeleton pass: several services and apps
+can now be built, deployed, packaged, and validated together. Future branches
+can focus more directly on storage, administration workflows, policy behavior,
+and product value instead of re-establishing the runtime and release path.
+
 ### Code Quality and Tooling
 
 The repository already emphasizes code quality, consistency, and maintainability:
@@ -568,6 +584,9 @@ Useful starting points:
 - [`requirements/web-gateway.md`](requirements/web-gateway.md)
   Requirements for the browser-facing gateway.
 
+- [`requirements/admin-panel.md`](requirements/admin-panel.md)
+  Requirements for the browser app and BFF session behavior.
+
 - [`requirements/auth-service.md`](requirements/auth-service.md)
   Requirements for the PAM-backed authentication authority.
 
@@ -578,7 +597,7 @@ Useful starting points:
   Architectural role and boundaries of the auth service.
 
 - [`apps/admin-panel/README.md`](apps/admin-panel/README.md)
-  Naming and role of the planned browser application.
+  Structure, build flow, and packaging role of the browser application.
 
 ## License
 

@@ -97,13 +97,13 @@ func authLoginInput() *authdto.LoginInput {
 
 func authRefreshInput(token string) *authdto.RefreshInput {
 	return &authdto.RefreshInput{
-		Body: authdto.RefreshRequestBody{RefreshToken: token},
+		RefreshTokenCookie: token,
 	}
 }
 
 func authLogoutInput(token string) *authdto.LogoutInput {
 	return &authdto.LogoutInput{
-		Body: authdto.LogoutRequestBody{RefreshToken: token},
+		RefreshTokenCookie: token,
 	}
 }
 
@@ -162,25 +162,22 @@ func TestAuthControllerLoginReturnsSessionAndCookies(t *testing.T) {
 		t.Fatalf("cookie count = %d, want 2", len(got.SetCookie))
 	}
 
-	if got.Body.Data.AccessToken != "AT-token" {
-		t.Fatalf("AccessToken = %q, want %q", got.Body.Data.AccessToken, "AT-token")
+	if got.Body.Data.User.ID != "stub-user" {
+		t.Fatalf("User.ID = %q, want %q", got.Body.Data.User.ID, "stub-user")
 	}
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
-func TestAuthControllerRefreshPrefersPayloadToken(t *testing.T) {
+func TestAuthControllerRefreshUsesRefreshTokenCookie(t *testing.T) {
 	t.Parallel()
 
 	controller := newAuthControllerWithRefreshResult()
 	got := mustRefresh(t, controller, &authdto.RefreshInput{
 		RefreshTokenCookie: "RT-cookie",
-		Body: authdto.RefreshRequestBody{
-			RefreshToken: "RT-body",
-		},
 	})
 
-	if got.Body.Data.RefreshToken != "RT-token" {
-		t.Fatalf("RefreshToken = %q, want %q", got.Body.Data.RefreshToken, "RT-token")
+	if !got.Body.Data.Authenticated {
+		t.Fatal("Authenticated = false, want true")
 	}
 }
 
@@ -295,19 +292,11 @@ func TestBuildSessionBodyReturnsAuthenticatedEnvelope(t *testing.T) {
 	}
 }
 
-func TestResolveRefreshTokenPrefersPayloadThenCookie(t *testing.T) {
+func TestResolveRefreshTokenUsesCookie(t *testing.T) {
 	t.Parallel()
 
 	if got := resolveRefreshToken(nil); got != "" {
 		t.Fatalf("resolveRefreshToken(nil) = %q, want empty string", got)
-	}
-
-	payload := resolveRefreshToken(&authdto.RefreshInput{
-		RefreshTokenCookie: "RT-cookie",
-		Body:               authdto.RefreshRequestBody{RefreshToken: "RT-body"},
-	})
-	if payload != "RT-body" {
-		t.Fatalf("resolveRefreshToken(payload) = %q, want %q", payload, "RT-body")
 	}
 
 	cookie := resolveRefreshToken(&authdto.RefreshInput{RefreshTokenCookie: "RT-cookie"})
@@ -316,19 +305,11 @@ func TestResolveRefreshTokenPrefersPayloadThenCookie(t *testing.T) {
 	}
 }
 
-func TestResolveLogoutRefreshTokenPrefersPayloadThenCookie(t *testing.T) {
+func TestResolveLogoutRefreshTokenUsesCookie(t *testing.T) {
 	t.Parallel()
 
 	if got := resolveLogoutRefreshToken(nil); got != "" {
 		t.Fatalf("resolveLogoutRefreshToken(nil) = %q, want empty string", got)
-	}
-
-	payload := resolveLogoutRefreshToken(&authdto.LogoutInput{
-		RefreshTokenCookie: "RT-cookie",
-		Body:               authdto.LogoutRequestBody{RefreshToken: "RT-body"},
-	})
-	if payload != "RT-body" {
-		t.Fatalf("resolveLogoutRefreshToken(payload) = %q, want %q", payload, "RT-body")
 	}
 
 	cookie := resolveLogoutRefreshToken(&authdto.LogoutInput{RefreshTokenCookie: "RT-cookie"})

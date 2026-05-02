@@ -27,13 +27,12 @@ type SessionBody struct {
 	Data SessionData `json:"data"`
 }
 
-// SessionData contains the current session state and token payload returned by
-// session-issuing endpoints.
+// SessionData contains the current browser session state returned by
+// session-issuing endpoints. Token material is transported only through
+// HTTP-only cookies at the gateway boundary.
 type SessionData struct {
 	Authenticated bool     `json:"authenticated"`
 	User          AuthUser `json:"user"`
-	AccessToken   string   `json:"access_token"`
-	RefreshToken  string   `json:"refresh_token"`
 }
 
 // NewSessionBody creates the session response body with common metadata set.

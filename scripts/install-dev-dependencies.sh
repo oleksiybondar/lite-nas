@@ -112,6 +112,7 @@ log.popTask
 
 log.pushTask "Installing Node developer dependencies"
 run_as_user npm install
+run_as_user npm --prefix "$SCRIPT_DIR/../apps/admin-panel" install
 log.popTask
 
 log.pushTask "Installing Go developer tools"

@@ -50,20 +50,23 @@ semantics are expected to be owned by dedicated backend services.
 short-lived JWT mechanics are intentionally out of scope for this
 component.
 
-The gateway currently distinguishes three token transport policies:
+The gateway currently distinguishes two browser-facing token transport
+policies:
 
 - access token via `Authorization: Bearer ...`
   intended for explicit REST-style clients
 - access token or refresh token via HTTP-only cookies
   intended for browser-facing session transport
-- explicit token payload fields on selected public auth endpoints
-  intended for non-cookie clients that need to submit refresh or logout
-  tokens in the request body
 
 Protected endpoints are expected to use access-token transport through
-either the `Authorization` header or the access-token cookie. Public
-auth transition endpoints may additionally accept token payload fields
-where that is part of the endpoint contract.
+either the `Authorization` header or the access-token cookie. Browser
+auth transition endpoints such as refresh and logout use the
+HTTP-only refresh-token cookie rather than request-body token fields.
+
+This remains compatible with non-browser HTTP clients that support cookie jars.
+Tools such as `curl`, `wget`, Python `requests`, and API test clients can store
+`Set-Cookie` headers and replay those cookies without requiring token values in
+JSON response bodies.
 
 ## HTTP and Messaging Stack
 
@@ -79,18 +82,20 @@ debugging.
 
 ## Frontend Asset Flow
 
-The LiteNAS web application will live under `apps/admin-panel`.
+The LiteNAS web application lives under `apps/admin-panel`.
 
-Its built frontend assets are expected to become owned static resources
-of the gateway during package assembly. The gateway serves those assets,
+Its Vite build output is written to `.build/admin-panel` by
+`scripts/build-admin-panel.sh`. Deployment and packaging normalize that output
+into owned static resources of the gateway. The gateway serves those assets,
 while non-static file flows remain outside the gateway boundary.
 
-The current gateway-owned packaged asset layout is expected to be:
+The current gateway-owned packaged asset layout is:
 
 - `/usr/share/lite-nas/web-gateway/assets/index.html`
 - `/usr/share/lite-nas/web-gateway/assets/index.css`
 - `/usr/share/lite-nas/web-gateway/assets/index.js`
-- `/usr/share/lite-nas/web-gateway/assets/favicon.ico`
+- `/usr/share/lite-nas/web-gateway/assets/favicon.ico` when the frontend build
+  provides one
 
 These packaged files are treated as service-owned read-only resources
 rather than user-configurable runtime content.
@@ -164,24 +169,27 @@ The current skeleton HTTP surface is:
 
 - `/`
   serves the packaged browser entrypoint HTML resource
+- non-API browser navigation paths such as `/dashboard`
+  serve the same packaged browser entrypoint HTML resource for SPA routing
 - `/favicon.ico`
   serves the packaged browser favicon
 - `/assets/index.css`
   serves the packaged browser stylesheet
 - `/assets/index.js`
   serves the packaged browser JavaScript bundle
-- `/auth/...`
+- `/api/auth/...`
   browser-facing auth transport endpoints intended to adapt requests to
   the dedicated `auth-service` over NATS
-- `/system-metrics/...`
+- `/api/system-metrics/...`
   browser-facing JSON endpoints backed by internal system metrics NATS
   calls
-- `/docs`
+- `/api/docs`
   development-facing OpenAPI documentation generated through `huma`
 
 The gateway currently uses plain `chi` mounting for static resource
 routes and a shared `huma` API for documented browser-facing API
-endpoints.
+endpoints. API endpoints are mounted under `/api`; SPA fallback behavior is
+limited to non-API routes.
 
 The static resource layer currently uses a dedicated files module that
 wires explicit injected file readers for each packaged frontend file
@@ -195,7 +203,8 @@ Current auth transport middleware behavior is intentionally split into:
 
 This allows protected endpoints to depend on a normalized
 header-or-cookie access-token policy, while public auth endpoints can
-still define explicit payload token policies in their own DTOs.
+depend on the HTTP-only refresh-token cookie for BFF session renewal and
+logout flows.
 
 ## Non-Goals
 

@@ -60,11 +60,10 @@ func (c AuthController) Login(
 	}, nil
 }
 
-// Refresh rotates the auth token pair using a refresh token from the payload
-// or cookie transport.
+// Refresh rotates the auth token pair using the HTTP-only refresh-token cookie.
 //
 // Parameters:
-//   - input: validated refresh request plus any extracted refresh-token cookie
+//   - input: validated refresh request plus the extracted refresh-token cookie
 func (c AuthController) Refresh(
 	ctx context.Context,
 	input *authdto.RefreshInput,
@@ -89,7 +88,8 @@ func (c AuthController) Refresh(
 	}, nil
 }
 
-// Logout expires the browser auth cookies when a refresh token is present.
+// Logout expires the browser auth cookies when a refresh-token cookie is
+// present.
 //
 // Parameters:
 //   - input: validated logout request plus any extracted refresh-token cookie
@@ -152,8 +152,6 @@ func buildSessionBody(now time.Time, session services.Session) authdto.SessionBo
 		User: authdto.AuthUser{
 			ID: session.UserID,
 		},
-		AccessToken:  session.AccessToken,
-		RefreshToken: session.RefreshToken,
 	})
 }
 
@@ -174,10 +172,6 @@ func resolveRefreshToken(input *authdto.RefreshInput) string {
 		return ""
 	}
 
-	if token := strings.TrimSpace(input.Body.RefreshToken); token != "" {
-		return token
-	}
-
 	return strings.TrimSpace(input.RefreshTokenCookie)
 }
 
@@ -194,10 +188,6 @@ func mapAuthError(err error, message string) error {
 func resolveLogoutRefreshToken(input *authdto.LogoutInput) string {
 	if input == nil {
 		return ""
-	}
-
-	if token := strings.TrimSpace(input.Body.RefreshToken); token != "" {
-		return token
 	}
 
 	return strings.TrimSpace(input.RefreshTokenCookie)

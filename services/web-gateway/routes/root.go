@@ -31,12 +31,14 @@ func NewRouter(
 	root.Use(chimiddleware.RealIP)
 	root.Use(chimiddleware.Recoverer)
 
-	api := humachi.New(root, huma.DefaultConfig(serviceName, version))
+	apiRouter := chi.NewMux()
+	api := humachi.New(apiRouter, huma.DefaultConfig(serviceName, version))
 
-	mountIndexRouter(root, controllerModule)
 	mountAssetsRouter(root, controllerModule)
 	mountAuthRouter(api, controllerModule, authentication)
 	mountSystemMetricsRouter(api, controllerModule, authentication)
+	root.Mount("/api", apiRouter)
+	mountIndexRouter(root, controllerModule)
 
 	return root
 }

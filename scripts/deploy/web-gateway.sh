@@ -4,6 +4,8 @@ DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 # shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/../helpers/admin-panel-assets.sh"
+# shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/nginx.sh"
 
 readonly LITE_NAS_WEB_GATEWAY_SERVICE_NAME="${LITE_NAS_WEB_GATEWAY_SERVICE_NAME:-lite-nas-web-gateway}"
@@ -19,7 +21,7 @@ readonly LITE_NAS_WEB_GATEWAY_UNIT_TARGET="${LITE_NAS_WEB_GATEWAY_UNIT_TARGET:-/
 readonly LITE_NAS_WEB_GATEWAY_LOG_DIR="${LITE_NAS_WEB_GATEWAY_LOG_DIR:-${LITE_NAS_LOG_DIR:-/var/log/lite-nas}}"
 readonly LITE_NAS_WEB_GATEWAY_LOG_FILE="${LITE_NAS_WEB_GATEWAY_LOG_FILE:-$LITE_NAS_WEB_GATEWAY_LOG_DIR/web-gateway.log}"
 readonly LITE_NAS_WEB_GATEWAY_SHARE_ROOT="${LITE_NAS_WEB_GATEWAY_SHARE_ROOT:-/usr/share/lite-nas/web-gateway}"
-readonly LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="${LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE:-$LITE_NAS_REPO_ROOT/services/web-gateway/assets}"
+LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="${LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE:-$LITE_NAS_REPO_ROOT/.build/admin-panel}"
 
 deploy.webGateway.usage() {
 	cat <<'MSG'
@@ -27,6 +29,8 @@ Usage: scripts/deploy-web-gateway.sh [options]
 
 Options:
   --binary PATH       Install an existing binary instead of building one.
+  --assets-source PATH
+                      Install frontend assets from a Vite build output directory.
   --no-start          Install files but do not enable or start the service.
   --skip-bootstrap    Install files without running LiteNAS bootstrap first.
   -h, --help          Show this help.
@@ -36,7 +40,6 @@ MSG
 deploy.webGateway.requireTools() {
 	local tool
 	local tools=(
-		cp
 		getent
 		groupadd
 		install
@@ -126,41 +129,10 @@ deploy.webGateway.installConfig() {
 }
 
 deploy.webGateway.installSharedAssets() {
-	if [ ! -d "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE" ]; then
-		log.error "Missing web-gateway assets source: $LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE"
-		exit 1
-	fi
-
-	deploy.webGateway.validateAssetsSource
-
-	install -d -m 0755 "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT"
-	rm -rf "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT/assets"
-	cp -a "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE" "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT/assets"
+	adminPanelAssets.installFlat "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE" "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT/assets"
 	chown -R root:root "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT"
 	find "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT" -type d -exec chmod 0755 {} +
 	find "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT" -type f -exec chmod 0644 {} +
-}
-
-deploy.webGateway.validateAssetsSource() {
-	local required_file
-	local required_files=(
-		index.html
-		index.css
-		index.js
-	)
-
-	for required_file in "${required_files[@]}"; do
-		if [ -f "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE/$required_file" ]; then
-			continue
-		fi
-
-		log.error "Missing web-gateway asset: $LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE/$required_file"
-		exit 1
-	done
-
-	if [ ! -f "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE/favicon.ico" ]; then
-		log.warn "favicon.ico is not present in $LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE; /favicon.ico will return 404 until it is added."
-	fi
 }
 
 deploy.webGateway.installLogTarget() {

@@ -1,6 +1,6 @@
 config:
   extends: dev-configs/markdownlint.json
 ignores:
-  - "node_modules/**"
+  - "**/node_modules/**"
   - "dist/**"
   - "build/**"

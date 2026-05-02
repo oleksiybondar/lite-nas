@@ -23,7 +23,7 @@ type MeBody struct {
 	Data MeData `json:"data"`
 }
 
-// MeData contains the authenticated user state returned by /auth/me.
+// MeData contains the authenticated user state returned by /api/auth/me.
 type MeData struct {
 	Authenticated bool     `json:"authenticated"`
 	AuthType      string   `json:"auth_type"`

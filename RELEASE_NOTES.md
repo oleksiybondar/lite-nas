@@ -5,42 +5,72 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
-## 0.1.1 - Planned
+## 0.1.1 - Platform web skeleton
 
 ### RL-0.1.1 Summary
 
-- Extend the current platform skeleton with a minimal web-facing slice so the
-  browser delivery path, frontend build flow, and packaging handoff become
-  reproducible parts of the platform.
+- Extends the platform skeleton with a web-facing slice, packaged admin-panel
+  assets, auth gateway integration, and CI/CD routines that make the repository
+  ready for product-focused work in later branches.
 
 ### RL-0.1.1 Added
 
-- Planned introduction of a simple Go web service.
-- Planned introduction of a simple Vite + React web app.
+- Added `web-gateway` as the browser-facing HTTP boundary for static frontend
+  assets and browser API adaptation.
+- Added `auth-service` as the PAM-backed authentication authority behind the
+  internal NATS boundary.
+- Added `admin-panel` as a Vite + React + TypeScript browser application with
+  provider, context, hook, route, alias, and theme structure.
+- Added `scripts/build-admin-panel.sh` and shared admin-panel asset helpers for
+  reproducible frontend build and deployment handoff.
 
 ### RL-0.1.1 Changed
 
-- Planned extension of the runtime wiring to include web-facing integration.
-- Planned extension of the assembly flow so JS/TS build artifacts are consumed
-  by backend packaging.
+- Changed web-gateway deployment to install built admin-panel assets from
+  `.build/admin-panel` into `/usr/share/lite-nas/web-gateway/assets`.
+- Changed Debian packaging to build, validate, include, and install admin-panel
+  artifacts as the web-gateway static asset source.
+- Changed CI/developer Node setup and build flows so the app-local frontend
+  dependencies and admin-panel build participate in the repository workflow.
+- Changed PR validation and the main package gate to run real JS/TS build and
+  unit test jobs for the admin-panel application instead of placeholder lanes.
+- Changed PR and main package assembly to consume an explicit admin-panel asset
+  artifact so Debian packages use the same built web assets produced by CI.
+- Changed browser-facing auth refresh and logout behavior to use the
+  HTTP-only refresh-token cookie instead of request-body refresh-token fields,
+  matching the gateway's BFF session boundary.
+- Changed web-gateway routing so JSON API endpoints live under `/api` while
+  non-API browser navigation paths serve the packaged SPA `index.html`.
+- Changed the admin-panel Vite development proxy to forward `/api` to the
+  gateway target while leaving other paths to the SPA fallback.
+- Added admin-panel requirements for BFF cookie auth, auth-state detection, and
+  token-free browser JavaScript behavior.
+- Clarified that cookie-based BFF auth remains usable by non-browser clients
+  through normal cookie-jar handling.
+- Changed JS/TS analysis and formatting exclusions to ignore generated output
+  and nested dependency directories while still checking source files.
 
 ### RL-0.1.1 Platform
 
-- Planned CI/CD updates so JS/TS build jobs produce real artifacts for later
-  packaging stages.
-- Planned NATS configuration updates required for the web-facing slice.
-- Planned service hardening updates needed to support the next platform stage.
+- The skeleton now includes multiple microservices communicating over NATS,
+  a browser-facing gateway, a browser app shell, deployment scripts, Debian
+  packaging, and CI/CD validation for the current platform slice.
+- Admin-panel Vite output is built into `.build/admin-panel` and normalized
+  into the gateway-owned static asset layout during deploy and package assembly.
 - Added repo-wide duplication enforcement for Go and shell code, including
   cross-module detection instead of relying only on per-module checks.
+- Added JS/TS duplication enforcement for frontend source.
 - Established a repository testing discipline that moves repeated setup into
   shared `testutil`, subproject-local `testutil`, and package-local fixtures
   rather than allowing test-only duplication to accumulate.
 
 ### RL-0.1.1 Notes
 
-- Intended to expose a basic public page that shows CPU and RAM trend data.
 - This release is still expected to be low direct business value and high
   platform-completion value.
+- The practical outcome is that future branches can start actual LiteNAS
+  product development on top of an already wired service, gateway, frontend,
+  packaging, deployment, and CI/CD skeleton.
 
 ## 0.1.0 - Initial platform skeleton
 

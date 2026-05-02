@@ -53,4 +53,8 @@ log.pushTask "Building deployable binaries for linux/${target_arch}"
 "$SCRIPT_DIR/build-web-gateway-binary.sh" --output="$output_dir/web-gateway"
 log.popTask
 
-log.info "Built binaries in: $output_dir"
+log.pushTask "Building admin-panel frontend assets"
+"$SCRIPT_DIR/build-admin-panel.sh" --output-dir="$output_dir/admin-panel"
+log.popTask
+
+log.info "Built deployable artifacts in: $output_dir"

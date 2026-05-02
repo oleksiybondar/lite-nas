@@ -63,7 +63,9 @@ docker run --rm \
 		test -f /etc/nginx/sites-available/lite-nas-web-gateway.conf
 		test -f /etc/default/ufw
 		test -f /etc/ufw/ufw.conf
-		test -f /usr/share/lite-nas/web-gateway/assets/index.html || test -d /usr/libexec/lite-nas/services/web-gateway/assets
+		test -f /usr/share/lite-nas/web-gateway/assets/index.html
+		test -f /usr/share/lite-nas/web-gateway/assets/index.css
+		test -f /usr/share/lite-nas/web-gateway/assets/index.js
 	"
 log.popTask
 
