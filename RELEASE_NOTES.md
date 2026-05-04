@@ -43,6 +43,10 @@ The working format and guidance are documented in
   non-API browser navigation paths serve the packaged SPA `index.html`.
 - Changed the admin-panel Vite development proxy to forward `/api` to the
   gateway target while leaving other paths to the SPA fallback.
+- Added the admin-panel `useAuth` context/provider for BFF startup session
+  detection, themed authentication loading state, a login route target, and
+  sequential `/api/auth/me` then `/api/auth/refresh` handling for `401`
+  responses.
 - Added admin-panel requirements for BFF cookie auth, auth-state detection, and
   token-free browser JavaScript behavior.
 - Clarified that cookie-based BFF auth remains usable by non-browser clients

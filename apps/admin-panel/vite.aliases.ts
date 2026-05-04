@@ -8,6 +8,7 @@ export const createViteAliases = (rootDir: string): Record<string, string> => {
     "@configs": path.resolve(rootDir, "src/configs"),
     "@contexts": path.resolve(rootDir, "src/contexts"),
     "@domain": path.resolve(rootDir, "src/domain"),
+    "@dto": path.resolve(rootDir, "src/dto"),
     "@helpers": path.resolve(rootDir, "src/helpers"),
     "@hooks": path.resolve(rootDir, "src/hooks"),
     "@models": path.resolve(rootDir, "src/models"),

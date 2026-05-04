@@ -40,7 +40,7 @@ authentication.
 - Initial auth detection is based on gateway session endpoints rather than
   direct JavaScript cookie inspection
 - A `401` from the access-token-backed user lookup is treated as a possible
-  refresh path before the app decides the user is anonymous
+  refresh path before the app decides the user is not authenticated
 
 ---
 
@@ -49,7 +49,7 @@ authentication.
 #### FR-002 Description
 
 The Admin Panel MUST represent authentication state explicitly so the shell can
-distinguish startup checks, authenticated sessions, and anonymous sessions.
+distinguish startup checks and authenticated sessions.
 
 #### FR-002 Input
 
@@ -63,7 +63,10 @@ distinguish startup checks, authenticated sessions, and anonymous sessions.
 
 #### FR-002 Acceptance Criteria
 
-- The app can represent at least checking, authenticated, and anonymous states
+- The app can represent at least initialized, not initialized, authenticated,
+  and not authenticated states
+- The auth provider exposes auth-initialized, authenticated, and auth-status
+  handling operations to the rest of the app
 - Protected UI flows are not rendered as authenticated until the gateway confirms
   the session
 - Failed refresh causes the app to clear authenticated UI state
@@ -117,8 +120,8 @@ than direct token inspection.
 
 #### TR-001 Acceptance Criteria
 
-- Unit tests can mock gateway responses for `/api/auth/me`,
-  `/api/auth/refresh`, and logout behavior
+- Unit tests can mock gateway responses for `/api/auth/me` and
+  `/api/auth/refresh`
 - Tests verify credential-including request configuration where auth cookies are
   required
 - Tests do not require JavaScript access to HTTP-only cookie values

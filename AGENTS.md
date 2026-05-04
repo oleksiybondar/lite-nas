@@ -18,6 +18,28 @@ When both this repository-level file and a subproject-level `AGENTS.md` apply:
 - the subproject-level `AGENTS.md` takes precedence when the instructions
   conflict
 
+## Critical Working Rules
+
+These rules are mandatory and should be treated as the highest-priority
+repository working style after explicit user instructions.
+
+- Never guess API contracts, interfaces, DTO shapes, route behavior, provider
+  contracts, or similar integration boundaries. If the contract is not already
+  clear from user instructions or existing code, ask the user before
+  implementing it.
+- Do not add artificial entities, states, abstractions, hooks, providers,
+  helpers, files, or architectural layers that the user did not ask for and
+  that are not clearly required by existing code.
+- Prefer direct, reviewable, human-readable code first. Static-analysis
+  compliance matters, but do not spend time optimizing, abstracting, or shaping
+  code primarily to satisfy tooling before the user has reviewed and accepted
+  the design.
+- Keep initial implementations close to the requested behavior. Make the
+  smallest coherent change that lets the user review the intended direction
+  before expanding the solution.
+- If a design choice is uncertain, stop and ask a focused question instead of
+  filling the gap with assumptions.
+
 ## Git and Repository Operations
 
 Agents may:
@@ -108,3 +130,15 @@ branch or otherwise provides a pushed source branch.
   when the task involves preparing or updating release-facing documentation.
 - Use release-qualified subsection headings such as `RL-0.1.0 Summary` when
   editing release notes so repeated sections remain unique and lint-clean.
+
+## Documentation Conventions
+
+- New code should include meaningful docstrings for public and private
+  structures, classes, methods, functions, type aliases, and interface members.
+- Docstrings should describe the contract, correct usage, and architectural
+  role when that role is relevant to understanding the code.
+- When a design choice is non-obvious, add a concise inline comment near the
+  implementation that explains why the code is shaped that way.
+- Avoid comments that merely repeat the code. Prefer comments that clarify API
+  behavior, invariants, side effects, lifecycle expectations, or integration
+  boundaries.

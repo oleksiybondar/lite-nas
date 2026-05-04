@@ -17,7 +17,7 @@ const dashboardSections = [
     title: "System Metrics",
   },
   {
-    description: "Authentication and session controls can plug into this area.",
+    description: "Operator and permission workflows can plug into this area.",
     icon: <SecurityRoundedIcon color="primary" />,
     title: "Access",
   },

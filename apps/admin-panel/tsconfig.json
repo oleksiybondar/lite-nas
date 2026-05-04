@@ -14,6 +14,7 @@
       "@configs/*": ["src/configs/*"],
       "@contexts/*": ["src/contexts/*"],
       "@domain/*": ["src/domain/*"],
+      "@dto/*": ["src/dto/*"],
       "@helpers/*": ["src/helpers/*"],
       "@hooks/*": ["src/hooks/*"],
       "@models": ["src/models"],
