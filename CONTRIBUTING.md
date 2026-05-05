@@ -44,6 +44,34 @@ readability, maintenance, and consistent review quality.
 - This approach ensures that all functionality is traceable back to a specific
   requirement and is inherently testable.
 
+## Boundary Validation
+
+- Every user-facing or service-facing input boundary must validate received
+  data before doing further message processing or invoking business logic.
+- HTTP and HTTPS browser-facing or service-facing routes should use Huma DTO
+  validation tags for request bodies, parameters, headers, and cookies.
+- Non-HTTP Go boundaries should use `go-playground/validator/v10` by default.
+  This includes CLI command inputs, config-shaped command payloads, NATS RPC
+  request handlers, NATS subscription handlers, and other message handlers that
+  receive data from outside the current package.
+- Frontend runtime input validation should use Zod by default. TypeScript DTO
+  types are compile-time contracts only and do not replace runtime validation.
+- Frontend schemas should live outside React components where practical, such as
+  under app-local `validation/` modules, so forms, providers, and API actions can
+  reuse the same rules.
+- Validation should happen at the transport or adapter boundary. Controllers,
+  command handlers, RPC handlers, and subscription handlers should extract or
+  map validated values before calling lower-level services.
+- Services should receive already-validated plain values or service-owned
+  request structs. Do not pass HTTP DTOs, raw NATS envelopes, or unvalidated
+  transport-shaped objects into service logic.
+- Validation rules should cover semantic constraints, not only type shape. Use
+  required fields, string length limits, allowed values, patterns, and custom
+  validators where the contract requires them.
+- Form components may keep user-facing field state and display messages, but
+  context/provider/API layers should still validate submitted payloads before
+  sending requests.
+
 ## Testing
 
 - Prefer requirement-traceable tests; use source-qualified IDs such as

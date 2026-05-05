@@ -75,6 +75,20 @@ branch or otherwise provides a pushed source branch.
 - Preserve user changes already present in the worktree.
 - Do not revert unrelated files.
 - Report validation performed and any commands that could not be run.
+- Validate every user-facing or service-facing input boundary before doing
+  further message processing or invoking business logic.
+- Use Huma DTO validation for HTTP and HTTPS routes. Use
+  `go-playground/validator/v10` by default for non-HTTP Go boundaries such as
+  CLI inputs, NATS RPC handlers, NATS subscription handlers, and other
+  transport/message handlers.
+- Use Zod by default for frontend runtime input validation. Keep schemas outside
+  React components where practical so forms, providers, and API actions can reuse
+  the same rules.
+- Do not treat TypeScript DTO types as runtime validation. Validate submitted
+  frontend payloads before sending requests from context/provider/API layers,
+  even when forms also show user-facing validation messages.
+- Keep validation at the adapter boundary and pass validated plain values or
+  service-owned request structs into lower-level services.
 - When tests repeat the same setup within a package, prefer package-local
   fixtures and helper files instead of copying the setup into each test.
 - Treat test duplication as repository-wide maintenance debt, not as a

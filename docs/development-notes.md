@@ -73,3 +73,28 @@ continued build and deployment bootstrapping.
 - The branch remains intentionally small in end-user behavior, but it completes
   enough of the skeleton that future branches can focus on actual NAS product
   development rather than platform bootstrapping.
+
+## Boundary Validation Direction
+
+LiteNAS treats validation as a boundary concern. User-facing and
+service-facing inputs should be validated before any meaningful processing
+happens inside the application.
+
+For HTTP and HTTPS boundaries, `web-gateway` should keep using Huma DTO
+validation because those DTOs already describe browser-facing transport
+contracts and OpenAPI metadata.
+
+For non-HTTP Go boundaries, including CLI tools, NATS request/reply handlers,
+NATS subscription handlers, and other message handlers, the default validation
+library should be `go-playground/validator/v10`. These handlers should validate
+incoming command or message structs before mapping them into service calls.
+
+For frontend runtime validation, the admin panel should use Zod by default.
+TypeScript DTOs document compile-time shapes, but Zod schemas should enforce
+runtime input constraints before requests are sent. Form components may own
+user-facing field state and messages, but providers and API actions should still
+reuse the same schemas before accepting submitted payloads.
+
+This split keeps HTTP/OpenAPI concerns in Huma, gives internal service messages
+and CLI inputs a transport-neutral Go validation path, and gives browser code a
+shared runtime validation layer.
