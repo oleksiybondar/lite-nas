@@ -218,6 +218,28 @@ func TestHandleLoginRPCRejectsMalformedPayload(t *testing.T) {
 	}
 }
 
+func TestHandleLoginRPCRejectsInvalidPayload(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{
+		Code:     pamauth.OutcomeAuthenticated,
+		Username: "testuser",
+	})
+
+	loginResponse, err := handleLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.LoginRequest{
+		Password: "testpassword",
+	}))
+	if err != nil {
+		t.Fatalf("handleLoginRPC() error = %v", err)
+	}
+	if loginResponse.Status != authcontract.StatusDenied {
+		t.Fatalf("login status = %q, want denied", loginResponse.Status)
+	}
+	if runtimeDeps.RefreshStore.Len() != 0 {
+		t.Fatalf("refresh store len = %d, want 0", runtimeDeps.RefreshStore.Len())
+	}
+}
+
 func TestHandleRefreshRPCRejectsMalformedPayload(t *testing.T) {
 	t.Parallel()
 
@@ -225,6 +247,20 @@ func TestHandleRefreshRPCRejectsMalformedPayload(t *testing.T) {
 	badEnvelope := messaging.Envelope{Payload: []byte("{")}
 
 	refreshResponse, err := handleRefreshRPC(runtimeDeps, badEnvelope)
+	if err != nil {
+		t.Fatalf("handleRefreshRPC() error = %v", err)
+	}
+	if refreshResponse.AccessToken != "" || refreshResponse.RefreshToken != "" {
+		t.Fatalf("refresh response = %#v, want empty", refreshResponse)
+	}
+}
+
+func TestHandleRefreshRPCRejectsInvalidPayload(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+
+	refreshResponse, err := handleRefreshRPC(runtimeDeps, rpcEnvelope(t, authcontract.RefreshRequest{}))
 	if err != nil {
 		t.Fatalf("handleRefreshRPC() error = %v", err)
 	}
@@ -245,6 +281,48 @@ func TestHandleLogoutRPCRejectsMalformedPayload(t *testing.T) {
 	}
 	if logoutResponse.LoggedOut {
 		t.Fatal("logout LoggedOut = true, want false")
+	}
+}
+
+func TestHandleLogoutRPCRejectsInvalidPayload(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+
+	logoutResponse, err := handleLogoutRPC(runtimeDeps, rpcEnvelope(t, authcontract.LogoutRequest{}))
+	if err != nil {
+		t.Fatalf("handleLogoutRPC() error = %v", err)
+	}
+	if logoutResponse.LoggedOut {
+		t.Fatal("logout LoggedOut = true, want false")
+	}
+}
+
+func TestHandleValidateAccessTokenRPCRejectsInvalidPayload(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+
+	response, err := handleValidateAccessTokenRPC(runtimeDeps, rpcEnvelope(t, authcontract.ValidateAccessTokenRequest{}))
+	if err != nil {
+		t.Fatalf("handleValidateAccessTokenRPC() error = %v", err)
+	}
+	if response.Valid || response.Status != authcontract.StatusDenied {
+		t.Fatalf("response = %#v, want denied", response)
+	}
+}
+
+func TestDecodeRPCRequestUsesInjectedValidator(t *testing.T) {
+	t.Parallel()
+
+	request := authcontract.LoginRequest{}
+	validator := &recordingRequestValidator{valid: false}
+
+	if decodeRPCRequest(rpcEnvelope(t, authcontract.LoginRequest{Username: "testuser"}), &request, validator) {
+		t.Fatal("decodeRPCRequest() = true, want false")
+	}
+	if !validator.called {
+		t.Fatal("validator was not called")
 	}
 }
 
@@ -336,7 +414,26 @@ func authRuntimeFixture(t *testing.T, authResult pamauth.Result) authRuntime {
 			Verifier: verifier,
 		},
 		RefreshStore: sessions.NewStore(time.Now, sessions.StoreOptions{}),
+		Validator:    newRequestValidator(),
 	}
+}
+
+// recordingRequestValidator is a test double for injected RPC validation.
+type recordingRequestValidator struct {
+	// called records whether Struct was invoked by decodeRPCRequest.
+	called bool
+	// valid controls whether Struct accepts or rejects the request.
+	valid bool
+}
+
+// Struct records validation and returns the configured validation outcome.
+func (v *recordingRequestValidator) Struct(any) error {
+	v.called = true
+	if v.valid {
+		return nil
+	}
+
+	return errors.New("invalid request")
 }
 
 func rpcEnvelope(t *testing.T, request any) messaging.Envelope {

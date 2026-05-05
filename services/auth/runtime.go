@@ -51,6 +51,7 @@ func run(ctx context.Context) error {
 		Auth:         authModule,
 		Tokens:       tokenRuntime,
 		RefreshStore: newRefreshStore(infra.Config.AuthTokens),
+		Validator:    newRequestValidator(),
 	}
 	if err := registerRPCHandlers(infra.Server, runtimeDeps); err != nil {
 		return err
@@ -74,6 +75,7 @@ type authRuntime struct {
 	Auth         modules.Auth
 	Tokens       authTokenRuntime
 	RefreshStore *sessions.Store
+	Validator    requestValidator
 }
 
 type authTokenRuntime struct {
@@ -179,7 +181,7 @@ func registerRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error
 
 func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.LoginResponse, error) {
 	var request authcontract.LoginRequest
-	if !decodeRPCRequest(envelope, &request) {
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
 	}
 
@@ -248,7 +250,7 @@ func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginReque
 
 func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.RefreshResponse, error) {
 	var request authcontract.RefreshRequest
-	if !decodeRPCRequest(envelope, &request) {
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.RefreshResponse{}, nil
 	}
 
@@ -282,7 +284,7 @@ func rotateRefreshToken(
 
 func handleLogoutRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.LogoutResponse, error) {
 	var request authcontract.LogoutRequest
-	if !decodeRPCRequest(envelope, &request) {
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.LogoutResponse{}, nil
 	}
 
@@ -299,7 +301,7 @@ func revokeRefreshToken(runtimeDeps authRuntime, refreshToken string) bool {
 
 func handleValidateAccessTokenRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.ValidateAccessTokenResponse, error) {
 	var request authcontract.ValidateAccessTokenRequest
-	if !decodeRPCRequest(envelope, &request) {
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.ValidateAccessTokenResponse{Valid: false, Status: authcontract.StatusDenied}, nil
 	}
 
@@ -324,8 +326,12 @@ func verifyAccessToken(runtimeDeps authRuntime, accessToken string) (authtoken.A
 	return claims, true
 }
 
-func decodeRPCRequest(envelope messaging.Envelope, request any) bool {
-	return json.Unmarshal(envelope.Payload, request) == nil
+func decodeRPCRequest(envelope messaging.Envelope, request any, validator requestValidator) bool {
+	if err := json.Unmarshal(envelope.Payload, request); err != nil {
+		return false
+	}
+
+	return validateRPCRequest(validator, request)
 }
 
 func loginResponseFromPAM(result pamauth.Result) authcontract.LoginResponse {

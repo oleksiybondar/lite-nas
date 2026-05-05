@@ -2,7 +2,7 @@ package auth
 
 // ValidateAccessTokenRequest requests live validation of an access token.
 type ValidateAccessTokenRequest struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token" validate:"required,min=1,max=8192"`
 }
 
 // ValidateAccessTokenResponse returns the current credibility of the submitted

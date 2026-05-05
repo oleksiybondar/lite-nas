@@ -4,8 +4,8 @@ package auth
 // requires audit-oriented operator context.
 type SetLockdownRequest struct {
 	Lockdown  bool   `json:"lockdown"`
-	Reason    string `json:"reason"`
-	Initiator string `json:"initiator"`
+	Reason    string `json:"reason" validate:"required,min=1,max=512"`
+	Initiator string `json:"initiator" validate:"required,min=1,max=128"`
 }
 
 // SetLockdownResponse returns the applied lockdown state together with the
@@ -19,6 +19,6 @@ type SetLockdownResponse struct {
 // LockdownChangedEvent publishes an auth-service lockdown state transition.
 type LockdownChangedEvent struct {
 	Lockdown  bool   `json:"lockdown"`
-	Reason    string `json:"reason"`
-	Initiator string `json:"initiator"`
+	Reason    string `json:"reason" validate:"required,min=1,max=512"`
+	Initiator string `json:"initiator" validate:"required,min=1,max=128"`
 }

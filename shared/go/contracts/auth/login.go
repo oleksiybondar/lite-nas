@@ -3,10 +3,10 @@ package auth
 // LoginRequest requests host-backed authentication for the submitted user
 // credentials.
 type LoginRequest struct {
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	ClientIP  string `json:"client_ip,omitempty"`
-	UserAgent string `json:"user_agent,omitempty"`
+	Username  string `json:"username" validate:"required,min=1,max=128"`
+	Password  string `json:"password" validate:"required,min=1,max=4096"`
+	ClientIP  string `json:"client_ip,omitempty" validate:"omitempty,ip"`
+	UserAgent string `json:"user_agent,omitempty" validate:"omitempty,max=512"`
 }
 
 // LoginResponse returns the normalized auth outcome and issued session
