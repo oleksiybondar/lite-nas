@@ -56,6 +56,11 @@ npm run build
 npm run test:unit
 ```
 
+During `npm run dev`, Vite proxies `/api` to the local web gateway at
+`http://127.0.0.1:9090` while preserving the `/api/...` path. Override the
+gateway origin with `LITE_NAS_WEB_GATEWAY_ORIGIN` when using a different local
+address.
+
 From the repository root, use the platform build wrapper when producing assets
 for deployment or package assembly:
 

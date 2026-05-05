@@ -1,13 +1,12 @@
 import { App } from "@app/App";
-import { ThemeManagerContext } from "@contexts/theme-manager-context";
 import { DashboardPage } from "@pages/DashboardPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
 import { act, render, screen } from "@testing-library/react";
-import type { ThemeManagerContextValue } from "@theme/index";
+import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
+import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
 import { createAppTheme, themeRegistry } from "@theme/index";
 import { getComponentOverrides } from "@theme/mui/components";
-import type { ReactElement } from "react";
 
 describe("dashboard page", () => {
   test("renders the initial dashboard sections", () => {
@@ -66,8 +65,18 @@ describe("application providers", () => {
     expect(screen.getByText("Themed child")).toBeInTheDocument();
   });
 
-  test("renders the app shell", async () => {
+  test("renders login from the app shell for anonymous sessions", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(responseWithStatus(401)));
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  test("renders dashboard from the app shell for authenticated sessions", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(responseWithJson(200, authenticatedMeBody)));
 
     await act(async () => {
       render(<App />);
@@ -78,43 +87,17 @@ describe("application providers", () => {
 });
 
 /**
- * Renders a component with a stable theme manager context.
+ * Current-user response for an authenticated app-shell render.
  */
-const renderWithThemeManager = (
-  component: ReactElement,
-  overrides: Partial<ThemeManagerContextValue> = {},
-) => {
-  return render(
-    <ThemeManagerContext.Provider value={createThemeManagerValue(overrides)}>
-      {component}
-    </ThemeManagerContext.Provider>,
-  );
-};
-
-/**
- * Creates a complete theme manager context value for page and theme tests.
- */
-const createThemeManagerValue = (
-  overrides: Partial<ThemeManagerContextValue> = {},
-): ThemeManagerContextValue => {
-  return {
-    availableTemplates: ["default"],
-    mode: "dark",
-    resolvedMode: "dark",
-    resolvedTemplateName: "default",
-    setMode: vi.fn(),
-    setSettings: vi.fn(),
-    setSource: vi.fn(),
-    setTemplateName: vi.fn(),
-    source: "user",
-    templateName: "default",
-    ...overrides,
-  };
-};
-
-/**
- * Creates a minimal response with the supplied status.
- */
-const responseWithStatus = (status: number): Response => {
-  return new Response(null, { status });
+const authenticatedMeBody = {
+  data: {
+    authenticated: true,
+    auth_type: "password",
+    roles: ["admin"],
+    scopes: ["admin"],
+    user: {
+      id: "admin-id",
+      login: "admin",
+    },
+  },
 };

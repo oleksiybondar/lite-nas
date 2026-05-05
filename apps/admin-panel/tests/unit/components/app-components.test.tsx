@@ -6,10 +6,8 @@ import {
   ThemeSourceSelector,
   ThemeTemplateSelector,
 } from "@components/index";
-import { ThemeManagerContext } from "@contexts/theme-manager-context";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import type { ThemeManagerContextValue } from "@theme/index";
-import type { ReactElement } from "react";
+import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
 
 describe("app shell components", () => {
   test("renders the application logo", () => {
@@ -138,41 +136,6 @@ describe("theme template selector", () => {
     );
   });
 });
-
-/**
- * Renders a component under a predictable theme manager context.
- */
-const renderWithThemeManager = (
-  component: ReactElement,
-  overrides: Partial<ThemeManagerContextValue> = {},
-) => {
-  return render(
-    <ThemeManagerContext.Provider value={createThemeManagerValue(overrides)}>
-      {component}
-    </ThemeManagerContext.Provider>,
-  );
-};
-
-/**
- * Creates a complete theme manager value for component tests.
- */
-const createThemeManagerValue = (
-  overrides: Partial<ThemeManagerContextValue> = {},
-): ThemeManagerContextValue => {
-  return {
-    availableTemplates: ["default"],
-    mode: "dark",
-    resolvedMode: "dark",
-    resolvedTemplateName: "default",
-    setMode: vi.fn(),
-    setSettings: vi.fn(),
-    setSource: vi.fn(),
-    setTemplateName: vi.fn(),
-    source: "user",
-    templateName: "default",
-    ...overrides,
-  };
-};
 
 /**
  * Selects an option from a Material UI select rendered as a combobox.
