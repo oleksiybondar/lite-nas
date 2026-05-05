@@ -202,7 +202,7 @@ jobs:
         run: scripts/ci/install-node-dependencies.sh
 
       - name: Test admin-panel
-        run: scripts/test-admin-panel.sh
+        run: scripts/test-admin-panel.sh --with-coverage
 
   shared-go-build-and-test:
     name: Shared Go build and test (${{ matrix.arch }})

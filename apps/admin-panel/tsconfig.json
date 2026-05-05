@@ -22,6 +22,7 @@
       "@pages/*": ["src/pages/*"],
       "@providers/*": ["src/providers/*"],
       "@routes/*": ["src/routes/*"],
+      "@schemas/*": ["src/schemas/*"],
       "@tests/*": ["tests/*"],
       "@theme/*": ["src/theme/*"]
     },

@@ -14,3 +14,11 @@ precedence.
   the required members are known locally.
 - Keep provider values focused on the stable contract exposed by the context,
   while implementation helpers can stay private to the provider module.
+
+## Coverage Scope
+
+- Admin-panel coverage must include the whole `src` tree by default.
+- Do not narrow coverage includes or add exclusions only to make coverage
+  thresholds pass.
+- Exclusions are allowed only for a clearly documented technical reason, such as
+  generated files or files that cannot be executed in the Vitest environment.

@@ -9,6 +9,7 @@ import type {
 } from "@dto/auth/auth";
 import { createFetchRequestBuilder } from "@helpers/fetch-request-builder";
 import { useApi } from "@hooks/useApi";
+import { loginRequestSchema } from "@schemas/auth/login";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -114,7 +115,10 @@ const useLogin = (
 ): AuthContextValue["login"] => {
   return useCallback(
     (loginValue: string, password: string): Promise<Response> => {
-      const payload: LoginRequestDTO = { login: loginValue, password };
+      const payload = loginRequestSchema.parse({
+        login: loginValue,
+        password,
+      }) satisfies LoginRequestDTO;
 
       return createFetchRequestBuilder(loginPath)
         .method("POST")

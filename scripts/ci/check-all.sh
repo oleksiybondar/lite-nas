@@ -16,6 +16,7 @@ checks=(
 	"go-duplication-analysis"
 	"bash-duplication-analysis"
 	"js-ts-analysis"
+	"js-ts-test-coverage"
 	"go-analysis"
 	"go-test-coverage"
 	"package-analysis"
