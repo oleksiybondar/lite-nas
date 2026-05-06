@@ -11,6 +11,8 @@ mapfile -t files < <(find . -type f \( \
 	-name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.json' -o -name '*.jsonc' \) \
 	-not -path '*/node_modules/*' \
 	-not -path './.build/*' \
+	-not -path './logs/*' \
+	-not -path './tests/logs/*' \
 	-not -path '*/dist/*' \
 	-not -path '*/build/*')
 

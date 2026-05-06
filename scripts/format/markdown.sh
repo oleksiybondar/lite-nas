@@ -9,6 +9,8 @@ cd "$(git rev-parse --show-toplevel)"
 
 mapfile -t files < <(find . -type f -name '*.md' \
 	-not -path '*/node_modules/*' \
+	-not -path './logs/*' \
+	-not -path './tests/logs/*' \
 	-not -path './dist/*' \
 	-not -path './build/*')
 

@@ -5,3 +5,7 @@ ignores:
   - "dist/**"
   - "build/**"
   - ".claude/**"
+  - ".venv/**"
+  - "log.html"
+  - "logs/**"
+  - "tests/logs/**"

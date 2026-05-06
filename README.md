@@ -134,6 +134,11 @@ The structure is already taking shape around a few main areas:
 - `requirements/`
   Requirement documents used to define services and apps before or alongside implementation.
 
+- `tests/`
+  Python HyperionTF system tests grouped by infra, CLI, API, and UI category.
+  These verify installed LiteNAS behavior above service-local unit,
+  integration, and contract tests.
+
 - `scripts/`
   Build, test, CI, deployment, formatting, packaging, and developer helper scripts.
 

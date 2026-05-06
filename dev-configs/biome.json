@@ -9,7 +9,11 @@
       "!**/dist",
       "!**/build",
       "!**/coverage",
-      "!**/.claude"
+      "!**/.claude",
+      "!**/.venv",
+      "!**/log.html",
+      "!logs",
+      "!tests/logs"
     ]
   },
   "formatter": {

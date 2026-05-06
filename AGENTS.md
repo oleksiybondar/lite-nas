@@ -98,6 +98,16 @@ branch or otherwise provides a pushed source branch.
   for controlled helper-driven actions that are expected to succeed, such as
   invoking registered handlers or executing fixture flows. Keep inline error
   assertions only for expected failure behavior.
+- Treat top-level `tests/` as system-level HyperionTF tests for an installed or
+  running LiteNAS system, not as service-local unit or contract tests.
+- Keep top-level system tests grouped under `tests/infra`, `tests/cli`,
+  `tests/api`, and `tests/ui`. Use exactly one matching category marker on
+  every system test, and add service/app domain markers where applicable.
+- Give every system test a docstring with preparation, action, and expected
+  result. HyperionTF uses the docstring as the HTML report test case.
+- Keep each system test focused on one verification point. Use parametrization,
+  fixtures, helpers, or shared test-case steps instead of asserting unrelated
+  outcomes or duplicating setup.
 
 ## Tooling Conventions
 
@@ -139,6 +149,8 @@ branch or otherwise provides a pushed source branch.
 - Follow the repository testing split for helper placement:
   - package-local or subproject-local `testutil` for local reuse
   - `shared/go/testutil/...` only for cross-module reusable testing primitives
+- Follow the system testing rules in [tests/README.md](tests/README.md) when
+  creating or updating top-level Python HyperionTF tests.
 - Follow the release-note format documented in
   [docs/release-notes.md](docs/release-notes.md)
   when the task involves preparing or updating release-facing documentation.

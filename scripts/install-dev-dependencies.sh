@@ -57,9 +57,9 @@ MSG
 
 	log.pushTask "Installing Debian/Ubuntu base packages"
 	apt-get update
-	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt lintian debconf gcc libc6-dev libpam0g-dev; then
+	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt lintian debconf gcc libc6-dev libpam0g-dev python3 python3-venv; then
 		log.warn "Could not install shfmt with apt-get; it will be installed with go install instead."
-		apt-get install -y git nodejs npm golang-go shellcheck lintian debconf gcc libc6-dev libpam0g-dev
+		apt-get install -y git nodejs npm golang-go shellcheck lintian debconf gcc libc6-dev libpam0g-dev python3 python3-venv
 	fi
 	log.popTask
 }
@@ -74,7 +74,7 @@ has_pam_development_headers() {
 }
 
 missing_base_tools=()
-for tool in node npm go shellcheck shfmt gcc; do
+for tool in node npm go shellcheck shfmt gcc python3; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		missing_base_tools+=("$tool")
 	fi
@@ -95,7 +95,7 @@ if [ "${#missing_base_tools[@]}" -gt 0 ] || [ "${#missing_dev_components[@]}" -g
 fi
 
 log.pushTask "Checking base tooling"
-for tool in node npm go shellcheck shfmt gcc; do
+for tool in node npm go shellcheck shfmt gcc python3; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		log.error "Missing required command after installation attempt: $tool"
 		exit 1
@@ -122,6 +122,22 @@ install_go_tool_if_missing "goimports" "golang.org/x/tools/cmd/goimports@latest"
 install_go_tool_if_missing "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest"
 install_go_tool_if_missing "actionlint" "github.com/rhysd/actionlint/cmd/actionlint@latest"
 install_go_tool_if_missing "shfmt" "mvdan.cc/sh/v3/cmd/shfmt@latest"
+log.popTask
+
+log.pushTask "Installing Python developer tools"
+if [ ! -f "$REPO_ROOT/.venv/bin/pip" ]; then
+	rm -rf "$REPO_ROOT/.venv"
+	run_as_user python3 -m venv "$REPO_ROOT/.venv"
+fi
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+	chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$REPO_ROOT/.venv"
+fi
+run_as_user "$REPO_ROOT/.venv/bin/pip" install --quiet -r "$REPO_ROOT/tests/requirements.txt"
+log.popTask
+
+log.pushTask "Installing Playwright runtime dependencies"
+"$REPO_ROOT/.venv/bin/playwright" install-deps chromium
+run_as_user "$REPO_ROOT/.venv/bin/playwright" install chromium
 log.popTask
 
 log.pushTask "Installing Git hooks"

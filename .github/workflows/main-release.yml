@@ -256,7 +256,7 @@ jobs:
           name: admin-panel-assets
           path: .artifacts/admin-panel
 
-      - name: Build LiteNAS Debian package
+      - name: Build and test LiteNAS Debian package
         uses: ./.github/actions/lite-nas-package-build
         with:
           version: ${{ steps.package-version.outputs.value }}
@@ -266,7 +266,8 @@ jobs:
           web_gateway_binary: .artifacts/${{ matrix.arch }}/web-gateway/web-gateway
           admin_panel_assets: .artifacts/admin-panel
           package_arch: ${{ matrix.arch }}
-          run_package_validation: "false"
+          run_package_validation: "true"
+          run_installed_package_tests: "true"
 
       - name: Publish LiteNAS Debian package artifact
         uses: actions/upload-artifact@v4

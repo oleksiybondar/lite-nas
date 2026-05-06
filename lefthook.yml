@@ -33,3 +33,13 @@ pre-commit:
     actionlint:
       glob: ".github/workflows/*.{yml,yaml}"
       run: scripts/hooks/actionlint.sh {staged_files}
+
+    black:
+      glob: "tests/**/*.py"
+      run: .venv/bin/black --line-length 100 --target-version py311 {staged_files}
+      stage_fixed: true
+
+    ruff:
+      glob: "tests/**/*.py"
+      run: .venv/bin/ruff check --fix --config dev-configs/ruff.toml {staged_files}
+      stage_fixed: true

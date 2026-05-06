@@ -1,5 +1,54 @@
 # Release Notes
 
+## 0.1.1 - 2026-05-06
+
+### RL-0.1.1 Summary
+
+- Expanded the LiteNAS platform skeleton beyond the initial monitoring slice
+  with authentication, web gateway, admin-panel, and system-level validation
+  wiring. This release is still primarily scaffolding: it establishes runtime,
+  packaging, and CI/CD shape for future product work rather than delivering a
+  complete user-facing NAS administration experience.
+
+### RL-0.1.1 Added
+
+- Added an `auth-service` skeleton that owns PAM-backed host authentication,
+  auth token issuance, and internal auth messaging behind the LiteNAS service
+  boundary.
+- Added a `web-gateway` skeleton that serves packaged admin-panel assets and
+  exposes browser-facing API routes backed by internal services.
+- Added the initial `admin-panel` web app skeleton and its build handoff into
+  Debian package assembly.
+- Added Python HyperionTF system-level tests for installed LiteNAS behavior,
+  grouped by infra, CLI, API, and UI categories.
+- Added system-test documentation covering category markers, service markers,
+  HTML-report docstrings, focused verification points, and shared fixtures.
+
+### RL-0.1.1 Changed
+
+- Extended local and CI validation so Python system tests run after Python
+  static analysis and before later duplication checks.
+- Ordered system-test execution by credibility gate: infrastructure first,
+  then CLI, API, and UI.
+- Standardized HyperionTF log output under `tests/logs` so CI can publish
+  predictable test artifacts.
+
+### RL-0.1.1 Platform
+
+- Release package validation now installs the built LiteNAS Debian package and
+  runs the Python system test suite against the installed services.
+- CI uploads Python system-test HTML logs as artifacts with a 15-day retention
+  window.
+- Python developer and CI dependency installation now creates the repository
+  virtual environment, installs the HyperionTF/pytest stack, and prepares the
+  Playwright runtime needed for future UI and visual tests.
+
+### RL-0.1.1 Notes
+
+- Authentication, web gateway, admin-panel, and system tests are intentionally
+  early platform scaffolding. The current work verifies wiring, packaging, and
+  runtime behavior needed for later feature development.
+
 ## Why release notes are needed early
 
 LiteNAS is still in the platform-skeleton stage, but release notes are useful

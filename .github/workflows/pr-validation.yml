@@ -154,6 +154,35 @@ jobs:
       - name: Run JS/TS analysis
         run: scripts/ci/js-ts-analysis.sh
 
+  python-analysis:
+    name: Python analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python tooling
+        run: scripts/ci/install-python-dependencies.sh
+
+      - name: Run Python analysis
+        run: scripts/ci/python-analysis.sh
+
+  python-duplication-analysis:
+    name: Python duplication analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run Python duplication analysis
+        run: scripts/ci/python-duplication-analysis.sh
+
   js-ts-build:
     name: JS/TS build
     runs-on: ubuntu-latest
@@ -427,6 +456,7 @@ jobs:
           admin_panel_assets: .artifacts/admin-panel
           package_arch: ${{ matrix.arch }}
           run_package_validation: "true"
+          run_installed_package_tests: "true"
 
       - name: Upload LiteNAS Debian package artifact
         uses: actions/upload-artifact@v4

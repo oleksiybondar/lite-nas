@@ -129,6 +129,33 @@ readability, maintenance, and consistent review quality.
   Go and shell code, so repeated test scaffolding can fail validation even when
   it is spread across separate Go modules.
 
+## System Tests
+
+- Top-level `tests/` are system-level tests for an installed or otherwise
+  running LiteNAS system. They are higher integrity than service-local unit,
+  integration, and contract tests and should verify externally visible behavior.
+- Non-unit and non-integrity tests for LiteNAS services and apps should use the
+  Python HyperionTF suite by default so infra, CLI, API, UI, and visual checks
+  share one logging and execution ecosystem.
+- Keep system tests grouped by category under `tests/infra`, `tests/cli`,
+  `tests/api`, and `tests/ui`. Test files inside those folders should be
+  focused suites for one feature, service, or workflow.
+- Every system test must use exactly one category marker: `infra`, `cli`,
+  `api`, or `ui`. Add domain markers such as `Auth`, `SystemMetrics`, or
+  `WebGateway` when the behavior belongs to a specific service or app.
+- Every system test must have a docstring that describes the test case for the
+  HTML report. Include preparation, action, and expected result at intent level
+  rather than listing implementation details.
+- System tests should usually have one verification point. Split independent
+  outcomes into separate tests, parametrized cases, or shared test-case steps
+  instead of adding unrelated assertions to one test.
+- Resolve system-test duplication with fixtures, helpers, parametrization, or
+  shared test-case steps. Do not copy setup or assertion scaffolding between
+  category suites.
+- `scripts/test-python.sh` is the canonical runner. It executes categories in
+  fast-fail order: infra, CLI, API, then UI. It also fixes the working directory
+  to `tests/` so HyperionTF logs are always written under `tests/logs`.
+
 ## Large Test Suites
 
 - When a test suite grows large enough that support code obscures the behavior

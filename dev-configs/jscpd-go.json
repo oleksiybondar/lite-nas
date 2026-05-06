@@ -12,12 +12,15 @@
     "**/dist/**",
     "**/build/**",
     "**/coverage/**",
+    "**/logs/**",
+    "**/log.html",
     "**/.cache/**",
     "**/.build/**",
     "**/.artifacts/**",
     "**/*.lock",
     "**/package-lock.json",
     "**/pnpm-lock.yaml",
-    "**/yarn.lock"
+    "**/yarn.lock",
+    "**/.venv/**"
   ]
 }

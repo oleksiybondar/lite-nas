@@ -28,6 +28,10 @@ inputs:
     description: Whether to lint and validate installability.
     required: false
     default: "true"
+  run_installed_package_tests:
+    description: Whether to install the built package on the runner and run Python integration tests.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -77,3 +81,45 @@ runs:
         scripts/ci/validate-lite-nas-deb-install.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
           ${{ inputs.package_arch }}
+
+    - name: Install Python test dependencies
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      run: scripts/ci/install-python-dependencies.sh
+
+    - name: Install LiteNAS package on runner
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      run: |
+        sudo env DEBIAN_FRONTEND=noninteractive \
+          scripts/package/install-lite-nas-deb.sh \
+            --package .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
+
+    - name: Prepare Python test user
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      env:
+        LITENAS_API_LOGIN: testuser
+        LITENAS_API_PASSWORD: testpassword
+      run: |
+        if ! id "$LITENAS_API_LOGIN" >/dev/null 2>&1; then
+          sudo useradd --create-home --shell /bin/bash "$LITENAS_API_LOGIN"
+        fi
+        printf '%s:%s\n' "$LITENAS_API_LOGIN" "$LITENAS_API_PASSWORD" | sudo chpasswd
+
+    - name: Test installed LiteNAS package
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      env:
+        LITENAS_API_LOGIN: testuser
+        LITENAS_API_PASSWORD: testpassword
+      run: scripts/test-python.sh
+
+    - name: Upload Python test logs
+      if: ${{ inputs.run_installed_package_tests == 'true' && always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-test-logs-${{ inputs.package_arch }}
+        path: tests/logs
+        if-no-files-found: warn
+        retention-days: 15

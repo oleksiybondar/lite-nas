@@ -20,6 +20,9 @@ checks=(
 	"go-analysis"
 	"go-test-coverage"
 	"package-analysis"
+	"python-analysis"
+	"python-test"
+	"python-duplication-analysis"
 )
 
 for check in "${checks[@]}"; do

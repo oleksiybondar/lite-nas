@@ -10,7 +10,10 @@ cd "$(git rev-parse --show-toplevel)"
 mapfile -t biome_files < <(find . -type f \( \
 	-name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.json' -o -name '*.jsonc' \) \
 	-not -path '*/node_modules/*' \
+	-not -path './.venv/*' \
 	-not -path './.build/*' \
+	-not -path './logs/*' \
+	-not -path './tests/logs/*' \
 	-not -path '*/dist/*' \
 	-not -path '*/build/*')
 
@@ -26,6 +29,8 @@ fi
 mapfile -t duplicate_files < <(find . -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) \
 	-not -path '*/node_modules/*' \
 	-not -path './.build/*' \
+	-not -path './logs/*' \
+	-not -path './tests/logs/*' \
 	-not -path '*/dist/*' \
 	-not -path '*/build/*')
 

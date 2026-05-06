@@ -3,22 +3,20 @@
   "threshold": 1,
   "minLines": 8,
   "minTokens": 50,
-  "format": ["javascript", "typescript", "jsx", "tsx"],
+  "format": ["python"],
   "reporters": ["console"],
   "absolute": true,
   "gitignore": true,
   "ignore": [
     "**/node_modules/**",
-    "**/.build/**",
     "**/dist/**",
     "**/build/**",
     "**/coverage/**",
     "**/logs/**",
     "**/log.html",
-    "**/*.lock",
-    "**/package-lock.json",
-    "**/pnpm-lock.yaml",
-    "**/yarn.lock",
-    "**/.venv/**"
+    "**/.cache/**",
+    "**/.build/**",
+    "**/.venv/**",
+    "**/__pycache__/**"
   ]
 }
