@@ -101,11 +101,7 @@ runs:
       env:
         LITENAS_API_LOGIN: testuser
         LITENAS_API_PASSWORD: testpassword
-      run: |
-        if ! id "$LITENAS_API_LOGIN" >/dev/null 2>&1; then
-          sudo useradd --create-home --shell /bin/bash "$LITENAS_API_LOGIN"
-        fi
-        printf '%s:%s\n' "$LITENAS_API_LOGIN" "$LITENAS_API_PASSWORD" | sudo chpasswd
+      run: scripts/ci/prepare-system-test-user.sh
 
     - name: Test installed LiteNAS package
       if: ${{ inputs.run_installed_package_tests == 'true' }}
