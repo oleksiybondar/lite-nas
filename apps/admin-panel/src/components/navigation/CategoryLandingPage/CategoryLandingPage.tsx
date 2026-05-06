@@ -34,18 +34,20 @@ export const CategoryLandingPage = ({
   title,
 }: CategoryLandingPageProps): ReactElement => {
   return (
-    <Stack spacing={4}>
-      <Stack maxWidth="820px" spacing={1}>
-        <Typography color="primary" variant="overline">
+    <Stack data-testid="category-landing-page" data-test-name={title} spacing={4}>
+      <Stack data-testid="category-landing-header" maxWidth="820px" spacing={1}>
+        <Typography color="primary" data-testid="category-landing-overline" variant="overline">
           {overline}
         </Typography>
-        <Typography variant="h1">{title}</Typography>
-        <Typography color="text.secondary" variant="body1">
+        <Typography data-testid="category-landing-title" variant="h1">
+          {title}
+        </Typography>
+        <Typography color="text.secondary" data-testid="category-landing-summary" variant="body1">
           {summary}
         </Typography>
       </Stack>
 
-      <Grid container spacing={2}>
+      <Grid container data-testid="category-landing-card-list" spacing={2}>
         {cards.map((card) => {
           return <CategoryLandingItem card={card} key={card.path} />;
         })}

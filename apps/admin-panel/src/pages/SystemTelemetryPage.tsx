@@ -12,12 +12,14 @@ export const SystemTelemetryPage = (): ReactElement => {
   const groupTitle = formatRouteLabel(group);
 
   return (
-    <Stack maxWidth="860px" spacing={1}>
-      <Typography color="primary" variant="overline">
+    <Stack data-testid="system-telemetry-page" maxWidth="860px" spacing={1}>
+      <Typography color="primary" data-testid="system-telemetry-overline" variant="overline">
         {groupTitle}
       </Typography>
-      <Typography variant="h1">{title}</Typography>
-      <Typography color="text.secondary" variant="body1">
+      <Typography data-testid="system-telemetry-title" variant="h1">
+        {title}
+      </Typography>
+      <Typography color="text.secondary" data-testid="system-telemetry-summary" variant="body1">
         Telemetry panels for this route will be wired to gateway-backed metrics slices.
       </Typography>
     </Stack>

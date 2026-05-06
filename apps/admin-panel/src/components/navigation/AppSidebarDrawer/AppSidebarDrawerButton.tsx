@@ -19,6 +19,7 @@ export const AppSidebarDrawerButton = ({ onOpen }: AppSidebarDrawerButtonProps):
       <IconButton
         aria-label="Open navigation"
         color="inherit"
+        data-testid="sidebar-drawer-open-button"
         onClick={onOpen}
         sx={{ display: { md: "none", xs: "inline-flex" } }}
       >

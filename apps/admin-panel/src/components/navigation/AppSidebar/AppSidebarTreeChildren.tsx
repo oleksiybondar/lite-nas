@@ -23,7 +23,14 @@ export const AppSidebarTreeChildren = ({
   }
 
   return (
-    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+    <Collapse
+      data-test-class="sidebar-tree-children"
+      data-test-name={item.title}
+      data-test-path={item.path}
+      in={isExpanded}
+      timeout="auto"
+      unmountOnExit
+    >
       <List disablePadding>{item.children.map((child) => renderItem(child, depth + 1))}</List>
     </Collapse>
   );

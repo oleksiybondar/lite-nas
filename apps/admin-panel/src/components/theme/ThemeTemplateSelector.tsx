@@ -30,11 +30,15 @@ export const ThemeTemplateSelector = ({
   const isDisabled = disabled ?? selectedSource !== "user";
 
   return (
-    <FormControl disabled={isDisabled} fullWidth>
-      <InputLabel id="theme-template-label">Theme template</InputLabel>
+    <FormControl data-testid="theme-template-control" disabled={isDisabled} fullWidth>
+      <InputLabel data-testid="theme-template-label" id="theme-template-label">
+        Theme template
+      </InputLabel>
       <Select
+        data-testid="theme-template-select"
         label="Theme template"
         labelId="theme-template-label"
+        name="themeTemplate"
         onChange={(event) => {
           const nextValue = event.target.value as ThemeTemplateName;
 
@@ -49,7 +53,12 @@ export const ThemeTemplateSelector = ({
       >
         {availableTemplates.map((availableTemplate) => {
           return (
-            <MenuItem key={availableTemplate} value={availableTemplate}>
+            <MenuItem
+              data-test-class="theme-template-option"
+              data-test-name={formatThemeTemplateLabel(availableTemplate)}
+              key={availableTemplate}
+              value={availableTemplate}
+            >
               {formatThemeTemplateLabel(availableTemplate)}
             </MenuItem>
           );

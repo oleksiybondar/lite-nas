@@ -19,15 +19,19 @@ export const LoginPage = (): ReactElement => {
 
   return (
     <PublicAppLayout>
-      <Container maxWidth="xs" sx={{ py: 8 }}>
-        <Paper sx={{ p: 4 }}>
-          <Stack component="form" onSubmit={onSubmit} spacing={3}>
+      <Container data-testid="login-page" maxWidth="xs" sx={{ py: 8 }}>
+        <Paper data-testid="login-card" sx={{ p: 4 }}>
+          <Stack component="form" data-testid="login-form" onSubmit={onSubmit} spacing={3}>
             <Stack spacing={1}>
-              <Typography variant="h1">Sign in</Typography>
+              <Typography data-testid="login-title" variant="h1">
+                Sign in
+              </Typography>
             </Stack>
             <TextField
               autoComplete="username"
+              data-testid="login-username-field"
               label="Login"
+              name="login"
               onChange={(event) => {
                 setUsername(event.target.value);
               }}
@@ -36,7 +40,9 @@ export const LoginPage = (): ReactElement => {
             />
             <TextField
               autoComplete="current-password"
+              data-testid="login-password-field"
               label="Password"
+              name="password"
               onChange={(event) => {
                 setPassword(event.target.value);
               }}
@@ -44,8 +50,17 @@ export const LoginPage = (): ReactElement => {
               type="password"
               value={password}
             />
-            {error !== null ? <Typography color="error">{error}</Typography> : null}
-            <Button disabled={isSubmitting} type="submit" variant="contained">
+            {error !== null ? (
+              <Typography color="error" data-testid="login-error-message">
+                {error}
+              </Typography>
+            ) : null}
+            <Button
+              data-testid="login-submit-button"
+              disabled={isSubmitting}
+              type="submit"
+              variant="contained"
+            >
               Sign in
             </Button>
           </Stack>

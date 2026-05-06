@@ -21,14 +21,27 @@ export const AppSidebarFlyoutTree = ({
     <>
       <ListItemButton
         component={RouterLink}
+        data-test-class="sidebar-flyout-tree-item"
+        data-test-name={item.title}
+        data-test-path={item.path}
         selected={selectedPath === item.path}
         sx={{ minHeight: 42, pl: 2 + depth * 2 }}
         to={item.path}
       >
         {item.icon !== undefined ? (
-          <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+          <ListItemIcon
+            data-test-class="sidebar-flyout-tree-item-icon"
+            data-test-name={item.title}
+            sx={{ minWidth: 36 }}
+          >
+            {item.icon}
+          </ListItemIcon>
         ) : null}
-        <ListItemText primary={item.title} />
+        <ListItemText
+          data-test-class="sidebar-flyout-tree-item-label"
+          data-test-name={item.title}
+          primary={item.title}
+        />
       </ListItemButton>
       {item.children?.map((child) => {
         return (

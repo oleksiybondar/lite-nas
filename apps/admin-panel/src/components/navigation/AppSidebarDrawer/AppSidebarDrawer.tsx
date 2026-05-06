@@ -33,6 +33,7 @@ export const AppSidebarDrawer = ({
 }: AppSidebarDrawerProps): ReactElement => {
   return (
     <Drawer
+      data-testid="sidebar-drawer"
       onClose={onClose}
       open={open}
       sx={{ display: { md: "none", xs: "block" } }}

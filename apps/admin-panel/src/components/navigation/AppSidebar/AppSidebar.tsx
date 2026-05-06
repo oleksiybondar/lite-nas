@@ -43,11 +43,12 @@ export const AppSidebar = ({
       borderColor="divider"
       borderRight={1}
       component="nav"
+      data-testid="app-sidebar"
       flexShrink={0}
       width={280}
       sx={{ display }}
     >
-      <List disablePadding sx={{ py: 2 }}>
+      <List data-testid="app-sidebar-list" disablePadding sx={{ py: 2 }}>
         {items.map((item) => {
           return (
             <AppSidebarTreeItem

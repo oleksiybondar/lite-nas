@@ -20,11 +20,15 @@ export const ThemeSourceSelector = ({
   const selectedValue = value ?? source;
 
   return (
-    <FormControl fullWidth>
-      <InputLabel id="theme-source-label">Theme source</InputLabel>
+    <FormControl data-testid="theme-source-control" fullWidth>
+      <InputLabel data-testid="theme-source-label" id="theme-source-label">
+        Theme source
+      </InputLabel>
       <Select
+        data-testid="theme-source-select"
         label="Theme source"
         labelId="theme-source-label"
+        name="themeSource"
         onChange={(event) => {
           const nextValue = event.target.value as ThemeSource;
 
@@ -37,9 +41,15 @@ export const ThemeSourceSelector = ({
         }}
         value={selectedValue}
       >
-        <MenuItem value="default">Default</MenuItem>
-        <MenuItem value="os">OS</MenuItem>
-        <MenuItem value="user">User</MenuItem>
+        <MenuItem data-test-class="theme-source-option" data-test-name="Default" value="default">
+          Default
+        </MenuItem>
+        <MenuItem data-test-class="theme-source-option" data-test-name="OS" value="os">
+          OS
+        </MenuItem>
+        <MenuItem data-test-class="theme-source-option" data-test-name="User" value="user">
+          User
+        </MenuItem>
       </Select>
     </FormControl>
   );

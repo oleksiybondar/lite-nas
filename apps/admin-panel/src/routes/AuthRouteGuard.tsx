@@ -34,11 +34,12 @@ const AuthLoadingView = (): ReactElement => {
     <Box
       alignItems="center"
       aria-label="Loading authentication state"
+      data-testid="auth-loading-view"
       display="flex"
       justifyContent="center"
       minHeight="100vh"
     >
-      <CircularProgress />
+      <CircularProgress data-testid="auth-loading-progress" />
     </Box>
   );
 };

@@ -29,13 +29,20 @@ export const AppSidebarTreeButton = ({
   return (
     <ListItemButton
       component={RouterLink}
+      data-test-class="sidebar-tree-item"
+      data-test-name={item.title}
+      data-test-path={item.path}
       onClick={onNavigate}
       selected={isSelected}
       sx={{ minHeight: 44, pl: 2 + depth * 2.5, pr: 1.5 }}
       to={item.path}
     >
       <AppSidebarTreeIcon item={item} />
-      <ListItemText primary={item.title} />
+      <ListItemText
+        data-test-class="sidebar-tree-item-label"
+        data-test-name={item.title}
+        primary={item.title}
+      />
       <AppSidebarTreeExpandControl
         hasChildren={hasChildren}
         isExpanded={isExpanded}

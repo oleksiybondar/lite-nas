@@ -29,11 +29,20 @@ type AppTopBarProps = {
  */
 export const AppTopBar = ({ leadingAction, trailingAction }: AppTopBarProps = {}): ReactElement => {
   return (
-    <AppBar color="transparent" elevation={0} position="sticky">
-      <Toolbar sx={{ borderBottom: 1, borderColor: "divider", gap: 2 }}>
+    <AppBar color="transparent" data-testid="app-top-bar" elevation={0} position="sticky">
+      <Toolbar
+        data-testid="app-top-bar-toolbar"
+        sx={{ borderBottom: 1, borderColor: "divider", gap: 2 }}
+      >
         {leadingAction}
         <AppLogo />
-        <Box alignItems="center" display="flex" gap={1} sx={{ ml: "auto" }}>
+        <Box
+          alignItems="center"
+          data-testid="app-top-bar-actions"
+          display="flex"
+          gap={1}
+          sx={{ ml: "auto" }}
+        >
           {trailingAction}
         </Box>
       </Toolbar>

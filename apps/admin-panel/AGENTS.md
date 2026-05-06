@@ -64,6 +64,28 @@ precedence.
   location path whenever possible instead of being duplicated in local component
   state.
 
+## Testability Selectors
+
+- Preserve explicit frontend test selectors in production builds. Do not add
+  Vite, Babel, SWC, minifier, or lint configuration that strips `data-testid`,
+  `data-test-class`, `data-test-name`, or related `data-test-*` attributes.
+- Use `data-testid` for stable singleton elements such as page roots, unique
+  titles, forms, dialogs, menus, and primary action buttons.
+- Use `data-test-class` for repeated component instances such as navigation
+  rows, menu items, cards, table rows, and option lists. Pair it with
+  `data-test-name`, `data-test-path`, or another meaningful discriminator so
+  tests can build reliable CSS locators without depending on DOM hierarchy.
+- Keep selectors semantic and human-readable. Prefer names based on component
+  role and user-facing purpose, for example `login-submit-button`,
+  `sidebar-tree-item`, or `category-landing-card`.
+- For MUI components, place selector attributes on the component root when that
+  is the stable interaction surface. Use typed MUI slot props only when the
+  target slot accepts the attribute cleanly; otherwise prefer supported props
+  such as `name`, labels, and root-level `data-*` attributes.
+- Add or update selectors whenever adding user-facing inputs, buttons, titles,
+  labels, navigation entries, cards, menus, dialogs, or other meaningful UI
+  surfaces.
+
 ## Coverage Scope
 
 - Admin-panel coverage must include the whole `src` tree by default.

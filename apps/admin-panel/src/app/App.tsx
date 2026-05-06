@@ -4,8 +4,10 @@ import type { ReactElement } from "react";
 
 export const App = (): ReactElement => {
   return (
-    <AppProviders>
-      <AppRouter />
-    </AppProviders>
+    <div data-testid="app-root">
+      <AppProviders>
+        <AppRouter />
+      </AppProviders>
+    </div>
   );
 };

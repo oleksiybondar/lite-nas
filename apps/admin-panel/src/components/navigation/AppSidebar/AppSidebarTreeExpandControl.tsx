@@ -26,6 +26,9 @@ export const AppSidebarTreeExpandControl = ({
     <Box
       aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.title}`}
       component="span"
+      data-test-class="sidebar-tree-expand-control"
+      data-test-name={item.title}
+      data-test-path={item.path}
       onClick={onToggleExpanded}
     >
       {isExpanded ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}

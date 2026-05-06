@@ -7,8 +7,16 @@ import type { ReactElement } from "react";
  */
 export const AppFooter = (): ReactElement => {
   return (
-    <Box borderColor="divider" borderTop={1} component="footer" px={3} py={1.5} textAlign="center">
-      <Typography color="text.secondary" variant="caption">
+    <Box
+      borderColor="divider"
+      borderTop={1}
+      component="footer"
+      data-testid="app-footer"
+      px={3}
+      py={1.5}
+      textAlign="center"
+    >
+      <Typography color="text.secondary" data-testid="app-footer-title" variant="caption">
         LiteNAS
       </Typography>
     </Box>

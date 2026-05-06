@@ -32,6 +32,8 @@ export const AppSidebarModeToggle = ({
       <IconButton
         aria-label={label}
         color="inherit"
+        data-testid="sidebar-mode-toggle-button"
+        data-test-name={label}
         onClick={onToggle}
         sx={{ display: { md: "inline-flex", xs: "none" } }}
       >

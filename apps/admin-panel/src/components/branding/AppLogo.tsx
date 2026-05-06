@@ -15,13 +15,19 @@ export const AppLogo = (): ReactElement => {
     <Stack
       alignItems="center"
       component={RouterLink}
+      data-testid="app-logo-link"
       direction="row"
       spacing={1.25}
       sx={{ color: "inherit", textDecoration: "none" }}
       to="/"
     >
-      <StorageRoundedIcon color="primary" fontSize="small" />
-      <Typography component="span" fontWeight={700} variant="subtitle1">
+      <StorageRoundedIcon color="primary" data-testid="app-logo-icon" fontSize="small" />
+      <Typography
+        component="span"
+        data-testid="app-logo-title"
+        fontWeight={700}
+        variant="subtitle1"
+      >
         LiteNAS
       </Typography>
     </Stack>

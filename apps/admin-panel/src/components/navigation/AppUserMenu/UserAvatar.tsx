@@ -8,7 +8,12 @@ import { resolveUserDisplayName, resolveUserInitials } from "./helpers";
  */
 export const UserAvatar = ({ user }: { user: AuthMeUserDTO }): ReactElement => {
   return (
-    <Avatar alt={resolveUserDisplayName(user)} src={user.avatar_url} sx={{ height: 34, width: 34 }}>
+    <Avatar
+      alt={resolveUserDisplayName(user)}
+      data-testid="user-avatar"
+      src={user.avatar_url}
+      sx={{ height: 34, width: 34 }}
+    >
       {resolveUserInitials(user)}
     </Avatar>
   );

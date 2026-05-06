@@ -14,5 +14,13 @@ export const AppSidebarTreeIcon = ({
     return null;
   }
 
-  return <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>;
+  return (
+    <ListItemIcon
+      data-test-class="sidebar-tree-item-icon"
+      data-test-name={item.title}
+      sx={{ minWidth: 36 }}
+    >
+      {item.icon}
+    </ListItemIcon>
+  );
 };

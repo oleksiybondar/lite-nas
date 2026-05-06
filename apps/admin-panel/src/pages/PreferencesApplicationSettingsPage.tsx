@@ -22,17 +22,25 @@ export const PreferencesApplicationSettingsPage = (): ReactElement => {
   const themePreferences = useThemePreferencesForm();
 
   return (
-    <Stack maxWidth="720px" spacing={3}>
-      <Stack spacing={1}>
-        <Typography color="primary" variant="overline">
+    <Stack data-testid="preferences-application-settings-page" maxWidth="720px" spacing={3}>
+      <Stack data-testid="preferences-application-settings-header" spacing={1}>
+        <Typography
+          color="primary"
+          data-testid="preferences-application-settings-overline"
+          variant="overline"
+        >
           Preferences
         </Typography>
-        <Typography variant="h1">Application settings</Typography>
+        <Typography data-testid="preferences-application-settings-title" variant="h1">
+          Application settings
+        </Typography>
       </Stack>
-      <Paper sx={{ p: 3 }}>
+      <Paper data-testid="preferences-theme-card" sx={{ p: 3 }}>
         <Stack spacing={3}>
           <Stack spacing={1}>
-            <Typography variant="h2">Theme</Typography>
+            <Typography data-testid="preferences-theme-title" variant="h2">
+              Theme
+            </Typography>
           </Stack>
           <ThemeSourceSelector
             onChange={themePreferences.handleSourceChange}
@@ -72,11 +80,24 @@ type ThemePreferencesActionsProps = {
  */
 const ThemePreferencesActions = ({ preferences }: ThemePreferencesActionsProps): ReactElement => {
   return (
-    <Stack direction={{ sm: "row", xs: "column-reverse" }} justifyContent="flex-end" spacing={1.5}>
-      <Button onClick={preferences.handleCancel} variant="outlined">
+    <Stack
+      data-testid="theme-preferences-actions"
+      direction={{ sm: "row", xs: "column-reverse" }}
+      justifyContent="flex-end"
+      spacing={1.5}
+    >
+      <Button
+        data-testid="theme-preferences-cancel-button"
+        onClick={preferences.handleCancel}
+        variant="outlined"
+      >
         Cancel
       </Button>
-      <Button onClick={preferences.handleApply} variant="contained">
+      <Button
+        data-testid="theme-preferences-apply-button"
+        onClick={preferences.handleApply}
+        variant="contained"
+      >
         Apply
       </Button>
     </Stack>

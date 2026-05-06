@@ -20,13 +20,17 @@ export const ThemeModeToggle = ({ mode, onChange, source }: ThemeModeToggleProps
   const isDisabled = selectedSource !== "user";
 
   return (
-    <Stack spacing={1}>
-      <Typography variant="subtitle2">Theme mode</Typography>
+    <Stack data-testid="theme-mode-control" spacing={1}>
+      <Typography data-testid="theme-mode-label" variant="subtitle2">
+        Theme mode
+      </Typography>
       <FormControlLabel
         control={
           <Switch
             checked={selectedMode === "dark"}
+            data-testid="theme-mode-switch"
             disabled={isDisabled}
+            name="themeMode"
             onChange={(event) => {
               const nextMode = event.target.checked ? "dark" : "light";
 
@@ -39,6 +43,7 @@ export const ThemeModeToggle = ({ mode, onChange, source }: ThemeModeToggleProps
             }}
           />
         }
+        data-testid="theme-mode-toggle"
         label={(mode ?? resolvedMode) === "dark" ? "Dark" : "Light"}
       />
     </Stack>

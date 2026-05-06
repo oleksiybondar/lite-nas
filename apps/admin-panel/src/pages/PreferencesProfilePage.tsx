@@ -8,17 +8,25 @@ import type { ReactElement } from "react";
  */
 export const PreferencesProfilePage = (): ReactElement => {
   return (
-    <Stack maxWidth="720px" spacing={3}>
-      <Stack spacing={1}>
-        <Typography color="primary" variant="overline">
+    <Stack data-testid="preferences-profile-page" maxWidth="720px" spacing={3}>
+      <Stack data-testid="preferences-profile-header" spacing={1}>
+        <Typography color="primary" data-testid="preferences-profile-overline" variant="overline">
           Preferences
         </Typography>
-        <Typography variant="h1">User profile</Typography>
+        <Typography data-testid="preferences-profile-title" variant="h1">
+          User profile
+        </Typography>
       </Stack>
-      <Paper sx={{ p: 3 }}>
+      <Paper data-testid="preferences-profile-card" sx={{ p: 3 }}>
         <Stack spacing={1}>
-          <Typography variant="h2">Profile details</Typography>
-          <Typography color="text.secondary" variant="body2">
+          <Typography data-testid="preferences-profile-details-title" variant="h2">
+            Profile details
+          </Typography>
+          <Typography
+            color="text.secondary"
+            data-testid="preferences-profile-details-summary"
+            variant="body2"
+          >
             User profile preferences will be added after the identity contract exposes the fields we
             want to manage here.
           </Typography>

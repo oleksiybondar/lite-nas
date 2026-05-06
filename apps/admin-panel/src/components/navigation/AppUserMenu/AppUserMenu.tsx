@@ -1,3 +1,4 @@
+import type { AuthMeUserDTO } from "@dto/auth/auth";
 import { useAuth } from "@hooks/useAuth";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
@@ -39,57 +40,142 @@ export const AppUserMenu = (): ReactElement | null => {
 
   return (
     <>
-      <Tooltip title="User menu">
-        <IconButton
-          aria-label="User menu"
-          color="inherit"
-          onClick={(event: MouseEvent<HTMLButtonElement>) => {
-            setAnchorElement(event.currentTarget);
-          }}
-          sx={{ borderRadius: "8px", p: 0.5 }}
-        >
-          <Stack alignItems="center" direction="row" spacing={1}>
-            <UserAvatar user={me.user} />
-            <Box display={{ sm: "block", xs: "none" }} textAlign="left">
-              <Typography lineHeight={1.2} variant="body2">
-                {me.user.login}
-              </Typography>
-              {me.user.full_name !== undefined ? (
-                <Typography color="text.secondary" lineHeight={1.2} variant="caption">
-                  {me.user.full_name}
-                </Typography>
-              ) : null}
-            </Box>
-          </Stack>
-        </IconButton>
-      </Tooltip>
-      <Menu
-        anchorEl={anchorElement}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-        onClose={closeMenu}
-        open={anchorElement !== null}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
-      >
-        <MenuItem component={RouterLink} onClick={closeMenu} to="/preferences/profile">
-          <ListItemIcon>
-            <ManageAccountsRoundedIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="User profile" />
-        </MenuItem>
-        <MenuItem component={RouterLink} onClick={closeMenu} to="/preferences/application">
-          <ListItemIcon>
-            <SettingsRoundedIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Application settings" />
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <LogoutRoundedIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Logout" />
-        </MenuItem>
-      </Menu>
+      {renderUserMenuButton(me.user, setAnchorElement)}
+      {renderUserMenu({
+        anchorElement,
+        onClose: closeMenu,
+        onLogout: handleLogout,
+      })}
     </>
+  );
+};
+
+/**
+ * Builds the button that opens the authenticated user menu.
+ */
+const renderUserMenuButton = (
+  user: AuthMeUserDTO,
+  setAnchorElement: (anchorElement: HTMLElement | null) => void,
+): ReactElement => {
+  return (
+    <Tooltip title="User menu">
+      <IconButton
+        aria-label="User menu"
+        color="inherit"
+        data-testid="user-menu-button"
+        onClick={(event: MouseEvent<HTMLButtonElement>) => {
+          setAnchorElement(event.currentTarget);
+        }}
+        sx={{ borderRadius: "8px", p: 0.5 }}
+      >
+        <Stack alignItems="center" direction="row" spacing={1}>
+          <UserAvatar user={user} />
+          {renderUserMenuSummary(user)}
+        </Stack>
+      </IconButton>
+    </Tooltip>
+  );
+};
+
+/**
+ * Builds the visible user identity text inside the menu button.
+ */
+const renderUserMenuSummary = (user: AuthMeUserDTO): ReactElement => {
+  return (
+    <Box data-testid="user-menu-summary" display={{ sm: "block", xs: "none" }} textAlign="left">
+      <Typography data-testid="user-menu-login" lineHeight={1.2} variant="body2">
+        {user.login}
+      </Typography>
+      {user.full_name !== undefined ? (
+        <Typography
+          color="text.secondary"
+          data-testid="user-menu-full-name"
+          lineHeight={1.2}
+          variant="caption"
+        >
+          {user.full_name}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+};
+
+/**
+ * State and commands required to render the authenticated user menu.
+ */
+type UserMenuRenderOptions = {
+  anchorElement: HTMLElement | null;
+  onClose: () => void;
+  onLogout: () => void;
+};
+
+/**
+ * Builds the authenticated user action menu.
+ */
+const renderUserMenu = ({
+  anchorElement,
+  onClose,
+  onLogout,
+}: UserMenuRenderOptions): ReactElement => {
+  return (
+    <Menu
+      anchorEl={anchorElement}
+      anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+      data-testid="user-menu"
+      onClose={onClose}
+      open={anchorElement !== null}
+      transformOrigin={{ horizontal: "right", vertical: "top" }}
+    >
+      {renderUserMenuLink({
+        icon: <ManageAccountsRoundedIcon fontSize="small" />,
+        label: "User profile",
+        onClick: onClose,
+        testId: "user-menu-profile-link",
+        to: "/preferences/profile",
+      })}
+      {renderUserMenuLink({
+        icon: <SettingsRoundedIcon fontSize="small" />,
+        label: "Application settings",
+        onClick: onClose,
+        testId: "user-menu-application-settings-link",
+        to: "/preferences/application",
+      })}
+      <Divider />
+      <MenuItem data-testid="user-menu-logout-button" onClick={onLogout}>
+        <ListItemIcon>
+          <LogoutRoundedIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText primary="Logout" />
+      </MenuItem>
+    </Menu>
+  );
+};
+
+/**
+ * Values required to render one route link in the authenticated user menu.
+ */
+type UserMenuLinkRenderOptions = {
+  icon: ReactElement;
+  label: string;
+  onClick: () => void;
+  testId: string;
+  to: string;
+};
+
+/**
+ * Builds one route link in the authenticated user menu.
+ */
+const renderUserMenuLink = ({
+  icon,
+  label,
+  onClick,
+  testId,
+  to,
+}: UserMenuLinkRenderOptions): ReactElement => {
+  return (
+    <MenuItem component={RouterLink} data-testid={testId} onClick={onClick} to={to}>
+      <ListItemIcon>{icon}</ListItemIcon>
+      <ListItemText primary={label} />
+    </MenuItem>
   );
 };

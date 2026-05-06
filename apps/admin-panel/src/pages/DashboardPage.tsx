@@ -28,27 +28,51 @@ const dashboardSections = [
 
 export const DashboardPage = (): ReactElement => {
   return (
-    <Stack spacing={4}>
-      <Stack maxWidth="760px" spacing={1}>
-        <Typography color="primary" variant="overline">
+    <Stack data-testid="dashboard-page" spacing={4}>
+      <Stack data-testid="dashboard-page-header" maxWidth="760px" spacing={1}>
+        <Typography color="primary" data-testid="dashboard-page-overline" variant="overline">
           Admin panel
         </Typography>
-        <Typography variant="h1">LiteNAS operations</Typography>
-        <Typography color="text.secondary" variant="body1">
+        <Typography data-testid="dashboard-page-title" variant="h1">
+          LiteNAS operations
+        </Typography>
+        <Typography color="text.secondary" data-testid="dashboard-page-summary" variant="body1">
           Initial browser shell for the LiteNAS administration experience.
         </Typography>
       </Stack>
 
-      <Grid container spacing={2}>
+      <Grid container data-testid="dashboard-section-list" spacing={2}>
         {dashboardSections.map((section) => {
           return (
-            <Grid key={section.title} size={{ md: 4, xs: 12 }}>
-              <Paper sx={{ height: "100%", p: 3 }}>
+            <Grid
+              data-test-class="dashboard-section-grid-item"
+              data-test-name={section.title}
+              key={section.title}
+              size={{ md: 4, xs: 12 }}
+            >
+              <Paper
+                data-test-class="dashboard-section-card"
+                data-test-name={section.title}
+                sx={{ height: "100%", p: 3 }}
+              >
                 <Stack spacing={2}>
-                  <Box>{section.icon}</Box>
+                  <Box data-test-class="dashboard-section-icon" data-test-name={section.title}>
+                    {section.icon}
+                  </Box>
                   <Stack spacing={0.75}>
-                    <Typography variant="h2">{section.title}</Typography>
-                    <Typography color="text.secondary" variant="body2">
+                    <Typography
+                      data-test-class="dashboard-section-title"
+                      data-test-name={section.title}
+                      variant="h2"
+                    >
+                      {section.title}
+                    </Typography>
+                    <Typography
+                      color="text.secondary"
+                      data-test-class="dashboard-section-description"
+                      data-test-name={section.title}
+                      variant="body2"
+                    >
                       {section.description}
                     </Typography>
                   </Stack>
