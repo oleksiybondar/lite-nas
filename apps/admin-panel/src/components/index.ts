@@ -9,6 +9,7 @@ export { AppSidebarDrawer, AppSidebarDrawerButton } from "@components/navigation
 export { AppSidebarFlyout } from "@components/navigation/AppSidebarFlyout";
 export { AppSidebarModeToggle } from "@components/navigation/AppSidebarModeToggle";
 export { AppTopBar } from "@components/navigation/AppTopBar";
+export { AppUserMenu } from "@components/navigation/AppUserMenu";
 export { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
 export {
   ThemeModeToggle,

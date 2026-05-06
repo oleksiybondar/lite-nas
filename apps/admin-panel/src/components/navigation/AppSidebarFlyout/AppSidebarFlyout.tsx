@@ -1,37 +1,21 @@
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
 import Popover from "@mui/material/Popover";
 import Tooltip from "@mui/material/Tooltip";
 import type { AppNavigationItem, AppNavigationPageItem } from "@routes/navigation";
 import type { MouseEvent, ReactElement } from "react";
 import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
+import { AppSidebarFlyoutTree } from "./AppSidebarFlyoutTree";
+import { isActiveNavigationItem } from "./helpers";
 
-/**
- * Props for the collapsed sidebar flyout navigation.
- */
 type AppSidebarFlyoutDisplay = {
-  /**
-   * Display value for large desktop viewports.
-   */
   lg?: string;
-  /**
-   * Display value for tablet and compact desktop viewports.
-   */
   md?: string;
-  /**
-   * Display value for mobile viewports.
-   */
   xs?: string;
 };
 
-/**
- * Props for the collapsed sidebar flyout navigation.
- */
 type AppSidebarFlyoutProps = {
   /**
    * Responsive display configuration for the flyout container.
@@ -112,57 +96,4 @@ export const AppSidebarFlyout = ({
       </Popover>
     </Box>
   );
-};
-
-/**
- * Recursive flyout content for nested page items.
- */
-const AppSidebarFlyoutTree = ({
-  depth = 0,
-  item,
-  selectedPath,
-}: {
-  depth?: number;
-  item: AppNavigationPageItem;
-  selectedPath: string | null;
-}): ReactElement => {
-  return (
-    <>
-      <ListItemButton
-        component={RouterLink}
-        selected={selectedPath === item.path}
-        sx={{ minHeight: 42, pl: 2 + depth * 2 }}
-        to={item.path}
-      >
-        {item.icon !== undefined ? (
-          <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-        ) : null}
-        <ListItemText primary={item.title} />
-      </ListItemButton>
-      {item.children?.map((child) => {
-        return (
-          <AppSidebarFlyoutTree
-            depth={depth + 1}
-            item={child}
-            key={child.path}
-            selectedPath={selectedPath}
-          />
-        );
-      })}
-    </>
-  );
-};
-
-/**
- * Reports whether an item or one of its descendants owns the selected route.
- */
-const isActiveNavigationItem = (
-  item: AppNavigationPageItem,
-  selectedPath: string | null,
-): boolean => {
-  if (selectedPath === null) {
-    return false;
-  }
-
-  return selectedPath === item.path || selectedPath.startsWith(`${item.path}/`);
 };

@@ -6,6 +6,28 @@ They supplement the repository-level `AGENTS.md`. When these instructions
 conflict with the repository-level file, these local instructions take
 precedence.
 
+## Component File Organization
+
+- **One component per file.** A `.tsx` file contains exactly one exported component.
+- If a component needs private sub-components, helper functions, or shared types, create a
+  folder with the same name:
+
+  ```text
+  ComponentName/
+    ComponentName.tsx    ← the one public component
+    SubPart.tsx          ← private sub-component (if needed)
+    helpers.ts           ← pure functions, no JSX
+    types.ts             ← shared or exported types; inline-only types stay in their own file
+    index.ts             ← public API (only what callers should import)
+  ```
+
+- Mutually recursive sub-components that would create circular imports may share one file,
+  named after their logical role (e.g. `AppSidebarTree.tsx`), not the parent component.
+- Never add a second exported component to an existing `.tsx` file — create a new file instead.
+- Do not import internal files of another component's folder. Use the folder's `index.ts`.
+- Always use path aliases (`@components`, `@hooks`, `@contexts`, `@dto`, `@schemas`,
+  `@helpers`, `@routes`, `@pages`). Avoid `../../` relative paths when an alias works.
+
 ## React Context Usage
 
 - Prefer destructuring values returned by context hooks at the call site, for

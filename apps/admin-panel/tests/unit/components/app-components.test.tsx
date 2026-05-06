@@ -6,41 +6,47 @@ import {
   ThemeSourceSelector,
   ThemeTemplateSelector,
 } from "@components/index";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { selectMuiOption } from "@tests/unit/test-utils/mui";
 import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
+import { MemoryRouter } from "react-router-dom";
 
 describe("app shell components", () => {
   test("renders the application logo", () => {
-    render(<AppLogo />);
+    render(
+      <MemoryRouter>
+        <AppLogo />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText("LiteNAS")).toBeInTheDocument();
   });
 
   test("renders page content inside the application layout", () => {
     renderWithThemeManager(
-      <AppPageLayout>
-        <h1>Storage overview</h1>
-      </AppPageLayout>,
+      <MemoryRouter>
+        <AppPageLayout>
+          <h1>Storage overview</h1>
+        </AppPageLayout>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText("LiteNAS")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Storage overview" })).toBeInTheDocument();
   });
 
-  test("switches the top bar theme mode through context handlers", () => {
-    const setMode = vi.fn();
-    const setSource = vi.fn();
+  test("renders supplied top bar action slots", () => {
+    render(
+      <MemoryRouter>
+        <AppTopBar
+          leadingAction={<button type="button">Open nav</button>}
+          trailingAction={<span>User</span>}
+        />
+      </MemoryRouter>,
+    );
 
-    renderWithThemeManager(<AppTopBar />, {
-      mode: "dark",
-      setMode,
-      setSource,
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
-
-    expect(setSource).toHaveBeenCalledWith("user");
-    expect(setMode).toHaveBeenCalledWith("light");
+    expect(screen.getByRole("button", { name: "Open nav" })).toBeInTheDocument();
+    expect(screen.getByText("User")).toBeInTheDocument();
   });
 });
 
@@ -136,11 +142,3 @@ describe("theme template selector", () => {
     );
   });
 });
-
-/**
- * Selects an option from a Material UI select rendered as a combobox.
- */
-const selectMuiOption = (selectName: string, optionName: string): void => {
-  fireEvent.mouseDown(screen.getByRole("combobox", { name: selectName }));
-  fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: optionName }));
-};

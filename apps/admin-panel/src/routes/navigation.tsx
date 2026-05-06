@@ -2,9 +2,12 @@ import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
+import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MemoryRoundedIcon from "@mui/icons-material/MemoryRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import type { ReactNode } from "react";
 
@@ -115,6 +118,38 @@ export const appNavigationItems: AppNavigationItem[] = [
     title: "System",
   },
 ];
+
+/**
+ * Sidebar navigation for the authenticated preferences area.
+ */
+export const preferencesNavigationItems: AppNavigationItem[] = [
+  {
+    icon: <TuneRoundedIcon />,
+    path: "/preferences",
+    title: "Preferences",
+  },
+  {
+    icon: <ManageAccountsRoundedIcon />,
+    path: "/preferences/profile",
+    title: "User profile",
+  },
+  {
+    icon: <SettingsRoundedIcon />,
+    path: "/preferences/application",
+    title: "Application settings",
+  },
+];
+
+/**
+ * Returns the sidebar tree that owns the current URL.
+ */
+export const resolveNavigationItems = (pathname: string): AppNavigationItem[] => {
+  if (pathname === "/preferences" || pathname.startsWith("/preferences/")) {
+    return preferencesNavigationItems;
+  }
+
+  return appNavigationItems;
+};
 
 /**
  * Resolves the deepest navigation path that should appear selected for a URL.

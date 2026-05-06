@@ -58,13 +58,11 @@ describe("LoginPage", () => {
  */
 const renderGuard = (overrides: Partial<AuthContextValue> = {}) => {
   return renderWithAuth(
-    <MemoryRouter initialEntries={["/"]}>
-      <Routes>
-        <Route element={<AuthRouteGuard />}>
-          <Route element={<span>Protected content</span>} path="/" />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <Routes>
+      <Route element={<AuthRouteGuard />}>
+        <Route element={<span>Protected content</span>} path="/" />
+      </Route>
+    </Routes>,
     overrides,
   );
 };
@@ -74,9 +72,11 @@ const renderGuard = (overrides: Partial<AuthContextValue> = {}) => {
  */
 const renderWithAuth = (component: ReactElement, overrides: Partial<AuthContextValue> = {}) => {
   return render(
-    <AuthContext.Provider value={createAuthContextValue(overrides)}>
-      {component}
-    </AuthContext.Provider>,
+    <MemoryRouter>
+      <AuthContext.Provider value={createAuthContextValue(overrides)}>
+        {component}
+      </AuthContext.Provider>
+    </MemoryRouter>,
   );
 };
 

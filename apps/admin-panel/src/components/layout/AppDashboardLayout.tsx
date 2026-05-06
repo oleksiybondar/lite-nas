@@ -5,9 +5,10 @@ import { AppSidebarDrawer, AppSidebarDrawerButton } from "@components/navigation
 import { AppSidebarFlyout } from "@components/navigation/AppSidebarFlyout";
 import { AppSidebarModeToggle } from "@components/navigation/AppSidebarModeToggle";
 import { AppTopBar } from "@components/navigation/AppTopBar";
+import { AppUserMenu } from "@components/navigation/AppUserMenu";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import { appNavigationItems, resolveSelectedNavigationPath } from "@routes/navigation";
+import { resolveNavigationItems, resolveSelectedNavigationPath } from "@routes/navigation";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
@@ -21,7 +22,8 @@ import { Outlet, useLocation } from "react-router-dom";
  */
 export const AppDashboardLayout = (): ReactElement => {
   const { pathname } = useLocation();
-  const selectedPath = resolveSelectedNavigationPath(pathname);
+  const navigationItems = resolveNavigationItems(pathname);
+  const selectedPath = resolveSelectedNavigationPath(pathname, navigationItems);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -45,12 +47,13 @@ export const AppDashboardLayout = (): ReactElement => {
               />
             </Box>
           }
+          trailingAction={<AppUserMenu />}
         />
       }
       main={
         <Box display="flex" minHeight="calc(100vh - 113px)">
           <AppSidebarDrawer
-            items={appNavigationItems}
+            items={navigationItems}
             onClose={() => {
               setIsMobileSidebarOpen(false);
             }}
@@ -59,12 +62,12 @@ export const AppDashboardLayout = (): ReactElement => {
           />
           <AppSidebarFlyout
             display={{ md: isSidebarCollapsed ? "block" : "none", xs: "none" }}
-            items={appNavigationItems}
+            items={navigationItems}
             selectedPath={selectedPath}
           />
           <AppSidebar
             display={{ md: isSidebarCollapsed ? "none" : "block", xs: "none" }}
-            items={appNavigationItems}
+            items={navigationItems}
             selectedPath={selectedPath}
           />
           <Container component="section" maxWidth={false} sx={{ py: 4 }}>

@@ -1,4 +1,9 @@
-import { appNavigationItems, resolveSelectedNavigationPath } from "@routes/navigation";
+import {
+  appNavigationItems,
+  preferencesNavigationItems,
+  resolveNavigationItems,
+  resolveSelectedNavigationPath,
+} from "@routes/navigation";
 
 describe("resolveSelectedNavigationPath", () => {
   test.each([
@@ -12,9 +17,20 @@ describe("resolveSelectedNavigationPath", () => {
       pathname: "/system/sensors/temperature/history",
       selectedPath: "/system/sensors/temperature",
     },
+    { pathname: "/preferences", selectedPath: null },
     { pathname: "/missing", selectedPath: null },
   ])("maps $pathname to $selectedPath", ({ pathname, selectedPath }) => {
     expect(resolveSelectedNavigationPath(pathname)).toBe(selectedPath);
+  });
+});
+
+describe("resolveNavigationItems", () => {
+  test("uses preferences navigation for preferences routes", () => {
+    expect(resolveNavigationItems("/preferences/profile")).toBe(preferencesNavigationItems);
+  });
+
+  test("uses admin navigation for dashboard routes", () => {
+    expect(resolveNavigationItems("/system")).toBe(appNavigationItems);
   });
 });
 

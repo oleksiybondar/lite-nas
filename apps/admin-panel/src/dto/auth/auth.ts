@@ -10,6 +10,14 @@ export type AuthMeUserDTO = {
    * Login name displayed for the authenticated principal.
    */
   login: string;
+  /**
+   * Optional display name returned by future identity providers.
+   */
+  full_name?: string;
+  /**
+   * Optional avatar image URL returned by future identity providers.
+   */
+  avatar_url?: string;
 };
 
 /**

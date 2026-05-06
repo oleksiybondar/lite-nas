@@ -1,15 +1,23 @@
 import { App } from "@app/App";
+import { ThemeManagerContext } from "@contexts/theme-manager-context";
 import { DashboardPage } from "@pages/DashboardPage";
+import { PreferencesApplicationSettingsPage } from "@pages/PreferencesApplicationSettingsPage";
+import { PreferencesLandingPage } from "@pages/PreferencesLandingPage";
+import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
 import { SystemLandingPage } from "@pages/SystemLandingPage";
 import { SystemPerformanceLandingPage } from "@pages/SystemPerformanceLandingPage";
 import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { selectMuiOption } from "@tests/unit/test-utils/mui";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
 import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
-import { createAppTheme, themeRegistry } from "@theme/index";
+import { createAppTheme, type ThemeSettings, themeRegistry } from "@theme/index";
+import { loadThemeSettings } from "@theme/manager/storage";
 import { getComponentOverrides } from "@theme/mui/components";
+import type { PropsWithChildren, ReactElement } from "react";
+import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 
 describe("dashboard page", () => {
@@ -69,6 +77,14 @@ describe("category landing pages", () => {
       cardName: "Fan",
       page: <SystemSensorsLandingPage />,
     },
+    {
+      cardName: "User profile",
+      page: <PreferencesLandingPage />,
+    },
+    {
+      cardName: "Application settings",
+      page: <PreferencesLandingPage />,
+    },
   ])("renders $cardName category card", ({ cardName, page }) => {
     render(<MemoryRouter>{page}</MemoryRouter>);
 
@@ -86,6 +102,34 @@ describe("category landing pages", () => {
       "href",
       "/system/performance",
     );
+  });
+});
+
+describe("preferences pages", () => {
+  test("renders the profile preferences page", () => {
+    renderWithThemeManager(<PreferencesProfilePage />);
+
+    expect(screen.getByRole("heading", { name: "User profile" })).toBeInTheDocument();
+  });
+
+  test("renders the application settings preferences page", () => {
+    renderWithThemeManager(<PreferencesApplicationSettingsPage />);
+
+    expect(screen.getByRole("heading", { name: "Application settings" })).toBeInTheDocument();
+  });
+
+  test("persists changed application settings on apply", () => {
+    window.localStorage.clear();
+    render(
+      <StatefulThemeManagerProvider>
+        <PreferencesApplicationSettingsPage />
+      </StatefulThemeManagerProvider>,
+    );
+
+    selectMuiOption("Theme source", "OS");
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(loadThemeSettings().source).toBe("os");
   });
 });
 
@@ -155,6 +199,20 @@ describe("application providers", () => {
     expect(await screen.findByRole("heading", { name: "LiteNAS operations" })).toBeInTheDocument();
   });
 
+  test("renders authenticated user menu from the app shell", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(responseWithJson(200, authenticatedMeBody)));
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "User menu" }));
+
+    expect(screen.getByRole("menuitem", { name: "User profile" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Application settings" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Logout" })).toBeInTheDocument();
+  });
+
   test("switches desktop sidebar mode from the app shell", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(responseWithJson(200, authenticatedMeBody)));
 
@@ -180,6 +238,43 @@ const authenticatedMeBody = {
     user: {
       id: "admin-id",
       login: "admin",
+      full_name: "Admin User",
     },
   },
+};
+
+/**
+ * Stateful theme manager provider used by preferences persistence tests.
+ */
+const StatefulThemeManagerProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const [settings, setSettings] = useState<ThemeSettings>({
+    mode: "dark",
+    source: "user",
+    templateName: "default",
+  });
+
+  return (
+    <ThemeManagerContext.Provider
+      value={{
+        availableTemplates: ["default"],
+        mode: settings.mode,
+        resolvedMode: settings.mode,
+        resolvedTemplateName: settings.templateName,
+        setMode: (mode) => {
+          setSettings((currentSettings) => ({ ...currentSettings, mode }));
+        },
+        setSettings,
+        setSource: (source) => {
+          setSettings((currentSettings) => ({ ...currentSettings, source }));
+        },
+        setTemplateName: (templateName) => {
+          setSettings((currentSettings) => ({ ...currentSettings, templateName }));
+        },
+        source: settings.source,
+        templateName: settings.templateName,
+      }}
+    >
+      {children}
+    </ThemeManagerContext.Provider>
+  );
 };
