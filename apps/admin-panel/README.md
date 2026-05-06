@@ -44,6 +44,32 @@ round of project bootstrapping.
   intended split between request lifecycle builders, fetch transport behavior,
   and app-facing API actions.
 
+### Routing And Navigation
+
+The admin panel uses a decomposed route tree. The root router should assemble
+domain route modules, and deeper domains should assemble their own child route
+modules. For example, a future `system` route module can own `/system` and
+assemble `performance` and `sensors` route modules beneath it.
+
+Navigation is a separate tree-shaped projection of those routes. Route modules
+own what renders for a URL; navigation items own labels, icons, grouping,
+selection, and sidebar/flyout behavior for those URLs. This keeps the app ready
+for breadcrumbs, search, permissions, and alternate navigation surfaces without
+turning the router into sidebar configuration.
+
+The intended dashboard navigation pattern is hybrid:
+
+- expanded desktop sidebar: nested expandable tree items
+- collapsed desktop sidebar: icon rail with flyout/popover access to children
+- mobile: tap-driven drawer or menus, not hover-dependent flyouts
+- category landing pages: rich overview pages for parent routes such as
+  `/system`, `/system/performance`, and `/system/sensors`
+
+Category landing pages should not copy the sidebar as a plain list. They should
+present the area as useful page content: cards, descriptions, status previews,
+and clear entry points into child pages. The sidebar is for direct navigation;
+landing pages are for orientation and discovery.
+
 ## Local Commands
 
 Run commands from this directory or with `npm --prefix apps/admin-panel ...`

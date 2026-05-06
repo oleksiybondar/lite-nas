@@ -6,15 +6,32 @@ import AppBar from "@mui/material/AppBar";
 import IconButton from "@mui/material/IconButton";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
-export const AppTopBar = (): ReactElement => {
+/**
+ * Props accepted by the shared application top bar.
+ */
+type AppTopBarProps = {
+  /**
+   * Optional leading control rendered before the logo.
+   *
+   * Protected layouts use this for dashboard navigation entry points while
+   * public layouts keep the shared header free of dashboard controls.
+   */
+  leadingAction?: ReactNode;
+};
+
+/**
+ * Shared application top bar used by public and protected layouts.
+ */
+export const AppTopBar = ({ leadingAction }: AppTopBarProps = {}): ReactElement => {
   const { mode, setMode, setSource } = useThemeManager();
   const nextMode = mode === "dark" ? "light" : "dark";
 
   return (
     <AppBar color="transparent" elevation={0} position="sticky">
       <Toolbar sx={{ borderBottom: 1, borderColor: "divider", gap: 2 }}>
+        {leadingAction}
         <AppLogo />
         <Tooltip title={`Switch to ${nextMode} mode`}>
           <IconButton

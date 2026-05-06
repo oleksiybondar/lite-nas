@@ -1,5 +1,3 @@
-import { AppPageLayout } from "@components/layout/AppPageLayout";
-
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
 import SecurityRoundedIcon from "@mui/icons-material/SecurityRounded";
@@ -30,38 +28,36 @@ const dashboardSections = [
 
 export const DashboardPage = (): ReactElement => {
   return (
-    <AppPageLayout>
-      <Stack spacing={4}>
-        <Stack maxWidth="760px" spacing={1}>
-          <Typography color="primary" variant="overline">
-            Admin panel
-          </Typography>
-          <Typography variant="h1">LiteNAS operations</Typography>
-          <Typography color="text.secondary" variant="body1">
-            Initial browser shell for the LiteNAS administration experience.
-          </Typography>
-        </Stack>
-
-        <Grid container spacing={2}>
-          {dashboardSections.map((section) => {
-            return (
-              <Grid key={section.title} size={{ md: 4, xs: 12 }}>
-                <Paper sx={{ height: "100%", p: 3 }}>
-                  <Stack spacing={2}>
-                    <Box>{section.icon}</Box>
-                    <Stack spacing={0.75}>
-                      <Typography variant="h2">{section.title}</Typography>
-                      <Typography color="text.secondary" variant="body2">
-                        {section.description}
-                      </Typography>
-                    </Stack>
-                  </Stack>
-                </Paper>
-              </Grid>
-            );
-          })}
-        </Grid>
+    <Stack spacing={4}>
+      <Stack maxWidth="760px" spacing={1}>
+        <Typography color="primary" variant="overline">
+          Admin panel
+        </Typography>
+        <Typography variant="h1">LiteNAS operations</Typography>
+        <Typography color="text.secondary" variant="body1">
+          Initial browser shell for the LiteNAS administration experience.
+        </Typography>
       </Stack>
-    </AppPageLayout>
+
+      <Grid container spacing={2}>
+        {dashboardSections.map((section) => {
+          return (
+            <Grid key={section.title} size={{ md: 4, xs: 12 }}>
+              <Paper sx={{ height: "100%", p: 3 }}>
+                <Stack spacing={2}>
+                  <Box>{section.icon}</Box>
+                  <Stack spacing={0.75}>
+                    <Typography variant="h2">{section.title}</Typography>
+                    <Typography color="text.secondary" variant="body2">
+                      {section.description}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Paper>
+            </Grid>
+          );
+        })}
+      </Grid>
+    </Stack>
   );
 };

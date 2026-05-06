@@ -1,4 +1,4 @@
-import { AppLogo } from "@components/branding/AppLogo";
+import { PublicAppLayout } from "@components/layout/PublicAppLayout";
 import { useAuth } from "@hooks/useAuth";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -18,39 +18,40 @@ export const LoginPage = (): ReactElement => {
     useLoginForm(login);
 
   return (
-    <Container component="main" maxWidth="xs" sx={{ py: 8 }}>
-      <Paper sx={{ p: 4 }}>
-        <Stack component="form" onSubmit={onSubmit} spacing={3}>
-          <Stack spacing={1}>
-            <AppLogo />
-            <Typography variant="h1">Sign in</Typography>
+    <PublicAppLayout>
+      <Container maxWidth="xs" sx={{ py: 8 }}>
+        <Paper sx={{ p: 4 }}>
+          <Stack component="form" onSubmit={onSubmit} spacing={3}>
+            <Stack spacing={1}>
+              <Typography variant="h1">Sign in</Typography>
+            </Stack>
+            <TextField
+              autoComplete="username"
+              label="Login"
+              onChange={(event) => {
+                setUsername(event.target.value);
+              }}
+              required
+              value={username}
+            />
+            <TextField
+              autoComplete="current-password"
+              label="Password"
+              onChange={(event) => {
+                setPassword(event.target.value);
+              }}
+              required
+              type="password"
+              value={password}
+            />
+            {error !== null ? <Typography color="error">{error}</Typography> : null}
+            <Button disabled={isSubmitting} type="submit" variant="contained">
+              Sign in
+            </Button>
           </Stack>
-          <TextField
-            autoComplete="username"
-            label="Login"
-            onChange={(event) => {
-              setUsername(event.target.value);
-            }}
-            required
-            value={username}
-          />
-          <TextField
-            autoComplete="current-password"
-            label="Password"
-            onChange={(event) => {
-              setPassword(event.target.value);
-            }}
-            required
-            type="password"
-            value={password}
-          />
-          {error !== null ? <Typography color="error">{error}</Typography> : null}
-          <Button disabled={isSubmitting} type="submit" variant="contained">
-            Sign in
-          </Button>
-        </Stack>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </PublicAppLayout>
   );
 };
 

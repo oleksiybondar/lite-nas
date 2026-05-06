@@ -15,6 +15,33 @@ precedence.
 - Keep provider values focused on the stable contract exposed by the context,
   while implementation helpers can stay private to the provider module.
 
+## Routing And Navigation
+
+- Keep route definitions decomposed by domain. The root router should assemble
+  child route modules instead of owning every route inline.
+- For nested domains, use nested route modules as well. For example, a
+  `system` route module can assemble `performance` and `sensors` route modules.
+- Keep the route tree and sidebar navigation tree related but decoupled. Routes
+  define renderable URLs; navigation defines labels, icons, grouping, and
+  sidebar/flyout behavior for those URLs.
+- Sidebar navigation should be modeled as a tree, not as a flat list plus
+  repeated section headers. Parent categories such as `System`, `Performance`,
+  and `Sensors` should be represented explicitly and may have child items.
+- Parent navigation categories should have real landing routes when they
+  represent meaningful areas, for example `/system`, `/system/performance`, and
+  `/system/sensors`.
+- Category landing pages must be designed as useful overview pages with cards,
+  descriptions, status previews, or entry points. Do not duplicate the sidebar
+  menu as plain icon-and-label lists inside page content.
+- Desktop expanded sidebars should render nested, expandable navigation.
+- Desktop collapsed sidebars should use icon-first navigation with flyout or
+  popover access to child items.
+- Mobile navigation should not depend on hover. Use tap-driven drawer,
+  collapse, menu, or landing-page behavior for nested navigation.
+- Selected and expanded navigation state should be derived from the current
+  location path whenever possible instead of being duplicated in local component
+  state.
+
 ## Coverage Scope
 
 - Admin-panel coverage must include the whole `src` tree by default.
