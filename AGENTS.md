@@ -103,6 +103,22 @@ branch or otherwise provides a pushed source branch.
 - Keep top-level system tests grouped under `tests/infra`, `tests/cli`,
   `tests/api`, and `tests/ui`. Use exactly one matching category marker on
   every system test, and add service/app domain markers where applicable.
+- Store HyperionTF UI page objects under `tests/ui/page_objects`, and keep UI
+  test suites under `tests/ui`.
+- Treat UI page objects as reusable domain-facing test support, not just
+  locator assemblies. Put repeated page or widget interactions on the owning
+  page object so tests describe user workflows instead of duplicating low-level
+  click, fill, and wait sequences.
+- Every UI page object class, decorated page-object member, and public or
+  private page-object method must have a docstring describing the modeled UI
+  role, composition relationship, interaction contract, preconditions, and side
+  effects where relevant.
+- In HyperionTF page objects, decorated members may return locators in source
+  code while being annotated as the runtime element, elements collection,
+  widget, widgets collection, or specific widget class exposed by the
+  decorator. This is the only accepted system-test reason to temporarily
+  disable static-analysis type checks; keep such ignores narrow and local to
+  the affected decorated member.
 - Give every system test a docstring with preparation, action, and expected
   result. HyperionTF uses the docstring as the HTML report test case.
 - Keep each system test focused on one verification point. Use parametrization,

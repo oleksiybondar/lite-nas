@@ -20,6 +20,8 @@ System tests are grouped into four top-level categories:
 
 Test files inside each category should represent suites for a focused feature
 or workflow, for example `api/test_auth.py` or `infra/test_services.py`.
+UI page objects are stored under `ui/page_objects/` and are imported by UI test
+suites in `ui/`.
 
 The Python test runner executes categories in this fast-fail order:
 
@@ -80,6 +82,41 @@ fields, or UI details just because they are available.
 When repeated behavior is useful across tests, prefer fixtures, helpers, or
 shared test-case steps instead of duplicating setup and assertions inline.
 Duplication in system tests is maintenance debt and is checked by CI.
+
+## UI Page Objects
+
+UI system tests use HyperionTF page objects for browser automation. Store those
+page objects under `ui/page_objects/`; keep test functions under `ui/`.
+
+Page object classes should extend HyperionTF `WebPage` or `Widget` classes and
+declare locators with HyperionTF decorators such as `@element`, `@elements`,
+`@widget`, and `@widgets`. The method bodies return `By...` locators because
+HyperionTF converts the decorated members into elements or widgets at runtime.
+
+Page objects are also the home for reusable UI-domain interactions around the
+page or widget they model. Prefer named page-object methods such as
+`login_as(...)`, `open_user_menu()`, or `submit_form()` when the action is a
+meaningful user workflow or repeated widget interaction. Tests should read in
+terms of behavior, while the page object keeps locator details and low-level
+click/fill sequences close to the UI surface they belong to.
+
+Every page object class, decorated page-object member, and public or private
+page-object method must have a docstring. Class docstrings should explain the
+page or widget role. Decorated member docstrings should describe the represented
+UI element, widget, or composition relationship. Method docstrings should
+describe the user-facing interaction, expected preconditions, and relevant side
+effects when they are not obvious from the method name.
+
+For IDE navigation and readable test code, annotate decorated page-object
+members as the runtime object they expose to tests, such as `Element`,
+`Elements`, `Widget`, `Widgets`, or a project-specific widget class. This is
+the only accepted reason in system tests to add a narrow static-analysis type
+ignore around a page-object member: the source returns a locator, while the
+decorator intentionally exposes a richer runtime object.
+
+Keep ignores local to the affected HyperionTF-decorated member and include a
+short reason when the tool supports it. Do not use this exception for regular
+test logic, fixtures, API clients, CLI clients, or helper code.
 
 ## Technology Boundary
 

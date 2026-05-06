@@ -140,6 +140,16 @@ readability, maintenance, and consistent review quality.
 - Keep system tests grouped by category under `tests/infra`, `tests/cli`,
   `tests/api`, and `tests/ui`. Test files inside those folders should be
   focused suites for one feature, service, or workflow.
+- Store HyperionTF UI page objects under `tests/ui/page_objects`. UI tests
+  should import those page objects instead of declaring browser locators inline.
+- Treat UI page objects as reusable domain-facing test support, not just
+  locator assemblies. Put meaningful repeated interactions on the page or
+  widget object that owns the UI behavior, so tests describe workflows without
+  duplicating low-level click, fill, and wait sequences.
+- Every UI page object class, decorated page-object member, and public or
+  private page-object method must have a docstring. Use those docstrings to
+  document the modeled UI role, element or widget composition relationship,
+  interaction contract, preconditions, and side effects where relevant.
 - Every system test must use exactly one category marker: `infra`, `cli`,
   `api`, or `ui`. Add domain markers such as `Auth`, `SystemMetrics`, or
   `WebGateway` when the behavior belongs to a specific service or app.
@@ -152,6 +162,15 @@ readability, maintenance, and consistent review quality.
 - Resolve system-test duplication with fixtures, helpers, parametrization, or
   shared test-case steps. Do not copy setup or assertion scaffolding between
   category suites.
+- HyperionTF page-object members decorated with `@element`, `@elements`,
+  `@widget`, `@widgets`, or similar decorators intentionally return locators in
+  source code while exposing elements or widgets at runtime. Annotate those
+  members as the runtime object exposed to tests for IDE lookup and readable
+  test code.
+- The HyperionTF decorated page-object mismatch is the only allowed reason in
+  system tests to temporarily disable static-analysis type checks. Keep each
+  ignore narrow, local to the affected decorated member, and do not apply it to
+  fixtures, helper code, API tests, CLI tests, or ordinary test logic.
 - `scripts/test-python.sh` is the canonical runner. It executes categories in
   fast-fail order: infra, CLI, API, then UI. It also fixes the working directory
   to `tests/` so HyperionTF logs are always written under `tests/logs`.
