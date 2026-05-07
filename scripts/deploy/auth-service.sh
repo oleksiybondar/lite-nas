@@ -80,7 +80,7 @@ deploy.authService.installConfig() {
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_CONFIG_DIR"
+	install -d -m 0711 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_CONFIG_DIR"
 	install -m 0640 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" \
 		"$LITE_NAS_AUTH_CONFIG_SOURCE" \
 		"$LITE_NAS_AUTH_CONFIG_TARGET"

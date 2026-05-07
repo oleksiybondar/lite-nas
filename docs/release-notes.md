@@ -40,8 +40,9 @@
   dependency, building cgo binaries as PIE, fixing multi-module Go cache setup,
   and always uploading a system-test log zip.
 - Makes the installed system-metrics CLI usable from normal local user shells
-  by installing readable CLI config and client credentials and initializing its
-  log file during deployment.
+  by installing readable CLI config and client credentials, keeping the shared
+  LiteNAS config directory traversable, and initializing its log file during
+  deployment.
 - Promoted the AIDE binary to a package dependency while keeping AIDE database
   initialization out of Debian installation and CI package validation.
 - Standardized HyperionTF log output under `tests/logs` so CI can publish

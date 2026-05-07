@@ -52,6 +52,7 @@ docker run --rm \
 		test -x /usr/libexec/lite-nas/system-metrics
 		test -x /usr/libexec/lite-nas/system-metrics-cli
 		test -x /usr/libexec/lite-nas/web-gateway
+		test \"\$(stat -c '%U:%G %a' /etc/lite-nas)\" = 'root:lite-nas 711'
 		test -f /etc/lite-nas/auth.conf
 		test -f /etc/lite-nas/system-metrics.conf
 		test -f /etc/lite-nas/system-metrics-cli.conf
