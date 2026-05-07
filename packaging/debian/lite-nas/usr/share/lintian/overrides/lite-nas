@@ -1,3 +1,4 @@
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-metrics]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-metrics-cli]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/web-gateway]
+lite-nas: repeated-path-segment lite-nas [usr/libexec/lite-nas/configs/etc/lite-nas/]

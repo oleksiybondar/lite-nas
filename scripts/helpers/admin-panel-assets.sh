@@ -56,6 +56,10 @@ adminPanelAssets.installFlat() {
 		index.css
 		index.js
 	)
+	local optional_files=(
+		favicon.ico
+		favicon.svg
+	)
 
 	adminPanelAssets.validateBuildOutput "$source_dir"
 
@@ -67,9 +71,9 @@ adminPanelAssets.installFlat() {
 		install -m 0644 "$source_file" "$target_dir/$file_name"
 	done
 
-	if source_file="$(adminPanelAssets.sourceFile "$source_dir" favicon.ico)"; then
-		install -m 0644 "$source_file" "$target_dir/favicon.ico"
-	else
-		log.warn "favicon.ico is not present in $source_dir; /favicon.ico will return 404 until it is added."
-	fi
+	for file_name in "${optional_files[@]}"; do
+		if source_file="$(adminPanelAssets.sourceFile "$source_dir" "$file_name")"; then
+			install -m 0644 "$source_file" "$target_dir/$file_name"
+		fi
+	done
 }

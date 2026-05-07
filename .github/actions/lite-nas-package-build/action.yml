@@ -115,19 +115,20 @@ runs:
       if: ${{ inputs.run_installed_package_tests == 'true' && always() }}
       shell: bash
       run: |
-        if [ -d tests/logs ]; then
-          python3 - <<'PY'
+        python3 - <<'PY'
         from pathlib import Path
         from zipfile import ZIP_DEFLATED, ZipFile
 
         source = Path("tests/logs")
         archive = Path("system_tests_logs.zip")
+        log_files = sorted(path for path in source.rglob("*") if path.is_file()) if source.exists() else []
 
         with ZipFile(archive, "w", ZIP_DEFLATED) as zip_file:
-            for log_file in sorted(path for path in source.rglob("*") if path.is_file()):
+            for log_file in log_files:
                 zip_file.write(log_file, log_file.relative_to(source.parent))
+            if not log_files:
+                zip_file.writestr("logs/.empty", "No system test logs were produced.\n")
         PY
-        fi
 
     - name: Upload system test logs
       if: ${{ inputs.run_installed_package_tests == 'true' && always() }}

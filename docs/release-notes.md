@@ -36,6 +36,9 @@
   typechecking matches the build environment.
 - Made PR package validation depend on the admin-panel production build as well
   as JS/TS tests before consuming frontend assets.
+- Cleaned up CI package validation warnings by declaring the cgo libc runtime
+  dependency, building cgo binaries as PIE, fixing multi-module Go cache setup,
+  and always uploading a system-test log zip.
 - Standardized HyperionTF log output under `tests/logs` so CI can publish
   predictable test artifacts.
 

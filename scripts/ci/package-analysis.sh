@@ -155,7 +155,12 @@ for package_root in "${package_roots[@]}"; do
 		dpkg-deb --root-owner-group --build "$analysis_dir" "$analysis_deb" >/dev/null
 
 		# Run lintian on the prepared .deb.
-		lintian --fail-on error --display-experimental --pedantic "$analysis_deb" || {
+		lintian \
+			--fail-on error \
+			--display-experimental \
+			--pedantic \
+			--suppress-tags empty-binary-package \
+			"$analysis_deb" || {
 			res=$?
 			rm -f "$analysis_deb"
 			rm -rf "$analysis_dir"

@@ -15,6 +15,10 @@ build.prepareOutputPath() {
 	local binary_name="$3"
 
 	if [ -n "$output_path" ]; then
+		if [ "${output_path#/}" = "$output_path" ]; then
+			printf '%s/%s\n' "$LITE_NAS_REPO_ROOT" "$output_path"
+			return 0
+		fi
 		printf '%s\n' "$output_path"
 		return 0
 	fi
@@ -39,11 +43,16 @@ build.goBinary() {
 	local output_path="$3"
 	local cgo_enabled="$4"
 	local target_arch="$5"
+	local build_flags=()
+
+	if [ "$cgo_enabled" = "1" ]; then
+		build_flags+=("-buildmode=pie")
+	fi
 
 	log.pushTask "Building ${task_name} binary for linux/${target_arch}"
 	(
 		cd "$module_dir" || exit 1
-		CGO_ENABLED="$cgo_enabled" GOOS=linux GOARCH="$target_arch" go build \
+		CGO_ENABLED="$cgo_enabled" GOOS=linux GOARCH="$target_arch" go build "${build_flags[@]}" \
 			-ldflags="-s -w" \
 			-o "$output_path" .
 	)

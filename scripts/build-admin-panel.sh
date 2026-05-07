@@ -39,6 +39,8 @@ log.requireCommand "npm" "Install Node.js/npm and retry."
 
 if [ -z "$output_dir" ]; then
 	output_dir="$LITE_NAS_REPO_ROOT/.build/admin-panel"
+elif [ "${output_dir#/}" = "$output_dir" ]; then
+	output_dir="$LITE_NAS_REPO_ROOT/$output_dir"
 fi
 
 log.pushTask "Building admin-panel frontend"
