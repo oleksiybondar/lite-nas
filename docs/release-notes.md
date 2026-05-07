@@ -30,6 +30,8 @@
   static analysis and before later duplication checks.
 - Ordered system-test execution by credibility gate: infrastructure first,
   then CLI, API, and UI.
+- Clarified package analysis so static config checks validate repository files
+  while installed-path behavior remains covered by package and system tests.
 - Standardized HyperionTF log output under `tests/logs` so CI can publish
   predictable test artifacts.
 
@@ -37,8 +39,8 @@
 
 - Release package validation now installs the built LiteNAS Debian package and
   runs the Python system test suite against the installed services.
-- CI uploads Python system-test HTML logs as artifacts with a 15-day retention
-  window.
+- CI uploads Python system-test HTML logs as `system_tests_logs.zip` artifacts
+  with a 15-day retention window.
 - Python developer and CI dependency installation now creates the repository
   virtual environment, installs the HyperionTF/pytest stack, and prepares the
   Playwright runtime needed for future UI and visual tests.

@@ -146,4 +146,4 @@ service or app project using that project's native test framework.
 HyperionTF logs therefore resolve predictably to `tests/logs`.
 
 The runner clears `tests/logs` once before the first category starts. CI uploads
-that directory as a test artifact for post-failure review.
+those logs as `system_tests_logs.zip` for post-failure review.

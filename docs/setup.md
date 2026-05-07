@@ -355,6 +355,12 @@ This calls the same analysis scripts used by GitHub Actions. It expects local
 developer dependencies to already be installed with
 `./scripts/install-dev-dependencies.sh`.
 
+Static analysis jobs validate repository-owned source files, templates, and
+configuration files. They must not depend on LiteNAS already being installed on
+the developer machine or CI runner. Checks that need real installed paths such
+as `/usr/libexec/lite-nas/*`, `/etc/lite-nas/*`, or running services belong in
+package install validation, post-install validation, or top-level system tests.
+
 `./scripts/run-ci.sh` remains as a compatibility wrapper around
 `./scripts/run-ci-analysis.sh`.
 

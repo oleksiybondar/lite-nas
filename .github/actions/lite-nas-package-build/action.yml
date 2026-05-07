@@ -111,11 +111,29 @@ runs:
         LITENAS_API_PASSWORD: testpassword
       run: scripts/test-python.sh
 
-    - name: Upload Python test logs
+    - name: Archive system test logs
+      if: ${{ inputs.run_installed_package_tests == 'true' && always() }}
+      shell: bash
+      run: |
+        if [ -d tests/logs ]; then
+          python3 - <<'PY'
+        from pathlib import Path
+        from zipfile import ZIP_DEFLATED, ZipFile
+
+        source = Path("tests/logs")
+        archive = Path("system_tests_logs.zip")
+
+        with ZipFile(archive, "w", ZIP_DEFLATED) as zip_file:
+            for log_file in sorted(path for path in source.rglob("*") if path.is_file()):
+                zip_file.write(log_file, log_file.relative_to(source.parent))
+        PY
+        fi
+
+    - name: Upload system test logs
       if: ${{ inputs.run_installed_package_tests == 'true' && always() }}
       uses: actions/upload-artifact@v4
       with:
-        name: python-test-logs-${{ inputs.package_arch }}
-        path: tests/logs
+        name: system-test-logs-${{ inputs.package_arch }}
+        path: system_tests_logs.zip
         if-no-files-found: warn
         retention-days: 15

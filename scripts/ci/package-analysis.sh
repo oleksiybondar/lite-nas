@@ -21,6 +21,43 @@ for package_root in "${package_roots[@]}"; do
 	done
 done
 
+create_systemd_validation_root() {
+	local systemd_root="$1"
+	local binary=""
+	local target=""
+
+	# Static package analysis validates repository-owned unit files, not the
+	# runner's installed LiteNAS state. The temporary root mirrors the installed
+	# paths enough for systemd-analyze without depending on host files.
+	mkdir -p \
+		"$systemd_root/etc/systemd/system" \
+		"$systemd_root/usr/bin" \
+		"$systemd_root/usr/libexec/lite-nas"
+
+	cp configs/etc/systemd/system/lite-nas-auth.service \
+		"$systemd_root/etc/systemd/system/lite-nas-auth.service"
+	cp configs/etc/systemd/system/lite-nas-system-metrics.service \
+		"$systemd_root/etc/systemd/system/lite-nas-system-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-web-gateway.service \
+		"$systemd_root/etc/systemd/system/lite-nas-web-gateway.service"
+
+	for binary in auth-service system-metrics web-gateway; do
+		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
+		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
+	done
+
+	printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/bin/true"
+	chmod 0755 "$systemd_root/usr/bin/true"
+
+	printf '[Unit]\nDescription=NATS server validation stub\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/true\n' \
+		>"$systemd_root/etc/systemd/system/nats-server.service"
+
+	for target in sysinit.target basic.target multi-user.target network-online.target; do
+		printf '[Unit]\nDescription=Validation stub for %s\n' "$target" \
+			>"$systemd_root/etc/systemd/system/$target"
+	done
+}
+
 log.pushTask "Running shellcheck for Debian maintainer scripts"
 log.requireCommand "shellcheck" "Run ./scripts/install-dev-dependencies.sh or scripts/ci/install-shell-dependencies.sh."
 shellcheck -s sh "${maintainer_scripts[@]}"
@@ -56,13 +93,13 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		tmp_dir="$(mktemp -d)"
 		trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
 	fi
-	cp configs/etc/systemd/system/lite-nas-auth.service "$tmp_dir/lite-nas-auth.service"
-	cp configs/etc/systemd/system/lite-nas-system-metrics.service "$tmp_dir/lite-nas-system-metrics.service"
-	cp configs/etc/systemd/system/lite-nas-web-gateway.service "$tmp_dir/lite-nas-web-gateway.service"
+	systemd_root="$tmp_dir/systemd-root"
+	create_systemd_validation_root "$systemd_root"
 	systemd-analyze verify \
-		"$tmp_dir/lite-nas-auth.service" \
-		"$tmp_dir/lite-nas-system-metrics.service" \
-		"$tmp_dir/lite-nas-web-gateway.service"
+		--root="$systemd_root" \
+		lite-nas-auth.service \
+		lite-nas-system-metrics.service \
+		lite-nas-web-gateway.service
 	log.popTask
 fi
 
