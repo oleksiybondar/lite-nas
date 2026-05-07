@@ -22,6 +22,11 @@ DEPENDENCY_PACKAGES: list[str] = [
     "nats-server",
 ]
 
+SYSTEM_METRICS_CLI_BINARY: str = os.environ.get(
+    "LITENAS_SYSTEM_METRICS_CLI_BINARY",
+    "/usr/libexec/lite-nas/system-metrics-cli",
+)
+
 SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",
     "lite-nas-web-gateway",
