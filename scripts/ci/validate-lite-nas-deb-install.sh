@@ -45,8 +45,9 @@ docker run --rm \
 	bash -lc "
 		set -euo pipefail
 		apt-get update
-		apt-get install -y /packages/${package_name}
+		apt-get install --no-install-recommends -y /packages/${package_name}
 		dpkg -s lite-nas >/dev/null
+		dpkg -s aide >/dev/null
 		test -x /usr/libexec/lite-nas/auth-service
 		test -x /usr/libexec/lite-nas/system-metrics
 		test -x /usr/libexec/lite-nas/system-metrics-cli
@@ -54,11 +55,14 @@ docker run --rm \
 		test -f /etc/lite-nas/auth.conf
 		test -f /etc/lite-nas/system-metrics.conf
 		test -f /etc/lite-nas/system-metrics-cli.conf
+		test \"\$(stat -c '%U:%G %a' /etc/lite-nas/system-metrics-cli.conf)\" = 'root:root 644'
 		test -f /etc/lite-nas/web-gateway.conf
 		test -d /var/log/lite-nas
-		test \"\$(stat -c '%U:%G %a' /var/log/lite-nas)\" = 'root:lite-nas 750'
+		test \"\$(stat -c '%U:%G %a' /var/log/lite-nas)\" = 'root:lite-nas 751'
 		test -f /var/log/lite-nas/auth-service.log
 		test -f /var/log/lite-nas/system-metrics.log
+		test -f /var/log/lite-nas/system-metrics-cli.log
+		test \"\$(stat -c '%U:%G %a' /var/log/lite-nas/system-metrics-cli.log)\" = 'root:root 666'
 		test -f /var/log/lite-nas/web-gateway.log
 		test -f /etc/nginx/sites-available/lite-nas-web-gateway.conf
 		test -f /etc/default/ufw

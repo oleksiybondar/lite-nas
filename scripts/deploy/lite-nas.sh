@@ -45,7 +45,7 @@ deploy.liteNAS.ensureCommonGroup() {
 }
 
 deploy.liteNAS.ensureLogDir() {
-	install -d -m 0750 -o root -g "$LITE_NAS_BOOTSTRAP_GROUP" "$LITE_NAS_BOOTSTRAP_LOG_DIR"
+	install -d -m 0751 -o root -g "$LITE_NAS_BOOTSTRAP_GROUP" "$LITE_NAS_BOOTSTRAP_LOG_DIR"
 }
 
 deploy.liteNAS.bootstrap() {

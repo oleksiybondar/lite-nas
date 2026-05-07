@@ -42,8 +42,17 @@ func TestLoadConfigReturnsLoggingOutput(t *testing.T) {
 	t.Parallel()
 
 	cfg := mustLoadConfigFromFixture(t)
-	if cfg.Logging.Output != "stderr" {
-		t.Fatalf("Logging.Output = %q, want stderr", cfg.Logging.Output)
+	if cfg.Logging.Output != "file" {
+		t.Fatalf("Logging.Output = %q, want file", cfg.Logging.Output)
+	}
+}
+
+func TestLoadConfigReturnsLoggingFilePath(t *testing.T) {
+	t.Parallel()
+
+	cfg := mustLoadConfigFromFixture(t)
+	if cfg.Logging.FilePath != "/var/log/lite-nas/system-metrics-cli.log" {
+		t.Fatalf("Logging.FilePath = %q, want /var/log/lite-nas/system-metrics-cli.log", cfg.Logging.FilePath)
 	}
 }
 
@@ -91,7 +100,8 @@ func loadConfigFromFixture(t *testing.T) (Config, error) {
 			"[logging]\n" +
 			"level=info\n" +
 			"format=rfc5424\n" +
-			"output=stderr\n",
+			"output=file\n" +
+			"file_path=/var/log/lite-nas/system-metrics-cli.log\n",
 	)
 
 	if err := os.WriteFile(configPath, configData, 0o600); err != nil {

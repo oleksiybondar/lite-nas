@@ -6,14 +6,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../helpers/common.sh"
 
 package_path=""
+install_recommends=1
 
 usage() {
 	cat <<'MSG'
 Usage: scripts/package/install-lite-nas-deb.sh [options]
 
 Options:
-  --package PATH  Path to the lite-nas .deb to install. Defaults to the newest .build/packages/lite-nas_*.deb.
-  -h, --help      Show this help.
+  --package PATH             Path to the lite-nas .deb to install. Defaults to the newest .build/packages/lite-nas_*.deb.
+  --no-install-recommends    Install only hard package dependencies.
+  -h, --help                 Show this help.
 MSG
 }
 
@@ -27,6 +29,10 @@ while [ "$#" -gt 0 ]; do
 		fi
 		package_path="$2"
 		shift 2
+		;;
+	--no-install-recommends)
+		install_recommends=0
+		shift
 		;;
 	-h | --help)
 		usage
@@ -55,8 +61,12 @@ fi
 package_path="$(realpath "$package_path")"
 
 log.pushTask "Installing LiteNAS package with apt dependency resolution"
+apt_args=()
+if [ "$install_recommends" -eq 0 ]; then
+	apt_args+=(--no-install-recommends)
+fi
 apt-get update
-apt-get install -y "$package_path"
+apt-get install "${apt_args[@]}" -y "$package_path"
 log.popTask
 
 log.info "Installed package: $package_path"

@@ -118,7 +118,7 @@ deploy.systemMetrics.installConfig() {
 }
 
 deploy.systemMetrics.installLogTarget() {
-	install -d -m 0750 -o root -g "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_LOG_DIR"
+	install -d -m 0751 -o root -g "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_LOG_DIR"
 
 	if [ ! -f "$LITE_NAS_SYSTEM_METRICS_LOG_FILE" ]; then
 		install -m 0640 -o "$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER" -g "$LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP" \

@@ -87,7 +87,7 @@ deploy.authService.installConfig() {
 }
 
 deploy.authService.installLogTarget() {
-	install -d -m 0750 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_LOG_DIR"
+	install -d -m 0751 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_LOG_DIR"
 
 	if [ ! -f "$LITE_NAS_AUTH_LOG_FILE" ]; then
 		install -m 0640 -o root -g root /dev/null "$LITE_NAS_AUTH_LOG_FILE"

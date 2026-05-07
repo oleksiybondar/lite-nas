@@ -43,7 +43,7 @@ deploy.normalizeLiteNAS() {
 			deploy.normalizePath 0640 "$config_file" "$litenas_config_owner"
 		done < <(find "$litenas_config_dir" -maxdepth 1 -type f -name '*.conf' -print0)
 	fi
-	deploy.normalizePath 0640 "$litenas_cli_config_file" "$litenas_cli_config_owner"
+	deploy.normalizePath 0644 "$litenas_cli_config_file" "$owner"
 
 	if [ -d "$litenas_transport_certificates_dir" ]; then
 		deploy.normalizePath 0711 "$litenas_transport_certificates_dir" "$litenas_config_owner"
@@ -52,8 +52,8 @@ deploy.normalizeLiteNAS() {
 		while IFS= read -r -d '' identity_dir; do
 			identity_group="$(basename "$identity_dir")"
 			if [ "$identity_group" = "$litenas_cli_certificate_user" ] && getent group "$litenas_cli_access_group" >/dev/null 2>&1; then
-				deploy.normalizePath 0750 "$identity_dir" "$litenas_cli_config_owner"
-				credential_owner="$litenas_cli_config_owner"
+				deploy.normalizePath 0755 "$identity_dir" "$owner"
+				credential_owner="$owner"
 			elif getent group "$identity_group" >/dev/null 2>&1; then
 				deploy.normalizePath 0750 "$identity_dir" "root:${identity_group}"
 				credential_owner="root:${identity_group}"
@@ -64,6 +64,8 @@ deploy.normalizeLiteNAS() {
 			while IFS= read -r -d '' credential_file; do
 				if [ "${credential_file##*.}" = "csr" ]; then
 					deploy.normalizePath 0600 "$credential_file" "$credential_owner"
+				elif [ "$identity_group" = "$litenas_cli_certificate_user" ]; then
+					deploy.normalizePath 0644 "$credential_file" "$credential_owner"
 				else
 					deploy.normalizePath 0640 "$credential_file" "$credential_owner"
 				fi
@@ -137,7 +139,6 @@ deploy.normalizeEtcPermissions() {
 	local nats_certificate_owner="root:root"
 	local litenas_cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
 	local litenas_cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
-	local litenas_cli_config_owner="root:${litenas_cli_access_group}"
 	local nats_main_config="$target_dir/nats-server.conf"
 	local nats_config_dir="$target_dir/nats-server"
 	local nats_certificate_dir="$nats_config_dir/certificates"
@@ -171,10 +172,6 @@ deploy.normalizeEtcPermissions() {
 
 	if ! getent group "$litenas_group" >/dev/null 2>&1; then
 		litenas_config_owner="root:root"
-	fi
-
-	if ! getent group "$litenas_cli_access_group" >/dev/null 2>&1; then
-		litenas_cli_config_owner="$litenas_config_owner"
 	fi
 
 	if getent group nats >/dev/null 2>&1; then

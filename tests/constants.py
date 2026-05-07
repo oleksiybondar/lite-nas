@@ -17,6 +17,7 @@ CREDENTIALS: dict[str, str] = {
 }
 
 DEPENDENCY_PACKAGES: list[str] = [
+    "aide",
     "zfsutils-linux",
     "nginx",
     "nats-server",

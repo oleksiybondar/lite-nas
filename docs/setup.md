@@ -145,6 +145,14 @@ The default client config template is deployed to:
 /etc/lite-nas/system-metrics-cli.conf
 ```
 
+The deployed CLI config and `lite-nas-system-metrics-cli` transport client
+certificate are readable by local users so the CLI can be run directly from a
+normal shell. The deployment also initializes:
+
+```text
+/var/log/lite-nas/system-metrics-cli.log
+```
+
 Usage:
 
 ```bash
@@ -234,8 +242,12 @@ The package output currently contains one native-architecture package:
 
 The `lite-nas` package:
 
-- depends on `libpam0g`, `zfsutils-linux`, `nats-server`, `openssl`, and `systemd`
-- recommends future hardening packages such as `aide`, `clamav`, `ufw`, and `usbguard`
+- depends on `aide`, `libpam0g`, `zfsutils-linux`, `nats-server`, `nginx`,
+  `openssl`, `systemd`, and `ufw`
+- installs the AIDE binary as a platform dependency, but LiteNAS does not
+  initialize an AIDE database or use the distribution default AIDE config during
+  package installation
+- recommends future hardening packages such as `clamav` and `usbguard`
 - shows a GPLv3 notice during installation
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration

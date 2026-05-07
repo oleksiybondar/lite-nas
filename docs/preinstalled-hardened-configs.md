@@ -64,8 +64,10 @@ This section should later list each shipped log target and its retention rule.
 
 ## Integrity Monitoring Baseline
 
-LiteNAS is expected to preinstall and preconfigure filesystem integrity
-monitoring.
+LiteNAS installs the AIDE binary as a filesystem integrity monitoring
+dependency, but it does not initialize the distribution default AIDE database
+during package installation. LiteNAS-owned AIDE configuration and database
+initialization are deferred to a dedicated future service.
 
 This section should later define:
 

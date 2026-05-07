@@ -10,6 +10,8 @@ readonly LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET="${LITE_NAS_SYSTEM_METRICS_CL
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/system-metrics-cli.conf}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET:-$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR/system-metrics-cli.conf}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_LOG_DIR="${LITE_NAS_LOG_DIR:-/var/log/lite-nas}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE="${LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE:-$LITE_NAS_SYSTEM_METRICS_CLI_LOG_DIR/system-metrics-cli.log}"
 
 deploy.systemMetricsCLI.usage() {
 	cat <<'MSG'
@@ -28,6 +30,8 @@ deploy.systemMetricsCLI.requireTools() {
 		getent
 		groupadd
 		install
+		chmod
+		chown
 	)
 
 	for tool in "${tools[@]}"; do
@@ -80,9 +84,19 @@ deploy.systemMetricsCLI.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR"
-	install -m 0640 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP" \
+	install -m 0644 -o root -g root \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE" \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET"
+}
+
+deploy.systemMetricsCLI.installLogTarget() {
+	install -d -m 0751 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_DIR"
+	if [ ! -f "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE" ]; then
+		install -m 0666 -o root -g root /dev/null "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE"
+	fi
+
+	chown root:root "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE"
+	chmod 0666 "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE"
 }
 
 deploy.systemMetricsCLI.deploy() {
@@ -92,4 +106,5 @@ deploy.systemMetricsCLI.deploy() {
 	deploy.systemMetricsCLI.ensureAccessGroup
 	deploy.systemMetricsCLI.installBinary "$source_binary"
 	deploy.systemMetricsCLI.installConfig
+	deploy.systemMetricsCLI.installLogTarget
 }

@@ -136,7 +136,7 @@ deploy.webGateway.installSharedAssets() {
 }
 
 deploy.webGateway.installLogTarget() {
-	install -d -m 0750 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_DIR"
+	install -d -m 0751 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_DIR"
 
 	if [ ! -f "$LITE_NAS_WEB_GATEWAY_LOG_FILE" ]; then
 		install -m 0640 -o "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" -g "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \

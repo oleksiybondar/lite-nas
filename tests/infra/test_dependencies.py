@@ -5,6 +5,7 @@ from constants import DEPENDENCY_PACKAGES
 from hyperiontf import CLIClient
 
 DEPENDENCY_PACKAGE_MARKS = {
+    "aide": pytest.mark.AIDE,
     "zfsutils-linux": pytest.mark.ZFS,
     "nginx": pytest.mark.Nginx,
     "nats-server": pytest.mark.NATS,

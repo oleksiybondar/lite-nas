@@ -291,8 +291,10 @@ normalize_certificate_permissions() {
 	done
 
 	if [ -d "$litenas_transport_certificates_dir/$cli_certificate_user" ]; then
-		chown -R "root:$cli_access_group" "$litenas_transport_certificates_dir/$cli_certificate_user"
-		chmod 0750 "$litenas_transport_certificates_dir/$cli_certificate_user"
+		chown -R root:root "$litenas_transport_certificates_dir/$cli_certificate_user"
+		chmod 0755 "$litenas_transport_certificates_dir/$cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.crt' -exec chmod 0644 {} +
+		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.key' -exec chmod 0644 {} +
 	fi
 }
 

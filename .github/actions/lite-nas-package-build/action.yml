@@ -93,7 +93,8 @@ runs:
       run: |
         sudo env DEBIAN_FRONTEND=noninteractive \
           scripts/package/install-lite-nas-deb.sh \
-            --package .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
+            --package .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
+            --no-install-recommends
 
     - name: Prepare Python test user
       if: ${{ inputs.run_installed_package_tests == 'true' }}
