@@ -32,6 +32,8 @@
   then CLI, API, and UI.
 - Clarified package analysis so static config checks validate repository files
   while installed-path behavior remains covered by package and system tests.
+- Added PAM development headers to Go analysis setup so auth-service cgo
+  typechecking matches the build environment.
 - Standardized HyperionTF log output under `tests/logs` so CI can publish
   predictable test artifacts.
 
