@@ -229,8 +229,12 @@ func TestRouterLogoutAcceptsRefreshTokenCookie(t *testing.T) {
 
 	request := webtest.NewRequest(http.MethodPost, "/api/auth/logout", []byte(`{}`))
 	request.AddCookie(&http.Cookie{
-		Name:  services.RefreshTokenCookieName,
-		Value: "RT-logout",
+		Name:     services.RefreshTokenCookieName,
+		Value:    "RT-logout",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	recorder := webtest.ServeRequest(
@@ -272,8 +276,12 @@ func TestRouterMapsUnexpectedAuthServiceError(t *testing.T) {
 	handler := routerFixture(routeAuthService{refreshErr: errors.New("boom")})
 	request := webtest.NewRequest(http.MethodPost, "/api/auth/refresh", []byte(`{}`))
 	request.AddCookie(&http.Cookie{
-		Name:  services.RefreshTokenCookieName,
-		Value: "RT-refresh",
+		Name:     services.RefreshTokenCookieName,
+		Value:    "RT-refresh",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 	recorder := webtest.ServeRequest(
 		handler,

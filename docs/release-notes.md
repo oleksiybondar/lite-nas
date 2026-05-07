@@ -34,6 +34,8 @@
   while installed-path behavior remains covered by package and system tests.
 - Added PAM development headers to Go analysis setup so auth-service cgo
   typechecking matches the build environment.
+- Made PR package validation depend on the admin-panel production build as well
+  as JS/TS tests before consuming frontend assets.
 - Standardized HyperionTF log output under `tests/logs` so CI can publish
   predictable test artifacts.
 

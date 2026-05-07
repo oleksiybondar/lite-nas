@@ -96,7 +96,7 @@ func TestExtractAuthenticationPrefersBearerHeader(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("Authorization", "Bearer AT-header")
-	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "AT-cookie"})
+	request.AddCookie(authenticationCookieFixture("lite-nas-at", "AT-cookie"))
 
 	ctx := newStubHumaContext(request)
 	middleware := ExtractAuthentication(authenticationOptionsFixture())
@@ -118,7 +118,7 @@ func TestExtractAuthenticationFallsBackToCookie(t *testing.T) {
 	t.Parallel()
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "AT-cookie"})
+	request.AddCookie(authenticationCookieFixture("lite-nas-at", "AT-cookie"))
 
 	ctx := newStubHumaContext(request)
 	middleware := ExtractAuthentication(authenticationOptionsFixture())
@@ -204,7 +204,7 @@ func TestExtractAuthenticationMarksExpiredToken(t *testing.T) {
 	t.Parallel()
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "expired-token"})
+	request.AddCookie(authenticationCookieFixture("lite-nas-at", "expired-token"))
 	ctx := newStubHumaContext(request)
 	options := authenticationOptionsFixture()
 	options.Verifier = authenticationVerifierStub{err: jwt.ErrTokenExpired}
@@ -221,6 +221,18 @@ func authenticationOptionsFixture() AuthenticationOptions {
 		AccessCookieName:  "lite-nas-at",
 		RefreshCookieName: "lite-nas-rt",
 		Verifier:          authenticationVerifierStub{},
+	}
+}
+
+// authenticationCookieFixture returns a browser-equivalent auth cookie for middleware tests.
+func authenticationCookieFixture(name string, value string) *http.Cookie {
+	return &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	}
 }
 

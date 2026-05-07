@@ -397,6 +397,7 @@ jobs:
       - package-analysis
       - service-build-and-test
       - app-build-and-test
+      - js-ts-build
       - js-ts-test
     strategy:
       fail-fast: false

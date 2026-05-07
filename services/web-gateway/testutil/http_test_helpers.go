@@ -21,8 +21,12 @@ func NewRequest(method string, target string, body []byte) *http.Request {
 func NewAuthenticatedRequest(method string, target string, body []byte) *http.Request {
 	request := NewRequest(method, target, body)
 	request.AddCookie(&http.Cookie{
-		Name:  services.AccessTokenCookieName,
-		Value: "AT-cookie",
+		Name:     services.AccessTokenCookieName,
+		Value:    "AT-cookie",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	return request
