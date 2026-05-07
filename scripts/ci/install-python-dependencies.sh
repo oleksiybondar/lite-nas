@@ -20,9 +20,9 @@ log.popTask
 
 log.pushTask "Installing Playwright runtime dependencies"
 if command -v sudo >/dev/null 2>&1; then
-	sudo .venv/bin/playwright install-deps chromium
+	sudo .venv/bin/playwright install-deps
 else
-	.venv/bin/playwright install-deps chromium
+	.venv/bin/playwright install-deps
 fi
 .venv/bin/playwright install chromium
 log.popTask

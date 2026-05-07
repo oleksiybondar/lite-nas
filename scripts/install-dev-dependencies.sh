@@ -136,7 +136,7 @@ run_as_user "$REPO_ROOT/.venv/bin/pip" install --quiet -r "$REPO_ROOT/tests/requ
 log.popTask
 
 log.pushTask "Installing Playwright runtime dependencies"
-"$REPO_ROOT/.venv/bin/playwright" install-deps chromium
+"$REPO_ROOT/.venv/bin/playwright" install-deps
 run_as_user "$REPO_ROOT/.venv/bin/playwright" install chromium
 log.popTask
 

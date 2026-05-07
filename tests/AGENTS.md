@@ -21,6 +21,13 @@ repository-level `AGENTS.md`.
 - Keep UI test suites directly under `ui/`.
 - Model browser pages with HyperionTF page objects and widgets rather than
   placing locator details directly in tests.
+- Model page-object composition as a hierarchy that follows the real UI
+  implementation and naming, but prefer user-facing layers over strict React or
+  DOM mirroring. Pages expose top-level regions and widgets; widgets expose
+  their own child elements and nested widgets. Avoid flat page objects that list
+  every descendant as a direct page member.
+- Keep pages, navigation bars, sidebars, menus, forms, and meaningful widgets;
+  omit structural wrappers that do not own a reusable user interaction.
 - Page objects are not only locator assemblies. Add reusable UI-domain
   interactions to the page or widget object that owns that behavior, so tests
   can call named workflow methods instead of duplicating low-level click/fill

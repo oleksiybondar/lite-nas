@@ -142,6 +142,14 @@ readability, maintenance, and consistent review quality.
   focused suites for one feature, service, or workflow.
 - Store HyperionTF UI page objects under `tests/ui/page_objects`. UI tests
   should import those page objects instead of declaring browser locators inline.
+- Model UI page-object composition as a hierarchy that follows the real
+  implementation and naming, while favoring user-facing layers over strict
+  React or DOM mirroring. Pages should expose top-level regions and widgets;
+  widgets should expose their own child elements and nested widgets. Avoid flat
+  page objects that list every descendant as a direct page member.
+- Keep pages, navigation bars, sidebars, menus, forms, and meaningful widgets;
+  omit purely structural wrappers when they do not own reusable user
+  interactions.
 - Treat UI page objects as reusable domain-facing test support, not just
   locator assemblies. Put meaningful repeated interactions on the page or
   widget object that owns the UI behavior, so tests describe workflows without

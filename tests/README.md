@@ -93,6 +93,19 @@ declare locators with HyperionTF decorators such as `@element`, `@elements`,
 `@widget`, and `@widgets`. The method bodies return `By...` locators because
 HyperionTF converts the decorated members into elements or widgets at runtime.
 
+Model page-object composition as a hierarchy that follows the current UI
+implementation and naming, but do not mirror every React component or DOM
+wrapper. A page object should expose top-level regions and widgets; those
+widgets should expose their own child elements and nested widgets. For example,
+a login page owns a top bar and a login form, while the login form owns the
+login field, password field, and submit button. Avoid flat page objects that
+list every descendant as a direct page member.
+
+Preserve meaningful user-facing layers such as pages, navigation bars,
+sidebars, menus, forms, and reusable widgets. Omit purely structural wrappers
+when they do not represent a distinct user concept or reusable interaction
+boundary.
+
 Page objects are also the home for reusable UI-domain interactions around the
 page or widget they model. Prefer named page-object methods such as
 `login_as(...)`, `open_user_menu()`, or `submit_form()` when the action is a

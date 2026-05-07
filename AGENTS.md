@@ -105,6 +105,13 @@ branch or otherwise provides a pushed source branch.
   every system test, and add service/app domain markers where applicable.
 - Store HyperionTF UI page objects under `tests/ui/page_objects`, and keep UI
   test suites under `tests/ui`.
+- Model UI page-object composition as a hierarchy that follows the real
+  implementation and naming, while favoring user-facing layers over strict
+  React or DOM mirroring. Pages should expose top-level regions and widgets;
+  widgets should expose their own child elements and nested widgets. Avoid flat
+  page objects that list every descendant as a direct page member.
+- Keep pages, navigation bars, sidebars, menus, forms, and meaningful widgets;
+  omit structural wrappers that do not own reusable user interactions.
 - Treat UI page objects as reusable domain-facing test support, not just
   locator assemblies. Put repeated page or widget interactions on the owning
   page object so tests describe user workflows instead of duplicating low-level
