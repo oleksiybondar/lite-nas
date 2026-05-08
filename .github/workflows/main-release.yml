@@ -259,18 +259,96 @@ jobs:
           name: admin-panel-assets
           path: .artifacts/admin-panel
 
-      - name: Build and test LiteNAS Debian package
-        uses: ./.github/actions/lite-nas-package-build
+      - name: Prepare package job dependencies
+        run: scripts/ci/install-debian-packaging-dependencies.sh
+
+      - name: Build LiteNAS Debian package
+        env:
+          ADMIN_PANEL_ASSETS: .artifacts/admin-panel
+        run: |
+          package_args=(
+            --version=${{ steps.package-version.outputs.value }} \
+            --auth-service-binary=.artifacts/${{ matrix.arch }}/auth-service/auth-service \
+            --system-metrics-binary=.artifacts/${{ matrix.arch }}/system-metrics/system-metrics \
+            --system-metrics-cli-binary=.artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli \
+            --web-gateway-binary=.artifacts/${{ matrix.arch }}/web-gateway/web-gateway \
+            --output-dir=.build/packages/${{ matrix.arch }}
+          )
+
+          if [ -n "$ADMIN_PANEL_ASSETS" ]; then
+            package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
+          fi
+
+          scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
+
+      - name: Lint LiteNAS Debian package
+        run: |
+          scripts/package/lint-lite-nas-deb.sh \
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb
+
+      - name: Validate LiteNAS Debian package installability
+        run: |
+          scripts/ci/validate-lite-nas-deb-install.sh \
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+            ${{ matrix.arch }}
+
+      - name: Install LiteNAS package on runner
+        run: |
+          sudo env DEBIAN_FRONTEND=noninteractive \
+            scripts/package/install-lite-nas-deb.sh \
+              --package .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+              --no-install-recommends
+
+      - name: Install Python and Playwright dependencies
+        run: scripts/ci/install-python-dependencies.sh
+
+      - name: Prepare Python test user
+        env:
+          LITENAS_API_LOGIN: testuser
+          LITENAS_API_PASSWORD: testpassword
+        run: scripts/ci/prepare-system-test-user.sh
+
+      - name: Diagnose installed LiteNAS routing
+        run: |
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
+          sudo nginx -t
+          sudo nginx -T | sed -n '1,220p'
+          curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login
+          curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9090/api/auth/login
+
+      - name: Test installed LiteNAS package
+        env:
+          LITENAS_API_LOGIN: testuser
+          LITENAS_API_PASSWORD: testpassword
+        run: scripts/test-python.sh
+
+      - name: Archive system test logs
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          source = Path("tests/logs")
+          archive = Path("system_tests_logs.zip")
+          log_files = sorted(path for path in source.rglob("*") if path.is_file()) if source.exists() else []
+
+          with ZipFile(archive, "w", ZIP_DEFLATED) as zip_file:
+              for log_file in log_files:
+                  zip_file.write(log_file, log_file.relative_to(source.parent))
+              if not log_files:
+                  zip_file.writestr("logs/.empty", "No system test logs were produced.\n")
+          PY
+
+      - name: Upload system test logs
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          version: ${{ steps.package-version.outputs.value }}
-          auth_service_binary: .artifacts/${{ matrix.arch }}/auth-service/auth-service
-          system_metrics_binary: .artifacts/${{ matrix.arch }}/system-metrics/system-metrics
-          system_metrics_cli_binary: .artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli
-          web_gateway_binary: .artifacts/${{ matrix.arch }}/web-gateway/web-gateway
-          admin_panel_assets: .artifacts/admin-panel
-          package_arch: ${{ matrix.arch }}
-          run_package_validation: "true"
-          run_installed_package_tests: "true"
+          name: system-test-logs-${{ matrix.arch }}
+          path: system_tests_logs.zip
+          if-no-files-found: warn
+          retention-days: 15
 
       - name: Publish LiteNAS Debian package artifact
         uses: actions/upload-artifact@v4
