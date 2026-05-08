@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../helpers/common.sh"
 
 if [ "$#" -ne 1 ]; then
-	log.error "Usage: scripts/package/lint-system-metrics-deb.sh <package.deb>"
+	log.error "Usage: scripts/package/lint-lite-nas-deb.sh <package.deb>"
 	exit 64
 fi
 

@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-affected_services=(nats-server)
+affected_services=(
+	nats-server
+	nginx
+)
 systemd_reloaded=0
 
 deploy.reloadSystemdOnce() {

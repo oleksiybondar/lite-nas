@@ -98,3 +98,8 @@ reuse the same schemas before accepting submitted payloads.
 This split keeps HTTP/OpenAPI concerns in Huma, gives internal service messages
 and CLI inputs a transport-neutral Go validation path, and gives browser code a
 shared runtime validation layer.
+
+## Packaging and Runtime Flow
+
+For packaging/runtime orchestration policy and CI parity expectations, see
+[Packaging Runtime Flow](./packaging-runtime-flow.md).

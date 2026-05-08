@@ -71,7 +71,7 @@ runs:
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
-        scripts/package/lint-system-metrics-deb.sh \
+        scripts/package/lint-lite-nas-deb.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
 
     - name: Validate Debian package installability

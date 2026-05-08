@@ -278,7 +278,7 @@ them automatically.
 Lint a built package with:
 
 ```bash
-./scripts/package/lint-system-metrics-deb.sh .build/packages/lite-nas_0.1.0_amd64.deb
+./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.1.0_amd64.deb
 ```
 
 ## Rotate NATS certificates

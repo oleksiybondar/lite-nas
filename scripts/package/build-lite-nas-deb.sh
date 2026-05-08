@@ -159,20 +159,9 @@ mv "$package_root/usr/share/doc/$package_name/changelog.Debian.gz" \
 package.copyTree "$LITE_NAS_REPO_ROOT/configs" "$package_root/usr/libexec/lite-nas/configs"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/helpers" "$package_root/usr/libexec/lite-nas/scripts/helpers"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/deploy" "$package_root/usr/libexec/lite-nas/scripts/deploy"
+package.copyTree "$LITE_NAS_REPO_ROOT/scripts/runtime" "$package_root/usr/libexec/lite-nas/scripts/runtime"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh"
-install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-lite-nas.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh"
-install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-auth-service.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-auth-service.sh"
-install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh"
-install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-system-metrics-cli.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics-cli.sh"
-install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/deploy-web-gateway.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-web-gateway.sh"
-install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/build-admin-panel.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/build-admin-panel.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" \
@@ -204,13 +193,8 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
-	"$package_root/usr/libexec/lite-nas/scripts/build-admin-panel.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-auth-service.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-lite-nas.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-system-metrics-cli.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/deploy-web-gateway.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh" \

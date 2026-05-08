@@ -7,12 +7,10 @@ source "$SCRIPT_DIR/../helpers/common.sh"
 
 readonly LITE_NAS_DEB_PACKAGE_BUILD_SCRIPTS=(
 	"$LITE_NAS_REPO_ROOT/scripts/package/build-lite-nas-deb.sh"
-	"$LITE_NAS_REPO_ROOT/scripts/package/build-system-metrics-deb.sh"
 )
 
 readonly LITE_NAS_DEB_PACKAGE_CHANGELOGS=(
 	"$LITE_NAS_REPO_ROOT/packaging/debian/lite-nas/usr/share/doc/lite-nas/changelog.Debian"
-	"$LITE_NAS_REPO_ROOT/packaging/debian/lite-nas-system-metrics/usr/share/doc/lite-nas-system-metrics/changelog.Debian"
 )
 
 readonly LITE_NAS_SHARED_CONSUMER_GO_MODS=(
