@@ -36,18 +36,18 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Prepare: install Debian packaging dependencies
+    - name: "Prepare: install Debian packaging dependencies"
       shell: bash
       run: scripts/ci/install-debian-packaging-dependencies.sh
 
-    - name: Prepare: setup Node job
+    - name: "Prepare: setup Node job"
       uses: ./.github/actions/setup-node-job
 
-    - name: Prepare: install Node dependencies
+    - name: "Prepare: install Node dependencies"
       shell: bash
       run: scripts/ci/install-node-dependencies.sh
 
-    - name: Build: LiteNAS Debian package
+    - name: "Build: LiteNAS Debian package"
       shell: bash
       env:
         ADMIN_PANEL_ASSETS: ${{ inputs.admin_panel_assets }}
@@ -67,14 +67,14 @@ runs:
 
         scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
 
-    - name: Build: lint Debian package
+    - name: "Build: lint Debian package"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
         scripts/package/lint-lite-nas-deb.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
 
-    - name: Build: validate Debian package installability
+    - name: "Build: validate Debian package installability"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
@@ -82,7 +82,7 @@ runs:
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
           ${{ inputs.package_arch }}
 
-    - name: Install: LiteNAS package on runner
+    - name: "Install: LiteNAS package on runner"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: |
@@ -91,12 +91,12 @@ runs:
             --package .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
             --no-install-recommends
 
-    - name: Test prep: install Python and Playwright dependencies
+    - name: "Test prep: install Python and Playwright dependencies"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: scripts/ci/install-python-dependencies.sh
 
-    - name: Test prep: prepare Python test user
+    - name: "Test prep: prepare Python test user"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       env:
@@ -104,7 +104,7 @@ runs:
         LITENAS_API_PASSWORD: testpassword
       run: scripts/ci/prepare-system-test-user.sh
 
-    - name: Test: installed LiteNAS package
+    - name: "Test: installed LiteNAS package"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       env:
