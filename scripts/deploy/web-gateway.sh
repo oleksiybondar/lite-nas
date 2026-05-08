@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+
+DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/../helpers/admin-panel-assets.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/nginx.sh"
+
+readonly LITE_NAS_WEB_GATEWAY_SERVICE_NAME="${LITE_NAS_WEB_GATEWAY_SERVICE_NAME:-lite-nas-web-gateway}"
+readonly LITE_NAS_WEB_GATEWAY_RUNTIME_USER="${LITE_NAS_WEB_GATEWAY_RUNTIME_USER:-lite-nas-web-gateway}"
+readonly LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP="${LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP:-$LITE_NAS_WEB_GATEWAY_RUNTIME_USER}"
+readonly LITE_NAS_WEB_GATEWAY_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
+readonly LITE_NAS_WEB_GATEWAY_BINARY_TARGET="${LITE_NAS_WEB_GATEWAY_BINARY_TARGET:-/usr/libexec/lite-nas/web-gateway}"
+readonly LITE_NAS_WEB_GATEWAY_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
+readonly LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE="${LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/web-gateway.conf}"
+readonly LITE_NAS_WEB_GATEWAY_CONFIG_TARGET="${LITE_NAS_WEB_GATEWAY_CONFIG_TARGET:-$LITE_NAS_WEB_GATEWAY_CONFIG_DIR/web-gateway.conf}"
+readonly LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE="${LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-web-gateway.service}"
+readonly LITE_NAS_WEB_GATEWAY_UNIT_TARGET="${LITE_NAS_WEB_GATEWAY_UNIT_TARGET:-/etc/systemd/system/lite-nas-web-gateway.service}"
+readonly LITE_NAS_WEB_GATEWAY_LOG_DIR="${LITE_NAS_WEB_GATEWAY_LOG_DIR:-${LITE_NAS_LOG_DIR:-/var/log/lite-nas}}"
+readonly LITE_NAS_WEB_GATEWAY_LOG_FILE="${LITE_NAS_WEB_GATEWAY_LOG_FILE:-$LITE_NAS_WEB_GATEWAY_LOG_DIR/web-gateway.log}"
+readonly LITE_NAS_WEB_GATEWAY_SHARE_ROOT="${LITE_NAS_WEB_GATEWAY_SHARE_ROOT:-/usr/share/lite-nas/web-gateway}"
+LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="${LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE:-$LITE_NAS_REPO_ROOT/.build/admin-panel}"
+
+deploy.webGateway.usage() {
+	cat <<'MSG'
+Usage: scripts/deploy-web-gateway.sh [options]
+
+Options:
+  --binary PATH       Install an existing binary instead of building one.
+  --assets-source PATH
+                      Install frontend assets from a Vite build output directory.
+  --no-start          Install files but do not enable or start the service.
+  --skip-bootstrap    Install files without running LiteNAS bootstrap first.
+  -h, --help          Show this help.
+MSG
+}
+
+deploy.webGateway.requireTools() {
+	local tool
+	local tools=(
+		getent
+		groupadd
+		install
+		chmod
+		chown
+		realpath
+		rm
+		systemctl
+		touch
+		useradd
+		usermod
+	)
+
+	for tool in "${tools[@]}"; do
+		log.requireCommand "$tool" "Install the required system tooling and retry."
+	done
+
+	deploy.nginx.requireTools
+}
+
+deploy.webGateway.ensureGroup() {
+	local group_name="$1"
+
+	if getent group "$group_name" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	log.info "Creating system group: $group_name"
+	groupadd --system "$group_name"
+}
+
+deploy.webGateway.ensureRuntimeUser() {
+	deploy.webGateway.ensureGroup "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP"
+	deploy.webGateway.ensureGroup "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP"
+
+	if ! id "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" >/dev/null 2>&1; then
+		log.info "Creating system user: $LITE_NAS_WEB_GATEWAY_RUNTIME_USER"
+		useradd \
+			--system \
+			--no-create-home \
+			--home-dir /nonexistent \
+			--shell /usr/sbin/nologin \
+			--gid "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \
+			--groups "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" \
+			"$LITE_NAS_WEB_GATEWAY_RUNTIME_USER"
+		return 0
+	fi
+
+	log.info "Updating system user groups: $LITE_NAS_WEB_GATEWAY_RUNTIME_USER"
+	usermod \
+		--gid "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \
+		--append \
+		--groups "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" \
+		"$LITE_NAS_WEB_GATEWAY_RUNTIME_USER"
+}
+
+deploy.webGateway.installBinary() {
+	local source_binary="$1"
+	local target_dir
+
+	if [ ! -f "$source_binary" ]; then
+		log.error "Missing web-gateway binary: $source_binary"
+		exit 1
+	fi
+
+	target_dir="$(dirname "$LITE_NAS_WEB_GATEWAY_BINARY_TARGET")"
+	install -d -m 0755 "$target_dir"
+
+	if [ "$(realpath "$source_binary")" = "$(realpath -m "$LITE_NAS_WEB_GATEWAY_BINARY_TARGET")" ]; then
+		chmod 0755 "$LITE_NAS_WEB_GATEWAY_BINARY_TARGET"
+		return 0
+	fi
+
+	install -m 0755 "$source_binary" "$LITE_NAS_WEB_GATEWAY_BINARY_TARGET"
+}
+
+deploy.webGateway.installConfig() {
+	if [ ! -f "$LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE" ]; then
+		log.error "Missing web-gateway config source: $LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE"
+		exit 1
+	fi
+
+	install -d -m 0711 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_CONFIG_DIR"
+	install -m 0640 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" \
+		"$LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE" \
+		"$LITE_NAS_WEB_GATEWAY_CONFIG_TARGET"
+}
+
+deploy.webGateway.installSharedAssets() {
+	adminPanelAssets.installFlat "$LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE" "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT/assets"
+	chown -R root:root "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT"
+	find "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT" -type d -exec chmod 0755 {} +
+	find "$LITE_NAS_WEB_GATEWAY_SHARE_ROOT" -type f -exec chmod 0644 {} +
+}
+
+deploy.webGateway.installLogTarget() {
+	install -d -m 0751 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_DIR"
+
+	if [ ! -f "$LITE_NAS_WEB_GATEWAY_LOG_FILE" ]; then
+		install -m 0640 -o "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" -g "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \
+			/dev/null \
+			"$LITE_NAS_WEB_GATEWAY_LOG_FILE"
+		return 0
+	fi
+
+	chown "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER:$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_FILE"
+	chmod 0640 "$LITE_NAS_WEB_GATEWAY_LOG_FILE"
+}
+
+deploy.webGateway.installUnitFile() {
+	if [ ! -f "$LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE" ]; then
+		log.error "Missing systemd unit template: $LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE"
+		exit 1
+	fi
+
+	install -D -m 0644 "$LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE" "$LITE_NAS_WEB_GATEWAY_UNIT_TARGET"
+}
+
+deploy.webGateway.enableAndStart() {
+	systemctl daemon-reload
+	systemctl enable --now "$LITE_NAS_WEB_GATEWAY_SERVICE_NAME.service"
+}
+
+deploy.webGateway.deploy() {
+	local source_binary="$1"
+	local should_start="${2:-1}"
+
+	deploy.webGateway.ensureRuntimeUser
+	deploy.webGateway.installBinary "$source_binary"
+	deploy.webGateway.installConfig
+	deploy.webGateway.installSharedAssets
+	deploy.webGateway.installLogTarget
+	deploy.webGateway.installUnitFile
+	deploy.nginx.deploy 0
+
+	if [ "$should_start" = "1" ]; then
+		deploy.webGateway.enableAndStart
+		deploy.nginx.enableAndStart
+		return 0
+	fi
+
+	log.info "Skipping web-gateway enable/start."
+}

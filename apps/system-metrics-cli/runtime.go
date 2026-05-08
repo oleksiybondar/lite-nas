@@ -9,13 +9,11 @@ import (
 
 	"lite-nas/apps/system-metrics-cli/modules"
 	"lite-nas/apps/system-metrics-cli/workers"
-	"lite-nas/shared/metrics"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 )
 
 const (
-	defaultConfigPath = "/etc/liteNAS/system-metrics-cli.conf"
-	statsRPCSubject   = "system.metrics.rpc.stats.get"
-	historyRPCSubject = "system.metrics.rpc.history.get"
+	defaultConfigPath = "/etc/lite-nas/system-metrics-cli.conf"
 	serviceName       = "system-metrics-cli"
 )
 
@@ -26,7 +24,7 @@ type requestClient interface {
 func run(ctx context.Context, args []string) error {
 	workerModule := modules.NewWorkersModule(defaultConfigPath)
 
-	invocation, err := workerModule.ArgsProcessor().Process(args)
+	invocation, err := workerModule.ArgsProcessor.Process(args)
 	if err != nil {
 		if errors.Is(err, workers.ErrHelpRequested) {
 			printUsage(os.Stdout)
@@ -42,7 +40,7 @@ func run(ctx context.Context, args []string) error {
 	}
 	defer infra.Close()
 
-	return executeCommand(ctx, invocation, infra.Client(), workerModule.OutputWriter(), os.Stdout)
+	return executeCommand(ctx, invocation, infra.Client, workerModule.OutputWriter, os.Stdout)
 }
 
 func executeCommand(
@@ -69,12 +67,12 @@ func executeCurrentCommand(
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	var snapshot metrics.SystemSnapshot
-	if err := client.Request(ctx, statsRPCSubject, map[string]any{}, &snapshot); err != nil {
+	var response systemmetricscontract.GetSnapshotResponse
+	if err := client.Request(ctx, systemmetricscontract.SnapshotRPCSubject, systemmetricscontract.GetSnapshotRequest{}, &response); err != nil {
 		return err
 	}
 
-	return output.WriteCurrent(writer, snapshot, invocation.CurrentSelection)
+	return output.WriteCurrent(writer, response.Snapshot, invocation.CurrentSelection)
 }
 
 func executeHistoryCommand(
@@ -83,17 +81,17 @@ func executeHistoryCommand(
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	var history []metrics.SystemSnapshot
-	if err := client.Request(ctx, historyRPCSubject, map[string]any{}, &history); err != nil {
+	var response systemmetricscontract.GetHistoryResponse
+	if err := client.Request(ctx, systemmetricscontract.HistoryRPCSubject, systemmetricscontract.GetHistoryRequest{}, &response); err != nil {
 		return err
 	}
 
-	return output.WriteHistory(writer, history)
+	return output.WriteHistory(writer, response.Items)
 }
 
 func printUsage(writer io.Writer) {
 	_, _ = fmt.Fprintln(
 		writer,
-		"Usage: system-metrics-cli [--config=/etc/liteNAS/system-metrics-cli.conf] [--cpu] [--ram] [--history]",
+		"Usage: system-metrics-cli [--config=/etc/lite-nas/system-metrics-cli.conf] [--cpu] [--ram] [--history]",
 	)
 }

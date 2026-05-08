@@ -4,13 +4,20 @@ import (
 	sharedfileio "lite-nas/shared/fileio"
 )
 
-// IO groups low-level reader dependencies used by the service.
+// IO groups low-level readers used by the service runtime.
+//
+// The fields are populated once during startup and are expected to be treated
+// as logically read-only after construction.
 type IO struct {
-	cpuReader sharedfileio.Reader
-	memReader sharedfileio.Reader
+	CPUReader sharedfileio.Reader
+	MemReader sharedfileio.Reader
 }
 
-// NewIOModule creates the reader dependencies required by the metrics workers.
+// NewIOModule opens the procfs readers required by the metrics workers.
+//
+// Parameters:
+//   - cpuPath: path to the procfs CPU statistics source
+//   - memPath: path to the procfs memory statistics source
 func NewIOModule(cpuPath string, memPath string) (IO, error) {
 	cpuReader, err := sharedfileio.NewFileReader(cpuPath)
 	if err != nil {
@@ -23,17 +30,7 @@ func NewIOModule(cpuPath string, memPath string) (IO, error) {
 	}
 
 	return IO{
-		cpuReader: cpuReader,
-		memReader: memReader,
+		CPUReader: cpuReader,
+		MemReader: memReader,
 	}, nil
-}
-
-// CPUReader returns the CPU metrics reader.
-func (m IO) CPUReader() sharedfileio.Reader {
-	return m.cpuReader
-}
-
-// MemReader returns the memory metrics reader.
-func (m IO) MemReader() sharedfileio.Reader {
-	return m.memReader
 }

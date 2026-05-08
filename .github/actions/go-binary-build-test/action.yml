@@ -1,16 +1,17 @@
 name: Go binary build and test
-description: Build a Go service or app binary for one architecture and optionally run its tests.
+description: Build a Go service or app binary on the current runner and optionally run its tests.
 
 inputs:
   build_script:
     description: Script that builds the binary.
     required: true
-  arch:
-    description: Target architecture.
-    required: true
   output_path:
     description: Repository-relative output path for the built binary artifact.
     required: true
+  apt_packages:
+    description: Optional Debian packages required before building.
+    required: false
+    default: ""
   test_script:
     description: Script that runs tests for the module.
     required: false
@@ -26,9 +27,16 @@ runs:
     - name: Setup Go job
       uses: ./.github/actions/setup-go-job
 
+    - name: Install build dependencies
+      if: ${{ inputs.apt_packages != '' }}
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ${{ inputs.apt_packages }}
+
     - name: Build binary
       shell: bash
-      run: ${{ inputs.build_script }} --arch=${{ inputs.arch }} --output=${{ github.workspace }}/${{ inputs.output_path }}
+      run: ${{ inputs.build_script }} --output=${{ github.workspace }}/${{ inputs.output_path }}
 
     - name: Run tests
       if: ${{ inputs.run_tests == 'true' && inputs.test_script != '' }}

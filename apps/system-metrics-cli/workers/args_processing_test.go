@@ -9,7 +9,7 @@ import (
 func TestArgsProcessorDefaultsToCurrentMode(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	invocation, err := processor.Process(nil)
 	if err != nil {
@@ -25,7 +25,7 @@ func TestArgsProcessorDefaultsToCurrentMode(t *testing.T) {
 func TestArgsProcessorDefaultsToCPUSelection(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	invocation, err := processor.Process(nil)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestArgsProcessorDefaultsToCPUSelection(t *testing.T) {
 func TestArgsProcessorDefaultsToRAMSelection(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	invocation, err := processor.Process(nil)
 	if err != nil {
@@ -57,7 +57,7 @@ func TestArgsProcessorDefaultsToRAMSelection(t *testing.T) {
 func TestArgsProcessorParsesHistoryMode(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	invocation, err := processor.Process([]string{"--history"})
 	if err != nil {
@@ -73,7 +73,7 @@ func TestArgsProcessorParsesHistoryMode(t *testing.T) {
 func TestArgsProcessorParsesExplicitConfigPath(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	invocation, err := processor.Process([]string{"--config=/tmp/system-metrics-cli.conf"})
 	if err != nil {
@@ -89,7 +89,7 @@ func TestArgsProcessorParsesExplicitConfigPath(t *testing.T) {
 func TestArgsProcessorRejectsHistorySectionCombination(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	_, err := processor.Process([]string{"--history", "--cpu"})
 	if err == nil {
@@ -101,7 +101,7 @@ func TestArgsProcessorRejectsHistorySectionCombination(t *testing.T) {
 func TestArgsProcessorReturnsHelpRequested(t *testing.T) {
 	t.Parallel()
 
-	processor := NewArgsProcessor("/etc/liteNAS/system-metrics-cli.conf")
+	processor := NewArgsProcessor("/etc/lite-nas/system-metrics-cli.conf")
 
 	_, err := processor.Process([]string{"--help"})
 	if !errors.Is(err, ErrHelpRequested) {

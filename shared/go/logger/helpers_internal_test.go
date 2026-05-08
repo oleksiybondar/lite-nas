@@ -61,53 +61,29 @@ func TestNewHandlerRejectsMissingDependencies(t *testing.T) {
 func TestHandlerHandleReturnsFormatterError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("format failed")
-	handler, err := NewHandler(HandlerConfig{
-		Writer:    io.Discard,
-		Formatter: errFormatter{err: expectedErr},
-	})
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
-
-	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-	if err := handler.Handle(context.Background(), record); !errors.Is(err, expectedErr) {
-		t.Fatalf("Handle() error = %v, want %v", err, expectedErr)
-	}
+	formatterErr := errors.New("format failed")
+	assertHandlerHandleError(t, newFormatterErrorHandler(t, formatterErr), formatterErr)
 }
 
-func TestHandlerHandleReturnsShortWrite(t *testing.T) {
+func TestHandlerHandleReturnsShortWriteError(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler(HandlerConfig{
-		Writer:    shortWriter{},
-		Formatter: internalStubFormatter{},
-	})
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
-
-	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-	if err := handler.Handle(context.Background(), record); !errors.Is(err, io.ErrShortWrite) {
-		t.Fatalf("Handle() error = %v, want %v", err, io.ErrShortWrite)
-	}
+	assertHandlerHandleError(t, newShortWriteHandler(t), io.ErrShortWrite)
 }
 
 func TestHandlerHandleReturnsWriterError(t *testing.T) {
 	t.Parallel()
 
-	expectedErr := errors.New("write failed")
-	handler, err := NewHandler(HandlerConfig{
-		Writer:    errWriter{err: expectedErr},
-		Formatter: internalStubFormatter{},
-	})
-	if err != nil {
-		t.Fatalf("NewHandler() error = %v", err)
-	}
+	writerErr := errors.New("write failed")
+	assertHandlerHandleError(t, newWriterErrorHandler(t, writerErr), writerErr)
+}
+
+func assertHandlerHandleError(t *testing.T, handler *Handler, wantErr error) {
+	t.Helper()
 
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "sample", 0)
-	if err := handler.Handle(context.Background(), record); !errors.Is(err, expectedErr) {
-		t.Fatalf("Handle() error = %v, want %v", err, expectedErr)
+	if err := handler.Handle(context.Background(), record); !errors.Is(err, wantErr) {
+		t.Fatalf("Handle() error = %v, want %v", err, wantErr)
 	}
 }
 
@@ -173,4 +149,42 @@ func (internalStubFormatter) Format(record slog.Record, attrs []slog.Attr, _ Rec
 		buffer.WriteString(attr.Key)
 	}
 	return buffer.Bytes(), nil
+}
+
+func mustNewInternalHandler(t *testing.T, cfg HandlerConfig) *Handler {
+	t.Helper()
+
+	handler, err := NewHandler(cfg)
+	if err != nil {
+		t.Fatalf("NewHandler() error = %v", err)
+	}
+
+	return handler
+}
+
+func newFormatterErrorHandler(t *testing.T, err error) *Handler {
+	t.Helper()
+
+	return mustNewInternalHandler(t, HandlerConfig{
+		Writer:    io.Discard,
+		Formatter: errFormatter{err: err},
+	})
+}
+
+func newShortWriteHandler(t *testing.T) *Handler {
+	t.Helper()
+
+	return mustNewInternalHandler(t, HandlerConfig{
+		Writer:    shortWriter{},
+		Formatter: internalStubFormatter{},
+	})
+}
+
+func newWriterErrorHandler(t *testing.T, err error) *Handler {
+	t.Helper()
+
+	return mustNewInternalHandler(t, HandlerConfig{
+		Writer:    errWriter{err: err},
+		Formatter: internalStubFormatter{},
+	})
 }

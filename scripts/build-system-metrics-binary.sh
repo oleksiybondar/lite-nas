@@ -7,7 +7,6 @@ source "$SCRIPT_DIR/helpers/common.sh"
 
 cd "$LITE_NAS_REPO_ROOT"
 
-target_arch=""
 output_path=""
 
 usage() {
@@ -15,58 +14,34 @@ usage() {
 Usage: scripts/build-system-metrics-binary.sh [options]
 
 Options:
-  --arch=amd64|arm64  Target linux architecture. Defaults to current GOARCH.
   --output PATH       Output binary path. Defaults to .build/system-metrics/linux-<arch>/system-metrics
   -h, --help          Show this help.
 MSG
 }
 
-for arg in "$@"; do
-	case "$arg" in
-	--arch=amd64)
-		target_arch="amd64"
-		;;
-	--arch=arm64)
-		target_arch="arm64"
-		;;
-	--output=*)
-		output_path="${arg#--output=}"
-		;;
-	-h | --help)
-		usage
-		exit 0
-		;;
-	*)
-		log.error "Unknown option: $arg"
-		usage >&2
-		exit 64
-		;;
-	esac
-done
+args.parse "$@"
+if ! args.assertKnown output help h; then
+	log.error "Unknown option: --$(args.unknownKeys output help h | head -n 1)"
+	usage >&2
+	exit 64
+fi
+if args.has h || args.has help; then
+	usage
+	exit 0
+fi
+if args.has output && ! output_path="$(args.require_arg output)"; then
+	log.error "Missing value for --output"
+	usage >&2
+	exit 64
+fi
 
 log.requireCommand "go" "Install Go and retry."
 
-if [ -z "$target_arch" ]; then
-	target_arch="$(go env GOARCH)"
-fi
-
-if [ -z "$output_path" ]; then
-	output_path="$LITE_NAS_REPO_ROOT/.build/system-metrics/linux-${target_arch}/system-metrics"
-fi
+target_arch="$(build.resolveTargetArch)"
+output_path="$(build.prepareOutputPath "$output_path" "system-metrics" "system-metrics")"
 
 output_dir="$(dirname "$output_path")"
 mkdir -p "$output_dir"
 
-export GOCACHE="${GOCACHE:-${TMPDIR:-/tmp}/lite-nas-go-build}"
-mkdir -p "$GOCACHE"
-
-log.pushTask "Building system-metrics binary for linux/${target_arch}"
-(
-	cd "$LITE_NAS_SYSTEM_METRICS_MODULE"
-	CGO_ENABLED=0 GOOS=linux GOARCH="$target_arch" go build \
-		-ldflags="-s -w" \
-		-o "$output_path" .
-)
-log.popTask
-
-log.info "Built binary: $output_path"
+build.prepareGoCache
+build.goBinary "system-metrics" "$LITE_NAS_SYSTEM_METRICS_MODULE" "$output_path" 0 "$target_arch"

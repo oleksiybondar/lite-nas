@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/kucherenko/jscpd/master/schemas/jscpd-schema.json",
+  "threshold": 0.5,
+  "minLines": 8,
+  "minTokens": 50,
+  "format": ["bash"],
+  "reporters": ["console"],
+  "absolute": true,
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/logs/**",
+    "**/log.html",
+    "**/.cache/**",
+    "**/.build/**",
+    "**/.artifacts/**",
+    "**/*.lock",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/.venv/**"
+  ]
+}

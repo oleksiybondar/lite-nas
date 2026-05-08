@@ -4,65 +4,66 @@ import (
 	"context"
 
 	"lite-nas/services/system-metrics/modules"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
 )
 
 const (
-	systemMetricsConfigPath = "/etc/liteNAS/system-metrics.conf"
-	procStatPath            = "/proc/stat"
-	procMemInfoPath         = "/proc/meminfo"
+	packagedConfigPath = "/etc/lite-nas/system-metrics.conf"
+	procStatPath       = "/proc/stat"
+	procMemInfoPath    = "/proc/meminfo"
 
-	statsEventSubject = "system.metrics.events.stats"
-	statsRPCSubject   = "system.metrics.rpc.stats.get"
-	historyRPCSubject = "system.metrics.rpc.history.get"
-	serviceName       = "system-metrics"
+	serviceName = "system-metrics"
 )
 
-// run wires the service modules, registers RPC handlers, starts workers, and
-// serves processed snapshots until shutdown.
+// run assembles the system-metrics runtime, registers RPC handlers, starts the
+// workers, and serves processed snapshots until shutdown.
+//
+// Parameters:
+//   - ctx: process-lifetime context cancelled by OS signal handling
 func run(ctx context.Context) error {
-	infra, err := modules.NewInfraModule(systemMetricsConfigPath, serviceName)
+	infra, err := modules.NewInfraModule(packagedConfigPath, serviceName)
 	if err != nil {
 		return err
 	}
 	defer infra.Close()
 
-	channels := modules.NewChannelsModule(infra.Config().Metrics.HistorySize)
+	channels := modules.NewChannelsModule(infra.Config.Metrics.HistorySize)
 	ioModule, err := modules.NewIOModule(procStatPath, procMemInfoPath)
 	if err != nil {
 		return err
 	}
 
 	workerModule := modules.NewWorkersModule(
-		infra.Config().Metrics,
+		infra.Config.Metrics,
 		channels,
 		ioModule,
 	)
-	stateModule := modules.NewStateModule(infra.Config().Metrics.HistorySize)
-	if err := registerRPCHandlers(infra.Server(), stateModule.SnapshotStore()); err != nil {
+	stateModule := modules.NewStateModule(infra.Config.Metrics.HistorySize)
+	if err := registerRPCHandlers(infra.Server, stateModule.SnapshotStore); err != nil {
 		return err
 	}
 
 	startWorkers(ctx, workerModule)
 
-	infra.Logger().Info("system metrics service started", "config", systemMetricsConfigPath)
+	infra.Logger.Info("system metrics service started", "config", packagedConfigPath)
 
 	return serveSnapshots(
 		ctx,
-		channels.SystemSnapshots(),
-		stateModule.SnapshotStore(),
-		infra.Client(),
-		infra.Logger(),
+		channels.SystemSnapshots,
+		stateModule.SnapshotStore,
+		infra.Client,
+		infra.Logger,
 	)
 }
 
 // startWorkers starts the polling and processing workers for the service
 // runtime.
 func startWorkers(ctx context.Context, workerModule modules.Workers) {
-	pollingWorker := workerModule.Polling()
-	processingWorker := workerModule.Processing()
+	pollingWorker := workerModule.Polling
+	processingWorker := workerModule.Processing
 
 	pollingWorker.Start(ctx)
 	processingWorker.Start(ctx)
@@ -71,19 +72,22 @@ func startWorkers(ctx context.Context, workerModule modules.Workers) {
 // registerRPCHandlers registers the runtime RPC handlers for latest snapshot
 // and snapshot history queries.
 func registerRPCHandlers(server messaging.Server, store *modules.SnapshotStore) error {
-	if err := server.RegisterRPC(statsRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
+	if err := server.RegisterRPC(systemmetricscontract.SnapshotRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
 		snapshot, ok := store.Latest()
 		if !ok {
-			return map[string]any{}, nil
+			return systemmetricscontract.GetSnapshotResponse{Available: false}, nil
 		}
 
-		return snapshot, nil
+		return systemmetricscontract.GetSnapshotResponse{
+			Available: true,
+			Snapshot:  snapshot,
+		}, nil
 	}); err != nil {
 		return err
 	}
 
-	if err := server.RegisterRPC(historyRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
-		return store.List(), nil
+	if err := server.RegisterRPC(systemmetricscontract.HistoryRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
+		return systemmetricscontract.GetHistoryResponse{Items: store.List()}, nil
 	}); err != nil {
 		return err
 	}
@@ -130,7 +134,14 @@ func storeAndPublishSnapshot(
 	log sharedlogger.Logger,
 ) {
 	store.Add(snapshot)
-	if err := client.Publish(ctx, statsEventSubject, snapshot); err != nil {
-		log.Warn("failed to publish system metrics snapshot", "subject", statsEventSubject, "error", err)
+	event := systemmetricscontract.SnapshotUpdatedEvent{Snapshot: snapshot}
+	if err := client.Publish(ctx, systemmetricscontract.SnapshotEventSubject, event); err != nil {
+		log.Warn(
+			"failed to publish system metrics snapshot",
+			"subject",
+			systemmetricscontract.SnapshotEventSubject,
+			"error",
+			err,
+		)
 	}
 }

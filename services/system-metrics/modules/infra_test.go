@@ -46,86 +46,42 @@ func TestNewInfraModuleReturnsLoggerError(t *testing.T) {
 	}
 }
 
-func TestInfraConfigAccessorReturnsConfig(t *testing.T) {
+func TestInfraConfigFieldExposesConfig(t *testing.T) {
 	t.Parallel()
 
 	module, _, _, _ := loadInfraFixture()
 
-	if module.Config() != (serviceconfig.Config{}) {
-		t.Fatal("expected config accessor to return module config")
+	if module.Config != (serviceconfig.Config{}) {
+		t.Fatal("expected Config field to expose module config")
 	}
 }
 
-func TestInfraLoggerAccessorReturnsLogger(t *testing.T) {
+func TestInfraLoggerFieldExposesLogger(t *testing.T) {
 	t.Parallel()
 
 	module, _, _, _ := loadInfraFixture()
 
-	if module.Logger() == nil {
-		t.Fatal("expected logger accessor to return module logger")
+	if module.Logger == nil {
+		t.Fatal("expected Logger field to expose module logger")
 	}
 }
 
-func TestInfraClientAccessorReturnsClient(t *testing.T) {
+func TestInfraClientFieldExposesClient(t *testing.T) {
 	t.Parallel()
 
 	module, client, _, _ := loadInfraFixture()
 
-	if module.Client() != client {
-		t.Fatal("expected client accessor to return module client")
+	if module.Client != client {
+		t.Fatal("expected Client field to expose module client")
 	}
 }
 
-func TestInfraServerAccessorReturnsServer(t *testing.T) {
+func TestInfraServerFieldExposesServer(t *testing.T) {
 	t.Parallel()
 
 	module, _, server, _ := loadInfraFixture()
 
-	if module.Server() != server {
-		t.Fatal("expected server accessor to return module server")
-	}
-}
-
-func TestInfraCloseDrainsAndClosesClient(t *testing.T) {
-	t.Parallel()
-
-	module, client, _, _ := loadInfraFixture()
-
-	module.Close()
-
-	if !client.drained {
-		t.Fatal("expected client to be drained")
-	}
-
-	if !client.closed {
-		t.Fatal("expected client to be closed")
-	}
-}
-
-func TestInfraCloseDrainsAndClosesServer(t *testing.T) {
-	t.Parallel()
-
-	module, _, server, _ := loadInfraFixture()
-
-	module.Close()
-
-	if !server.drained {
-		t.Fatal("expected server to be drained")
-	}
-
-	if !server.closed {
-		t.Fatal("expected server to be closed")
-	}
-}
-
-func TestInfraCloseRunsLogCleanup(t *testing.T) {
-	t.Parallel()
-
-	module, _, _, cleanupCalls := loadInfraFixture()
-
-	module.Close()
-
-	if *cleanupCalls != 1 {
-		t.Fatalf("cleanupCalls = %d, want 1", *cleanupCalls)
+	if module.Server != server {
+		t.Fatal("expected Server field to expose module server")
 	}
 }

@@ -8,6 +8,6 @@ source "$SCRIPT_DIR/helpers/logger.sh"
 source "$SCRIPT_DIR/helpers/tool-paths.sh"
 
 cd "$(git rev-parse --show-toplevel)"
-log.pushTask "Running local CI static analysis checks"
+log.pushTask "Running local CI analysis checks"
 scripts/ci/check-all.sh
 log.popTask

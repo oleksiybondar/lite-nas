@@ -13,10 +13,16 @@ checks=(
 	"github-actions-analysis"
 	"markdown-analysis"
 	"shell-analysis"
+	"go-duplication-analysis"
+	"bash-duplication-analysis"
 	"js-ts-analysis"
+	"js-ts-test-coverage"
 	"go-analysis"
 	"go-test-coverage"
 	"package-analysis"
+	"python-analysis"
+	"python-test"
+	"python-duplication-analysis"
 )
 
 for check in "${checks[@]}"; do

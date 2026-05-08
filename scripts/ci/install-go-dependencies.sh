@@ -15,5 +15,9 @@ if [ "${#modules[@]}" -eq 0 ]; then
 fi
 
 log.pushTask "Installing CI Go analysis dependencies"
+if command -v apt-get >/dev/null 2>&1; then
+	sudo apt-get update
+	sudo apt-get install -y gcc libc6-dev libpam0g-dev
+fi
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 log.popTask

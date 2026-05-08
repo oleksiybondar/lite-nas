@@ -25,6 +25,12 @@ go.work
 go.work.sum
 .bin/
 .cache/
+.build/
+.venv/
+__pycache__/
+.pytest_cache/
+log.html
+logs/
 
 # env file
 .env

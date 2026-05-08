@@ -1,8 +1,21 @@
 # LiteNAS
 
-LiteNAS is a project intent for a lightweight, secure self-hosted platform for Linux with ZFS,
-monitoring, and configuration validation. It is conceived as a modular system built around small
-services to support extensible automation, security, and media capabilities.
+LiteNAS is a lightweight, security-oriented self-hosted platform for Linux that is being built as a
+set of small services, apps, and shared modules.
+
+The repository already contains the initial platform skeleton:
+
+- shared Go modules for logging, configuration, messaging, and metrics support
+- backend service slices for system metrics and authentication
+- a system metrics CLI app and browser-facing admin panel
+- NATS-based internal communication between services and consumers
+- a web gateway that serves packaged frontend assets and adapts browser API
+  calls to internal services
+- Debian packaging, deployment scripts, and CI/CD validation
+
+The broader platform vision still extends beyond what is implemented today. Storage management,
+configuration validation, deeper administration flows, and further hardening are being added
+incrementally on top of this working skeleton.
 
 ## Table of Contents
 
@@ -24,22 +37,23 @@ services to support extensible automation, security, and media capabilities.
 
 ## Overview
 
-LiteNAS started from a real home lab setup built to provide a secure and usable NAS on top of Linux
-and ZFS. That underlying setup exists today as a CLI-managed system. LiteNAS is the project to
-evolve those ideas and operational experience into a lightweight, extensible platform for managing
-storage, system configuration, and services in a more consistent and automated way.
+LiteNAS started from a real home lab system used for low-power Linux and ZFS-based storage. That
+operational baseline still matters, but the repository is no longer only a design sketch.
 
-Rather than being defined as a single-purpose NAS solution, LiteNAS is intended as a modular system
-composed of small, focused services. The project direction is to bring together storage management,
-monitoring, security validation, and automation into a unified self-hosted platform.
+The project now has an implemented first slice that seeds the platform architecture:
 
-The planned architecture follows a microservices-oriented model with event-driven communication,
-allowing components to remain loosely coupled while still working together as a cohesive system. A
-web-based interface is envisioned as the bridge between internal services and external access,
-making the platform usable without direct terminal interaction for routine tasks.
+- a shared internal module layer
+- multiple backend services
+- a CLI consumer app
+- a browser-facing web app and gateway
+- messaging-based service interaction over NATS
+- frontend build output consumed by deploy and package assembly
+- reproducible packaging, deployment, and install validation
+- CI/CD checks for analysis, build, test, packaging, and package installability
 
-At this stage, the repository primarily captures project intent, architectural direction, and design
-ideas. Implementation work is expected to be introduced incrementally as the project takes shape.
+This skeleton is intentionally low direct business value, but it is now broad enough to support
+future product branches without repeating the core build, deploy, service, gateway, and packaging
+bootstrap work.
 
 ## Goals & Philosophy
 
@@ -71,61 +85,103 @@ LiteNAS is built around a set of practical design principles:
 
 ## Architecture Overview
 
-LiteNAS is intended to evolve as a modular, event-driven platform composed of small, focused
-services rather than a single monolithic application. The goal is to keep the system lightweight,
-maintainable, and adaptable as new requirements emerge.
+LiteNAS is being built as a modular, event-driven platform composed of small, focused services
+rather than a single monolithic application.
 
-At its foundation, LiteNAS is planned to build on Linux and ZFS to provide core storage and system
-capabilities. Around that foundation, the platform is expected to grow with dedicated components
-responsible for areas such as monitoring, resource supervision, security checks, configuration
-validation, automation, and auxiliary services.
-
-The overall design favors loose coupling between components. Rather than concentrating all logic in
-one place, LiteNAS is intended to use service boundaries and event-driven communication so that
-responsibilities remain separated and the system can evolve incrementally over time.
-
-A web-based HMI is planned as the main user-facing entry point for administration and day-to-day
-interaction. Its role is not to replace the internal service model, but to provide a controlled
-interface to it, making the platform more usable without depending on direct terminal access for
-routine operations.
-
-The current reference environment is a working home lab deployment managed primarily through the
-CLI, but the architectural direction is intentionally broader. While Raspberry Pi hardware is one
-practical target, the platform is meant to remain portable across Linux-based systems and not depend
-on a single hardware profile.
-
-At a high level, LiteNAS can be viewed as consisting of:
+At a high level, the platform consists of:
 
 - **System layer**
   Linux, ZFS, storage devices, networking, and host-level configuration.
 
+- **Shared module layer**
+  Reusable Go packages for logging, configuration, messaging, metrics, and related runtime support.
+
 - **Service layer**
-  Focused components for monitoring, validation, security functions, automation, and auxiliary
-  capabilities.
+  Focused backend services added incrementally over time.
+
+- **App layer**
+  Consumer applications and later browser-facing frontend apps.
 
 - **Messaging layer**
-  Event-driven coordination between components, supporting separation of concerns and future
-  extensibility.
+  NATS-based communication used to keep service boundaries explicit and loosely coupled.
 
 - **Interface layer**
-  User-facing access through a web-based HMI and other controlled entry points.
+  Controlled entrypoints for CLI and later browser-facing administration.
 
-This architecture is expected to mature gradually as the project develops, with implementation
-details shaped by real operational needs rather than fixed upfront assumptions.
+The current implemented architecture is intentionally small, but it already reflects the intended
+direction: thin service boundaries, shared foundations, explicit messaging, and reproducible build
+and packaging flow.
+
+A dedicated auth authority keeps PAM-backed host authentication, token
+issuance, and emergency auth-state control out of the browser gateway.
 
 ## Monorepo Structure
 
-LiteNAS is intended to be organized as a monorepo so that core components, services, and shared
-logic can evolve together.
+LiteNAS is organized as a monorepo so that services, apps, packaging, CI/CD, and shared logic can
+evolve together.
 
-The exact structure has not yet been implemented and is expected to take shape as the project
-develops. Individual services and modules are expected to include their own documentation, with more
-detailed READMEs provided within subprojects where needed.
+The structure is already taking shape around a few main areas:
+
+- `shared/`
+  Shared Go modules used by multiple services and apps.
+
+- `services/`
+  Backend services and gateway components.
+
+- `apps/`
+  Consumer applications and frontend app projects.
+
+- `requirements/`
+  Requirement documents used to define services and apps before or alongside implementation.
+
+- `tests/`
+  Python HyperionTF system tests grouped by infra, CLI, API, and UI category.
+  These verify installed LiteNAS behavior above service-local unit,
+  integration, and contract tests.
+
+- `scripts/`
+  Build, test, CI, deployment, formatting, packaging, and developer helper scripts.
+
+- `packaging/`
+  Debian packaging templates, metadata, and supporting files.
+
+- `.github/`
+  CI workflows and reusable composite actions.
 
 ## Core Features
 
-LiteNAS is defined as an evolving platform, with capabilities expected to be added incrementally
-based on real-world usage. The following areas represent the intended core focus of the system:
+LiteNAS is an evolving platform. Some capabilities already exist in initial form, while others are
+still planned.
+
+Current implemented focus:
+
+- **Shared runtime and messaging foundations**
+  Reusable internal modules for logging, configuration, messaging, and metrics support.
+
+- **Monitoring seed slice**
+  An initial service/app slice used to establish service wiring, messaging flow, and packaging.
+
+- **Authentication authority**
+  `auth-service` owns PAM-backed host authentication, token issuance, and
+  auth-state events behind the internal messaging boundary.
+
+- **Event-driven service communication**
+  Internal communication over NATS using request/reply and event-oriented patterns.
+
+- **Browser-facing gateway and admin shell**
+  `web-gateway` serves packaged `admin-panel` assets and adapts browser-facing
+  `/api` auth and system metrics endpoints to internal service calls while
+  serving the SPA entrypoint for non-API browser navigation paths.
+
+- **Reproducible packaging and deployment**
+  Debian packaging, deployment scripts, frontend asset handoff, and install validation for the
+  current platform slice.
+
+- **CI/CD validation**
+  Analysis, build, test, package, frontend build, duplication, and installability checks wired into
+  the repository workflow.
+
+Planned expansion areas:
 
 - **ZFS-based storage management**
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient
@@ -146,8 +202,8 @@ based on real-world usage. The following areas represent the intended core focus
   Internal components are designed to communicate through an event-driven model, enabling loose
   coupling and extensibility.
 
-- **Web-based interface (HMI)**
-  A user-facing interface for interacting with the system without relying on direct terminal access.
+- **Web-based administration**
+  Richer browser-facing administration built on top of the gateway and admin-panel skeleton.
 
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
@@ -321,7 +377,8 @@ offering better control over performance and deployment.
 
 ### NATS
 
-NATS is a planned messaging backbone for event-driven communication between components.
+NATS is the selected messaging backbone for event-driven communication between components and is
+already used by the initial implemented platform slice.
 
 - **Simplicity**
   Minimal configuration and straightforward operational model.
@@ -444,36 +501,48 @@ that the platform remains both safe and practical for everyday use.
 
 ## Development Approach
 
-LiteNAS is intended to be developed incrementally, with a focus on building a solid foundation
+LiteNAS is developed incrementally, with a deliberate focus on building a reproducible foundation
 before introducing higher-level functionality.
 
-The development process starts from the system itself. Core infrastructure, security hardening, and
-baseline configuration are first established and validated manually in the reference environment.
-This ensures that the platform is grounded in a working and well-understood setup before automation
-is introduced.
+The development process starts from the system itself. Core infrastructure, packaging, service
+wiring, and baseline configuration are established first so later product work can build on a
+repeatable base instead of ad hoc local setup.
 
 ### Foundation First
 
 Rather than implementing complex features upfront, development focuses on small, reusable building
-blocks:
+blocks and infrastructure-completing slices:
 
 - Core system interactions
-- Basic service components
+- Basic service and app components
 - Simple and well-defined interfaces
+- Reproducible packaging and CI/CD flow
 
 This approach helps ensure that each part of the system remains understandable and reliable as the
 platform evolves.
 
+The current branch completes the broad skeleton pass: several services and apps
+can now be built, deployed, packaged, and validated together. Future branches
+can focus more directly on storage, administration workflows, policy behavior,
+and product value instead of re-establishing the runtime and release path.
+
 ### Code Quality and Tooling
 
-Early emphasis is intended for code quality, consistency, and maintainability:
+The repository already emphasizes code quality, consistency, and maintainability:
 
-- Linting and formatting rules should be defined from the start
-- Automated checks should be integrated into development workflows
-- Continuous integration pipelines are expected to enforce standards once implementation begins
+- Linting and formatting rules are defined from the start
+- Automated checks are integrated into development workflows
+- CI pipelines enforce analysis, build, test, and package validation
+- Repo-wide duplication checks are enforced for Go and shell code rather than
+  only within individual language-module boundaries
 
-A target level of test coverage is expected to be defined to help ensure reliability and reduce the
-risk of regressions.
+A target level of test coverage is used to help ensure reliability and reduce the risk of
+regressions.
+
+The repository also treats test duplication as real maintenance debt. Repeated
+test setup is expected to move into named helpers, fixture builders, and
+`testutil` packages when reuse crosses package, subproject, or module
+boundaries.
 
 ### Iterative Development
 
@@ -498,18 +567,42 @@ requiring major architectural changes.
 
 ## Subprojects & Documentation
 
-LiteNAS is intended to be structured as a monorepo containing multiple components and services that
-evolve together.
+The top-level repository now acts as both:
 
-As implementation begins, each subproject is expected to include its own documentation, with
-dedicated README files providing more detailed information about functionality, usage, and design
-decisions where applicable.
+- the high-level platform overview
+- the entry point to implemented subprojects and planning documents
 
-Until then, the top-level repository serves primarily as the project definition and architectural
-starting point.
+Useful starting points:
 
-Implementation notes and early project rationale are tracked in
-[`docs/development-notes.md`](docs/development-notes.md).
+- [`docs/development-notes.md`](docs/development-notes.md)
+  Why early slices are intentionally infrastructure-heavy and low immediate business value.
+
+- [`RELEASE_NOTES.md`](RELEASE_NOTES.md)
+  Release-level summary of what has already been established and what later slices add.
+
+- [`requirements/system-metrics.md`](requirements/system-metrics.md)
+  Example requirements for an initial backend service slice.
+
+- [`requirements/system-metrics-cli.md`](requirements/system-metrics-cli.md)
+  Example requirements for an initial consumer app slice.
+
+- [`requirements/web-gateway.md`](requirements/web-gateway.md)
+  Requirements for the browser-facing gateway.
+
+- [`requirements/admin-panel.md`](requirements/admin-panel.md)
+  Requirements for the browser app and BFF session behavior.
+
+- [`requirements/auth-service.md`](requirements/auth-service.md)
+  Requirements for the PAM-backed authentication authority.
+
+- [`services/web-gateway/README.md`](services/web-gateway/README.md)
+  Architectural role and boundaries of the browser-facing gateway.
+
+- [`services/auth/README.md`](services/auth/README.md)
+  Architectural role and boundaries of the auth service.
+
+- [`apps/admin-panel/README.md`](apps/admin-panel/README.md)
+  Structure, build flow, and packaging role of the browser application.
 
 ## License
 

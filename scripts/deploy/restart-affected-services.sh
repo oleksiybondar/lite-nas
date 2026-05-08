@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-affected_services=(nats-server)
+affected_services=(
+	nats-server
+	nginx
+)
 systemd_reloaded=0
 
 deploy.reloadSystemdOnce() {
@@ -32,11 +35,29 @@ deploy.restartService() {
 	exit 1
 }
 
+deploy.enableService() {
+	local service="$1"
+
+	if command -v systemctl >/dev/null 2>&1; then
+		deploy.reloadSystemdOnce
+		systemctl enable "$service"
+		return
+	fi
+
+	if command -v service >/dev/null 2>&1; then
+		return
+	fi
+
+	log.error "Missing service manager; cannot enable $service."
+	exit 1
+}
+
 deploy.restartAffectedServices() {
 	local service
 
-	log.pushTask "Restarting affected services"
+	log.pushTask "Enabling and restarting affected services"
 	for service in "${affected_services[@]}"; do
+		deploy.enableService "$service"
 		deploy.restartService "$service"
 	done
 	log.popTask

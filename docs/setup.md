@@ -106,10 +106,9 @@ Build an installable Linux binary artifact for the local machine architecture:
 ./scripts/build-system-metrics-binary.sh
 ```
 
-Override the target architecture or output path when needed:
+Override the output path when needed:
 
 ```bash
-./scripts/build-system-metrics-binary.sh --arch=arm64
 ./scripts/build-system-metrics-binary.sh --output=/tmp/system-metrics
 ```
 
@@ -122,16 +121,15 @@ The default output path is:
 ## Build the system-metrics CLI binary
 
 Build the read-only NATS client used to request the latest snapshot or the
-snapshot history:
+snapshot history for the local machine architecture:
 
 ```bash
 ./scripts/build-system-metrics-cli-binary.sh
 ```
 
-Override the target architecture or output path when needed:
+Override the output path when needed:
 
 ```bash
-./scripts/build-system-metrics-cli-binary.sh --arch=arm64
 ./scripts/build-system-metrics-cli-binary.sh --output=/tmp/system-metrics-cli
 ```
 
@@ -144,16 +142,24 @@ The default output path is:
 The default client config template is deployed to:
 
 ```text
-/etc/liteNAS/system-metrics-cli.conf
+/etc/lite-nas/system-metrics-cli.conf
+```
+
+The deployed CLI config and `lite-nas-system-metrics-cli` transport client
+certificate are readable by local users so the CLI can be run directly from a
+normal shell. The deployment also initializes:
+
+```text
+/var/log/lite-nas/system-metrics-cli.log
 ```
 
 Usage:
 
 ```bash
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --cpu
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --ram
-sudo ./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --history
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --cpu
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --ram
+./.build/system-metrics-cli/linux-<arch>/system-metrics-cli --history
 ```
 
 ## Deploy the system-metrics CLI app
@@ -186,7 +192,7 @@ Install an already-built binary instead of building during deployment:
 sudo ./scripts/deploy-system-metrics.sh --binary /tmp/system-metrics
 ```
 
-To validate file installation and unit rendering without starting the service:
+To validate file installation and unit deployment without starting the service:
 
 ```bash
 sudo ./scripts/deploy-system-metrics.sh --no-start
@@ -195,17 +201,15 @@ sudo ./scripts/deploy-system-metrics.sh --no-start
 By default, the deployment uses:
 
 - binary path `/usr/libexec/lite-nas/system-metrics`
-- config path `/etc/liteNAS/system-metrics.conf`
-- log path `/var/log/liteNAS/system-metrics.log`
+- config path `/etc/lite-nas/system-metrics.conf`
+- log path `/var/log/lite-nas/system-metrics.log`
 - systemd service `lite-nas-system-metrics.service`
 - runtime user `lite-nas-system-metrics`
 - runtime group `lite-nas-system-metrics`
 - supplementary config group `lite-nas`
 
-The installed systemd unit is rendered from a template. Placeholder values such
-as `@SYSTEM_METRICS_RUNTIME_USER@` are not used literally on the machine; the
-deploy script replaces them with the configured runtime values before writing
-the final unit file under `/lib/systemd/system/`.
+The installed systemd unit is deployed under `/etc/systemd/system/` with the
+repository-managed LiteNAS defaults.
 
 ## Build Debian packages
 
@@ -215,30 +219,50 @@ Build the current LiteNAS package set:
 ./scripts/package/build-all-debs.sh --version=0.1.0+local
 ```
 
-Build the architecture-specific LiteNAS package directly when needed:
+Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
-./scripts/package/build-lite-nas-deb.sh --arch=arm64 --version=0.1.0+local
-./scripts/package/build-lite-nas-deb.sh --arch=amd64 --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
+./scripts/package/build-lite-nas-deb.sh --version=0.1.0+local
+./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
 ```
 
-The package output currently contains one architecture-specific package:
+Build only the browser app assets:
+
+```bash
+./scripts/build-admin-panel.sh
+```
+
+By default this writes the Vite build output to `.build/admin-panel`. The
+gateway deploy and package flows normalize that output into the flat static
+asset layout served from `/usr/share/lite-nas/web-gateway/assets`.
+
+The package output currently contains one native-architecture package:
 
 - `lite-nas`: bootstrap/profile package that also bundles the system metrics service and CLI binaries
 
 The `lite-nas` package:
 
-- depends on `zfsutils-linux`, `nats-server`, `openssl`, and `systemd`
-- recommends future hardening packages such as `aide`, `clamav`, `ufw`, and `usbguard`
+- depends on `aide`, `libpam0g`, `zfsutils-linux`, `nats-server`, `nginx`,
+  `openssl`, `systemd`, and `ufw`
+- installs the AIDE binary as a platform dependency, but LiteNAS does not
+  initialize an AIDE database or use the distribution default AIDE config during
+  package installation
+- recommends future hardening packages such as `clamav` and `usbguard`
 - shows a GPLv3 notice during installation
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration
 - rotates or creates NATS certificates only when one or more expected files are missing or stale
-- stores the shared CA under `/etc/liteNAS/certificates/root-ca.crt`
-- stores service certificates under `/etc/liteNAS/certificates/<service>/`
+- rotates or creates the auth token signing certificate when it is missing
+- stores the shared transport CA under `/etc/lite-nas/certificates/transport/root-ca.crt`
+- stores service NATS client certificates under
+  `/etc/lite-nas/certificates/transport/<service>/`
+- stores auth token signing material under `/etc/lite-nas/certificates/auth/`
+- grants the `users` group read-only access to the system metrics CLI config
+  and client certificate by default
 
-The `lite-nas` package installs the system metrics service and CLI app under
-that profile.
+The `lite-nas` package installs the auth service, system metrics service,
+system metrics CLI app, web gateway, and packaged admin-panel assets under that
+profile.
 
 Install a built package with dependency resolution:
 
@@ -254,7 +278,7 @@ them automatically.
 Lint a built package with:
 
 ```bash
-./scripts/package/lint-system-metrics-deb.sh .build/packages/lite-nas_0.1.0_amd64.deb
+./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.1.0_amd64.deb
 ```
 
 ## Rotate NATS certificates
@@ -271,6 +295,8 @@ By default, client certificates are generated for:
 ```text
 lite-nas-system-metrics
 lite-nas-system-metrics-cli
+lite-nas-web-gateway
+lite-nas-auth-service
 ```
 
 Override the list with repeated `--user` options:
@@ -280,9 +306,23 @@ sudo ./scripts/rotate-nats-certificates.sh --user lite-nas-system-metrics --user
 ```
 
 The script stores NATS server CA and server certificate material under
-`/etc/nats-server/certificates`, the shared LiteNAS CA under
-`/etc/liteNAS/certificates`, and service client certificate material under
-`/etc/liteNAS/certificates/<service>/`.
+`/etc/nats-server/certificates`, publishes the shared transport CA to
+`/etc/lite-nas/certificates/transport/root-ca.crt`, and stores service client
+certificate material under `/etc/lite-nas/certificates/transport/<service>/`.
+
+## Rotate auth token certificates
+
+Create or reuse the Ed25519 JWT signing key and certificate used by the auth
+service and web gateway:
+
+```bash
+sudo ./scripts/rotate-auth-token-certificates.sh --if-missing
+```
+
+The script stores `token-signing.key` and `token-signing.crt` under
+`/etc/lite-nas/certificates/auth/`. The private key is readable only by root;
+the certificate is readable by the shared LiteNAS group so gateway services can
+verify access tokens.
 
 ## Git hooks
 
@@ -327,6 +367,12 @@ This calls the same analysis scripts used by GitHub Actions. It expects local
 developer dependencies to already be installed with
 `./scripts/install-dev-dependencies.sh`.
 
+Static analysis jobs validate repository-owned source files, templates, and
+configuration files. They must not depend on LiteNAS already being installed on
+the developer machine or CI runner. Checks that need real installed paths such
+as `/usr/libexec/lite-nas/*`, `/etc/lite-nas/*`, or running services belong in
+package install validation, post-install validation, or top-level system tests.
+
 `./scripts/run-ci.sh` remains as a compatibility wrapper around
 `./scripts/run-ci-analysis.sh`.
 
@@ -342,6 +388,8 @@ Run the local CI test and coverage checks:
 ./scripts/run-ci-test.sh
 ```
 
+This includes admin-panel unit tests through `scripts/test-admin-panel.sh`.
+
 Run Markdown analysis:
 
 ```bash
@@ -352,6 +400,13 @@ Run JS/TS/JSON analysis:
 
 ```bash
 ./scripts/ci/js-ts-analysis.sh
+```
+
+Build or test the browser app directly:
+
+```bash
+./scripts/build-admin-panel.sh
+./scripts/test-admin-panel.sh
 ```
 
 Run Go analysis:
@@ -366,6 +421,18 @@ Run shell analysis:
 ./scripts/ci/shell-analysis.sh
 ```
 
+Run repo-wide Go duplication analysis:
+
+```bash
+./scripts/ci/go-duplication-analysis.sh
+```
+
+Run repo-wide shell duplication analysis:
+
+```bash
+./scripts/ci/bash-duplication-analysis.sh
+```
+
 ## CI scripts
 
 Reusable CI scripts live in `scripts/ci/`.
@@ -375,6 +442,8 @@ Analysis scripts are shared by local on-demand checks and GitHub Actions:
 - `github-actions-analysis.sh`
 - `markdown-analysis.sh`
 - `shell-analysis.sh`
+- `go-duplication-analysis.sh`
+- `bash-duplication-analysis.sh`
 - `js-ts-analysis.sh`
 - `go-analysis.sh`
 
@@ -393,9 +462,12 @@ scripts work from any launch path.
 
 ## CI static analysis
 
-GitHub Actions runs separate static analysis jobs for Markdown, shell, JS/TS,
-Go, and GitHub Actions workflows. Jobs explicitly pass when no matching files
-or Go modules exist.
+GitHub Actions runs separate static analysis jobs for Markdown, shell, Go
+duplication, shell duplication, JS/TS, Go, and GitHub Actions workflows. Jobs
+explicitly pass when no matching files or Go modules exist.
+
+PR validation and the main package gate also run real JS/TS build and unit test
+jobs for the admin-panel application.
 
 CI workflow order:
 
@@ -406,7 +478,9 @@ CI workflow order:
    on `main`.
 
 `Main pipeline` uploads the built `system-metrics` binaries as short-lived
-workflow artifacts together with the built `system-metrics-cli` binaries.
+workflow artifacts together with the built `system-metrics-cli`,
+`auth-service`, `web-gateway`, and `admin-panel` frontend asset artifacts. The
+downstream package job consumes those artifacts when assembling the `.deb`.
 GitHub Actions only supports whole-day retention values, so the workflow uses
 the minimum supported retention of 1 day.
 
@@ -427,6 +501,10 @@ protection rules, GitHub will run the stub without pausing.
 
 Duplication policy:
 
-- Go duplication is enforced by `golangci-lint` using `dupl`.
+- Repo-wide Go duplication is enforced by `jscpd`, which scans the repository
+  as a single tree rather than respecting `go.mod` boundaries.
+- Repo-wide shell duplication is enforced by `jscpd`.
+- Go duplication is also enforced inside individual Go modules by
+  `golangci-lint` using `dupl`.
 - JS/TS duplication is enforced by `jscpd` in CI only.
 - JS/TS duplication is not part of pre-commit hooks.

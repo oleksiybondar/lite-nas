@@ -1,0 +1,44 @@
+package routes
+
+import (
+	"net/http"
+
+	"lite-nas/services/web-gateway/middlewares"
+	"lite-nas/services/web-gateway/modules"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
+	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+)
+
+// NewRouter creates the browser-facing root router for the web gateway and
+// mounts the route slices owned by each gateway area.
+//
+// Parameters:
+//   - serviceName: API title exposed through the generated Huma documents
+//   - version: API version exposed through the generated Huma documents
+//   - controllerModule: controller dependencies mounted into route slices
+//   - authentication: authentication middleware configuration
+func NewRouter(
+	serviceName string,
+	version string,
+	controllerModule modules.Controllers,
+	authentication middlewares.AuthenticationOptions,
+) http.Handler {
+	root := chi.NewMux()
+	root.Use(chimiddleware.RequestID)
+	root.Use(chimiddleware.RealIP)
+	root.Use(chimiddleware.Recoverer)
+
+	apiRouter := chi.NewMux()
+	api := humachi.New(apiRouter, huma.DefaultConfig(serviceName, version))
+
+	mountAssetsRouter(root, controllerModule)
+	mountAuthRouter(api, controllerModule, authentication)
+	mountSystemMetricsRouter(api, controllerModule, authentication)
+	root.Mount("/api", apiRouter)
+	mountIndexRouter(root, controllerModule)
+
+	return root
+}

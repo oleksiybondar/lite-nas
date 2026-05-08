@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"lite-nas/services/system-metrics/modules"
-	"lite-nas/shared/messaging"
+	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/metrics"
 )
 
@@ -16,18 +16,7 @@ import (
 func TestServeSnapshotsStoresAndPublishesSnapshot(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(2).SnapshotStore()
-	client := &recordingClient{}
-	log := &recordingLogger{}
-	input := make(chan metrics.SystemSnapshot, 1)
-	snapshot := metrics.SystemSnapshot{Timestamp: time.Unix(100, 0)}
-
-	input <- snapshot
-	close(input)
-
-	if err := serveSnapshots(context.Background(), input, store, client, log); err != nil {
-		t.Fatalf("serveSnapshots() error = %v", err)
-	}
+	store, client, _, snapshot := runServeSnapshotsFixture(t, nil, time.Unix(100, 0))
 
 	latest, ok := store.Latest()
 	if !ok {
@@ -42,8 +31,8 @@ func TestServeSnapshotsStoresAndPublishesSnapshot(t *testing.T) {
 		t.Fatalf("publishCalls = %d, want 1", len(client.publishCalls))
 	}
 
-	if client.publishCalls[0].subject != statsEventSubject {
-		t.Fatalf("publish subject = %q, want %q", client.publishCalls[0].subject, statsEventSubject)
+	if client.publishCalls[0].subject != systemmetricscontract.SnapshotEventSubject {
+		t.Fatalf("publish subject = %q, want %q", client.publishCalls[0].subject, systemmetricscontract.SnapshotEventSubject)
 	}
 }
 
@@ -51,18 +40,7 @@ func TestServeSnapshotsStoresAndPublishesSnapshot(t *testing.T) {
 func TestServeSnapshotsStoresSnapshotWhenPublishFails(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(2).SnapshotStore()
-	client := &recordingClient{publishErr: errors.New("publish failed")}
-	log := &recordingLogger{}
-	input := make(chan metrics.SystemSnapshot, 1)
-	snapshot := metrics.SystemSnapshot{Timestamp: time.Unix(101, 0)}
-
-	input <- snapshot
-	close(input)
-
-	if err := serveSnapshots(context.Background(), input, store, client, log); err != nil {
-		t.Fatalf("serveSnapshots() error = %v", err)
-	}
+	store, _, log, snapshot := runServeSnapshotsFixture(t, errors.New("publish failed"), time.Unix(101, 0))
 
 	latest, ok := store.Latest()
 	if !ok {
@@ -81,7 +59,7 @@ func TestServeSnapshotsStoresSnapshotWhenPublishFails(t *testing.T) {
 func TestServeSnapshotsReturnsContextErrorOnCancellation(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(1).SnapshotStore()
+	store := newSnapshotStore(1)
 	client := &recordingClient{}
 	log := &recordingLogger{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,24 +97,12 @@ func TestRegisterRPCHandlersStatsReturnsEmptySnapshotBeforeData(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := newSnapshotStore(2)
+	mustRegisterRPCHandlers(t, server, store)
+	snapshotResponse := mustInvokeSnapshotRPC(t, server)
 
-	if err := registerRPCHandlers(server, store); err != nil {
-		t.Fatalf("registerRPCHandlers() error = %v", err)
-	}
-
-	response, err := server.rpcHandlers[statsRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("stats handler error = %v", err)
-	}
-
-	emptySnapshot, ok := response.(map[string]any)
-	if !ok {
-		t.Fatalf("stats response type = %T, want map[string]any", response)
-	}
-
-	if len(emptySnapshot) != 0 {
-		t.Fatalf("stats response len = %d, want 0", len(emptySnapshot))
+	if snapshotResponse.Available {
+		t.Fatal("stats response Available = true, want false")
 	}
 }
 
@@ -145,26 +111,18 @@ func TestRegisterRPCHandlersStatsReturnsLatestSnapshot(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := newSnapshotStore(2)
 	snapshot := metrics.SystemSnapshot{Timestamp: time.Unix(102, 0)}
 	store.Add(snapshot)
+	mustRegisterRPCHandlers(t, server, store)
+	snapshotResponse := mustInvokeSnapshotRPC(t, server)
 
-	if err := registerRPCHandlers(server, store); err != nil {
-		t.Fatalf("registerRPCHandlers() error = %v", err)
+	if !snapshotResponse.Available {
+		t.Fatal("stats response Available = false, want true")
 	}
 
-	response, err := server.rpcHandlers[statsRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("stats handler error = %v", err)
-	}
-
-	gotSnapshot, ok := response.(metrics.SystemSnapshot)
-	if !ok {
-		t.Fatalf("stats response type = %T, want metrics.SystemSnapshot", response)
-	}
-
-	if !reflect.DeepEqual(gotSnapshot, snapshot) {
-		t.Fatalf("stats response = %#v, want %#v", gotSnapshot, snapshot)
+	if !reflect.DeepEqual(snapshotResponse.Snapshot, snapshot) {
+		t.Fatalf("stats response = %#v, want %#v", snapshotResponse.Snapshot, snapshot)
 	}
 }
 
@@ -173,24 +131,12 @@ func TestRegisterRPCHandlersHistoryReturnsEmptyListBeforeData(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(2).SnapshotStore()
+	store := newSnapshotStore(2)
+	mustRegisterRPCHandlers(t, server, store)
+	historyResponse := mustInvokeHistoryRPC(t, server)
 
-	if err := registerRPCHandlers(server, store); err != nil {
-		t.Fatalf("registerRPCHandlers() error = %v", err)
-	}
-
-	response, err := server.rpcHandlers[historyRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("history handler error = %v", err)
-	}
-
-	history, ok := response.([]metrics.SystemSnapshot)
-	if !ok {
-		t.Fatalf("history response type = %T, want []metrics.SystemSnapshot", response)
-	}
-
-	if len(history) != 0 {
-		t.Fatalf("history len = %d, want 0", len(history))
+	if len(historyResponse.Items) != 0 {
+		t.Fatalf("history len = %d, want 0", len(historyResponse.Items))
 	}
 }
 
@@ -199,29 +145,18 @@ func TestRegisterRPCHandlersHistoryReturnsChronologicalHistory(t *testing.T) {
 	t.Parallel()
 
 	server := &recordingServer{}
-	store := modules.NewStateModule(3).SnapshotStore()
+	store := newSnapshotStore(3)
 	first := metrics.SystemSnapshot{Timestamp: time.Unix(103, 0)}
 	second := metrics.SystemSnapshot{Timestamp: time.Unix(104, 0)}
 	store.Add(first)
 	store.Add(second)
 
-	if err := registerRPCHandlers(server, store); err != nil {
-		t.Fatalf("registerRPCHandlers() error = %v", err)
-	}
-
-	response, err := server.rpcHandlers[historyRPCSubject](context.Background(), messaging.Envelope{})
-	if err != nil {
-		t.Fatalf("history handler error = %v", err)
-	}
-
-	history, ok := response.([]metrics.SystemSnapshot)
-	if !ok {
-		t.Fatalf("history response type = %T, want []metrics.SystemSnapshot", response)
-	}
+	mustRegisterRPCHandlers(t, server, store)
+	historyResponse := mustInvokeHistoryRPC(t, server)
 
 	wantHistory := []metrics.SystemSnapshot{first, second}
-	if !reflect.DeepEqual(history, wantHistory) {
-		t.Fatalf("history = %#v, want %#v", history, wantHistory)
+	if !reflect.DeepEqual(historyResponse.Items, wantHistory) {
+		t.Fatalf("history = %#v, want %#v", historyResponse.Items, wantHistory)
 	}
 }
 
@@ -230,10 +165,10 @@ func TestRegisterRPCHandlersReturnsStatsRegistrationError(t *testing.T) {
 
 	expectedErr := errors.New("register failed")
 	server := &recordingServer{
-		registerRPCErrors: map[string]error{statsRPCSubject: expectedErr},
+		registerRPCErrors: map[string]error{systemmetricscontract.SnapshotRPCSubject: expectedErr},
 	}
 
-	err := registerRPCHandlers(server, modules.NewStateModule(1).SnapshotStore())
+	err := registerRPCHandlers(server, newSnapshotStore(1))
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("registerRPCHandlers() error = %v, want %v", err, expectedErr)
 	}
@@ -244,10 +179,10 @@ func TestRegisterRPCHandlersReturnsHistoryRegistrationError(t *testing.T) {
 
 	expectedErr := errors.New("register failed")
 	server := &recordingServer{
-		registerRPCErrors: map[string]error{historyRPCSubject: expectedErr},
+		registerRPCErrors: map[string]error{systemmetricscontract.HistoryRPCSubject: expectedErr},
 	}
 
-	err := registerRPCHandlers(server, modules.NewStateModule(1).SnapshotStore())
+	err := registerRPCHandlers(server, newSnapshotStore(1))
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("registerRPCHandlers() error = %v, want %v", err, expectedErr)
 	}
@@ -257,7 +192,7 @@ func TestRegisterRPCHandlersReturnsHistoryRegistrationError(t *testing.T) {
 func TestStoreAndPublishSnapshotStoresLatestSnapshot(t *testing.T) {
 	t.Parallel()
 
-	store := modules.NewStateModule(1).SnapshotStore()
+	store := newSnapshotStore(1)
 	client := &recordingClient{}
 	log := &recordingLogger{}
 	snapshot := metrics.SystemSnapshot{Timestamp: time.Unix(105, 0)}
@@ -272,4 +207,27 @@ func TestStoreAndPublishSnapshotStoresLatestSnapshot(t *testing.T) {
 	if !reflect.DeepEqual(latest, snapshot) {
 		t.Fatalf("Latest() = %#v, want %#v", latest, snapshot)
 	}
+}
+
+func runServeSnapshotsFixture(
+	t *testing.T,
+	publishErr error,
+	timestamp time.Time,
+) (*modules.SnapshotStore, *recordingClient, *recordingLogger, metrics.SystemSnapshot) {
+	t.Helper()
+
+	store := newSnapshotStore(2)
+	client := &recordingClient{publishErr: publishErr}
+	log := &recordingLogger{}
+	input := make(chan metrics.SystemSnapshot, 1)
+	snapshot := metrics.SystemSnapshot{Timestamp: timestamp}
+
+	input <- snapshot
+	close(input)
+
+	if err := serveSnapshots(context.Background(), input, store, client, log); err != nil {
+		t.Fatalf("serveSnapshots() error = %v", err)
+	}
+
+	return store, client, log, snapshot
 }

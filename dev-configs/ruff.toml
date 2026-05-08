@@ -1,0 +1,32 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "S",   # flake8-bandit (security)
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T20", # flake8-print
+    "PT",  # flake8-pytest-style
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "PIE", # flake8-pie
+    "PL",  # pylint
+    "TRY", # tryceratops
+    "RUF", # ruff-specific
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"] # pytest assert statements are expected
+
+[lint.isort]
+known-first-party = ["tests"]

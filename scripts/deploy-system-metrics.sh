@@ -9,7 +9,6 @@ source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 
 binary_path=""
 should_start=1
-target_arch=""
 should_bootstrap=1
 
 while [ "$#" -gt 0 ]; do
@@ -22,10 +21,6 @@ while [ "$#" -gt 0 ]; do
 		fi
 		binary_path="$2"
 		shift 2
-		;;
-	--arch=amd64 | --arch=arm64)
-		target_arch="${1#--arch=}"
-		shift
 		;;
 	--no-start)
 		should_start=0
@@ -57,9 +52,6 @@ if [ -z "$binary_path" ]; then
 
 	binary_path="$tmp_dir/system-metrics"
 	build_args=("--output=$binary_path")
-	if [ -n "$target_arch" ]; then
-		build_args+=("--arch=$target_arch")
-	fi
 
 	log.pushTask "Building system-metrics deploy artifact"
 	"$ENTRYPOINT_DIR/build-system-metrics-binary.sh" "${build_args[@]}"
@@ -74,32 +66,8 @@ else
 	log.info "Skipping LiteNAS bootstrap."
 fi
 
-log.pushTask "Preparing system-metrics service identity"
-deploy.systemMetrics.ensureRuntimeUser
+log.pushTask "Deploying system-metrics service"
+deploy.systemMetrics.deploy "$binary_path" "$should_start"
 log.popTask
-
-log.pushTask "Installing system-metrics binary"
-deploy.systemMetrics.installBinary "$binary_path"
-log.popTask
-
-log.pushTask "Installing system-metrics config"
-deploy.systemMetrics.installConfig
-log.popTask
-
-log.pushTask "Preparing system-metrics log target"
-deploy.systemMetrics.installLogTarget
-log.popTask
-
-log.pushTask "Installing system-metrics service unit"
-deploy.systemMetrics.installUnitFile
-log.popTask
-
-if [ "$should_start" -eq 1 ]; then
-	log.pushTask "Enabling and starting system-metrics service"
-	deploy.systemMetrics.enableAndStart
-	log.popTask
-else
-	log.info "Skipping service enable/start."
-fi
 
 log.info "system-metrics deployment completed."

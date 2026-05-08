@@ -7,34 +7,25 @@ import (
 	"gopkg.in/ini.v1"
 
 	"lite-nas/shared/config"
+	"lite-nas/shared/testutil/testcasetest"
 )
 
 func TestLoadMessagingConfigParsedFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		name string
-		got  func(config.MessagingConfig) any
-		want any
-	}{
-		{name: "url", got: func(cfg config.MessagingConfig) any { return cfg.URL }, want: "nats://localhost:4222"},
-		{name: "client name", got: func(cfg config.MessagingConfig) any { return cfg.ClientName }, want: "system-metrics"},
-		{name: "ca path", got: func(cfg config.MessagingConfig) any { return cfg.CA }, want: "/tmp/ca.pem"},
-		{name: "cert path", got: func(cfg config.MessagingConfig) any { return cfg.Cert }, want: "/tmp/cert.pem"},
-		{name: "key path", got: func(cfg config.MessagingConfig) any { return cfg.Key }, want: "/tmp/key.pem"},
-		{name: "timeout", got: func(cfg config.MessagingConfig) any { return cfg.Timeout }, want: 8 * time.Second},
+	testCases := []testcasetest.FieldCase[config.MessagingConfig]{
+		{Name: "url", Got: func(cfg config.MessagingConfig) any { return cfg.URL }, Want: "nats://localhost:4222"},
+		{Name: "client name", Got: func(cfg config.MessagingConfig) any { return cfg.ClientName }, Want: "system-metrics"},
+		{Name: "ca path", Got: func(cfg config.MessagingConfig) any { return cfg.CA }, Want: "/tmp/ca.pem"},
+		{Name: "cert path", Got: func(cfg config.MessagingConfig) any { return cfg.Cert }, Want: "/tmp/cert.pem"},
+		{Name: "key path", Got: func(cfg config.MessagingConfig) any { return cfg.Key }, Want: "/tmp/key.pem"},
+		{Name: "timeout", Got: func(cfg config.MessagingConfig) any { return cfg.Timeout }, Want: 8 * time.Second},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			cfg := loadMessagingConfigFixture(t, validMessagingConfigINI())
-			if got := testCase.got(cfg); got != testCase.want {
-				t.Fatalf("%s = %#v, want %#v", testCase.name, got, testCase.want)
-			}
-		})
-	}
+	testcasetest.RunFieldCases(t, func(t *testing.T) config.MessagingConfig {
+		t.Helper()
+		return loadMessagingConfigFixture(t, validMessagingConfigINI())
+	}, testCases)
 }
 
 func TestLoadMessagingConfigUsesDefaultTimeout(t *testing.T) {

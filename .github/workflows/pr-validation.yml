@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   github-actions-analysis:
     name: GitHub Actions analysis
@@ -39,6 +42,38 @@ jobs:
       - name: Run shellcheck and shfmt
         run: scripts/ci/shell-analysis.sh
 
+  go-duplication-analysis:
+    name: Go duplication analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run repo-wide Go duplication analysis
+        run: scripts/ci/go-duplication-analysis.sh
+
+  bash-duplication-analysis:
+    name: Shell duplication analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run repo-wide shell duplication analysis
+        run: scripts/ci/bash-duplication-analysis.sh
+
   package-analysis:
     name: Package analysis
     runs-on: ubuntu-latest
@@ -64,8 +99,12 @@ jobs:
         module:
           - name: Shared Go
             dir: ./shared/go
+          - name: Auth service
+            dir: ./services/auth
           - name: System metrics service
             dir: ./services/system-metrics
+          - name: Web gateway service
+            dir: ./services/web-gateway
           - name: System metrics CLI app
             dir: ./apps/system-metrics-cli
     steps:
@@ -118,29 +157,98 @@ jobs:
       - name: Run JS/TS analysis
         run: scripts/ci/js-ts-analysis.sh
 
+  python-analysis:
+    name: Python analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python tooling
+        run: scripts/ci/install-python-dependencies.sh
+
+      - name: Run Python analysis
+        run: scripts/ci/python-analysis.sh
+
+  python-duplication-analysis:
+    name: Python duplication analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Run Python duplication analysis
+        run: scripts/ci/python-duplication-analysis.sh
+
   js-ts-build:
     name: JS/TS build
     runs-on: ubuntu-latest
     needs:
       - js-ts-analysis
     steps:
-      - name: Placeholder for future JS/TS app build lane
-        run: echo "No JS/TS app build is defined in this repository yet."
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Build admin-panel
+        run: scripts/build-admin-panel.sh
+
+      - name: Verify admin-panel asset output
+        run: |
+          test -f .build/admin-panel/index.html
+          test -f .build/admin-panel/assets/index.css
+          test -f .build/admin-panel/assets/index.js
+
+      - name: Upload admin-panel asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-panel-assets
+          path: .build/admin-panel
+          if-no-files-found: error
+          retention-days: 1
 
   js-ts-test:
     name: JS/TS test
     runs-on: ubuntu-latest
     needs:
-      - js-ts-build
+      - js-ts-analysis
     steps:
-      - name: Placeholder for future JS/TS app test lane
-        run: echo "No JS/TS app tests are defined in this repository yet."
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node job
+        uses: ./.github/actions/setup-node-job
+
+      - name: Install Node tooling
+        run: scripts/ci/install-node-dependencies.sh
+
+      - name: Test admin-panel
+        run: scripts/test-admin-panel.sh --with-coverage
 
   shared-go-build-and-test:
-    name: Shared Go build and test
+    name: Shared Go build and test (${{ matrix.arch }})
     needs:
       - go-analysis
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -151,65 +259,117 @@ jobs:
           run_tests: "true"
 
   service-build-and-test:
-    name: ${{ matrix.service.name }} build and test (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    name: ${{ matrix.component.name }} build and test (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     needs:
       - shared-go-build-and-test
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm64
-        service:
-          - name: System metrics
-            artifact_name: system-metrics-linux
-            build_script: scripts/build-system-metrics-binary.sh
-            output_path: .build/system-metrics/linux-amd64/system-metrics
-            output_path_arm64: .build/system-metrics/linux-arm64/system-metrics
-            test_script: scripts/test-system-metrics.sh --with-coverage
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Auth service
+              artifact_name: auth-service-linux
+              build_script: scripts/build-auth-service-binary.sh
+              output_path: .build/auth-service/linux-amd64/auth-service
+              test_script: scripts/test-auth-service.sh
+              apt_packages: gcc libc6-dev libpam0g-dev
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: System metrics
+              artifact_name: system-metrics-linux
+              build_script: scripts/build-system-metrics-binary.sh
+              output_path: .build/system-metrics/linux-amd64/system-metrics
+              test_script: scripts/test-system-metrics.sh --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Web gateway
+              artifact_name: web-gateway-linux
+              build_script: scripts/build-web-gateway-binary.sh
+              output_path: .build/web-gateway/linux-amd64/web-gateway
+              test_script: scripts/test-web-gateway.sh
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Auth service
+              artifact_name: auth-service-linux
+              build_script: scripts/build-auth-service-binary.sh
+              output_path: .build/auth-service/linux-arm64/auth-service
+              test_script: scripts/test-auth-service.sh
+              apt_packages: gcc libc6-dev libpam0g-dev
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: System metrics
+              artifact_name: system-metrics-linux
+              build_script: scripts/build-system-metrics-binary.sh
+              output_path: .build/system-metrics/linux-arm64/system-metrics
+              test_script: scripts/test-system-metrics.sh --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Web gateway
+              artifact_name: web-gateway-linux
+              build_script: scripts/build-web-gateway-binary.sh
+              output_path: .build/web-gateway/linux-arm64/web-gateway
+              test_script: scripts/test-web-gateway.sh
+              apt_packages: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build and test ${{ matrix.service.name }}
+      - name: Build and test ${{ matrix.component.name }}
         uses: ./.github/actions/go-binary-build-test
         with:
-          build_script: ${{ matrix.service.build_script }}
-          arch: ${{ matrix.arch }}
-          output_path: ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
-          test_script: ${{ matrix.service.test_script }}
+          build_script: ${{ matrix.component.build_script }}
+          output_path: ${{ matrix.component.output_path }}
+          apt_packages: ${{ matrix.component.apt_packages }}
+          test_script: ${{ matrix.component.test_script }}
           run_tests: "true"
 
-      - name: Verify ${{ matrix.service.name }} binary artifact path
-        run: test -f ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
+      - name: Verify ${{ matrix.component.name }} binary artifact path
+        run: test -f ${{ matrix.component.output_path }}
 
-      - name: Upload ${{ matrix.service.name }} binary artifact
+      - name: Upload ${{ matrix.component.name }} binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.service.artifact_name }}-${{ matrix.arch }}
-          path: ${{ matrix.arch == 'amd64' && matrix.service.output_path || matrix.service.output_path_arm64 }}
+          name: ${{ matrix.component.artifact_name }}-${{ matrix.arch }}
+          path: ${{ matrix.component.output_path }}
           if-no-files-found: error
           retention-days: 1
 
   app-build-and-test:
     name: ${{ matrix.app.name }} build and test (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs:
       - shared-go-build-and-test
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm64
-        app:
-          - name: System metrics CLI
-            artifact_name: system-metrics-cli-linux
-            build_script: scripts/build-system-metrics-cli-binary.sh
-            output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
-            output_path_arm64: .build/system-metrics-cli/linux-arm64/system-metrics-cli
-            test_script: scripts/test-system-metrics-cli.sh
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: System metrics CLI
+              artifact_name: system-metrics-cli-linux
+              build_script: scripts/build-system-metrics-cli-binary.sh
+              output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
+              test_script: scripts/test-system-metrics-cli.sh
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: System metrics CLI
+              artifact_name: system-metrics-cli-linux
+              build_script: scripts/build-system-metrics-cli-binary.sh
+              output_path: .build/system-metrics-cli/linux-arm64/system-metrics-cli
+              test_script: scripts/test-system-metrics-cli.sh
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -218,36 +378,38 @@ jobs:
         uses: ./.github/actions/go-binary-build-test
         with:
           build_script: ${{ matrix.app.build_script }}
-          arch: ${{ matrix.arch }}
-          output_path: ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
+          output_path: ${{ matrix.app.output_path }}
           test_script: ${{ matrix.app.test_script }}
           run_tests: "true"
 
       - name: Verify ${{ matrix.app.name }} binary artifact path
-        run: test -f ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
+        run: test -f ${{ matrix.app.output_path }}
 
       - name: Upload ${{ matrix.app.name }} binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app.artifact_name }}-${{ matrix.arch }}
-          path: ${{ matrix.arch == 'amd64' && matrix.app.output_path || matrix.app.output_path_arm64 }}
+          path: ${{ matrix.app.output_path }}
           if-no-files-found: error
           retention-days: 1
 
   package-validation:
     name: LiteNAS package validation (${{ matrix.arch }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs:
       - package-analysis
       - service-build-and-test
       - app-build-and-test
+      - js-ts-build
       - js-ts-test
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - amd64
-          - arm64
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -256,6 +418,12 @@ jobs:
         id: package-version
         run: |
           echo "value=0.1.0+pr.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Download auth service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: auth-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/auth-service
 
       - name: Download system metrics build artifact
         uses: actions/download-artifact@v4
@@ -269,14 +437,108 @@ jobs:
           name: system-metrics-cli-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/system-metrics-cli
 
-      - name: Build and validate LiteNAS Debian package
-        uses: ./.github/actions/lite-nas-package-build
+      - name: Download web gateway build artifact
+        uses: actions/download-artifact@v4
         with:
-          arch: ${{ matrix.arch }}
-          version: ${{ steps.package-version.outputs.value }}
-          system_metrics_binary: .artifacts/${{ matrix.arch }}/system-metrics/system-metrics
-          system_metrics_cli_binary: .artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli
-          run_package_validation: "true"
+          name: web-gateway-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/web-gateway
+
+      - name: Download admin-panel asset artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-panel-assets
+          path: .artifacts/admin-panel
+
+      - name: Prepare package job dependencies
+        run: scripts/ci/install-debian-packaging-dependencies.sh
+
+      - name: Build LiteNAS Debian package
+        env:
+          ADMIN_PANEL_ASSETS: .artifacts/admin-panel
+        run: |
+          package_args=(
+            --version=${{ steps.package-version.outputs.value }} \
+            --auth-service-binary=.artifacts/${{ matrix.arch }}/auth-service/auth-service \
+            --system-metrics-binary=.artifacts/${{ matrix.arch }}/system-metrics/system-metrics \
+            --system-metrics-cli-binary=.artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli \
+            --web-gateway-binary=.artifacts/${{ matrix.arch }}/web-gateway/web-gateway \
+            --output-dir=.build/packages/${{ matrix.arch }}
+          )
+
+          if [ -n "$ADMIN_PANEL_ASSETS" ]; then
+            package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
+          fi
+
+          scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
+
+      - name: Lint LiteNAS Debian package
+        run: |
+          scripts/package/lint-lite-nas-deb.sh \
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb
+
+      - name: Validate LiteNAS Debian package installability
+        run: |
+          scripts/ci/validate-lite-nas-deb-install.sh \
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+            ${{ matrix.arch }}
+
+      - name: Install LiteNAS package on runner
+        run: |
+          sudo env DEBIAN_FRONTEND=noninteractive \
+            scripts/package/install-lite-nas-deb.sh \
+              --package .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+              --no-install-recommends
+
+      - name: Install Python and Playwright dependencies
+        run: scripts/ci/install-python-dependencies.sh
+
+      - name: Prepare Python test user
+        env:
+          LITENAS_API_LOGIN: testuser
+          LITENAS_API_PASSWORD: testpassword
+        run: scripts/ci/prepare-system-test-user.sh
+
+      - name: Diagnose installed LiteNAS routing
+        run: |
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
+          sudo nginx -t
+          sudo nginx -T | sed -n '1,220p'
+          curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login
+          curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9090/api/auth/login
+
+      - name: Test installed LiteNAS package
+        env:
+          LITENAS_API_LOGIN: testuser
+          LITENAS_API_PASSWORD: testpassword
+        run: scripts/test-python.sh
+
+      - name: Archive system test logs
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          source = Path("tests/logs")
+          archive = Path("system_tests_logs.zip")
+          log_files = sorted(path for path in source.rglob("*") if path.is_file()) if source.exists() else []
+
+          with ZipFile(archive, "w", ZIP_DEFLATED) as zip_file:
+              for log_file in log_files:
+                  zip_file.write(log_file, log_file.relative_to(source.parent))
+              if not log_files:
+                  zip_file.writestr("logs/.empty", "No system test logs were produced.\n")
+          PY
+
+      - name: Upload system test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-test-logs-${{ matrix.arch }}
+          path: system_tests_logs.zip
+          if-no-files-found: warn
+          retention-days: 15
 
       - name: Upload LiteNAS Debian package artifact
         uses: actions/upload-artifact@v4

@@ -5,10 +5,13 @@ DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET:-/usr/libexec/lite-nas/system-metrics-cli}"
-readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/liteNAS}"
-readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/liteNAS/system-metrics-cli.conf}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/system-metrics-cli.conf}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET:-$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR/system-metrics-cli.conf}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_LOG_DIR="${LITE_NAS_LOG_DIR:-/var/log/lite-nas}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE="${LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE:-$LITE_NAS_SYSTEM_METRICS_CLI_LOG_DIR/system-metrics-cli.log}"
 
 deploy.systemMetricsCLI.usage() {
 	cat <<'MSG'
@@ -16,7 +19,6 @@ Usage: scripts/deploy-system-metrics-cli.sh [options]
 
 Options:
   --binary PATH       Install an existing binary instead of building one.
-  --arch=amd64|arm64  Build target architecture when --binary is not set.
   --skip-bootstrap    Install files without running LiteNAS bootstrap first.
   -h, --help          Show this help.
 MSG
@@ -25,12 +27,34 @@ MSG
 deploy.systemMetricsCLI.requireTools() {
 	local tool
 	local tools=(
+		getent
+		groupadd
 		install
+		chmod
+		chown
 	)
 
 	for tool in "${tools[@]}"; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
+}
+
+deploy.systemMetricsCLI.ensureConfigGroup() {
+	if getent group "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" >/dev/null 2>&1; then
+		return
+	fi
+
+	log.info "Creating system group: $LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
+	groupadd --system "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
+}
+
+deploy.systemMetricsCLI.ensureAccessGroup() {
+	if getent group "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP" >/dev/null 2>&1; then
+		return
+	fi
+
+	log.info "Creating system group: $LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP"
+	groupadd --system "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP"
 }
 
 deploy.systemMetricsCLI.installBinary() {
@@ -59,8 +83,28 @@ deploy.systemMetricsCLI.installConfig() {
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR"
-	install -m 0640 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" \
+	install -d -m 0711 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR"
+	install -m 0644 -o root -g root \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE" \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET"
+}
+
+deploy.systemMetricsCLI.installLogTarget() {
+	install -d -m 0751 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_DIR"
+	if [ ! -f "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE" ]; then
+		install -m 0666 -o root -g root /dev/null "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE"
+	fi
+
+	chown root:root "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE"
+	chmod 0666 "$LITE_NAS_SYSTEM_METRICS_CLI_LOG_FILE"
+}
+
+deploy.systemMetricsCLI.deploy() {
+	local source_binary="$1"
+
+	deploy.systemMetricsCLI.ensureConfigGroup
+	deploy.systemMetricsCLI.ensureAccessGroup
+	deploy.systemMetricsCLI.installBinary "$source_binary"
+	deploy.systemMetricsCLI.installConfig
+	deploy.systemMetricsCLI.installLogTarget
 }

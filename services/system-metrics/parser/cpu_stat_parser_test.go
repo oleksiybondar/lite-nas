@@ -4,29 +4,18 @@ import (
 	"testing"
 
 	"lite-nas/shared/metrics"
+	"lite-nas/shared/testutil/testcasetest"
 )
 
 func TestCPUStatParserTotalFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		name string
-		got  func() uint64
-		want uint64
-	}{
-		{name: "total", got: func() uint64 { return loadCPUSampleFixture(t).Total.Total }, want: 126},
-		{name: "idle", got: func() uint64 { return loadCPUSampleFixture(t).Total.Idle }, want: 45},
+	testCases := []testcasetest.FieldCase[metrics.CPURawSample]{
+		{Name: "total", Got: func(sample metrics.CPURawSample) any { return sample.Total.Total }, Want: uint64(126)},
+		{Name: "idle", Got: func(sample metrics.CPURawSample) any { return sample.Total.Idle }, Want: uint64(45)},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := testCase.got(); got != testCase.want {
-				t.Fatalf("%s = %d, want %d", testCase.name, got, testCase.want)
-			}
-		})
-	}
+	testcasetest.RunFieldCases(t, loadCPUSampleFixture, testCases)
 }
 
 func TestCPUStatParserCoreCount(t *testing.T) {

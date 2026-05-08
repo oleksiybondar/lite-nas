@@ -4,30 +4,19 @@ import (
 	"testing"
 
 	"lite-nas/shared/metrics"
+	"lite-nas/shared/testutil/testcasetest"
 )
 
 func TestMemStatParserFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		name string
-		got  func() any
-		want any
-	}{
-		{name: "total bytes", got: func() any { return loadMemSampleFixture(t).TotalBytes }, want: uint64(1024 * 1000)},
-		{name: "used bytes", got: func() any { return loadMemSampleFixture(t).UsedBytes }, want: uint64(1024 * 750)},
-		{name: "used pct", got: func() any { return loadMemSampleFixture(t).UsedPct }, want: 75.0},
+	testCases := []testcasetest.FieldCase[metrics.MemSample]{
+		{Name: "total bytes", Got: func(sample metrics.MemSample) any { return sample.TotalBytes }, Want: uint64(1024 * 1000)},
+		{Name: "used bytes", Got: func(sample metrics.MemSample) any { return sample.UsedBytes }, Want: uint64(1024 * 750)},
+		{Name: "used pct", Got: func(sample metrics.MemSample) any { return sample.UsedPct }, Want: 75.0},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := testCase.got(); got != testCase.want {
-				t.Fatalf("%s = %#v, want %#v", testCase.name, got, testCase.want)
-			}
-		})
-	}
+	testcasetest.RunFieldCases(t, loadMemSampleFixture, testCases)
 }
 
 func TestMemStatParserParseRejectsMissingRequiredFields(t *testing.T) {

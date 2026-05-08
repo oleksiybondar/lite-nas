@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/helpers/logger.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/sudo-guard.sh"
 
-runtime_tools=(nats-server openssl)
+runtime_tools=(nats-server nginx openssl ufw)
 
 sudo.guard.requireRoot "scripts/install-runtime-dependencies.sh"
 
@@ -16,16 +16,16 @@ install_apt_packages() {
 		cat <<'MSG' >&2
 Missing required runtime dependencies, and apt-get is not available.
 
-Install NATS Server and OpenSSL manually, then re-run this script.
+Install NATS Server, nginx, OpenSSL, and UFW manually, then re-run this script.
 On macOS, use Homebrew:
-  brew install nats-server openssl
+  brew install nats-server nginx openssl
 MSG
 		exit 1
 	fi
 
 	log.pushTask "Installing Debian/Ubuntu runtime packages"
 	apt-get update
-	apt-get install -y nats-server openssl
+	apt-get install -y nats-server nginx openssl ufw
 	log.popTask
 }
 
