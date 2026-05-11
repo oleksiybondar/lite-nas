@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"lite-nas/shared/loggingmanager/query"
 )
 
 var (
@@ -15,7 +17,7 @@ var (
 // TransactionExecutor executes prepared transaction SQL against persistent storage.
 type TransactionExecutor interface {
 	// Execute runs one transaction unit.
-	Execute(ctx context.Context, txSQL TransactionSQL) error
+	Execute(ctx context.Context, txSQL query.TransactionSQL) error
 }
 
 type sqlTransaction interface {
@@ -45,7 +47,7 @@ func NewSQLTransactionExecutor(db *sql.DB) (*SQLTransactionExecutor, error) {
 }
 
 // Execute persists one transaction batch in a single SQL transaction.
-func (executor *SQLTransactionExecutor) Execute(ctx context.Context, txSQL TransactionSQL) error {
+func (executor *SQLTransactionExecutor) Execute(ctx context.Context, txSQL query.TransactionSQL) error {
 	tx, err := executor.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -57,7 +59,7 @@ func (executor *SQLTransactionExecutor) Execute(ctx context.Context, txSQL Trans
 	return executeWithTransaction(ctx, tx, txSQL)
 }
 
-func executeWithTransaction(ctx context.Context, tx sqlTransaction, txSQL TransactionSQL) error {
+func executeWithTransaction(ctx context.Context, tx sqlTransaction, txSQL query.TransactionSQL) error {
 	rollbackNeeded := true
 	defer func() {
 		if rollbackNeeded {

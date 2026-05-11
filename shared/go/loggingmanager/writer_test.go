@@ -5,15 +5,17 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"lite-nas/shared/loggingmanager/query"
 )
 
 type fakeExecutor struct {
 	executeCalls int
-	lastTxSQL    TransactionSQL
+	lastTxSQL    query.TransactionSQL
 	executeErr   error
 }
 
-func (executor *fakeExecutor) Execute(_ context.Context, txSQL TransactionSQL) error {
+func (executor *fakeExecutor) Execute(_ context.Context, txSQL query.TransactionSQL) error {
 	executor.executeCalls++
 	executor.lastTxSQL = txSQL
 	if executor.executeErr != nil {
@@ -26,15 +28,15 @@ type fakeBuilder struct {
 	buildCalls int
 }
 
-func (b *fakeBuilder) Build(queries []Query) TransactionSQL {
+func (b *fakeBuilder) Build(queries []query.Query) query.TransactionSQL {
 	b.buildCalls++
-	return BuildTransactionSQL(queries)
+	return query.BuildTransactionSQL(queries)
 }
 
 func TestNewWriterValidatesDependencies(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewWriter(nil, &fakeBuilder{}, make(chan Query), nil, 1)
+	_, err := NewWriter(nil, &fakeBuilder{}, make(chan query.Query), nil, 1)
 	if !errors.Is(err, errNilExecutor) {
 		t.Fatalf("err = %v, want %v", err, errNilExecutor)
 	}
@@ -45,7 +47,7 @@ func TestRunFlushesOnMaxItems(t *testing.T) {
 
 	executor := &fakeExecutor{}
 	builder := &fakeBuilder{}
-	queryInCh := make(chan Query, 4)
+	queryInCh := make(chan query.Query, 4)
 	writer := mustNewWriter(t, executor, builder, queryInCh, nil, 2)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -53,8 +55,8 @@ func TestRunFlushesOnMaxItems(t *testing.T) {
 
 	done := runWriterAsync(writer, ctx)
 
-	queryInCh <- Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"a"}}
-	queryInCh <- Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"b"}}
+	queryInCh <- query.Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"a"}}
+	queryInCh <- query.Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"b"}}
 
 	waitForCondition(t, time.Second, func() bool { return executor.executeCalls >= 1 })
 	cancel()
@@ -66,7 +68,7 @@ func TestRunFlushesOnFlushSignal(t *testing.T) {
 
 	executor := &fakeExecutor{}
 	builder := &fakeBuilder{}
-	queryInCh := make(chan Query, 4)
+	queryInCh := make(chan query.Query, 4)
 	flushInCh := make(chan struct{}, 1)
 	writer := mustNewWriter(t, executor, builder, queryInCh, flushInCh, 100)
 
@@ -74,7 +76,7 @@ func TestRunFlushesOnFlushSignal(t *testing.T) {
 	defer cancel()
 
 	done := runWriterAsync(writer, ctx)
-	queryInCh <- Query{SQL: "INSERT INTO occurrences VALUES(?)", Args: []any{"x"}}
+	queryInCh <- query.Query{SQL: "INSERT INTO occurrences VALUES(?)", Args: []any{"x"}}
 	flushInCh <- struct{}{}
 	time.Sleep(10 * time.Millisecond)
 	flushInCh <- struct{}{}
@@ -89,13 +91,13 @@ func TestRunFlushesPendingBatchOnContextCancel(t *testing.T) {
 
 	executor := &fakeExecutor{}
 	builder := &fakeBuilder{}
-	queryInCh := make(chan Query, 4)
+	queryInCh := make(chan query.Query, 4)
 	writer := mustNewWriter(t, executor, builder, queryInCh, nil, 10)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := runWriterAsync(writer, ctx)
 
-	queryInCh <- Query{SQL: "UPDATE lifecycle SET muted = 1 WHERE rec_id = ?", Args: []any{1}}
+	queryInCh <- query.Query{SQL: "UPDATE lifecycle SET muted = 1 WHERE rec_id = ?", Args: []any{1}}
 	cancel()
 	waitDone(t, done)
 
@@ -109,14 +111,14 @@ func TestRunReturnsErrorForEmptySQL(t *testing.T) {
 
 	executor := &fakeExecutor{}
 	builder := &fakeBuilder{}
-	queryInCh := make(chan Query, 1)
+	queryInCh := make(chan query.Query, 1)
 	writer := mustNewWriter(t, executor, builder, queryInCh, nil, 10)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	done := runWriterAsync(writer, ctx)
-	queryInCh <- Query{}
+	queryInCh <- query.Query{}
 
 	err := <-done
 	if !errors.Is(err, errQueryWithEmptySQL) {
@@ -128,7 +130,7 @@ func mustNewWriter(
 	t *testing.T,
 	executor TransactionExecutor,
 	builder TransactionBuilder,
-	queryInCh <-chan Query,
+	queryInCh <-chan query.Query,
 	flushInCh <-chan struct{},
 	maxItems int,
 ) *Writer {

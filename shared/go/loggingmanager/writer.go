@@ -3,6 +3,8 @@ package loggingmanager
 import (
 	"context"
 	"errors"
+
+	"lite-nas/shared/loggingmanager/query"
 )
 
 var (
@@ -23,7 +25,7 @@ var (
 //   - Separates batch-shaping concerns from writer loop and execution concerns.
 type TransactionBuilder interface {
 	// Build returns transaction framing and statements for the batch.
-	Build(queries []Query) TransactionSQL
+	Build(queries []query.Query) query.TransactionSQL
 }
 
 // DefaultTransactionBuilder frames batches with BEGIN/COMMIT markers and the
@@ -31,8 +33,8 @@ type TransactionBuilder interface {
 type DefaultTransactionBuilder struct{}
 
 // Build returns BEGIN/COMMIT framed SQL for the supplied batch.
-func (DefaultTransactionBuilder) Build(queries []Query) TransactionSQL {
-	return BuildTransactionSQL(queries)
+func (DefaultTransactionBuilder) Build(queries []query.Query) query.TransactionSQL {
+	return query.BuildTransactionSQL(queries)
 }
 
 // Writer is a single-goroutine async SQL batch writer.
@@ -52,7 +54,7 @@ func (DefaultTransactionBuilder) Build(queries []Query) TransactionSQL {
 type Writer struct {
 	executor  TransactionExecutor
 	builder   TransactionBuilder
-	queryInCh <-chan Query
+	queryInCh <-chan query.Query
 	flushInCh <-chan struct{}
 	maxItems  int
 }
@@ -68,7 +70,7 @@ type Writer struct {
 func NewWriter(
 	executor TransactionExecutor,
 	builder TransactionBuilder,
-	queryInCh <-chan Query,
+	queryInCh <-chan query.Query,
 	flushInCh <-chan struct{},
 	maxItems int,
 ) (*Writer, error) {
@@ -108,7 +110,7 @@ func NewWriter(
 // Concurrency contract:
 //   - Run must be called once per Writer instance.
 func (w *Writer) Run(ctx context.Context) error {
-	batch := make([]Query, 0, w.maxItems)
+	batch := make([]query.Query, 0, w.maxItems)
 
 	for {
 		stop, err := w.runStep(ctx, &batch)
@@ -125,7 +127,7 @@ func (w *Writer) Run(ctx context.Context) error {
 //
 // A true stop result indicates graceful termination after finalization work was
 // completed or that a terminal error was returned.
-func (w *Writer) runStep(ctx context.Context, batch *[]Query) (bool, error) {
+func (w *Writer) runStep(ctx context.Context, batch *[]query.Query) (bool, error) {
 	select {
 	case <-ctx.Done():
 		return true, w.handleContextCancel(batch)
@@ -147,7 +149,7 @@ func (w *Writer) runStep(ctx context.Context, batch *[]Query) (bool, error) {
 //
 // Side effects:
 //   - Delegates transactional persistence I/O to the configured executor.
-func (w *Writer) flush(ctx context.Context, batch []Query) error {
+func (w *Writer) flush(ctx context.Context, batch []query.Query) error {
 	transactionSQL := w.builder.Build(batch)
 	return w.executor.Execute(ctx, transactionSQL)
 }
@@ -156,7 +158,7 @@ func (w *Writer) flush(ctx context.Context, batch []Query) error {
 //
 // Side effects:
 //   - May perform persistence I/O through flush.
-func (w *Writer) flushIfNeeded(ctx context.Context, batch []Query) error {
+func (w *Writer) flushIfNeeded(ctx context.Context, batch []query.Query) error {
 	if len(batch) == 0 {
 		return nil
 	}
@@ -170,7 +172,7 @@ func (w *Writer) flushIfNeeded(ctx context.Context, batch []Query) error {
 //   - Drains only currently available items and stops when the channel would
 //     block.
 //   - If queryInCh is closed, draining stops immediately.
-func (w *Writer) drainQueryChannel(batch *[]Query) {
+func (w *Writer) drainQueryChannel(batch *[]query.Query) {
 	for {
 		select {
 		case query, ok := <-w.queryInCh:
@@ -188,7 +190,7 @@ func (w *Writer) drainQueryChannel(batch *[]Query) {
 //
 // Side effects:
 //   - May execute persistence I/O if the drained batch is non-empty.
-func (w *Writer) handleContextCancel(batch *[]Query) error {
+func (w *Writer) handleContextCancel(batch *[]query.Query) error {
 	w.drainQueryChannel(batch)
 	return w.flushIfNeeded(context.Background(), *batch)
 }
@@ -202,7 +204,7 @@ func (w *Writer) handleContextCancel(batch *[]Query) error {
 //
 // Side effects:
 //   - May execute persistence I/O when flush thresholds are reached.
-func (w *Writer) handleQueryInput(query Query, ok bool, batch *[]Query) error {
+func (w *Writer) handleQueryInput(query query.Query, ok bool, batch *[]query.Query) error {
 	if !ok {
 		return w.flushIfNeeded(context.Background(), *batch)
 	}
@@ -226,7 +228,7 @@ func (w *Writer) handleQueryInput(query Query, ok bool, batch *[]Query) error {
 //
 // Side effects:
 //   - May execute persistence I/O through flush.
-func (w *Writer) handleFlushSignal(batch *[]Query) error {
+func (w *Writer) handleFlushSignal(batch *[]query.Query) error {
 	if len(*batch) == 0 {
 		return nil
 	}
