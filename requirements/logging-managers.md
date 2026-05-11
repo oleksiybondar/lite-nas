@@ -170,7 +170,7 @@ while reusing the same core behavior.
 #### RR-001 Description
 
 The system MUST serialize SQLite writes through a single-writer flow and use
-batch flushing to reduce write amplification.
+batch flushing to reduce write amplification while preserving high durability.
 
 #### RR-001 Acceptance Criteria
 
@@ -178,20 +178,27 @@ batch flushing to reduce write amplification.
 - Flush triggers include configured batch size and flush interval
 - Shutdown triggers a final flush attempt
 - Critical lifecycle writes support expedited flushing behavior
+- Successfully flushed batches are durably committed before acknowledgment of
+  batch completion
 
 ---
 
-### RR-002 Document and bound transient in-memory loss window
+### RR-002 Provide high durability with a bounded crash-loss window
 
 #### RR-002 Description
 
-The system MUST treat the pre-flush in-memory batch window as an intentional
-durability tradeoff and keep it bounded by configuration.
+The system MUST operate as effectively lossless during normal service operation
+and MUST bound potential loss during abrupt process or host failure to the
+pre-flush in-memory batch window.
 
 #### RR-002 Acceptance Criteria
 
-- Unflushed data-loss risk is limited to queued/unflushed batch contents
-- The service behavior and operator documentation describe this tradeoff
+- During normal operation, accepted messages are persisted through periodic or
+  threshold-based batch flushing without intentional dropping
+- Unflushed data-loss risk on crash is limited to queued/unflushed batch
+  contents
+- The service behavior and operator documentation describe this durability
+  tradeoff explicitly
 - Batch and flush settings are configurable to tune the loss window
 
 ---

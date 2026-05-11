@@ -1,12 +1,12 @@
 package config_test
 
 import (
-	"strings"
 	"testing"
 
 	"gopkg.in/ini.v1"
 
 	"lite-nas/shared/config"
+	"lite-nas/shared/testutil/configtest"
 )
 
 type loggingFieldAssertion struct {
@@ -94,7 +94,7 @@ func TestLoadLoggingConfigRejectsInvalidValues(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			assertLoadLoggingConfigError(t, testCase.ini, testCase.want)
+			configtest.RunINILoadRejectsCase(t, config.LoadLoggingConfig, testCase.ini, testCase.want)
 		})
 	}
 }
@@ -127,23 +127,5 @@ func assertLoggingConfigFields(t *testing.T, cfg config.LoggingConfig, want map[
 		if got := assertion.got(cfg); got != wantValue {
 			t.Fatalf("%s = %#v, want %#v", assertion.name, got, wantValue)
 		}
-	}
-}
-
-func assertLoadLoggingConfigError(t *testing.T, iniContent string, want string) {
-	t.Helper()
-
-	cfgFile, err := ini.Load([]byte(iniContent))
-	if err != nil {
-		t.Fatalf("ini.Load() error = %v", err)
-	}
-
-	_, err = config.LoadLoggingConfig(cfgFile)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-
-	if !strings.Contains(err.Error(), want) {
-		t.Fatalf("error = %q, want substring %q", err, want)
 	}
 }

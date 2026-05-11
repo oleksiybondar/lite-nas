@@ -8,6 +8,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"lite-nas/shared/config"
+	"lite-nas/shared/testutil/configtest"
 	"lite-nas/shared/testutil/testcasetest"
 )
 
@@ -81,7 +82,7 @@ func TestLoadEventStoreConfigRejectsInvalidValues(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			assertLoadEventStoreConfigError(t, testCase.ini, testCase.want)
+			configtest.RunINILoadRejectsCase(t, config.LoadEventStoreConfig, testCase.ini, testCase.want)
 		})
 	}
 }
@@ -113,22 +114,4 @@ func loadEventStoreConfigFixture(t *testing.T, iniContent string) config.EventSt
 	}
 
 	return cfg
-}
-
-func assertLoadEventStoreConfigError(t *testing.T, iniContent string, want string) {
-	t.Helper()
-
-	cfgFile, err := ini.Load([]byte(iniContent))
-	if err != nil {
-		t.Fatalf("ini.Load() error = %v", err)
-	}
-
-	_, err = config.LoadEventStoreConfig(cfgFile)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-
-	if !strings.Contains(err.Error(), want) {
-		t.Fatalf("error = %q, want substring %q", err, want)
-	}
 }
