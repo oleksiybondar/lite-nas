@@ -7,7 +7,7 @@ LiteNAS will include two logging-manager services:
 - `security-logging-manager`
 - `system-logging-manager`
 
-Both services use the same shared logging/eventstore core, but they serve
+Both services use the same shared logging/loggingmanager core, but they serve
 different operational domains and own separate data flows.
 
 The security manager is responsible for security-oriented alert and metric

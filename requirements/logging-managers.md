@@ -25,7 +25,7 @@ This document follows the requirement classification defined in
 #### FR-001 Description
 
 Each logging manager MUST consume event-related messages from its configured
-messaging subscriptions and process them through a shared eventstore flow.
+messaging subscriptions and process them through a shared loggingmanager flow.
 
 #### FR-001 Input
 
@@ -34,7 +34,7 @@ messaging subscriptions and process them through a shared eventstore flow.
 
 #### FR-001 Output
 
-- Internal write operations to eventstore state and history records
+- Internal write operations to loggingmanager state and history records
 
 #### FR-001 Acceptance Criteria
 
@@ -113,7 +113,7 @@ scenarios with bounded retention.
 
 ---
 
-### FR-005 Support eventstore query access
+### FR-005 Support loggingmanager query access
 
 #### FR-005 Description
 
@@ -209,7 +209,7 @@ pre-flush in-memory batch window.
 
 #### OR-001 Description
 
-The system MUST provide explicit, configurable bounds for eventstore capacity
+The system MUST provide explicit, configurable bounds for loggingmanager capacity
 to support predictable operation on constrained hardware.
 
 #### OR-001 Acceptance Criteria
@@ -230,7 +230,7 @@ logging-manager services.
 
 #### OR-002 Acceptance Criteria
 
-- Shared config includes messaging and eventstore sections
+- Shared config includes messaging and loggingmanager sections
 - Eventstore config sections include storage, writer, and cleanup controls
 - Both managers can use the same config schema with different values
 
@@ -270,11 +270,11 @@ contract and data ownership.
 
 ## Testability Requirements
 
-### TR-001 Keep core eventstore behavior verifiable with automated tests
+### TR-001 Keep core loggingmanager behavior verifiable with automated tests
 
 #### TR-001 Description
 
-The shared eventstore and logging-manager configuration behavior MUST be
+The shared loggingmanager and logging-manager configuration behavior MUST be
 testable with automated tests without requiring full deployed infrastructure.
 
 #### TR-001 Acceptance Criteria
