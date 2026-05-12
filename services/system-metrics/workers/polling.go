@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"lite-nas/services/system-metrics/config"
 	"lite-nas/services/system-metrics/parser"
 	"lite-nas/shared/fileio"
 	"lite-nas/shared/metrics"
@@ -17,32 +16,32 @@ import (
 // calculate CPU percentages, maintain history, or publish messages. Those
 // responsibilities belong to downstream pipeline stages.
 type PollingWorker struct {
-	metricsConfig config.MetricsConfig
-	cpuReader     fileio.Reader
-	memReader     fileio.Reader
-	cpuParser     parser.CPUStatParser
-	memParser     parser.MemStatParser
-	output        chan<- metrics.RawSystemSnapshot
+	cpuReader fileio.Reader
+	memReader fileio.Reader
+	cpuParser parser.CPUStatParser
+	memParser parser.MemStatParser
+	ticks     <-chan struct{}
+	output    chan<- metrics.RawSystemSnapshot
 }
 
 // NewPollingWorker creates a PollingWorker with the dependencies required for
 // periodic metrics polling.
 //
-// The worker depends on metrics configuration, a reader for CPU data, a reader
-// for memory data, and an output channel used to forward raw polling results.
+// The worker depends on readers for CPU/memory data, a tick input channel, and
+// an output channel used to forward raw polling results.
 func NewPollingWorker(
-	metricsConfig config.MetricsConfig,
 	cpuReader fileio.Reader,
 	memReader fileio.Reader,
+	ticks <-chan struct{},
 	output chan<- metrics.RawSystemSnapshot,
 ) PollingWorker {
 	return PollingWorker{
-		metricsConfig: metricsConfig,
-		cpuReader:     cpuReader,
-		memReader:     memReader,
-		cpuParser:     parser.CPUStatParser{},
-		memParser:     parser.MemStatParser{},
-		output:        output,
+		cpuReader: cpuReader,
+		memReader: memReader,
+		cpuParser: parser.CPUStatParser{},
+		memParser: parser.MemStatParser{},
+		ticks:     ticks,
+		output:    output,
 	}
 }
 
@@ -55,19 +54,10 @@ func (w PollingWorker) Start(ctx context.Context) {
 
 // run executes the polling loop until the provided context is canceled.
 //
-// One polling cycle is executed immediately on startup. Subsequent polling
-// cycles run at the configured poll interval.
-//
-// Failed polling cycles are skipped. The worker continues running unless the
-// context is canceled.
+// A polling cycle is executed for each incoming tick signal.
 func (w PollingWorker) run(ctx context.Context) {
-	ticker := time.NewTicker(w.metricsConfig.PollInterval)
-	defer ticker.Stop()
-
-	w.pollAndSend(ctx)
-
 	for {
-		if !w.waitNextPoll(ctx, ticker) {
+		if !w.waitNextPoll(ctx) {
 			return
 		}
 
@@ -80,11 +70,14 @@ func (w PollingWorker) run(ctx context.Context) {
 //
 // It returns true when the next polling cycle should proceed. It returns false
 // when the worker should stop.
-func (w PollingWorker) waitNextPoll(ctx context.Context, ticker *time.Ticker) bool {
+func (w PollingWorker) waitNextPoll(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
 		return false
-	case <-ticker.C:
+	case _, ok := <-w.ticks:
+		if !ok {
+			return false
+		}
 		return true
 	}
 }

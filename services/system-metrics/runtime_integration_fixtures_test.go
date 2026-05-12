@@ -23,21 +23,7 @@ type serviceCycleResult struct {
 func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 	t.Helper()
 
-	cpuPath, memPath := createMetricsFilesFixture(t)
-	writeMetricsFixtureFiles(t, cpuPath, memPath, baselineCPUFixture(), baselineMemFixture())
-
-	channels := modules.NewChannelsModule(4)
-	ioModule, err := modules.NewIOModule(cpuPath, memPath)
-	if err != nil {
-		t.Fatalf("NewIOModule() error = %v", err)
-	}
-
-	workerModule := modules.NewWorkersModule(
-		serviceconfig.MetricsConfig{PollInterval: 5 * time.Millisecond, HistorySize: 4},
-		channels,
-		ioModule,
-	)
-	stateModule := modules.NewStateModule(4)
+	channels, workerModule, stateModule, cpuPath, memPath := prepareServiceCycleModulesFixture(t)
 	server := &recordingServer{}
 	if err := registerRPCHandlers(server, stateModule.SnapshotStore); err != nil {
 		t.Fatalf("registerRPCHandlers() error = %v", err)
@@ -48,9 +34,9 @@ func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 
 	client := &recordingClient{publishHook: cancel}
 	startWorkers(ctx, workerModule)
-	go updateMetricsFixtureFilesAfterDelay(t, 10*time.Millisecond, cpuPath, memPath, updatedCPUFixture(), updatedMemFixture())
+	scheduleMetricsUpdateFixture(t, cpuPath, memPath)
 
-	err = serveSnapshots(ctx, channels.SystemSnapshots, stateModule.SnapshotStore, client, &recordingLogger{})
+	err := serveSnapshots(ctx, channels.SystemSnapshots, stateModule.SnapshotStore, client, &recordingLogger{})
 	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatalf("serveSnapshots() error = %v", err)
 	}
@@ -60,6 +46,44 @@ func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 		server: server,
 		store:  stateModule.SnapshotStore,
 	}
+}
+
+func prepareServiceCycleModulesFixture(
+	t *testing.T,
+) (modules.Channels, modules.Workers, modules.State, string, string) {
+	t.Helper()
+
+	cpuPath, memPath := createMetricsFilesFixture(t)
+	writeMetricsFixtureFiles(t, cpuPath, memPath, baselineCPUFixture(), baselineMemFixture())
+
+	channels := modules.NewChannelsModule(4)
+	ioModule, err := modules.NewIOModule(cpuPath, memPath)
+	if err != nil {
+		t.Fatalf("NewIOModule() error = %v", err)
+	}
+
+	workerModule, err := modules.NewWorkersModule(
+		serviceconfig.MetricsConfig{PollInterval: 5 * time.Millisecond, HistorySize: 4},
+		channels,
+		ioModule,
+	)
+	if err != nil {
+		t.Fatalf("NewWorkersModule() error = %v", err)
+	}
+
+	return channels, workerModule, modules.NewStateModule(4), cpuPath, memPath
+}
+
+func scheduleMetricsUpdateFixture(t *testing.T, cpuPath string, memPath string) {
+	t.Helper()
+	go updateMetricsFixtureFilesAfterDelay(
+		t,
+		10*time.Millisecond,
+		cpuPath,
+		memPath,
+		updatedCPUFixture(),
+		updatedMemFixture(),
+	)
 }
 
 func createMetricsFilesFixture(t *testing.T) (string, string) {

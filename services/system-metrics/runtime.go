@@ -36,11 +36,14 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	workerModule := modules.NewWorkersModule(
+	workerModule, err := modules.NewWorkersModule(
 		infra.Config.Metrics,
 		channels,
 		ioModule,
 	)
+	if err != nil {
+		return err
+	}
 	stateModule := modules.NewStateModule(infra.Config.Metrics.HistorySize)
 	if err := registerRPCHandlers(infra.Server, stateModule.SnapshotStore); err != nil {
 		return err
@@ -62,9 +65,11 @@ func run(ctx context.Context) error {
 // startWorkers starts the polling and processing workers for the service
 // runtime.
 func startWorkers(ctx context.Context, workerModule modules.Workers) {
+	timerWorker := workerModule.Timer
 	pollingWorker := workerModule.Polling
 	processingWorker := workerModule.Processing
 
+	timerWorker.Start(ctx)
 	pollingWorker.Start(ctx)
 	processingWorker.Start(ctx)
 }
