@@ -2,8 +2,8 @@
 
 import os
 
-API_BASE_URL: str = os.environ.get("LITENAS_API_URL", "http://localhost")
-UI_BASE_URL: str = os.environ.get("LITENAS_UI_URL", "http://localhost:9090")
+API_BASE_URL: str = os.environ.get("LITENAS_API_URL", "https://localhost")
+UI_BASE_URL: str = os.environ.get("LITENAS_UI_URL", "https://localhost")
 
 UI_BROWSER_CAPS: dict[str, object] = {
     "automation": os.environ.get("LITENAS_UI_AUTOMATION", "playwright"),

@@ -27,3 +27,12 @@ func UpsertEvent(row dto.EventRow) Query {
 		Args: []any{row.RecID, row.EventID, row.Category, string(row.Severity), row.Priority, row.CreatedAt, row.Source},
 	}
 }
+
+// SelectEventRecIDByEventID builds a read query that resolves event rec_id by
+// event_id.
+func SelectEventRecIDByEventID(eventID string) Query {
+	return Query{
+		SQL:  "SELECT rec_id FROM events WHERE event_id = ?",
+		Args: []any{eventID},
+	}
+}

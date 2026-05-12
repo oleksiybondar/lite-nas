@@ -46,3 +46,16 @@ func BuildRuntimeStateSeedQueries(defaultCurrentEventRecID int64, defaultCurrent
 		},
 	}
 }
+
+// SelectRuntimeStatePointers builds a read query that fetches the runtime-state
+// keys used by the core in-memory pointer tracker.
+func SelectRuntimeStatePointers() Query {
+	return Query{
+		SQL: "SELECT key, value FROM runtime_state WHERE key IN (?, ?, ?)",
+		Args: []any{
+			RuntimeStateCurrentEventRecIDKey,
+			RuntimeStateCurrentEventSeqKey,
+			RuntimeStateEventIDPrefixKey,
+		},
+	}
+}

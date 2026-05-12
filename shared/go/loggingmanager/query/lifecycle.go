@@ -22,3 +22,13 @@ func UpsertLifecycle(row dto.LifecycleRow) Query {
 		},
 	}
 }
+
+// SelectLifecycleByEventID builds a read query that resolves lifecycle row by
+// event_id.
+func SelectLifecycleByEventID(eventID string) Query {
+	return Query{
+		SQL: "SELECT rec_id, event_id, event_rec_id, acknowledged, acknowledged_by, acknowledged_at, muted, muted_by, muted_at " +
+			"FROM lifecycle WHERE event_id = ?",
+		Args: []any{eventID},
+	}
+}

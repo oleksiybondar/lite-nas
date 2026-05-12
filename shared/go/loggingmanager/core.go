@@ -228,13 +228,8 @@ func (core *Core) initialize(ctx context.Context) error {
 // loadRuntimeState reads persisted runtime pointers and applies them to the
 // in-memory tracker state.
 func (core *Core) loadRuntimeState(ctx context.Context) error {
-	rows, err := core.db.QueryContext(
-		ctx,
-		"SELECT key, value FROM runtime_state WHERE key IN (?, ?, ?)",
-		query.RuntimeStateCurrentEventRecIDKey,
-		query.RuntimeStateCurrentEventSeqKey,
-		query.RuntimeStateEventIDPrefixKey,
-	)
+	builtQuery := query.SelectRuntimeStatePointers()
+	rows, err := core.db.QueryContext(ctx, builtQuery.SQL, builtQuery.Args...)
 	if err != nil {
 		return fmt.Errorf("query runtime_state: %w", err)
 	}
