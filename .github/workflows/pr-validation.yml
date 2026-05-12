@@ -496,7 +496,10 @@ jobs:
         env:
           LITENAS_API_LOGIN: testuser
           LITENAS_API_PASSWORD: testpassword
-        run: scripts/ci/prepare-system-test-user.sh
+          LITENAS_OPERATOR_LOGIN: testoperator
+          LITENAS_SECURITY_LOGIN: testsecurityuser
+          LITENAS_TEST_PASSWORD: testpassword
+        run: scripts/ci/prepare-system-test-users.sh
 
       - name: Diagnose installed LiteNAS routing
         run: |
