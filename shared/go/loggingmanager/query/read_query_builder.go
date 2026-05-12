@@ -88,8 +88,8 @@ func BuildGetEventHistoryQuery(input dto.GetEventHistoryInput) Query {
 	return Query{
 		SQL: "SELECT o.rec_id, e.event_id, o.ts, o.value_type, o.value_num, o.value_text, o.value_bool, o.value_unit " +
 			"FROM occurrences o " +
-			"JOIN events e ON e.rec_id = o.event_rec_id " +
-			"WHERE e.event_id = ? " +
+			"JOIN events e ON e.event_id = o.event_id " +
+			"WHERE o.event_id = ? " +
 			"ORDER BY o.rec_id ASC",
 		Args: []any{input.EventID},
 	}
@@ -136,7 +136,7 @@ func buildBaseListEventsSQL() string {
 		"JOIN lifecycle l ON l.event_rec_id = e.rec_id " +
 		"JOIN event_state s ON s.event_rec_id = e.rec_id " +
 		"LEFT JOIN occurrences o ON o.rec_id = (" +
-		"SELECT rec_id FROM occurrences oo WHERE oo.event_rec_id = e.rec_id ORDER BY oo.rec_id DESC LIMIT 1" +
+		"SELECT rec_id FROM occurrences oo WHERE oo.event_id = e.event_id ORDER BY oo.rec_id DESC LIMIT 1" +
 		")"
 }
 

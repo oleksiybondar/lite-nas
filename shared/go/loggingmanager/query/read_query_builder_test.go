@@ -92,7 +92,7 @@ func TestBuildGetEventHistoryQuery(t *testing.T) {
 	t.Parallel()
 
 	query := BuildGetEventHistoryQuery(dto.GetEventHistoryInput{EventID: "perf_1"})
-	if !strings.Contains(query.SQL, "WHERE e.event_id = ?") {
+	if !strings.Contains(query.SQL, "WHERE o.event_id = ?") {
 		t.Fatalf("history event filter missing, sql=%q", query.SQL)
 	}
 	if len(query.Args) != 1 || query.Args[0] != "perf_1" {

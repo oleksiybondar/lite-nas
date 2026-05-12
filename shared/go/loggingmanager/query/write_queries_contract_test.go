@@ -72,6 +72,7 @@ var writeQueryContractCasesData = []writeQueryContractCase{
 	{
 		name: "insert occurrence",
 		query: InsertOccurrence(dto.OccurrenceRow{
+			EventID:    "perf_1",
 			EventRecID: 1,
 			Timestamp:  "2026-05-12T10:00:00Z",
 			ValueType:  enum.ValueTypeFloat,
@@ -81,7 +82,7 @@ var writeQueryContractCasesData = []writeQueryContractCase{
 			ValueUnit:  stringTestPtr("%"),
 		}),
 		sqlMustHave:  "INSERT INTO occurrences",
-		argsMustHave: 7,
+		argsMustHave: 8,
 	},
 	{
 		name: "upsert event meta",
