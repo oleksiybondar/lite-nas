@@ -35,7 +35,7 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0077
 ReadOnlyPaths=/etc/lite-nas
-ReadWritePaths=/var/log/lite-nas/system-logging-manager.log /var/lib/lite-nas/system-logging-manager/log.db
+ReadWritePaths=/var/log/lite-nas/system-logging-manager.log /var/lib/lite-nas/system-logging-manager
 StandardOutput=null
 StandardError=journal
 
