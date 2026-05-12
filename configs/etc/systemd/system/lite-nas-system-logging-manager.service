@@ -6,8 +6,8 @@ Requires=nats-server.service
 
 [Service]
 Type=simple
-User=lite-nas-system-logging-manager
-Group=lite-nas-system-logging-manager
+User=lite-nas-sys-log-mgr
+Group=lite-nas-sys-log-mgr
 SupplementaryGroups=lite-nas-operator lite-nas
 ExecStart=/usr/libexec/lite-nas/system-logging-manager
 Restart=on-failure
