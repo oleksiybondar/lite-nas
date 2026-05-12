@@ -268,12 +268,14 @@ type deferredTailState struct {
 	touchesOccurrences bool
 }
 
+// newDeferredTailState constructs empty deferred tail accumulation state.
 func newDeferredTailState() *deferredTailState {
 	return &deferredTailState{
 		runtimeStateByKey: make(map[string]string),
 	}
 }
 
+// capture accumulates tail intents from one write request.
 func (state *deferredTailState) capture(request WriteRequest) {
 	for _, update := range request.RuntimeStateUpdates {
 		state.runtimeStateByKey[update.Key] = update.Value
@@ -283,6 +285,7 @@ func (state *deferredTailState) capture(request WriteRequest) {
 	}
 }
 
+// reset clears accumulated tail intents after a successful flush.
 func (state *deferredTailState) reset() {
 	for key := range state.runtimeStateByKey {
 		delete(state.runtimeStateByKey, key)
@@ -290,6 +293,8 @@ func (state *deferredTailState) reset() {
 	state.touchesOccurrences = false
 }
 
+// buildBatchWithDeferredTail appends deferred runtime-state and occurrence
+// cleanup tail queries to the current sealed batch.
 func (w *Writer) buildBatchWithDeferredTail(
 	batch []query.Query,
 	tailState *deferredTailState,
@@ -303,6 +308,8 @@ func (w *Writer) buildBatchWithDeferredTail(
 	return queries
 }
 
+// runtimeStateTailQueries converts runtime-state map entries to stable-ordered
+// upsert queries.
 func runtimeStateTailQueries(runtimeStateByKey map[string]string) []query.Query {
 	keysInOrder := []string{
 		query.RuntimeStateCurrentEventRecIDKey,

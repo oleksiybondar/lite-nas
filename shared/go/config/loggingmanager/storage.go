@@ -53,6 +53,8 @@ func loadLoggingManagerStorageConfig(section *ini.Section) (LoggingManagerStorag
 	}, nil
 }
 
+// validateLoggingManagerStorageProperties validates numeric limits and
+// generated-event prefix constraints from the storage section.
 func validateLoggingManagerStorageProperties(
 	maxEvents int,
 	maxOccurrences int,
@@ -73,6 +75,7 @@ func validateLoggingManagerStorageProperties(
 	return nil
 }
 
+// isValidEventIDPrefix validates prefix length and allowed characters.
 func isValidEventIDPrefix(prefix string) bool {
 	if !isEventPrefixValidLength(prefix) {
 		return false
@@ -80,10 +83,12 @@ func isValidEventIDPrefix(prefix string) bool {
 	return isEventPrefixValidFormat(prefix)
 }
 
+// isEventPrefixValidLength validates configured prefix length bounds.
 func isEventPrefixValidLength(prefix string) bool {
 	return len(prefix) > 0 && len(prefix) <= 10
 }
 
+// isEventPrefixValidFormat validates configured prefix character set.
 func isEventPrefixValidFormat(prefix string) bool {
 	for _, char := range prefix {
 		if !isAlphanumeric(char) {
@@ -93,14 +98,17 @@ func isEventPrefixValidFormat(prefix string) bool {
 	return true
 }
 
+// isChar reports whether rune is an ASCII letter or underscore.
 func isChar(char rune) bool {
 	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || char == '_'
 }
 
+// isDigit reports whether rune is an ASCII decimal digit.
 func isDigit(char rune) bool {
 	return char >= '0' && char <= '9'
 }
 
+// isAlphanumeric reports whether rune is permitted in event-id prefix.
 func isAlphanumeric(char rune) bool {
 	return isChar(char) || isDigit(char)
 }

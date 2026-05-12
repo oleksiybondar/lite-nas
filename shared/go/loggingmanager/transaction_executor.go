@@ -20,12 +20,14 @@ type TransactionExecutor interface {
 	Execute(ctx context.Context, txSQL query.TransactionSQL) error
 }
 
+// sqlTransaction captures the subset of sql.Tx used by executor internals.
 type sqlTransaction interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	Commit() error
 	Rollback() error
 }
 
+// sqlTransactionDB captures the subset of sql.DB used by executor internals.
 type sqlTransactionDB interface {
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 	SetMaxOpenConns(n int)
@@ -59,6 +61,7 @@ func (executor *SQLTransactionExecutor) Execute(ctx context.Context, txSQL query
 	return executeWithTransaction(ctx, tx, txSQL)
 }
 
+// executeWithTransaction runs all statements and commits once on success.
 func executeWithTransaction(ctx context.Context, tx sqlTransaction, txSQL query.TransactionSQL) error {
 	rollbackNeeded := true
 	defer func() {

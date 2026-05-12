@@ -30,11 +30,14 @@ func NewInputValidator() (InputValidator, error) {
 	return validate, nil
 }
 
+// validateLoggingManagerEventID validates generated event-id pattern
+// "<prefix>_<seq>" with bounded prefix and sequence shapes.
 func validateLoggingManagerEventID(fieldLevel validator.FieldLevel) bool {
 	value := fieldLevel.Field().String()
 	return loggingManagerEventIDPattern.MatchString(value)
 }
 
+// validateFilterStruct executes cross-field validation for one filter DTO.
 func validateFilterStruct(structLevel validator.StructLevel) {
 	filter, ok := structLevel.Current().Interface().(dto.Filter)
 	if !ok {
@@ -48,6 +51,7 @@ func validateFilterStruct(structLevel validator.StructLevel) {
 	validateFilterCreatedAtValues(structLevel, filter)
 }
 
+// validateFilterValuesCount validates value-count constraints by condition.
 func validateFilterValuesCount(structLevel validator.StructLevel, filter dto.Filter) bool {
 	valuesCount := len(filter.Values)
 	errorTag, isValid := validateConditionValuesCount(filter.Condition, valuesCount)
@@ -59,6 +63,7 @@ func validateFilterValuesCount(structLevel validator.StructLevel, filter dto.Fil
 	return true
 }
 
+// validateConditionValuesCount returns condition-specific value-count validity.
 func validateConditionValuesCount(condition dto.FilterCondition, valuesCount int) (string, bool) {
 	switch condition {
 	case dto.FilterConditionEQ:
@@ -72,6 +77,7 @@ func validateConditionValuesCount(condition dto.FilterCondition, valuesCount int
 	}
 }
 
+// validateFilterCreatedAtValues validates RFC3339 values for created_at filters.
 func validateFilterCreatedAtValues(structLevel validator.StructLevel, filter dto.Filter) {
 	if filter.Key != dto.FilterKeyCreatedAt {
 		return

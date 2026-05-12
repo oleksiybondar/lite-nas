@@ -85,6 +85,8 @@ func NewCore(ctx context.Context, deps CoreDeps) (*Core, error) {
 	return core, nil
 }
 
+// normalizeCoreDependencies validates and normalizes constructor dependencies
+// so NewCore can consume one coherent dependency shape.
 func normalizeCoreDependencies(deps CoreDeps) (CoreDeps, error) {
 	if err := verifyCoreObjects(deps); err != nil {
 		return CoreDeps{}, err
@@ -102,6 +104,7 @@ func normalizeCoreDependencies(deps CoreDeps) (CoreDeps, error) {
 	return normalizedDeps, nil
 }
 
+// verifyCoreObjects validates required object references.
 func verifyCoreObjects(deps CoreDeps) error {
 	if deps.DB == nil {
 		return errNilDB
@@ -112,6 +115,7 @@ func verifyCoreObjects(deps CoreDeps) error {
 	return nil
 }
 
+// verifyCoreChannels validates required channel dependencies.
 func verifyCoreChannels(deps CoreDeps) error {
 	if deps.WriterInputCh == nil {
 		return errNilWriterInput
@@ -119,6 +123,7 @@ func verifyCoreChannels(deps CoreDeps) error {
 	return nil
 }
 
+// normalizeCoreProperties validates and normalizes scalar constructor options.
 func normalizeCoreProperties(deps CoreDeps) (CoreDeps, error) {
 	if deps.MaxEvents <= 0 {
 		return CoreDeps{}, errInvalidMaxEvents
@@ -138,6 +143,7 @@ func normalizeCoreProperties(deps CoreDeps) (CoreDeps, error) {
 	return normalizedDeps, nil
 }
 
+// ensureCoreValidator provides the default validator when none was injected.
 func ensureCoreValidator(deps *CoreDeps) error {
 	if deps.Validator != nil {
 		return nil
@@ -201,6 +207,7 @@ func (core *Core) AddOccurrence(row dto.OccurrenceRow) error {
 	return nil
 }
 
+// initialize executes startup orchestration for schema and runtime-state.
 func (core *Core) initialize(ctx context.Context) error {
 	if err := executeQueryBatch(ctx, core.db, query.BuildSchemaMigrationQueries()); err != nil {
 		return err
@@ -218,6 +225,8 @@ func (core *Core) initialize(ctx context.Context) error {
 	return core.loadRuntimeState(ctx)
 }
 
+// loadRuntimeState reads persisted runtime pointers and applies them to the
+// in-memory tracker state.
 func (core *Core) loadRuntimeState(ctx context.Context) error {
 	rows, err := core.db.QueryContext(
 		ctx,
@@ -246,6 +255,7 @@ func (core *Core) loadRuntimeState(ctx context.Context) error {
 	return nil
 }
 
+// applyRuntimeStateRow scans one key/value row and applies it to runtime state.
 func (core *Core) applyRuntimeStateRow(rows *sql.Rows) error {
 	var key string
 	var value string
@@ -255,6 +265,7 @@ func (core *Core) applyRuntimeStateRow(rows *sql.Rows) error {
 	return core.applyRuntimeStateKeyValue(key, value)
 }
 
+// applyRuntimeStateKeyValue routes one runtime-state entry to its typed applier.
 func (core *Core) applyRuntimeStateKeyValue(key string, value string) error {
 	switch key {
 	case query.RuntimeStateCurrentEventRecIDKey:
@@ -269,6 +280,7 @@ func (core *Core) applyRuntimeStateKeyValue(key string, value string) error {
 	}
 }
 
+// applyCurrentEventRecID parses and stores the current rotation rec_id pointer.
 func (core *Core) applyCurrentEventRecID(value string) error {
 	parsed, err := parseRuntimeStateInt64(value)
 	if err != nil {
@@ -278,6 +290,7 @@ func (core *Core) applyCurrentEventRecID(value string) error {
 	return nil
 }
 
+// applyCurrentEventSeq parses and stores the current generated sequence.
 func (core *Core) applyCurrentEventSeq(value string) error {
 	parsed, err := parseRuntimeStateUint32(value)
 	if err != nil {
@@ -287,16 +300,19 @@ func (core *Core) applyCurrentEventSeq(value string) error {
 	return nil
 }
 
+// applyEventIDPrefix updates the active event-id prefix when value is non-empty.
 func (core *Core) applyEventIDPrefix(value string) {
 	if value != "" {
 		core.currentIDPrefix = value
 	}
 }
 
+// parseRuntimeStateInt64 parses a runtime-state value into int64.
 func parseRuntimeStateInt64(value string) (int64, error) {
 	return strconv.ParseInt(value, 10, 64)
 }
 
+// parseRuntimeStateUint32 parses a runtime-state value into uint32.
 func parseRuntimeStateUint32(value string) (uint32, error) {
 	parsed, err := strconv.ParseUint(value, 10, 32)
 	if err != nil {
@@ -305,6 +321,8 @@ func parseRuntimeStateUint32(value string) (uint32, error) {
 	return uint32(parsed), nil
 }
 
+// nextEventIdentity advances rec_id and sequence pointers with wrap semantics
+// and returns the resulting business event identifier.
 func (core *Core) nextEventIdentity() (int64, uint32, string, error) {
 	core.stateMu.Lock()
 	defer core.stateMu.Unlock()
@@ -329,6 +347,7 @@ func (core *Core) nextEventIdentity() (int64, uint32, string, error) {
 	return recID, seq, eventID, nil
 }
 
+// executeQueryBatch executes query items in-order as one startup batch step.
 func executeQueryBatch(ctx context.Context, db *sql.DB, queries []query.Query) error {
 	for _, builtQuery := range queries {
 		if _, err := db.ExecContext(ctx, builtQuery.SQL, builtQuery.Args...); err != nil {
@@ -338,6 +357,7 @@ func executeQueryBatch(ctx context.Context, db *sql.DB, queries []query.Query) e
 	return nil
 }
 
+// resolveCreatedAt returns input value or the supplied fallback timestamp.
 func resolveCreatedAt(createdAt string, fallback string) string {
 	if createdAt == "" {
 		return fallback
@@ -345,6 +365,7 @@ func resolveCreatedAt(createdAt string, fallback string) string {
 	return createdAt
 }
 
+// resolveSeverity returns input value or default informational severity.
 func resolveSeverity(severity enum.Severity) enum.Severity {
 	if severity == "" {
 		return enum.SeverityInfo
@@ -352,6 +373,7 @@ func resolveSeverity(severity enum.Severity) enum.Severity {
 	return severity
 }
 
+// resolvePriority returns input value or the default event priority.
 func resolvePriority(priority *int) int {
 	if priority == nil {
 		return defaultEventPriority
@@ -359,6 +381,7 @@ func resolvePriority(priority *int) int {
 	return *priority
 }
 
+// resolveSource returns input value or the default source label.
 func resolveSource(source string) string {
 	if source == "" {
 		return defaultEventSource
@@ -366,6 +389,8 @@ func resolveSource(source string) string {
 	return source
 }
 
+// enqueueCreateEventWrites emits the create-event write set into the writer
+// input channel, including deferred runtime-state tail updates.
 func (core *Core) enqueueCreateEventWrites(
 	recID int64,
 	seq uint32,
