@@ -32,6 +32,8 @@ SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",
     "lite-nas-web-gateway",
     "lite-nas-system-metrics",
+    "lite-nas-system-logging-manager",
+    "lite-nas-security-logging-manager",
     "nginx",
     "nats-server",
 ]

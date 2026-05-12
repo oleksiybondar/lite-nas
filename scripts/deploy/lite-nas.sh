@@ -9,7 +9,7 @@ source "$DEPLOY_HELPER_DIR/ufw.sh"
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_SECURITY_GROUP="${LITE_NAS_SECURITY_GROUP:-lite-nas-security}"
 readonly LITE_NAS_OPERATOR_GROUP="${LITE_NAS_OPERATOR_GROUP:-lite-nas-operator}"
-readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_LOG_DIR:-/var/log/lite-nas}"
+readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_BOOTSTRAP_LOG_DIR:-/var/log/lite-nas}"
 
 deploy.liteNAS.usage() {
 	cat <<'MSG'

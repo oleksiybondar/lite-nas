@@ -14,8 +14,9 @@ readonly LITE_NAS_SYSTEM_METRICS_CONFIG_SOURCE="${LITE_NAS_SYSTEM_METRICS_CONFIG
 readonly LITE_NAS_SYSTEM_METRICS_CONFIG_TARGET="${LITE_NAS_SYSTEM_METRICS_CONFIG_TARGET:-$LITE_NAS_SYSTEM_METRICS_CONFIG_DIR/system-metrics.conf}"
 readonly LITE_NAS_SYSTEM_METRICS_UNIT_TEMPLATE="${LITE_NAS_SYSTEM_METRICS_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-system-metrics.service}"
 readonly LITE_NAS_SYSTEM_METRICS_UNIT_TARGET="${LITE_NAS_SYSTEM_METRICS_UNIT_TARGET:-/etc/systemd/system/lite-nas-system-metrics.service}"
-readonly LITE_NAS_SYSTEM_METRICS_LOG_DIR="${LITE_NAS_SYSTEM_METRICS_LOG_DIR:-${LITE_NAS_LOG_DIR:-/var/log/lite-nas}}"
+readonly LITE_NAS_SYSTEM_METRICS_LOG_DIR="${LITE_NAS_SYSTEM_METRICS_LOG_DIR:-/var/log/lite-nas}"
 readonly LITE_NAS_SYSTEM_METRICS_LOG_FILE="${LITE_NAS_SYSTEM_METRICS_LOG_FILE:-$LITE_NAS_SYSTEM_METRICS_LOG_DIR/system-metrics.log}"
+readonly LITE_NAS_SYSTEM_METRICS_LEGACY_LOG_FILE="/var/lib/lite-nas/system-metrics.log"
 
 deploy.systemMetrics.usage() {
 	cat <<'MSG'
@@ -35,9 +36,11 @@ deploy.systemMetrics.requireTools() {
 		getent
 		groupadd
 		install
+		cat
 		chmod
 		chown
 		realpath
+		rm
 		systemctl
 		touch
 		useradd
@@ -119,6 +122,17 @@ deploy.systemMetrics.installConfig() {
 
 deploy.systemMetrics.installLogTarget() {
 	install -d -m 0751 -o root -g "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_LOG_DIR"
+
+	if [ -f "$LITE_NAS_SYSTEM_METRICS_LEGACY_LOG_FILE" ]; then
+		if [ ! -f "$LITE_NAS_SYSTEM_METRICS_LOG_FILE" ]; then
+			install -m 0640 -o "$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER" -g "$LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP" \
+				"$LITE_NAS_SYSTEM_METRICS_LEGACY_LOG_FILE" \
+				"$LITE_NAS_SYSTEM_METRICS_LOG_FILE"
+		else
+			cat "$LITE_NAS_SYSTEM_METRICS_LEGACY_LOG_FILE" >>"$LITE_NAS_SYSTEM_METRICS_LOG_FILE"
+		fi
+		rm -f "$LITE_NAS_SYSTEM_METRICS_LEGACY_LOG_FILE"
+	fi
 
 	if [ ! -f "$LITE_NAS_SYSTEM_METRICS_LOG_FILE" ]; then
 		install -m 0640 -o "$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER" -g "$LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP" \

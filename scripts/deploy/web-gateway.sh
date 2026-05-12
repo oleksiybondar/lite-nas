@@ -18,8 +18,9 @@ readonly LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE="${LITE_NAS_WEB_GATEWAY_CONFIG_SOURC
 readonly LITE_NAS_WEB_GATEWAY_CONFIG_TARGET="${LITE_NAS_WEB_GATEWAY_CONFIG_TARGET:-$LITE_NAS_WEB_GATEWAY_CONFIG_DIR/web-gateway.conf}"
 readonly LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE="${LITE_NAS_WEB_GATEWAY_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-web-gateway.service}"
 readonly LITE_NAS_WEB_GATEWAY_UNIT_TARGET="${LITE_NAS_WEB_GATEWAY_UNIT_TARGET:-/etc/systemd/system/lite-nas-web-gateway.service}"
-readonly LITE_NAS_WEB_GATEWAY_LOG_DIR="${LITE_NAS_WEB_GATEWAY_LOG_DIR:-${LITE_NAS_LOG_DIR:-/var/log/lite-nas}}"
+readonly LITE_NAS_WEB_GATEWAY_LOG_DIR="${LITE_NAS_WEB_GATEWAY_LOG_DIR:-/var/log/lite-nas}"
 readonly LITE_NAS_WEB_GATEWAY_LOG_FILE="${LITE_NAS_WEB_GATEWAY_LOG_FILE:-$LITE_NAS_WEB_GATEWAY_LOG_DIR/web-gateway.log}"
+readonly LITE_NAS_WEB_GATEWAY_LEGACY_LOG_FILE="/var/lib/lite-nas/web-gateway.log"
 readonly LITE_NAS_WEB_GATEWAY_SHARE_ROOT="${LITE_NAS_WEB_GATEWAY_SHARE_ROOT:-/usr/share/lite-nas/web-gateway}"
 LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="${LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE:-$LITE_NAS_REPO_ROOT/.build/admin-panel}"
 
@@ -43,6 +44,7 @@ deploy.webGateway.requireTools() {
 		getent
 		groupadd
 		install
+		cat
 		chmod
 		chown
 		realpath
@@ -137,6 +139,17 @@ deploy.webGateway.installSharedAssets() {
 
 deploy.webGateway.installLogTarget() {
 	install -d -m 0751 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_LOG_DIR"
+
+	if [ -f "$LITE_NAS_WEB_GATEWAY_LEGACY_LOG_FILE" ]; then
+		if [ ! -f "$LITE_NAS_WEB_GATEWAY_LOG_FILE" ]; then
+			install -m 0640 -o "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" -g "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \
+				"$LITE_NAS_WEB_GATEWAY_LEGACY_LOG_FILE" \
+				"$LITE_NAS_WEB_GATEWAY_LOG_FILE"
+		else
+			cat "$LITE_NAS_WEB_GATEWAY_LEGACY_LOG_FILE" >>"$LITE_NAS_WEB_GATEWAY_LOG_FILE"
+		fi
+		rm -f "$LITE_NAS_WEB_GATEWAY_LEGACY_LOG_FILE"
+	fi
 
 	if [ ! -f "$LITE_NAS_WEB_GATEWAY_LOG_FILE" ]; then
 		install -m 0640 -o "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" -g "$LITE_NAS_WEB_GATEWAY_RUNTIME_GROUP" \

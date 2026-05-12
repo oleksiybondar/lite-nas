@@ -12,8 +12,9 @@ readonly LITE_NAS_AUTH_CONFIG_SOURCE="${LITE_NAS_AUTH_CONFIG_SOURCE:-$LITE_NAS_R
 readonly LITE_NAS_AUTH_CONFIG_TARGET="${LITE_NAS_AUTH_CONFIG_TARGET:-$LITE_NAS_AUTH_CONFIG_DIR/auth.conf}"
 readonly LITE_NAS_AUTH_UNIT_TEMPLATE="${LITE_NAS_AUTH_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-auth.service}"
 readonly LITE_NAS_AUTH_UNIT_TARGET="${LITE_NAS_AUTH_UNIT_TARGET:-/etc/systemd/system/lite-nas-auth.service}"
-readonly LITE_NAS_AUTH_LOG_DIR="${LITE_NAS_AUTH_LOG_DIR:-${LITE_NAS_LOG_DIR:-/var/log/lite-nas}}"
+readonly LITE_NAS_AUTH_LOG_DIR="${LITE_NAS_AUTH_LOG_DIR:-/var/log/lite-nas}"
 readonly LITE_NAS_AUTH_LOG_FILE="${LITE_NAS_AUTH_LOG_FILE:-$LITE_NAS_AUTH_LOG_DIR/auth-service.log}"
+readonly LITE_NAS_AUTH_LEGACY_LOG_FILE="/var/lib/lite-nas/auth-service.log"
 
 deploy.authService.usage() {
 	cat <<'MSG'
@@ -33,9 +34,11 @@ deploy.authService.requireTools() {
 		getent
 		groupadd
 		install
+		cat
 		chmod
 		chown
 		realpath
+		rm
 		systemctl
 		touch
 	)
@@ -88,6 +91,15 @@ deploy.authService.installConfig() {
 
 deploy.authService.installLogTarget() {
 	install -d -m 0751 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_LOG_DIR"
+
+	if [ -f "$LITE_NAS_AUTH_LEGACY_LOG_FILE" ]; then
+		if [ ! -f "$LITE_NAS_AUTH_LOG_FILE" ]; then
+			install -m 0640 -o root -g root "$LITE_NAS_AUTH_LEGACY_LOG_FILE" "$LITE_NAS_AUTH_LOG_FILE"
+		else
+			cat "$LITE_NAS_AUTH_LEGACY_LOG_FILE" >>"$LITE_NAS_AUTH_LOG_FILE"
+		fi
+		rm -f "$LITE_NAS_AUTH_LEGACY_LOG_FILE"
+	fi
 
 	if [ ! -f "$LITE_NAS_AUTH_LOG_FILE" ]; then
 		install -m 0640 -o root -g root /dev/null "$LITE_NAS_AUTH_LOG_FILE"
