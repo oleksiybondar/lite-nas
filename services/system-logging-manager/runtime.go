@@ -23,7 +23,29 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 
-	subjects := sharedloggingmanagernats.Subjects{
+	subjects := buildNATSSubjects()
+	if err := sharedloggingmanagernats.RegisterSubscriptions(infra.Server, infra.LoggingManagerCore.Core, subjects); err != nil {
+		return err
+	}
+	if err := sharedloggingmanagernats.RegisterRPCHandlers(infra.Server, infra.LoggingManagerCore.Core, subjects); err != nil {
+		return err
+	}
+
+	flushTimer, err := newFlushTimerWorker(infra)
+	if err != nil {
+		return err
+	}
+
+	startRuntimeWorkers(ctx, infra, flushTimer)
+
+	infra.Logger.Info("system logging manager service started", "config", packagedConfigPath)
+	<-ctx.Done()
+	infra.Logger.Info("system logging manager service stopping")
+	return ctx.Err()
+}
+
+func buildNATSSubjects() sharedloggingmanagernats.Subjects {
+	return sharedloggingmanagernats.Subjects{
 		AlertSubject:                            systemloggingmanagercontract.AlertSubject,
 		AlertOccurrenceSubject:                  systemloggingmanagercontract.AlertOccurrenceSubject,
 		GetAlertsRPCSubject:                     systemloggingmanagercontract.GetAlertsRPCSubject,
@@ -33,34 +55,23 @@ func run(ctx context.Context) error {
 		AcknowledgeAlertRPCSubject:              systemloggingmanagercontract.AcknowledgeAlertRPCSubject,
 		MuteAlertRPCSubject:                     systemloggingmanagercontract.MuteAlertRPCSubject,
 	}
+}
 
-	if err := sharedloggingmanagernats.RegisterSubscriptions(infra.Server, infra.LoggingManagerCore.Core, subjects); err != nil {
-		return err
-	}
-	if err := sharedloggingmanagernats.RegisterRPCHandlers(infra.Server, infra.LoggingManagerCore.Core, subjects); err != nil {
-		return err
-	}
-
-	flushTimer, err := sharedworkers.NewTimerWorker(
+func newFlushTimerWorker(infra modules.Infra) (sharedworkers.TimerWorker, error) {
+	return sharedworkers.NewTimerWorker(
 		sharedworkers.TimerConfig{
 			Interval:    infra.Config.LoggingManager.Writer.FlushInterval,
 			EmitOnStart: false,
 		},
 		infra.LoggingManagerCore.WriterFlushCh,
 	)
-	if err != nil {
-		return err
-	}
+}
 
+func startRuntimeWorkers(ctx context.Context, infra modules.Infra, flushTimer sharedworkers.TimerWorker) {
 	infra.LoggingManagerCore.CleanupTimer.Start(ctx)
 	flushTimer.Start(ctx)
 	go runCleanupWorker(ctx, infra.LoggingManagerCore.Core, infra.LoggingManagerCore.CleanupTicksCh, infra.Logger)
 	go runWriterWorker(ctx, infra.LoggingManagerCore.Writer, infra.Logger)
-
-	infra.Logger.Info("system logging manager service started", "config", packagedConfigPath)
-	<-ctx.Done()
-	infra.Logger.Info("system logging manager service stopping")
-	return ctx.Err()
 }
 
 func runCleanupWorker(
@@ -76,7 +87,7 @@ func runCleanupWorker(
 		case <-ctx.Done():
 			return
 		case <-ticks:
-			if err := core.Cleanup(context.Background()); err != nil {
+			if err := core.Cleanup(ctx); err != nil {
 				log.Warn("logging manager cleanup failed", "error", err)
 			}
 		}

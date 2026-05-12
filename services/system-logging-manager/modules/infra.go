@@ -25,31 +25,9 @@ type Infra struct {
 
 // NewInfraModule loads configuration and builds shared runtime dependencies.
 func NewInfraModule(ctx context.Context, configPath string, serviceName string) (Infra, error) {
-	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	cfg, err := loadConfig(configPath)
 	if err != nil {
 		return Infra{}, err
-	}
-
-	cfgFile, err := sharedconfig.LoadINI(cfgReader)
-	if err != nil {
-		return Infra{}, err
-	}
-	messagingCfg, err := sharedconfig.LoadMessagingConfig(cfgFile)
-	if err != nil {
-		return Infra{}, err
-	}
-	loggingCfg, err := sharedconfig.LoadLoggingConfig(cfgFile)
-	if err != nil {
-		return Infra{}, err
-	}
-	loggingManagerCfg, err := loggingmanagerconfig.LoadLoggingManagerConfig(cfgFile)
-	if err != nil {
-		return Infra{}, err
-	}
-	cfg := Config{
-		Messaging:      messagingCfg,
-		Logging:        loggingCfg,
-		LoggingManager: loggingManagerCfg,
 	}
 
 	coreInfra, err := sharedmodules.NewCoreClientServerInfra(serviceName, cfg.Logging, cfg.Messaging)
@@ -67,6 +45,39 @@ func NewInfraModule(ctx context.Context, configPath string, serviceName string) 
 		CoreInfra:          coreInfra,
 		Config:             cfg,
 		LoggingManagerCore: loggingManagerCore,
+	}, nil
+}
+
+func loadConfig(configPath string) (Config, error) {
+	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	if err != nil {
+		return Config{}, err
+	}
+
+	cfgFile, err := sharedconfig.LoadINI(cfgReader)
+	if err != nil {
+		return Config{}, err
+	}
+
+	messagingCfg, err := sharedconfig.LoadMessagingConfig(cfgFile)
+	if err != nil {
+		return Config{}, err
+	}
+
+	loggingCfg, err := sharedconfig.LoadLoggingConfig(cfgFile)
+	if err != nil {
+		return Config{}, err
+	}
+
+	loggingManagerCfg, err := loggingmanagerconfig.LoadLoggingManagerConfig(cfgFile)
+	if err != nil {
+		return Config{}, err
+	}
+
+	return Config{
+		Messaging:      messagingCfg,
+		Logging:        loggingCfg,
+		LoggingManager: loggingManagerCfg,
 	}, nil
 }
 

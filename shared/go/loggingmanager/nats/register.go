@@ -26,23 +26,25 @@ func RegisterRPCHandlers(
 	core *sharedloggingmanager.Core,
 	subjects Subjects,
 ) error {
-	if err := server.RegisterRPC(subjects.GetAlertsRPCSubject, handleGetAlertsRPC(core)); err != nil {
-		return err
+	handlers := []rpcRegistration{
+		{subject: subjects.GetAlertsRPCSubject, handler: handleGetAlertsRPC(core)},
+		{subject: subjects.GetActiveAlertsRPCSubject, handler: handleGetActiveAlertsRPC(core)},
+		{subject: subjects.GetUnacknowledgedActiveAlertsRPCSubject, handler: handleGetUnacknowledgedActiveAlertsRPC(core)},
+		{subject: subjects.UpdateAlertStateRPCSubject, handler: handleUpdateAlertStateRPC(core)},
+		{subject: subjects.AcknowledgeAlertRPCSubject, handler: handleAcknowledgeAlertRPC(core)},
+		{subject: subjects.MuteAlertRPCSubject, handler: handleMuteAlertRPC(core)},
 	}
-	if err := server.RegisterRPC(subjects.GetActiveAlertsRPCSubject, handleGetActiveAlertsRPC(core)); err != nil {
-		return err
+
+	for _, registration := range handlers {
+		if err := server.RegisterRPC(registration.subject, registration.handler); err != nil {
+			return err
+		}
 	}
-	if err := server.RegisterRPC(subjects.GetUnacknowledgedActiveAlertsRPCSubject, handleGetUnacknowledgedActiveAlertsRPC(core)); err != nil {
-		return err
-	}
-	if err := server.RegisterRPC(subjects.UpdateAlertStateRPCSubject, handleUpdateAlertStateRPC(core)); err != nil {
-		return err
-	}
-	if err := server.RegisterRPC(subjects.AcknowledgeAlertRPCSubject, handleAcknowledgeAlertRPC(core)); err != nil {
-		return err
-	}
-	if err := server.RegisterRPC(subjects.MuteAlertRPCSubject, handleMuteAlertRPC(core)); err != nil {
-		return err
-	}
+
 	return nil
+}
+
+type rpcRegistration struct {
+	subject string
+	handler sharedmessaging.RPCHandler
 }

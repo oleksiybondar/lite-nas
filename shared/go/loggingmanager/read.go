@@ -32,72 +32,96 @@ func (core *Core) listEventsQuery(ctx context.Context, builtQuery query.Query) (
 }
 
 func scanEvent(rows *sql.Rows) (model.Event, error) {
-	var (
-		row model.Event
-
-		acknowledgedInt int
-		mutedInt        int
-		statusRaw       string
-		severityRaw     string
-
-		lastValueTs   sql.NullString
-		lastValueType sql.NullString
-		lastValueNum  sql.NullFloat64
-		lastValueText sql.NullString
-		lastValueBool sql.NullInt64
-		lastValueUnit sql.NullString
-		stateMessage  sql.NullString
-		createdAt     string
-		ackAt         string
-		mutedAt       string
-	)
-
-	err := rows.Scan(
-		&row.Event.RecID,
-		&row.Event.EventID,
-		&row.Event.Category,
-		&severityRaw,
-		&row.Event.Priority,
-		&createdAt,
-		&row.Event.Source,
-		&acknowledgedInt,
-		&row.Lifecycle.AcknowledgedBy,
-		&ackAt,
-		&mutedInt,
-		&row.Lifecycle.MutedBy,
-		&mutedAt,
-		&statusRaw,
-		&stateMessage,
-		&lastValueTs,
-		&lastValueType,
-		&lastValueNum,
-		&lastValueText,
-		&lastValueBool,
-		&lastValueUnit,
-	)
-	if err != nil {
+	var scanned eventScanResult
+	if err := scanEventRow(rows, &scanned); err != nil {
 		return model.Event{}, err
 	}
+	return buildEvent(scanned), nil
+}
 
-	row.Event.Severity = enum.Severity(severityRaw)
-	row.Event.CreatedAt = createdAt
+type eventScanResult struct {
+	event model.Event
+
+	acknowledgedInt int
+	mutedInt        int
+	statusRaw       string
+	severityRaw     string
+
+	lastValueTs   sql.NullString
+	lastValueType sql.NullString
+	lastValueNum  sql.NullFloat64
+	lastValueText sql.NullString
+	lastValueBool sql.NullInt64
+	lastValueUnit sql.NullString
+	stateMessage  sql.NullString
+	createdAt     string
+	ackAt         string
+	mutedAt       string
+}
+
+func scanEventRow(rows *sql.Rows, scanned *eventScanResult) error {
+	return rows.Scan(
+		&scanned.event.Event.RecID,
+		&scanned.event.Event.EventID,
+		&scanned.event.Event.Category,
+		&scanned.severityRaw,
+		&scanned.event.Event.Priority,
+		&scanned.createdAt,
+		&scanned.event.Event.Source,
+		&scanned.acknowledgedInt,
+		&scanned.event.Lifecycle.AcknowledgedBy,
+		&scanned.ackAt,
+		&scanned.mutedInt,
+		&scanned.event.Lifecycle.MutedBy,
+		&scanned.mutedAt,
+		&scanned.statusRaw,
+		&scanned.stateMessage,
+		&scanned.lastValueTs,
+		&scanned.lastValueType,
+		&scanned.lastValueNum,
+		&scanned.lastValueText,
+		&scanned.lastValueBool,
+		&scanned.lastValueUnit,
+	)
+}
+
+func buildEvent(scanned eventScanResult) model.Event {
+	row := scanned.event
+	applyCoreEventFields(&row, scanned)
+	applyStateMessage(&row, scanned.stateMessage)
+	row.LastValue = scanLastOccurrence(
+		row.Event.EventID,
+		row.Event.RecID,
+		scanned.lastValueTs,
+		scanned.lastValueType,
+		scanned.lastValueNum,
+		scanned.lastValueText,
+		scanned.lastValueBool,
+		scanned.lastValueUnit,
+	)
+	return row
+}
+
+func applyCoreEventFields(row *model.Event, scanned eventScanResult) {
+	row.Event.Severity = enum.Severity(scanned.severityRaw)
+	row.Event.CreatedAt = scanned.createdAt
 	row.Lifecycle.RecID = row.Event.RecID
 	row.Lifecycle.EventID = row.Event.EventID
 	row.Lifecycle.EventRecID = row.Event.RecID
-	row.Lifecycle.Acknowledged = acknowledgedInt == 1
-	row.Lifecycle.AcknowledgedAt = ackAt
-	row.Lifecycle.Muted = mutedInt == 1
-	row.Lifecycle.MutedAt = mutedAt
+	row.Lifecycle.Acknowledged = scanned.acknowledgedInt == 1
+	row.Lifecycle.AcknowledgedAt = scanned.ackAt
+	row.Lifecycle.Muted = scanned.mutedInt == 1
+	row.Lifecycle.MutedAt = scanned.mutedAt
 	row.State.RecID = row.Event.RecID
 	row.State.EventID = row.Event.EventID
 	row.State.EventRecID = row.Event.RecID
-	row.State.Status = enum.Status(statusRaw)
+	row.State.Status = enum.Status(scanned.statusRaw)
+}
+
+func applyStateMessage(row *model.Event, stateMessage sql.NullString) {
 	if stateMessage.Valid {
 		row.State.Message = stateMessage.String
 	}
-	row.LastValue = scanLastOccurrence(row.Event.EventID, row.Event.RecID, lastValueTs, lastValueType, lastValueNum, lastValueText, lastValueBool, lastValueUnit)
-
-	return row, nil
 }
 
 func scanLastOccurrence(
@@ -119,24 +143,44 @@ func scanLastOccurrence(
 		EventRecID: eventRecID,
 		ValueType:  enum.ValueType(lastValueType.String),
 	}
-	if lastValueTs.Valid {
-		occurrence.Timestamp = lastValueTs.String
-	}
-	if lastValueNum.Valid {
-		value := lastValueNum.Float64
-		occurrence.ValueNum = &value
-	}
-	if lastValueText.Valid {
-		value := lastValueText.String
-		occurrence.ValueText = &value
-	}
-	if lastValueBool.Valid {
-		value := lastValueBool.Int64 == 1
-		occurrence.ValueBool = &value
-	}
-	if lastValueUnit.Valid {
-		value := lastValueUnit.String
-		occurrence.ValueUnit = &value
-	}
+	setOccurrenceTimestamp(&occurrence, lastValueTs)
+	setOccurrenceNumber(&occurrence, lastValueNum)
+	setOccurrenceText(&occurrence, lastValueText)
+	setOccurrenceBool(&occurrence, lastValueBool)
+	setOccurrenceUnit(&occurrence, lastValueUnit)
 	return &occurrence
+}
+
+func setOccurrenceTimestamp(occurrence *dto.OccurrenceRow, value sql.NullString) {
+	if value.Valid {
+		occurrence.Timestamp = value.String
+	}
+}
+
+func setOccurrenceNumber(occurrence *dto.OccurrenceRow, value sql.NullFloat64) {
+	if value.Valid {
+		raw := value.Float64
+		occurrence.ValueNum = &raw
+	}
+}
+
+func setOccurrenceText(occurrence *dto.OccurrenceRow, value sql.NullString) {
+	if value.Valid {
+		raw := value.String
+		occurrence.ValueText = &raw
+	}
+}
+
+func setOccurrenceBool(occurrence *dto.OccurrenceRow, value sql.NullInt64) {
+	if value.Valid {
+		raw := value.Int64 == 1
+		occurrence.ValueBool = &raw
+	}
+}
+
+func setOccurrenceUnit(occurrence *dto.OccurrenceRow, value sql.NullString) {
+	if value.Valid {
+		raw := value.String
+		occurrence.ValueUnit = &raw
+	}
 }
