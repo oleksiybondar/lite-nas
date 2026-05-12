@@ -48,7 +48,11 @@ mkdir -p "$output_dir"
 
 log.pushTask "Building deployable binaries for linux/${target_arch}"
 "$SCRIPT_DIR/build-auth-service-binary.sh" --output="$output_dir/auth-service"
+"$SCRIPT_DIR/build-system-logging-manager-binary.sh" --output="$output_dir/system-logging-manager"
+"$SCRIPT_DIR/build-security-logging-manager-binary.sh" --output="$output_dir/security-logging-manager"
 "$SCRIPT_DIR/build-system-metrics-binary.sh" --output="$output_dir/system-metrics"
+"$SCRIPT_DIR/build-system-logging-manager-cli-binary.sh" --output="$output_dir/system-logging-manager-cli"
+"$SCRIPT_DIR/build-security-logging-manager-cli-binary.sh" --output="$output_dir/security-logging-manager-cli"
 "$SCRIPT_DIR/build-system-metrics-cli-binary.sh" --output="$output_dir/system-metrics-cli"
 "$SCRIPT_DIR/build-web-gateway-binary.sh" --output="$output_dir/web-gateway"
 log.popTask

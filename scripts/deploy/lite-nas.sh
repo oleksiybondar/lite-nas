@@ -7,6 +7,8 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 source "$DEPLOY_HELPER_DIR/ufw.sh"
 
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
+readonly LITE_NAS_SECURITY_GROUP="${LITE_NAS_SECURITY_GROUP:-lite-nas-security}"
+readonly LITE_NAS_OPERATOR_GROUP="${LITE_NAS_OPERATOR_GROUP:-lite-nas-operator}"
 readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_LOG_DIR:-/var/log/lite-nas}"
 
 deploy.liteNAS.usage() {
@@ -44,6 +46,17 @@ deploy.liteNAS.ensureCommonGroup() {
 	groupadd --system "$LITE_NAS_BOOTSTRAP_GROUP"
 }
 
+deploy.liteNAS.ensureRoleGroups() {
+	if ! getent group "$LITE_NAS_SECURITY_GROUP" >/dev/null 2>&1; then
+		log.info "Creating LiteNAS security group: $LITE_NAS_SECURITY_GROUP"
+		groupadd --system "$LITE_NAS_SECURITY_GROUP"
+	fi
+	if ! getent group "$LITE_NAS_OPERATOR_GROUP" >/dev/null 2>&1; then
+		log.info "Creating LiteNAS operator group: $LITE_NAS_OPERATOR_GROUP"
+		groupadd --system "$LITE_NAS_OPERATOR_GROUP"
+	fi
+}
+
 deploy.liteNAS.ensureLogDir() {
 	install -d -m 0751 -o root -g "$LITE_NAS_BOOTSTRAP_GROUP" "$LITE_NAS_BOOTSTRAP_LOG_DIR"
 }
@@ -53,6 +66,7 @@ deploy.liteNAS.bootstrap() {
 
 	"$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh"
 	deploy.liteNAS.ensureCommonGroup
+	deploy.liteNAS.ensureRoleGroups
 	deploy.liteNAS.ensureLogDir
 
 	if [ "$manage_nats_config" = "1" ]; then

@@ -1,0 +1,43 @@
+[Unit]
+Description=LiteNAS security logging manager service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-security-logging-manager
+Group=lite-nas-security-logging-manager
+SupplementaryGroups=lite-nas-security lite-nas
+ExecStart=/usr/libexec/lite-nas/security-logging-manager
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+ReadOnlyPaths=/etc/lite-nas
+ReadWritePaths=/var/log/lite-nas/security-logging-manager.log /var/lib/lite-nas/security-logging-manager/log.db
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

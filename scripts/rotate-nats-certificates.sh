@@ -16,12 +16,16 @@ litenas_transport_certificates_dir="${LITE_NAS_TRANSPORT_CERTIFICATE_DIR:-$liten
 litenas_group="${LITE_NAS_GROUP:-lite-nas}"
 cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
 cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
+system_logging_manager_cli_certificate_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-system-logging-manager-cli}"
+system_logging_manager_cli_access_group="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-operator}"
+security_logging_manager_cli_certificate_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-security-logging-manager-cli}"
+security_logging_manager_cli_access_group="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-security}"
 certificate_days="${LITE_NAS_CERTIFICATE_DAYS:-825}"
 root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
 server_alt_names="${LITE_NAS_NATS_SERVER_ALT_NAMES:-DNS:localhost,DNS:lite-nas,DNS:lite-nas.local,IP:127.0.0.1}"
 
-read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-system-metrics-cli lite-nas-web-gateway lite-nas-auth-service}"
+read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-system-metrics-cli lite-nas-system-logging-manager lite-nas-security-logging-manager lite-nas-system-logging-manager-cli lite-nas-security-logging-manager-cli lite-nas-web-gateway lite-nas-auth-service}"
 rotate_only_if_missing=0
 
 usage() {
@@ -97,6 +101,14 @@ ensure_litenas_groups() {
 	if ! getent group "$cli_access_group" >/dev/null 2>&1; then
 		log.info "Creating CLI access group: $cli_access_group"
 		groupadd --system "$cli_access_group"
+	fi
+	if ! getent group "$system_logging_manager_cli_access_group" >/dev/null 2>&1; then
+		log.info "Creating CLI access group: $system_logging_manager_cli_access_group"
+		groupadd --system "$system_logging_manager_cli_access_group"
+	fi
+	if ! getent group "$security_logging_manager_cli_access_group" >/dev/null 2>&1; then
+		log.info "Creating CLI access group: $security_logging_manager_cli_access_group"
+		groupadd --system "$security_logging_manager_cli_access_group"
 	fi
 
 	for certificate_user in "${certificate_users[@]}"; do
@@ -295,6 +307,18 @@ normalize_certificate_permissions() {
 		chmod 0755 "$litenas_transport_certificates_dir/$cli_certificate_user"
 		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.crt' -exec chmod 0644 {} +
 		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.key' -exec chmod 0644 {} +
+	fi
+	if [ -d "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user" ]; then
+		chown -R "root:$system_logging_manager_cli_access_group" "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user"
+		chmod 0750 "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
+		find "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
+	fi
+	if [ -d "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" ]; then
+		chown -R "root:$security_logging_manager_cli_access_group" "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user"
+		chmod 0750 "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
+		find "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
 	fi
 }
 
