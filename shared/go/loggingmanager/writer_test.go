@@ -12,12 +12,14 @@ import (
 type fakeExecutor struct {
 	executeCalls int
 	lastTxSQL    query.TransactionSQL
+	txHistory    []query.TransactionSQL
 	executeErr   error
 }
 
 func (executor *fakeExecutor) Execute(_ context.Context, txSQL query.TransactionSQL) error {
 	executor.executeCalls++
 	executor.lastTxSQL = txSQL
+	executor.txHistory = append(executor.txHistory, txSQL)
 	if executor.executeErr != nil {
 		return executor.executeErr
 	}
@@ -36,7 +38,7 @@ func (b *fakeBuilder) Build(queries []query.Query) query.TransactionSQL {
 func TestNewWriterValidatesDependencies(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewWriter(nil, &fakeBuilder{}, make(chan query.Query), nil, 1)
+	_, err := NewWriter(nil, &fakeBuilder{}, make(chan WriteRequest), nil, 1, 100)
 	if !errors.Is(err, errNilExecutor) {
 		t.Fatalf("err = %v, want %v", err, errNilExecutor)
 	}
@@ -45,20 +47,17 @@ func TestNewWriterValidatesDependencies(t *testing.T) {
 func TestRunFlushesOnMaxItems(t *testing.T) {
 	t.Parallel()
 
-	executor := &fakeExecutor{}
-	builder := &fakeBuilder{}
-	queryInCh := make(chan query.Query, 4)
-	writer := mustNewWriter(t, executor, builder, queryInCh, nil, 2)
+	rig := newWriterTestRig(t, 4, 0, 2, 100)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	done := runWriterAsync(writer, ctx)
+	done := runWriterAsync(rig.writer, ctx)
 
-	queryInCh <- query.Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"a"}}
-	queryInCh <- query.Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"b"}}
+	rig.queryInCh <- WriteRequest{Query: query.Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"a"}}}
+	rig.queryInCh <- WriteRequest{Query: query.Query{SQL: "INSERT INTO events VALUES(?)", Args: []any{"b"}}}
 
-	waitForCondition(t, time.Second, func() bool { return executor.executeCalls >= 1 })
+	waitForCondition(t, time.Second, func() bool { return rig.executor.executeCalls >= 1 })
 	cancel()
 	waitDone(t, done)
 }
@@ -66,22 +65,21 @@ func TestRunFlushesOnMaxItems(t *testing.T) {
 func TestRunFlushesOnFlushSignal(t *testing.T) {
 	t.Parallel()
 
-	executor := &fakeExecutor{}
-	builder := &fakeBuilder{}
-	queryInCh := make(chan query.Query, 4)
-	flushInCh := make(chan struct{}, 1)
-	writer := mustNewWriter(t, executor, builder, queryInCh, flushInCh, 100)
+	rig := newWriterTestRig(t, 4, 1, 100, 100)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	done := runWriterAsync(writer, ctx)
-	queryInCh <- query.Query{SQL: "INSERT INTO occurrences VALUES(?)", Args: []any{"x"}}
-	flushInCh <- struct{}{}
+	done := runWriterAsync(rig.writer, ctx)
+	rig.queryInCh <- WriteRequest{
+		Query:              query.Query{SQL: "INSERT INTO occurrences VALUES(?)", Args: []any{"x"}},
+		TouchesOccurrences: true,
+	}
+	rig.flushInCh <- struct{}{}
 	time.Sleep(10 * time.Millisecond)
-	flushInCh <- struct{}{}
+	rig.flushInCh <- struct{}{}
 
-	waitForCondition(t, time.Second, func() bool { return executor.executeCalls >= 1 })
+	waitForCondition(t, time.Second, func() bool { return rig.executor.executeCalls >= 1 })
 	cancel()
 	waitDone(t, done)
 }
@@ -89,19 +87,16 @@ func TestRunFlushesOnFlushSignal(t *testing.T) {
 func TestRunFlushesPendingBatchOnContextCancel(t *testing.T) {
 	t.Parallel()
 
-	executor := &fakeExecutor{}
-	builder := &fakeBuilder{}
-	queryInCh := make(chan query.Query, 4)
-	writer := mustNewWriter(t, executor, builder, queryInCh, nil, 10)
+	rig := newWriterTestRig(t, 4, 0, 10, 100)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := runWriterAsync(writer, ctx)
+	done := runWriterAsync(rig.writer, ctx)
 
-	queryInCh <- query.Query{SQL: "UPDATE lifecycle SET muted = 1 WHERE rec_id = ?", Args: []any{1}}
+	rig.queryInCh <- WriteRequest{Query: query.Query{SQL: "UPDATE lifecycle SET muted = 1 WHERE rec_id = ?", Args: []any{1}}}
 	cancel()
 	waitDone(t, done)
 
-	if executor.executeCalls < 1 {
+	if rig.executor.executeCalls < 1 {
 		t.Fatal("expected flush on cancel")
 	}
 }
@@ -109,16 +104,13 @@ func TestRunFlushesPendingBatchOnContextCancel(t *testing.T) {
 func TestRunReturnsErrorForEmptySQL(t *testing.T) {
 	t.Parallel()
 
-	executor := &fakeExecutor{}
-	builder := &fakeBuilder{}
-	queryInCh := make(chan query.Query, 1)
-	writer := mustNewWriter(t, executor, builder, queryInCh, nil, 10)
+	rig := newWriterTestRig(t, 1, 0, 10, 100)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	done := runWriterAsync(writer, ctx)
-	queryInCh <- query.Query{}
+	done := runWriterAsync(rig.writer, ctx)
+	rig.queryInCh <- WriteRequest{Query: query.Query{}}
 
 	err := <-done
 	if !errors.Is(err, errQueryWithEmptySQL) {
@@ -126,17 +118,86 @@ func TestRunReturnsErrorForEmptySQL(t *testing.T) {
 	}
 }
 
+func TestRunFlushesMixedByCountAndTick(t *testing.T) {
+	t.Parallel()
+
+	rig := newWriterTestRig(t, 16, 1, 5, 1000)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := runWriterAsync(rig.writer, ctx)
+	for idx := range 8 {
+		rig.queryInCh <- WriteRequest{
+			Query: query.Query{
+				SQL:  "INSERT INTO events VALUES(?)",
+				Args: []any{idx},
+			},
+		}
+	}
+
+	waitForCondition(t, time.Second, func() bool { return rig.executor.executeCalls >= 1 })
+	rig.flushInCh <- struct{}{}
+	waitForCondition(t, time.Second, func() bool { return rig.executor.executeCalls >= 2 })
+
+	cancel()
+	waitDone(t, done)
+
+	if len(rig.executor.txHistory) < 2 {
+		t.Fatalf("txHistory len = %d, want at least 2", len(rig.executor.txHistory))
+	}
+	if got := len(rig.executor.txHistory[0].Queries); got != 5 {
+		t.Fatalf("first tx queries = %d, want 5", got)
+	}
+	if got := len(rig.executor.txHistory[1].Queries); got != 3 {
+		t.Fatalf("second tx queries = %d, want 3", got)
+	}
+}
+
+type writerTestRig struct {
+	executor  *fakeExecutor
+	queryInCh chan WriteRequest
+	flushInCh chan struct{}
+	writer    *Writer
+}
+
+func newWriterTestRig(
+	t *testing.T,
+	queryBuffer int,
+	flushBuffer int,
+	maxItems int,
+	maxOccurrences int,
+) writerTestRig {
+	t.Helper()
+
+	executor := &fakeExecutor{}
+	builder := &fakeBuilder{}
+	queryInCh := make(chan WriteRequest, queryBuffer)
+	var flushInCh chan struct{}
+	if flushBuffer > 0 {
+		flushInCh = make(chan struct{}, flushBuffer)
+	}
+	writer := mustNewWriter(t, executor, builder, queryInCh, flushInCh, maxItems, maxOccurrences)
+	return writerTestRig{
+		executor:  executor,
+		queryInCh: queryInCh,
+		flushInCh: flushInCh,
+		writer:    writer,
+	}
+}
+
 func mustNewWriter(
 	t *testing.T,
 	executor TransactionExecutor,
 	builder TransactionBuilder,
-	queryInCh <-chan query.Query,
+	queryInCh <-chan WriteRequest,
 	flushInCh <-chan struct{},
 	maxItems int,
+	maxOccurrences int,
 ) *Writer {
 	t.Helper()
 
-	writer, err := NewWriter(executor, builder, queryInCh, flushInCh, maxItems)
+	writer, err := NewWriter(executor, builder, queryInCh, flushInCh, maxItems, maxOccurrences)
 	if err != nil {
 		t.Fatalf("NewWriter() error = %v", err)
 	}

@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"lite-nas/shared/loggingmanager/dto"
 	"lite-nas/shared/loggingmanager/query"
 )
 
 var (
 	errNilExecutor           = errors.New("loggingmanager writer transaction executor is required")
 	errNilTransactionBuilder = errors.New("loggingmanager writer transaction builder is required")
-	errNilQueryInputChannel  = errors.New("loggingmanager writer query input channel is required")
+	errNilQueryInputChannel  = errors.New("loggingmanager writer request input channel is required")
 	errInvalidMaxItems       = errors.New("loggingmanager writer max items must be greater than zero")
 	errQueryWithEmptySQL     = errors.New("loggingmanager writer query SQL is required")
 )
@@ -52,11 +53,12 @@ func (DefaultTransactionBuilder) Build(queries []query.Query) query.TransactionS
 // Side effects:
 //   - Performs persistence I/O only through the injected executor.
 type Writer struct {
-	executor  TransactionExecutor
-	builder   TransactionBuilder
-	queryInCh <-chan query.Query
-	flushInCh <-chan struct{}
-	maxItems  int
+	executor       TransactionExecutor
+	builder        TransactionBuilder
+	requestInCh    <-chan WriteRequest
+	flushInCh      <-chan struct{}
+	maxItems       int
+	maxOccurrences int
 }
 
 // NewWriter builds a channel-driven writer and validates dependencies.
@@ -70,9 +72,10 @@ type Writer struct {
 func NewWriter(
 	executor TransactionExecutor,
 	builder TransactionBuilder,
-	queryInCh <-chan query.Query,
+	requestInCh <-chan WriteRequest,
 	flushInCh <-chan struct{},
 	maxItems int,
+	maxOccurrences int,
 ) (*Writer, error) {
 	if executor == nil {
 		return nil, errNilExecutor
@@ -80,7 +83,7 @@ func NewWriter(
 	if builder == nil {
 		return nil, errNilTransactionBuilder
 	}
-	if queryInCh == nil {
+	if requestInCh == nil {
 		return nil, errNilQueryInputChannel
 	}
 	if maxItems <= 0 {
@@ -88,11 +91,12 @@ func NewWriter(
 	}
 
 	return &Writer{
-		executor:  executor,
-		builder:   builder,
-		queryInCh: queryInCh,
-		flushInCh: flushInCh,
-		maxItems:  maxItems,
+		executor:       executor,
+		builder:        builder,
+		requestInCh:    requestInCh,
+		flushInCh:      flushInCh,
+		maxItems:       maxItems,
+		maxOccurrences: maxOccurrences,
 	}, nil
 }
 
@@ -111,9 +115,10 @@ func NewWriter(
 //   - Run must be called once per Writer instance.
 func (w *Writer) Run(ctx context.Context) error {
 	batch := make([]query.Query, 0, w.maxItems)
+	tailState := newDeferredTailState()
 
 	for {
-		stop, err := w.runStep(ctx, &batch)
+		stop, err := w.runStep(ctx, &batch, tailState)
 		if err != nil {
 			return err
 		}
@@ -127,18 +132,22 @@ func (w *Writer) Run(ctx context.Context) error {
 //
 // A true stop result indicates graceful termination after finalization work was
 // completed or that a terminal error was returned.
-func (w *Writer) runStep(ctx context.Context, batch *[]query.Query) (bool, error) {
+func (w *Writer) runStep(
+	ctx context.Context,
+	batch *[]query.Query,
+	tailState *deferredTailState,
+) (bool, error) {
 	select {
 	case <-ctx.Done():
-		return true, w.handleContextCancel(batch)
-	case query, ok := <-w.queryInCh:
-		err := w.handleQueryInput(query, ok, batch)
+		return true, w.handleContextCancel(batch, tailState)
+	case request, ok := <-w.requestInCh:
+		err := w.handleWriteRequest(request, ok, batch, tailState)
 		if err != nil {
 			return true, err
 		}
 		return !ok, nil
 	case <-w.flushInCh:
-		return false, w.handleFlushSignal(batch)
+		return false, w.handleFlushSignal(batch, tailState)
 	}
 }
 
@@ -149,8 +158,8 @@ func (w *Writer) runStep(ctx context.Context, batch *[]query.Query) (bool, error
 //
 // Side effects:
 //   - Delegates transactional persistence I/O to the configured executor.
-func (w *Writer) flush(ctx context.Context, batch []query.Query) error {
-	transactionSQL := w.builder.Build(batch)
+func (w *Writer) flush(ctx context.Context, batch []query.Query, tailState *deferredTailState) error {
+	transactionSQL := w.builder.Build(w.buildBatchWithDeferredTail(batch, tailState))
 	return w.executor.Execute(ctx, transactionSQL)
 }
 
@@ -158,12 +167,16 @@ func (w *Writer) flush(ctx context.Context, batch []query.Query) error {
 //
 // Side effects:
 //   - May perform persistence I/O through flush.
-func (w *Writer) flushIfNeeded(ctx context.Context, batch []query.Query) error {
+func (w *Writer) flushIfNeeded(
+	ctx context.Context,
+	batch []query.Query,
+	tailState *deferredTailState,
+) error {
 	if len(batch) == 0 {
 		return nil
 	}
 
-	return w.flush(ctx, batch)
+	return w.flush(ctx, batch, tailState)
 }
 
 // drainQueryChannel non-blockingly appends queued items before shutdown flush.
@@ -172,14 +185,15 @@ func (w *Writer) flushIfNeeded(ctx context.Context, batch []query.Query) error {
 //   - Drains only currently available items and stops when the channel would
 //     block.
 //   - If queryInCh is closed, draining stops immediately.
-func (w *Writer) drainQueryChannel(batch *[]query.Query) {
+func (w *Writer) drainWriteChannel(batch *[]query.Query, tailState *deferredTailState) {
 	for {
 		select {
-		case query, ok := <-w.queryInCh:
+		case request, ok := <-w.requestInCh:
 			if !ok {
 				return
 			}
-			*batch = append(*batch, query)
+			*batch = append(*batch, request.Query)
+			tailState.capture(request)
 		default:
 			return
 		}
@@ -190,12 +204,12 @@ func (w *Writer) drainQueryChannel(batch *[]query.Query) {
 //
 // Side effects:
 //   - May execute persistence I/O if the drained batch is non-empty.
-func (w *Writer) handleContextCancel(batch *[]query.Query) error {
-	w.drainQueryChannel(batch)
-	return w.flushIfNeeded(context.Background(), *batch)
+func (w *Writer) handleContextCancel(batch *[]query.Query, tailState *deferredTailState) error {
+	w.drainWriteChannel(batch, tailState)
+	return w.flushIfNeeded(context.Background(), *batch, tailState)
 }
 
-// handleQueryInput appends one query and flushes when maxItems is reached.
+// handleWriteRequest appends one query and flushes when maxItems is reached.
 //
 // When ok is false the input channel is closed and pending data is flushed.
 //
@@ -204,23 +218,30 @@ func (w *Writer) handleContextCancel(batch *[]query.Query) error {
 //
 // Side effects:
 //   - May execute persistence I/O when flush thresholds are reached.
-func (w *Writer) handleQueryInput(query query.Query, ok bool, batch *[]query.Query) error {
+func (w *Writer) handleWriteRequest(
+	request WriteRequest,
+	ok bool,
+	batch *[]query.Query,
+	tailState *deferredTailState,
+) error {
 	if !ok {
-		return w.flushIfNeeded(context.Background(), *batch)
+		return w.flushIfNeeded(context.Background(), *batch, tailState)
 	}
-	if query.SQL == "" {
+	if request.Query.SQL == "" {
 		return errQueryWithEmptySQL
 	}
 
-	*batch = append(*batch, query)
+	*batch = append(*batch, request.Query)
+	tailState.capture(request)
 	if len(*batch) < w.maxItems {
 		return nil
 	}
 
-	if err := w.flush(context.Background(), *batch); err != nil {
+	if err := w.flush(context.Background(), *batch, tailState); err != nil {
 		return err
 	}
 	*batch = (*batch)[:0]
+	tailState.reset()
 	return nil
 }
 
@@ -228,15 +249,76 @@ func (w *Writer) handleQueryInput(query query.Query, ok bool, batch *[]query.Que
 //
 // Side effects:
 //   - May execute persistence I/O through flush.
-func (w *Writer) handleFlushSignal(batch *[]query.Query) error {
+func (w *Writer) handleFlushSignal(batch *[]query.Query, tailState *deferredTailState) error {
 	if len(*batch) == 0 {
 		return nil
 	}
 
-	if err := w.flush(context.Background(), *batch); err != nil {
+	if err := w.flush(context.Background(), *batch, tailState); err != nil {
 		return err
 	}
 
 	*batch = (*batch)[:0]
+	tailState.reset()
 	return nil
+}
+
+type deferredTailState struct {
+	runtimeStateByKey  map[string]string
+	touchesOccurrences bool
+}
+
+func newDeferredTailState() *deferredTailState {
+	return &deferredTailState{
+		runtimeStateByKey: make(map[string]string),
+	}
+}
+
+func (state *deferredTailState) capture(request WriteRequest) {
+	for _, update := range request.RuntimeStateUpdates {
+		state.runtimeStateByKey[update.Key] = update.Value
+	}
+	if request.TouchesOccurrences {
+		state.touchesOccurrences = true
+	}
+}
+
+func (state *deferredTailState) reset() {
+	for key := range state.runtimeStateByKey {
+		delete(state.runtimeStateByKey, key)
+	}
+	state.touchesOccurrences = false
+}
+
+func (w *Writer) buildBatchWithDeferredTail(
+	batch []query.Query,
+	tailState *deferredTailState,
+) []query.Query {
+	queries := make([]query.Query, 0, len(batch)+len(tailState.runtimeStateByKey)+1)
+	queries = append(queries, batch...)
+	queries = append(queries, runtimeStateTailQueries(tailState.runtimeStateByKey)...)
+	if tailState.touchesOccurrences && w.maxOccurrences > 0 {
+		queries = append(queries, query.DeleteOccurrencesBeyondLimit(w.maxOccurrences))
+	}
+	return queries
+}
+
+func runtimeStateTailQueries(runtimeStateByKey map[string]string) []query.Query {
+	keysInOrder := []string{
+		query.RuntimeStateCurrentEventRecIDKey,
+		query.RuntimeStateCurrentEventSeqKey,
+		query.RuntimeStateEventIDPrefixKey,
+	}
+	queries := make([]query.Query, 0, len(runtimeStateByKey))
+	for _, key := range keysInOrder {
+		value, ok := runtimeStateByKey[key]
+		if !ok {
+			continue
+		}
+		queries = append(queries, query.UpsertRuntimeState(dto.RuntimeStateRow{
+			Key:   key,
+			Value: value,
+		}))
+	}
+	return queries
 }

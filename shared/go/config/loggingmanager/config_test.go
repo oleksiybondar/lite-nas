@@ -19,6 +19,7 @@ func TestLoadLoggingManagerConfigParsedFields(t *testing.T) {
 		{Name: "sqlite path", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Storage.SQLitePath }, Want: "/var/lib/lite-nas/loggingmanager.db"},
 		{Name: "max events", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Storage.MaxEvents }, Want: 5000},
 		{Name: "max occurrences", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Storage.MaxOccurrences }, Want: 500000},
+		{Name: "event id prefix", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Storage.EventIDPrefix }, Want: "event"},
 		{Name: "writer batch size", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Writer.BatchSize }, Want: 100},
 		{Name: "writer flush interval", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Writer.FlushInterval }, Want: 100 * time.Millisecond},
 		{Name: "cleanup batch size", Got: func(cfg loggingmanagerconfig.LoggingManagerConfig) any { return cfg.Cleanup.BatchSize }, Want: 5000},
@@ -89,6 +90,15 @@ func invalidLoggingManagerStorageCases() []struct {
 			ini:  strings.ReplaceAll(validLoggingManagerConfigINI(), "max_occurrences=500000\n", "max_occurrences=-1\n"),
 			want: "max_occurrences must be greater than zero",
 		},
+		{
+			name: "invalid event id prefix",
+			ini: strings.ReplaceAll(
+				validLoggingManagerConfigINI(),
+				"event_id_prefix=event\n",
+				"event_id_prefix=invalid-prefix\n",
+			),
+			want: "event_id_prefix must be 1..10 ascii letters, digits, or underscore",
+		},
 	}
 }
 
@@ -142,6 +152,7 @@ func validLoggingManagerConfigINI() string {
 		"sqlite_path=/var/lib/lite-nas/loggingmanager.db\n" +
 		"max_events=5000\n" +
 		"max_occurrences=500000\n" +
+		"event_id_prefix=event\n" +
 		"[loggingmanager_writer]\n" +
 		"batch_size=100\n" +
 		"flush_interval=100ms\n" +

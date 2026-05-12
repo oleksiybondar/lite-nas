@@ -11,6 +11,18 @@ func DeleteOrphanOccurrences() Query {
 	}
 }
 
+// DeleteOccurrencesBeyondLimit removes the oldest occurrence records and keeps
+// only the latest limit rows.
+func DeleteOccurrencesBeyondLimit(limit int) Query {
+	return Query{
+		SQL: "DELETE FROM occurrences " +
+			"WHERE rec_id IN (" +
+			"SELECT rec_id FROM occurrences ORDER BY rec_id DESC LIMIT -1 OFFSET ?" +
+			")",
+		Args: []any{limit},
+	}
+}
+
 // DeleteOrphanEventMeta removes event metadata rows that no longer belong to
 // any active event identity.
 func DeleteOrphanEventMeta() Query {
