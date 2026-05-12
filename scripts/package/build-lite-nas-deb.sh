@@ -176,6 +176,9 @@ install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
+install -d -m 0755 "$package_root/usr/bin"
+ln -sfn /usr/libexec/lite-nas/system-metrics-cli \
+	"$package_root/usr/bin/system-metrics-cli"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
 package.copyTree "$admin_panel_assets_path" \
@@ -189,6 +192,7 @@ find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chm
 find "$package_root/usr" -type d -exec chmod 0755 {} +
 find "$package_root/usr" -type f -exec chmod 0644 {} +
 chmod 0755 \
+	"$package_root/usr/bin/system-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/auth-service" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \

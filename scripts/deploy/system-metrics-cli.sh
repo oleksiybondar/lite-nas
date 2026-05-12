@@ -7,6 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET:-/usr/libexec/lite-nas/system-metrics-cli}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_SYMLINK_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_SYMLINK_TARGET:-/usr/bin/system-metrics-cli}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/system-metrics-cli.conf}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET:-$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR/system-metrics-cli.conf}"
@@ -30,6 +31,7 @@ deploy.systemMetricsCLI.requireTools() {
 		getent
 		groupadd
 		install
+		ln
 		chmod
 		chown
 	)
@@ -77,6 +79,14 @@ deploy.systemMetricsCLI.installBinary() {
 	install -m 0755 "$source_binary" "$LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET"
 }
 
+deploy.systemMetricsCLI.installBinarySymlink() {
+	local symlink_dir
+
+	symlink_dir="$(dirname "$LITE_NAS_SYSTEM_METRICS_CLI_SYMLINK_TARGET")"
+	install -d -m 0755 "$symlink_dir"
+	ln -sfn "$LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET" "$LITE_NAS_SYSTEM_METRICS_CLI_SYMLINK_TARGET"
+}
+
 deploy.systemMetricsCLI.installConfig() {
 	if [ ! -f "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE" ]; then
 		log.error "Missing system-metrics-cli config source: $LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE"
@@ -105,6 +115,7 @@ deploy.systemMetricsCLI.deploy() {
 	deploy.systemMetricsCLI.ensureConfigGroup
 	deploy.systemMetricsCLI.ensureAccessGroup
 	deploy.systemMetricsCLI.installBinary "$source_binary"
+	deploy.systemMetricsCLI.installBinarySymlink
 	deploy.systemMetricsCLI.installConfig
 	deploy.systemMetricsCLI.installLogTarget
 }
