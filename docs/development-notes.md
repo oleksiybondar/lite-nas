@@ -103,3 +103,23 @@ shared runtime validation layer.
 
 For packaging/runtime orchestration policy and CI parity expectations, see
 [Packaging Runtime Flow](./packaging-runtime-flow.md).
+
+## Logging Managers Duplication (Current Intent)
+
+`system-logging-manager` and `security-logging-manager` are intentionally kept
+structurally identical in this stage, including their paired CLI apps.
+
+Current expected differences are limited to:
+
+- subscribed and requested NATS subjects/events
+- NATS identity permissions
+- service and CLI configuration files/paths
+
+This is intentional for the current version line. Divergence is expected in
+higher versions when security-specific behavior moves beyond contract-level
+differences.
+
+To keep duplication checks clean, shared runtime/CLI logic is centralized under
+`shared/go/loggingmanagerservice` and `shared/go/loggingmanagercli`, while
+system/security binaries remain thin adapters over different subjects and
+configs.

@@ -12,7 +12,11 @@ cd "$LITE_NAS_REPO_ROOT"
 package_name="lite-nas"
 package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
 auth_service_binary_path=""
+system_logging_manager_binary_path=""
+security_logging_manager_binary_path=""
 system_metrics_binary_path=""
+system_logging_manager_cli_binary_path=""
+security_logging_manager_cli_binary_path=""
 system_metrics_cli_binary_path=""
 web_gateway_binary_path=""
 admin_panel_assets_path=""
@@ -27,7 +31,15 @@ Usage: scripts/package/build-lite-nas-deb.sh [options]
 Options:
   --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or 0.1.0.
   --auth-service-binary=PATH         Use an existing auth-service binary.
+  --system-logging-manager-binary=PATH
+                                     Use an existing system-logging-manager binary.
+  --security-logging-manager-binary=PATH
+                                     Use an existing security-logging-manager binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
+  --system-logging-manager-cli-binary=PATH
+                                     Use an existing system-logging-manager-cli binary.
+  --security-logging-manager-cli-binary=PATH
+                                     Use an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
@@ -37,8 +49,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-metrics-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -56,8 +68,28 @@ if args.has auth-service-binary && ! auth_service_binary_path="$(args.require_ar
 	usage >&2
 	exit 64
 fi
+if args.has system-logging-manager-binary && ! system_logging_manager_binary_path="$(args.require_arg system-logging-manager-binary)"; then
+	log.error "Missing value for --system-logging-manager-binary"
+	usage >&2
+	exit 64
+fi
+if args.has security-logging-manager-binary && ! security_logging_manager_binary_path="$(args.require_arg security-logging-manager-binary)"; then
+	log.error "Missing value for --security-logging-manager-binary"
+	usage >&2
+	exit 64
+fi
 if args.has system-metrics-binary && ! system_metrics_binary_path="$(args.require_arg system-metrics-binary)"; then
 	log.error "Missing value for --system-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has system-logging-manager-cli-binary && ! system_logging_manager_cli_binary_path="$(args.require_arg system-logging-manager-cli-binary)"; then
+	log.error "Missing value for --system-logging-manager-cli-binary"
+	usage >&2
+	exit 64
+fi
+if args.has security-logging-manager-cli-binary && ! security_logging_manager_cli_binary_path="$(args.require_arg security-logging-manager-cli-binary)"; then
+	log.error "Missing value for --security-logging-manager-cli-binary"
 	usage >&2
 	exit 64
 fi
@@ -91,10 +123,34 @@ if [ -z "$auth_service_binary_path" ]; then
 		"--output=${auth_service_binary_path}"
 fi
 
+if [ -z "$system_logging_manager_binary_path" ]; then
+	system_logging_manager_binary_path="$output_dir/${package_name}-${package_arch}/system-logging-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-system-logging-manager-binary.sh" \
+		"--output=${system_logging_manager_binary_path}"
+fi
+
+if [ -z "$security_logging_manager_binary_path" ]; then
+	security_logging_manager_binary_path="$output_dir/${package_name}-${package_arch}/security-logging-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-security-logging-manager-binary.sh" \
+		"--output=${security_logging_manager_binary_path}"
+fi
+
 if [ -z "$system_metrics_binary_path" ]; then
 	system_metrics_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
 		"--output=${system_metrics_binary_path}"
+fi
+
+if [ -z "$system_logging_manager_cli_binary_path" ]; then
+	system_logging_manager_cli_binary_path="$output_dir/${package_name}-${package_arch}/system-logging-manager-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-system-logging-manager-cli-binary.sh" \
+		"--output=${system_logging_manager_cli_binary_path}"
+fi
+
+if [ -z "$security_logging_manager_cli_binary_path" ]; then
+	security_logging_manager_cli_binary_path="$output_dir/${package_name}-${package_arch}/security-logging-manager-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-security-logging-manager-cli-binary.sh" \
+		"--output=${security_logging_manager_cli_binary_path}"
 fi
 
 if [ -z "$system_metrics_cli_binary_path" ]; then
@@ -120,8 +176,28 @@ if [ ! -f "$auth_service_binary_path" ]; then
 	exit 1
 fi
 
+if [ ! -f "$system_logging_manager_binary_path" ]; then
+	log.error "Missing system-logging-manager binary: $system_logging_manager_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$security_logging_manager_binary_path" ]; then
+	log.error "Missing security-logging-manager binary: $security_logging_manager_binary_path"
+	exit 1
+fi
+
 if [ ! -f "$system_metrics_binary_path" ]; then
 	log.error "Missing system-metrics binary: $system_metrics_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$system_logging_manager_cli_binary_path" ]; then
+	log.error "Missing system-logging-manager-cli binary: $system_logging_manager_cli_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$security_logging_manager_cli_binary_path" ]; then
+	log.error "Missing security-logging-manager-cli binary: $security_logging_manager_cli_binary_path"
 	exit 1
 fi
 
@@ -172,11 +248,23 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.s
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh"
 install -D -m 0755 "$auth_service_binary_path" \
 	"$package_root/usr/libexec/lite-nas/auth-service"
+install -D -m 0755 "$system_logging_manager_binary_path" \
+	"$package_root/usr/libexec/lite-nas/system-logging-manager"
+install -D -m 0755 "$security_logging_manager_binary_path" \
+	"$package_root/usr/libexec/lite-nas/security-logging-manager"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
+install -D -m 0755 "$system_logging_manager_cli_binary_path" \
+	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli"
+install -D -m 0755 "$security_logging_manager_cli_binary_path" \
+	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
 install -d -m 0755 "$package_root/usr/bin"
+ln -sfn /usr/libexec/lite-nas/system-logging-manager-cli \
+	"$package_root/usr/bin/system-logging-manager-cli"
+ln -sfn /usr/libexec/lite-nas/security-logging-manager-cli \
+	"$package_root/usr/bin/security-logging-manager-cli"
 ln -sfn /usr/libexec/lite-nas/system-metrics-cli \
 	"$package_root/usr/bin/system-metrics-cli"
 install -D -m 0755 "$web_gateway_binary_path" \
@@ -193,8 +281,14 @@ find "$package_root/usr" -type d -exec chmod 0755 {} +
 find "$package_root/usr" -type f -exec chmod 0644 {} +
 chmod 0755 \
 	"$package_root/usr/bin/system-metrics-cli" \
+	"$package_root/usr/bin/system-logging-manager-cli" \
+	"$package_root/usr/bin/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/auth-service" \
+	"$package_root/usr/libexec/lite-nas/system-logging-manager" \
+	"$package_root/usr/libexec/lite-nas/security-logging-manager" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
+	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
+	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \

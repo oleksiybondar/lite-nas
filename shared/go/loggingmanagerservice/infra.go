@@ -1,4 +1,4 @@
-package modules
+package loggingmanagerservice
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	sharedmodules "lite-nas/shared/modules"
 )
 
-// Config defines system-logging-manager service runtime configuration.
+// Config defines runtime configuration required by a logging-manager service.
 type Config struct {
 	Messaging      sharedconfig.MessagingConfig
 	Logging        sharedconfig.LoggingConfig

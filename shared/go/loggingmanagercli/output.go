@@ -1,4 +1,4 @@
-package workers
+package loggingmanagercli
 
 import (
 	"encoding/json"
@@ -9,12 +9,6 @@ import (
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 )
-
-// OutputWriter renders command output in table or JSON modes.
-type OutputWriter interface {
-	WriteEvents(writer io.Writer, events []loggingmanagercontract.ListAlertItem, jsonOutput bool) error
-	WriteOK(writer io.Writer, response loggingmanagercontract.OKResponse, jsonOutput bool) error
-}
 
 type outputWriter struct{}
 

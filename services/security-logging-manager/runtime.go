@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+
+	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	sharedloggingmanagernats "lite-nas/shared/loggingmanager/nats"
+	sharedloggingmanagerservice "lite-nas/shared/loggingmanagerservice"
 )
 
 const (
@@ -10,9 +13,27 @@ const (
 	serviceName        = "security-logging-manager"
 )
 
-// run starts the initial service stub runtime.
+// run assembles and starts the system logging-manager runtime.
 func run(ctx context.Context) error {
-	fmt.Println("hello " + serviceName)
-	<-ctx.Done()
-	return ctx.Err()
+	infra, err := sharedloggingmanagerservice.NewInfraModule(ctx, packagedConfigPath, serviceName)
+	if err != nil {
+		return err
+	}
+	defer infra.Close()
+
+	return sharedloggingmanagerservice.Run(ctx, infra, buildNATSSubjects(), packagedConfigPath, "security logging manager")
+}
+
+func buildNATSSubjects() sharedloggingmanagernats.Subjects {
+	return sharedloggingmanagernats.Subjects{
+		AlertSubject:                            securityloggingmanagercontract.AlertSubject,
+		AlertOccurrenceSubject:                  securityloggingmanagercontract.AlertOccurrenceSubject,
+		GetAlertsRPCSubject:                     securityloggingmanagercontract.GetAlertsRPCSubject,
+		GetAlertRPCSubject:                      securityloggingmanagercontract.GetAlertRPCSubject,
+		GetActiveAlertsRPCSubject:               securityloggingmanagercontract.GetActiveAlertsRPCSubject,
+		GetUnacknowledgedActiveAlertsRPCSubject: securityloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
+		UpdateAlertStateRPCSubject:              securityloggingmanagercontract.UpdateAlertStateRPCSubject,
+		AcknowledgeAlertRPCSubject:              securityloggingmanagercontract.AcknowledgeAlertRPCSubject,
+		MuteAlertRPCSubject:                     securityloggingmanagercontract.MuteAlertRPCSubject,
+	}
 }

@@ -1,4 +1,4 @@
-package workers
+package loggingmanagercli
 
 import (
 	"errors"
@@ -7,8 +7,10 @@ import (
 	"strings"
 )
 
+// ErrHelpRequested indicates that usage should be printed.
 var ErrHelpRequested = errors.New("help requested")
 
+// Command identifies supported CLI commands.
 type Command string
 
 const (
@@ -26,17 +28,6 @@ const (
 	commandGetEventsAlias                Command = "getEvents"
 	commandGetActiveUnacknowledgedAlias  Command = "getActiveUnacknowladgedEvents"
 )
-
-// Invocation contains validated CLI execution settings.
-type Invocation struct {
-	ConfigPath string
-	Command    Command
-	Data       string
-	EventID    string
-	Page       int
-	PageSize   int
-	JSONOutput bool
-}
 
 // ArgsProcessor parses raw CLI arguments into an Invocation.
 type ArgsProcessor interface {
