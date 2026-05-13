@@ -109,6 +109,30 @@ func TestCreateEventEnqueuesThreeRequestsWithRuntimeUpdates(t *testing.T) {
 	}
 }
 
+func TestCreateEventUsesProvidedEventIDAndStillAdvancesRuntimeState(t *testing.T) {
+	t.Parallel()
+
+	core, writerInputCh := newCreateEventTestCore(t, "perf")
+
+	eventID, err := core.CreateEvent(dto.CreateEventInput{
+		EventID:  "t1778675852000000000",
+		Category: "system",
+	})
+	if err != nil {
+		t.Fatalf("CreateEvent() error = %v", err)
+	}
+	if eventID != "t1778675852000000000" {
+		t.Fatalf("eventID = %q, want %q", eventID, "t1778675852000000000")
+	}
+
+	requestOne := <-writerInputCh
+	if len(requestOne.RuntimeStateUpdates) != 3 {
+		t.Fatalf("runtime updates len = %d, want 3", len(requestOne.RuntimeStateUpdates))
+	}
+	assertRuntimeStateUpdate(t, requestOne.RuntimeStateUpdates, query.RuntimeStateCurrentEventRecIDKey, "1")
+	assertRuntimeStateUpdate(t, requestOne.RuntimeStateUpdates, query.RuntimeStateCurrentEventSeqKey, "1")
+}
+
 func TestCreateEventAppliesDefaults(t *testing.T) {
 	t.Parallel()
 

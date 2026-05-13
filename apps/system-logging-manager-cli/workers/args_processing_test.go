@@ -67,6 +67,45 @@ func TestArgsProcessorParsesGetActiveUnacknowledgedAlias(t *testing.T) {
 	}
 }
 
+func TestArgsProcessorParsesGetEventsAlias(t *testing.T) {
+	t.Parallel()
+
+	processor := NewArgsProcessor("/etc/lite-nas/system-logging-manager-cli.conf")
+	invocation, err := processor.Process([]string{
+		"--cmd", "getEvents",
+		"--page", "1",
+		"--json",
+	})
+	if err != nil {
+		t.Fatalf("Process() error = %v", err)
+	}
+
+	if invocation.Command != CommandGetAlerts {
+		t.Fatalf("Command = %q, want %q", invocation.Command, CommandGetAlerts)
+	}
+}
+
+func TestArgsProcessorParsesGetEventInvocation(t *testing.T) {
+	t.Parallel()
+
+	processor := NewArgsProcessor("/etc/lite-nas/system-logging-manager-cli.conf")
+	invocation, err := processor.Process([]string{
+		"--cmd", "getEvent",
+		"--eventID", "event_1",
+		"--json",
+	})
+	if err != nil {
+		t.Fatalf("Process() error = %v", err)
+	}
+
+	if invocation.Command != CommandGetEvent {
+		t.Fatalf("Command = %q, want %q", invocation.Command, CommandGetEvent)
+	}
+	if invocation.EventID != "event_1" {
+		t.Fatalf("EventID = %q, want %q", invocation.EventID, "event_1")
+	}
+}
+
 func TestArgsProcessorRequiresCommand(t *testing.T) {
 	t.Parallel()
 
@@ -112,6 +151,16 @@ func TestArgsProcessorRejectsCreateOccurrenceWithoutEventID(t *testing.T) {
 
 	processor := NewArgsProcessor("/etc/lite-nas/system-logging-manager-cli.conf")
 	_, err := processor.Process([]string{"--cmd", "createOccurrence", "--data", `{"value_type":"text"}`})
+	if err == nil {
+		t.Fatal("Process() error = nil, want eventID validation error")
+	}
+}
+
+func TestArgsProcessorRejectsGetEventWithoutEventID(t *testing.T) {
+	t.Parallel()
+
+	processor := NewArgsProcessor("/etc/lite-nas/system-logging-manager-cli.conf")
+	_, err := processor.Process([]string{"--cmd", "getEvent"})
 	if err == nil {
 		t.Fatal("Process() error = nil, want eventID validation error")
 	}

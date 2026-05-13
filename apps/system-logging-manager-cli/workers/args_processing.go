@@ -14,6 +14,7 @@ type Command string
 const (
 	CommandCreateEvent                   Command = "createEvent"
 	CommandCreateOccurrence              Command = "createOccurrence"
+	CommandGetEvent                      Command = "getEvent"
 	CommandGetAlerts                     Command = "getAlerts"
 	CommandGetActiveEvents               Command = "getActiveEvents"
 	CommandGetActiveUnacknowledgedEvents Command = "getActiveUnacknowledgedEvents"
@@ -22,6 +23,7 @@ const (
 	CommandMuteEvent                     Command = "muteEvent"
 	defaultListPage                              = 1
 	commandCreateOccurrenceAlias         Command = "createOccurence"
+	commandGetEventsAlias                Command = "getEvents"
 	commandGetActiveUnacknowledgedAlias  Command = "getActiveUnacknowladgedEvents"
 )
 
@@ -50,6 +52,7 @@ type invocationValidatorFunc func(Invocation) (Invocation, error)
 var invocationValidators = map[Command]invocationValidatorFunc{
 	CommandCreateEvent:                   validateDataCommand,
 	CommandCreateOccurrence:              validateCreateOccurrenceCommand,
+	CommandGetEvent:                      validateGetEventCommand,
 	CommandGetAlerts:                     validateListCommand,
 	CommandGetActiveEvents:               validateListCommand,
 	CommandGetActiveUnacknowledgedEvents: validateListCommand,
@@ -188,6 +191,8 @@ func normalizeCommand(command Command) Command {
 	switch command {
 	case commandCreateOccurrenceAlias:
 		return CommandCreateOccurrence
+	case commandGetEventsAlias:
+		return CommandGetAlerts
 	case commandGetActiveUnacknowledgedAlias:
 		return CommandGetActiveUnacknowledgedEvents
 	default:
@@ -215,6 +220,13 @@ func validateCreateOccurrenceCommand(invocation Invocation) (Invocation, error) 
 		return Invocation{}, errors.New("--eventID is required for createOccurrence")
 	}
 	return validateDataCommand(invocation)
+}
+
+func validateGetEventCommand(invocation Invocation) (Invocation, error) {
+	if invocation.EventID == "" {
+		return Invocation{}, errors.New("--eventID is required for getEvent")
+	}
+	return invocation, nil
 }
 
 func validateListCommand(invocation Invocation) (Invocation, error) {

@@ -172,9 +172,13 @@ func (core *Core) CreateEvent(input dto.CreateEventInput) (string, error) {
 		return "", err
 	}
 
-	recID, seq, eventID, err := core.nextEventIdentity()
+	recID, seq, generatedEventID, err := core.nextEventIdentity()
 	if err != nil {
 		return "", err
+	}
+	eventID := generatedEventID
+	if input.EventID != "" {
+		eventID = input.EventID
 	}
 
 	now := core.clock().UTC().Format(time.RFC3339)

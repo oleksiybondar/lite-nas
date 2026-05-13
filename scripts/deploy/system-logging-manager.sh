@@ -124,7 +124,8 @@ deploy.systemLoggingManager.installUnitFile() {
 
 deploy.systemLoggingManager.enableAndStart() {
 	systemctl daemon-reload
-	systemctl enable --now "$LITE_NAS_SYSTEM_LOGGING_MANAGER_SERVICE_NAME.service"
+	systemctl enable "$LITE_NAS_SYSTEM_LOGGING_MANAGER_SERVICE_NAME.service"
+	systemctl restart "$LITE_NAS_SYSTEM_LOGGING_MANAGER_SERVICE_NAME.service"
 }
 
 deploy.systemLoggingManager.deploy() {

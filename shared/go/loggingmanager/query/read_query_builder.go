@@ -95,6 +95,15 @@ func BuildGetEventHistoryQuery(input dto.GetEventHistoryInput) Query {
 	}
 }
 
+// BuildGetEventByIDQuery builds the aggregate read query for one event_id.
+func BuildGetEventByIDQuery(input dto.GetEventHistoryInput) Query {
+	sql := buildBaseListEventsSQL() + " WHERE e.event_id = ? LIMIT 1"
+	return Query{
+		SQL:  sql,
+		Args: []any{input.EventID},
+	}
+}
+
 func withPrependedFilter(input dto.ListEventsInput, filter dto.Filter) dto.ListEventsInput {
 	out := input
 	out.Filters = append([]dto.Filter{filter}, input.Filters...)

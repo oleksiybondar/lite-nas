@@ -218,6 +218,36 @@ func TestExecuteCommandMutationRequestsAcknowledgeRPC(t *testing.T) {
 	}
 }
 
+func TestExecuteCommandGetEventRequestsGetAlertRPC(t *testing.T) {
+	t.Parallel()
+
+	client := &stubMessagingClient{
+		requestFill: func(response any) {
+			out := response.(*loggingmanagercontract.GetAlertResponse)
+			out.Item = &loggingmanagercontract.ListAlertItem{EventID: "event_1"}
+		},
+	}
+	output := &stubOutputWriter{}
+
+	err := executeCommand(
+		context.Background(),
+		workers.Invocation{
+			Command:    workers.CommandGetEvent,
+			EventID:    "event_1",
+			JSONOutput: true,
+		},
+		client,
+		output,
+		&bytes.Buffer{},
+	)
+	if err != nil {
+		t.Fatalf("executeCommand() error = %v", err)
+	}
+
+	assertGetEventRPCRequest(t, client)
+	assertGetEventOutput(t, output)
+}
+
 func TestExecuteCommandReturnsUnsupportedCommandError(t *testing.T) {
 	t.Parallel()
 
@@ -312,6 +342,30 @@ func TestExecuteCommandListReturnsOutputError(t *testing.T) {
 	err := executeCommand(
 		context.Background(),
 		workers.Invocation{Command: workers.CommandGetAlerts, Page: 1},
+		client,
+		output,
+		&bytes.Buffer{},
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("executeCommand() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestExecuteCommandGetEventReturnsOutputError(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("write failed")
+	client := &stubMessagingClient{
+		requestFill: func(response any) {
+			out := response.(*loggingmanagercontract.GetAlertResponse)
+			out.Item = &loggingmanagercontract.ListAlertItem{EventID: "event_1"}
+		},
+	}
+	output := &stubOutputWriter{writeEventsErr: wantErr}
+
+	err := executeCommand(
+		context.Background(),
+		workers.Invocation{Command: workers.CommandGetEvent, EventID: "event_1"},
 		client,
 		output,
 		&bytes.Buffer{},
@@ -422,4 +476,31 @@ func executeListActiveEventsFixture(t *testing.T) (*stubMessagingClient, *stubOu
 	)
 
 	return client, output, err
+}
+
+func assertGetEventRPCRequest(t *testing.T, client *stubMessagingClient) {
+	t.Helper()
+
+	if client.requestSubject != systemloggingmanagercontract.GetAlertRPCSubject {
+		t.Fatalf("request subject = %q, want %q", client.requestSubject, systemloggingmanagercontract.GetAlertRPCSubject)
+	}
+
+	request, ok := client.requestBody.(loggingmanagercontract.GetAlertInput)
+	if !ok {
+		t.Fatalf("request type = %T, want GetAlertInput", client.requestBody)
+	}
+	if request.EventID != "event_1" {
+		t.Fatalf("request event_id = %q, want %q", request.EventID, "event_1")
+	}
+}
+
+func assertGetEventOutput(t *testing.T, output *stubOutputWriter) {
+	t.Helper()
+
+	if output.writeEventsCall != 1 {
+		t.Fatalf("WriteEvents() calls = %d, want 1", output.writeEventsCall)
+	}
+	if len(output.events) != 1 || output.events[0].EventID != "event_1" {
+		t.Fatalf("WriteEvents output = %#v, want one event_1 item", output.events)
+	}
 }

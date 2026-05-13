@@ -39,6 +39,24 @@ func TestListEventsReturnsCreatedEvent(t *testing.T) {
 	}
 }
 
+func TestGetEventReturnsCreatedEventByEventID(t *testing.T) {
+	t.Parallel()
+
+	rig := newRunningCoreRig(t)
+	eventID := mustCreateEvent(t, rig, "system")
+
+	item, found, err := rig.core.GetEvent(dto.GetEventHistoryInput{EventID: eventID})
+	if err != nil {
+		t.Fatalf("GetEvent() error = %v", err)
+	}
+	if !found {
+		t.Fatal("GetEvent() found = false, want true")
+	}
+	if item.Event.EventID != eventID {
+		t.Fatalf("eventID = %q, want %q", item.Event.EventID, eventID)
+	}
+}
+
 func TestSetStateUpdatesEventState(t *testing.T) {
 	t.Parallel()
 
@@ -237,6 +255,53 @@ func TestNewCoreLoadsPreSeededRuntimeState(t *testing.T) {
 	}
 	if eventID != "boot_9" {
 		t.Fatalf("eventID = %q, want %q", eventID, "boot_9")
+	}
+}
+
+func TestNewCoreReloadsRuntimeStateSeededByCreateEventTransaction(t *testing.T) {
+	t.Parallel()
+
+	db := openTestSQLiteDB(t)
+	defer func() { _ = db.Close() }()
+
+	writerInputCh, writerFlushCh, _, _ := startRunningWriter(t, db)
+	core := mustNewCoreWithDeps(t, db, writerInputCh, "alert")
+	assertCreatedEventID(t, core, dto.CreateEventInput{
+		EventID:  "t1778675852000000000",
+		Category: "system",
+	}, "t1778675852000000000")
+	flushWriter(t, writerFlushCh)
+
+	reloadedCore := mustNewCoreWithDeps(t, db, make(chan WriteRequest, 8), "ignored")
+	assertCreatedEventID(t, reloadedCore, dto.CreateEventInput{Category: "system"}, "alert_2")
+}
+
+func mustNewCoreWithDeps(t *testing.T, db *sql.DB, writerInputCh chan WriteRequest, prefix string) *Core {
+	t.Helper()
+
+	core, err := NewCore(context.Background(), CoreDeps{
+		DB:             db,
+		WriterInputCh:  writerInputCh,
+		Clock:          fixedClock,
+		MaxEvents:      10,
+		MaxOccurrences: 1000,
+		EventIDPrefix:  prefix,
+	})
+	if err != nil {
+		t.Fatalf("NewCore() error = %v", err)
+	}
+	return core
+}
+
+func assertCreatedEventID(t *testing.T, core *Core, input dto.CreateEventInput, want string) {
+	t.Helper()
+
+	eventID, err := core.CreateEvent(input)
+	if err != nil {
+		t.Fatalf("CreateEvent() error = %v", err)
+	}
+	if eventID != want {
+		t.Fatalf("eventID = %q, want %q", eventID, want)
 	}
 }
 

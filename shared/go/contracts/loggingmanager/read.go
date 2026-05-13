@@ -8,7 +8,10 @@ import (
 	"lite-nas/shared/loggingmanager/model"
 )
 
-type ListAlertsInput = loggingmanagerdto.ListEventsInput
+type (
+	ListAlertsInput = loggingmanagerdto.ListEventsInput
+	GetAlertInput   = loggingmanagerdto.GetEventHistoryInput
+)
 
 // ListAlertItem defines the flattened read model for alert list responses.
 //
@@ -49,6 +52,10 @@ type ListAlertsResponse struct {
 	Items []ListAlertItem `json:"items"`
 }
 
+type GetAlertResponse struct {
+	Item *ListAlertItem `json:"item,omitempty"`
+}
+
 type itemsEnvelope struct {
 	Items []json.RawMessage `json:"items"`
 }
@@ -81,34 +88,39 @@ func (response *ListAlertsResponse) UnmarshalJSON(data []byte) error {
 func BuildListAlertItems(events []model.Event) []ListAlertItem {
 	items := make([]ListAlertItem, 0, len(events))
 	for _, event := range events {
-		item := ListAlertItem{
-			RecID:          event.Event.RecID,
-			EventID:        event.Event.EventID,
-			Category:       event.Event.Category,
-			Severity:       event.Event.Severity,
-			Priority:       event.Event.Priority,
-			CreatedAt:      event.Event.CreatedAt,
-			Source:         event.Event.Source,
-			EventRecID:     event.Lifecycle.EventRecID,
-			Acknowledged:   event.Lifecycle.Acknowledged,
-			AcknowledgedBy: event.Lifecycle.AcknowledgedBy,
-			AcknowledgedAt: event.Lifecycle.AcknowledgedAt,
-			Muted:          event.Lifecycle.Muted,
-			MutedBy:        event.Lifecycle.MutedBy,
-			MutedAt:        event.Lifecycle.MutedAt,
-			Status:         event.State.Status,
-			Message:        event.State.Message,
-		}
-		populateLastOccurrenceFields(&item, event)
-		if len(event.Meta) > 0 {
-			item.Meta = make(map[string]string, len(event.Meta))
-			for _, metaRow := range event.Meta {
-				item.Meta[metaRow.MetaKey] = metaRow.MetaValue
-			}
-		}
-		items = append(items, item)
+		items = append(items, BuildListAlertItem(event))
 	}
 	return items
+}
+
+// BuildListAlertItem maps one storage read model event into one contract list item.
+func BuildListAlertItem(event model.Event) ListAlertItem {
+	item := ListAlertItem{
+		RecID:          event.Event.RecID,
+		EventID:        event.Event.EventID,
+		Category:       event.Event.Category,
+		Severity:       event.Event.Severity,
+		Priority:       event.Event.Priority,
+		CreatedAt:      event.Event.CreatedAt,
+		Source:         event.Event.Source,
+		EventRecID:     event.Lifecycle.EventRecID,
+		Acknowledged:   event.Lifecycle.Acknowledged,
+		AcknowledgedBy: event.Lifecycle.AcknowledgedBy,
+		AcknowledgedAt: event.Lifecycle.AcknowledgedAt,
+		Muted:          event.Lifecycle.Muted,
+		MutedBy:        event.Lifecycle.MutedBy,
+		MutedAt:        event.Lifecycle.MutedAt,
+		Status:         event.State.Status,
+		Message:        event.State.Message,
+	}
+	populateLastOccurrenceFields(&item, event)
+	if len(event.Meta) > 0 {
+		item.Meta = make(map[string]string, len(event.Meta))
+		for _, metaRow := range event.Meta {
+			item.Meta[metaRow.MetaKey] = metaRow.MetaValue
+		}
+	}
+	return item
 }
 
 func populateLastOccurrenceFields(item *ListAlertItem, event model.Event) {

@@ -8,6 +8,23 @@ import (
 	"lite-nas/shared/loggingmanager/query"
 )
 
+// GetEvent returns one event by business event ID.
+func (core *Core) GetEvent(input dto.GetEventHistoryInput) (model.Event, bool, error) {
+	if err := core.validator.Struct(input); err != nil {
+		return model.Event{}, false, err
+	}
+
+	builtQuery := query.BuildGetEventByIDQuery(input)
+	items, err := core.listEventsQuery(context.Background(), builtQuery)
+	if err != nil {
+		return model.Event{}, false, err
+	}
+	if len(items) == 0 {
+		return model.Event{}, false, nil
+	}
+	return items[0], true, nil
+}
+
 // ListEvents returns paginated events using the provided filters.
 func (core *Core) ListEvents(input dto.ListEventsInput) ([]model.Event, error) {
 	if err := core.validator.Struct(input); err != nil {

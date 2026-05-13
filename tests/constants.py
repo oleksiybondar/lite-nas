@@ -27,6 +27,26 @@ SYSTEM_METRICS_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_METRICS_CLI_BINARY",
     "/usr/bin/system-metrics-cli",
 )
+SYSTEM_LOGGING_MANAGER_CLI_BINARY: str = os.environ.get(
+    "LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY",
+    "/usr/bin/system-logging-manager-cli",
+)
+SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN: str = os.environ.get(
+    "LITENAS_OPERATOR_LOGIN",
+    "testoperator",
+)
+SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD: str = os.environ.get(
+    "LITENAS_OPERATOR_PASSWORD",
+    os.environ.get("LITENAS_TEST_PASSWORD", "testpassword"),
+)
+SECURITY_LOGGING_MANAGER_LOGIN: str = os.environ.get(
+    "LITENAS_SECURITY_LOGIN",
+    "testsecurityuser",
+)
+SECURITY_LOGGING_MANAGER_PASSWORD: str = os.environ.get(
+    "LITENAS_SECURITY_PASSWORD",
+    os.environ.get("LITENAS_TEST_PASSWORD", "testpassword"),
+)
 
 SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",

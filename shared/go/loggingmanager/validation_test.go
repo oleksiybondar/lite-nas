@@ -19,6 +19,19 @@ func TestInputValidatorRejectsInvalidEventIDPattern(t *testing.T) {
 	}
 }
 
+func TestInputValidatorAcceptsCompactTimestampEventIDPattern(t *testing.T) {
+	t.Parallel()
+
+	validate := mustInputValidator(t)
+	err := validate.Struct(dto.SetStateInput{
+		EventID: "t1778675852000000000",
+		Status:  "active",
+	})
+	if err != nil {
+		t.Fatalf("validation error = %v", err)
+	}
+}
+
 func TestInputValidatorRejectsInvalidFilters(t *testing.T) {
 	t.Parallel()
 

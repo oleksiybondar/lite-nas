@@ -100,6 +100,21 @@ func TestBuildGetEventHistoryQuery(t *testing.T) {
 	}
 }
 
+func TestBuildGetEventByIDQuery(t *testing.T) {
+	t.Parallel()
+
+	query := BuildGetEventByIDQuery(dto.GetEventHistoryInput{EventID: "perf_1"})
+	if !strings.Contains(query.SQL, "WHERE e.event_id = ?") {
+		t.Fatalf("event filter missing, sql=%q", query.SQL)
+	}
+	if !strings.Contains(query.SQL, "LIMIT 1") {
+		t.Fatalf("limit missing, sql=%q", query.SQL)
+	}
+	if len(query.Args) != 1 || query.Args[0] != "perf_1" {
+		t.Fatalf("unexpected args: %#v", query.Args)
+	}
+}
+
 func assertWhereClause(t *testing.T, sql string, expected string) {
 	t.Helper()
 	if !strings.Contains(sql, expected) {

@@ -49,6 +49,7 @@ func buildNATSSubjects() sharedloggingmanagernats.Subjects {
 		AlertSubject:                            systemloggingmanagercontract.AlertSubject,
 		AlertOccurrenceSubject:                  systemloggingmanagercontract.AlertOccurrenceSubject,
 		GetAlertsRPCSubject:                     systemloggingmanagercontract.GetAlertsRPCSubject,
+		GetAlertRPCSubject:                      systemloggingmanagercontract.GetAlertRPCSubject,
 		GetActiveAlertsRPCSubject:               systemloggingmanagercontract.GetActiveAlertsRPCSubject,
 		GetUnacknowledgedActiveAlertsRPCSubject: systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		UpdateAlertStateRPCSubject:              systemloggingmanagercontract.UpdateAlertStateRPCSubject,

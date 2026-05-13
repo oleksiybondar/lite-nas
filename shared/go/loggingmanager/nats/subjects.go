@@ -5,6 +5,7 @@ type Subjects struct {
 	AlertSubject                            string
 	AlertOccurrenceSubject                  string
 	GetAlertsRPCSubject                     string
+	GetAlertRPCSubject                      string
 	GetActiveAlertsRPCSubject               string
 	GetUnacknowledgedActiveAlertsRPCSubject string
 	UpdateAlertStateRPCSubject              string

@@ -9,7 +9,7 @@ import (
 	"lite-nas/shared/loggingmanager/dto"
 )
 
-var loggingManagerEventIDPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,10}_[0-9]{1,8}$`)
+var loggingManagerEventIDPattern = regexp.MustCompile(`^(?:[A-Za-z0-9_]{1,10}_[0-9]{1,8}|t[0-9]{1,19})$`)
 
 // InputValidator validates logging-manager core input DTOs.
 type InputValidator interface {

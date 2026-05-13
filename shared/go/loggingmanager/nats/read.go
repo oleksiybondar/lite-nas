@@ -24,6 +24,26 @@ func handleGetAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHand
 	}
 }
 
+func handleGetAlertRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHandler {
+	return func(_ context.Context, envelope sharedmessaging.Envelope) (any, error) {
+		input, err := decodePayload[loggingmanagercontract.GetAlertInput](envelope)
+		if err != nil {
+			return nil, err
+		}
+		item, found, err := core.GetEvent(input)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			return loggingmanagercontract.GetAlertResponse{}, nil
+		}
+		flatItem := loggingmanagercontract.BuildListAlertItem(item)
+		return loggingmanagercontract.GetAlertResponse{
+			Item: &flatItem,
+		}, nil
+	}
+}
+
 func handleGetActiveAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHandler {
 	return func(_ context.Context, envelope sharedmessaging.Envelope) (any, error) {
 		input, err := decodeListInput(envelope)

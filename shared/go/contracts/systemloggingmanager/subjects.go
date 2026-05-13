@@ -5,6 +5,7 @@ const (
 	AlertOccurrenceSubject = "system-alert-occurrence"
 
 	GetAlertsRPCSubject                     = "system-logging-manager.getAlerts"
+	GetAlertRPCSubject                      = "system-logging-manager.getAlert"
 	GetActiveAlertsRPCSubject               = "system-logging-manager.getActiveAlerts"
 	GetUnacknowledgedActiveAlertsRPCSubject = "system-logging-manager.getUnacknowledgedActiveAlerts"
 	UpdateAlertStateRPCSubject              = "system-logging-manager.updateAlertState"

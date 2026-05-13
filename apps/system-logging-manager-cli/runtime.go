@@ -72,6 +72,7 @@ func executeCommand(
 var commandExecutors = map[workers.Command]commandExecutor{
 	workers.CommandCreateEvent:                   executeCreateEventExecutor,
 	workers.CommandCreateOccurrence:              executeCreateOccurrenceExecutor,
+	workers.CommandGetEvent:                      executeGetEventCommandExecutor(systemloggingmanagercontract.GetAlertRPCSubject),
 	workers.CommandGetAlerts:                     executeListCommandExecutor(systemloggingmanagercontract.GetAlertsRPCSubject),
 	workers.CommandGetActiveEvents:               executeListCommandExecutor(systemloggingmanagercontract.GetActiveAlertsRPCSubject),
 	workers.CommandGetActiveUnacknowledgedEvents: executeListCommandExecutor(systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject),
@@ -109,6 +110,18 @@ func executeListCommandExecutor(subject string) commandExecutor {
 		stdout io.Writer,
 	) error {
 		return executeListCommand(ctx, invocation, client, output, stdout, subject)
+	}
+}
+
+func executeGetEventCommandExecutor(subject string) commandExecutor {
+	return func(
+		ctx context.Context,
+		invocation workers.Invocation,
+		client messagingClient,
+		output workers.OutputWriter,
+		stdout io.Writer,
+	) error {
+		return executeGetEventCommand(ctx, invocation, client, output, stdout, subject)
 	}
 }
 
@@ -162,6 +175,27 @@ func executeListCommand(
 	return output.WriteEvents(stdout, response.Items, invocation.JSONOutput)
 }
 
+func executeGetEventCommand(
+	ctx context.Context,
+	invocation workers.Invocation,
+	client messagingClient,
+	output workers.OutputWriter,
+	stdout io.Writer,
+	subject string,
+) error {
+	request := loggingmanagercontract.GetAlertInput{EventID: invocation.EventID}
+	response := loggingmanagercontract.GetAlertResponse{}
+	if err := client.Request(ctx, subject, request, &response); err != nil {
+		return err
+	}
+
+	items := []loggingmanagercontract.ListAlertItem{}
+	if response.Item != nil {
+		items = append(items, *response.Item)
+	}
+	return output.WriteEvents(stdout, items, invocation.JSONOutput)
+}
+
 func executeRPCMutationCommand[T any](
 	ctx context.Context,
 	invocation workers.Invocation,
@@ -187,7 +221,7 @@ func printUsage(writer io.Writer) {
 		writer,
 		"Usage: system-logging-manager-cli --cmd <command> [--config=/etc/lite-nas/system-logging-manager-cli.conf] [--data '<json>'] [--eventID '<eventID>'] [--page <page>] [--pageSize <size>] [--json]",
 	)
-	_, _ = fmt.Fprintln(writer, "Commands: createEvent, createOccurrence, getAlerts, getActiveEvents, getActiveUnacknowledgedEvents, updateEventState, acknowledgeEvent, muteEvent")
+	_, _ = fmt.Fprintln(writer, "Commands: createEvent, createOccurrence, getEvent, getAlerts|getEvents, getActiveEvents, getActiveUnacknowledgedEvents, updateEventState, acknowledgeEvent, muteEvent")
 }
 
 func decodeJSON(data string, target any) error {
