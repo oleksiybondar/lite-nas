@@ -31,6 +31,10 @@ SYSTEM_LOGGING_MANAGER_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY",
     "/usr/bin/system-logging-manager-cli",
 )
+SECURITY_LOGGING_MANAGER_CLI_BINARY: str = os.environ.get(
+    "LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY",
+    "/usr/bin/security-logging-manager-cli",
+)
 SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN: str = os.environ.get(
     "LITENAS_OPERATOR_LOGIN",
     "testoperator",
