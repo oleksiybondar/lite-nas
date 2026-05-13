@@ -18,7 +18,9 @@ func handleGetAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHand
 		if err != nil {
 			return nil, err
 		}
-		return loggingmanagercontract.ListAlertsResponse{Items: items}, nil
+		return loggingmanagercontract.ListAlertsResponse{
+			Items: loggingmanagercontract.BuildListAlertItems(items),
+		}, nil
 	}
 }
 
@@ -32,7 +34,9 @@ func handleGetActiveAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.R
 		if err != nil {
 			return nil, err
 		}
-		return loggingmanagercontract.ListAlertsResponse{Items: items}, nil
+		return loggingmanagercontract.ListAlertsResponse{
+			Items: loggingmanagercontract.BuildListAlertItems(items),
+		}, nil
 	}
 }
 
@@ -46,6 +50,8 @@ func handleGetUnacknowledgedActiveAlertsRPC(core *sharedloggingmanager.Core) sha
 		if err != nil {
 			return nil, err
 		}
-		return loggingmanagercontract.ListAlertsResponse{Items: items}, nil
+		return loggingmanagercontract.ListAlertsResponse{
+			Items: loggingmanagercontract.BuildListAlertItems(items),
+		}, nil
 	}
 }

@@ -12,7 +12,6 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
-	"lite-nas/shared/loggingmanager/model"
 )
 
 type stubMessagingClient struct {
@@ -45,7 +44,7 @@ func (c *stubMessagingClient) Request(_ context.Context, subject string, request
 }
 
 type stubOutputWriter struct {
-	events          []model.Event
+	events          []loggingmanagercontract.ListAlertItem
 	eventsJSONMode  bool
 	ok              loggingmanagercontract.OKResponse
 	okJSONMode      bool
@@ -55,7 +54,7 @@ type stubOutputWriter struct {
 	writeOKCall     int
 }
 
-func (w *stubOutputWriter) WriteEvents(_ io.Writer, events []model.Event, jsonOutput bool) error {
+func (w *stubOutputWriter) WriteEvents(_ io.Writer, events []loggingmanagercontract.ListAlertItem, jsonOutput bool) error {
 	w.writeEventsCall++
 	w.events = events
 	w.eventsJSONMode = jsonOutput
@@ -305,7 +304,7 @@ func TestExecuteCommandListReturnsOutputError(t *testing.T) {
 	client := &stubMessagingClient{
 		requestFill: func(response any) {
 			out := response.(*loggingmanagercontract.ListAlertsResponse)
-			out.Items = []model.Event{}
+			out.Items = []loggingmanagercontract.ListAlertItem{}
 		},
 	}
 	output := &stubOutputWriter{writeEventsErr: wantErr}
@@ -404,7 +403,7 @@ func executeListActiveEventsFixture(t *testing.T) (*stubMessagingClient, *stubOu
 	client := &stubMessagingClient{
 		requestFill: func(response any) {
 			out := response.(*loggingmanagercontract.ListAlertsResponse)
-			out.Items = []model.Event{{Event: loggingmanagerdto.EventRow{EventID: "event_2"}}}
+			out.Items = []loggingmanagercontract.ListAlertItem{{EventID: "event_2"}}
 		},
 	}
 	output := &stubOutputWriter{}

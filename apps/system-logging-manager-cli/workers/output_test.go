@@ -5,9 +5,7 @@ import (
 	"testing"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
-	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 	"lite-nas/shared/loggingmanager/enum"
-	"lite-nas/shared/loggingmanager/model"
 )
 
 func TestOutputWriterWritesEventsAsTable(t *testing.T) {
@@ -18,22 +16,16 @@ func TestOutputWriterWritesEventsAsTable(t *testing.T) {
 
 	err := writer.WriteEvents(
 		&out,
-		[]model.Event{
+		[]loggingmanagercontract.ListAlertItem{
 			{
-				Event: loggingmanagerdto.EventRow{
-					EventID:   "event_1",
-					Category:  "disk_health",
-					Severity:  enum.SeverityWarning,
-					Source:    "raid-monitor",
-					CreatedAt: "2026-05-12T14:30:00Z",
-				},
-				State: loggingmanagerdto.EventStateRow{
-					Status: enum.StatusActive,
-				},
-				Lifecycle: loggingmanagerdto.LifecycleRow{
-					Acknowledged: false,
-					Muted:        false,
-				},
+				EventID:      "event_1",
+				Category:     "disk_health",
+				Severity:     enum.SeverityWarning,
+				Status:       enum.StatusActive,
+				Acknowledged: false,
+				Muted:        false,
+				Source:       "raid-monitor",
+				CreatedAt:    "2026-05-12T14:30:00Z",
 			},
 		},
 		false,
@@ -57,7 +49,7 @@ func TestOutputWriterWritesEventsAsJSON(t *testing.T) {
 	writer := NewOutputWriter()
 	var out bytes.Buffer
 
-	err := writer.WriteEvents(&out, []model.Event{}, true)
+	err := writer.WriteEvents(&out, []loggingmanagercontract.ListAlertItem{}, true)
 	if err != nil {
 		t.Fatalf("WriteEvents() error = %v", err)
 	}

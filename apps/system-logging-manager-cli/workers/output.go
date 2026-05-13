@@ -8,12 +8,11 @@ import (
 	"text/tabwriter"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
-	"lite-nas/shared/loggingmanager/model"
 )
 
 // OutputWriter renders command output in table or JSON modes.
 type OutputWriter interface {
-	WriteEvents(writer io.Writer, events []model.Event, jsonOutput bool) error
+	WriteEvents(writer io.Writer, events []loggingmanagercontract.ListAlertItem, jsonOutput bool) error
 	WriteOK(writer io.Writer, response loggingmanagercontract.OKResponse, jsonOutput bool) error
 }
 
@@ -25,7 +24,11 @@ func NewOutputWriter() OutputWriter {
 }
 
 // WriteEvents renders events in requested output format.
-func (w outputWriter) WriteEvents(writer io.Writer, events []model.Event, jsonOutput bool) error {
+func (w outputWriter) WriteEvents(
+	writer io.Writer,
+	events []loggingmanagercontract.ListAlertItem,
+	jsonOutput bool,
+) error {
 	if jsonOutput {
 		return writeJSON(writer, events)
 	}
@@ -39,14 +42,14 @@ func (w outputWriter) WriteEvents(writer io.Writer, events []model.Event, jsonOu
 		if _, err := fmt.Fprintf(
 			table,
 			"%s\t%s\t%s\t%s\t%t\t%t\t%s\t%s\n",
-			item.Event.EventID,
-			item.Event.Category,
-			item.Event.Severity,
-			item.State.Status,
-			item.Lifecycle.Acknowledged,
-			item.Lifecycle.Muted,
-			item.Event.Source,
-			item.Event.CreatedAt,
+			item.EventID,
+			item.Category,
+			item.Severity,
+			item.Status,
+			item.Acknowledged,
+			item.Muted,
+			item.Source,
+			item.CreatedAt,
 		); err != nil {
 			return err
 		}
