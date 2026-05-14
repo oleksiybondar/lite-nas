@@ -1,0 +1,42 @@
+[Unit]
+Description=LiteNAS resources monitor service
+After=network-online.target nats-server.service lite-nas-system-logging-manager.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-resources-monitor
+Group=lite-nas-resources-monitor
+ExecStart=/usr/libexec/lite-nas/resources-monitor
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas/resources-monitor.conf /etc/lite-nas/resources-monitor /etc/lite-nas/certificates/transport
+ReadWritePaths=/var/log/lite-nas/resources-monitor.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

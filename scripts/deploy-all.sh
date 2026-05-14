@@ -20,6 +20,8 @@ source "$ENTRYPOINT_DIR/deploy/security-logging-manager-cli.sh"
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
 
 auth_service_binary=""
 system_logging_manager_binary=""
@@ -29,6 +31,7 @@ system_logging_manager_cli_binary=""
 security_logging_manager_cli_binary=""
 system_metrics_cli_binary=""
 web_gateway_binary=""
+resources_monitor_binary=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -51,6 +54,7 @@ Options:
   --system-metrics-cli-binary PATH
                                   Install an existing system-metrics-cli binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
+  --resources-monitor-binary PATH Install an existing resources-monitor binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
   --no-nats-config                Keep the current NATS configuration unchanged during bootstrap.
@@ -132,6 +136,15 @@ while [ "$#" -gt 0 ]; do
 		web_gateway_binary="$2"
 		shift 2
 		;;
+	--resources-monitor-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --resources-monitor-binary"
+			usage >&2
+			exit 2
+		fi
+		resources_monitor_binary="$2"
+		shift 2
+		;;
 	--no-start)
 		should_start=0
 		shift
@@ -166,6 +179,7 @@ deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
 deploy.webGateway.requireTools
+deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
 if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ]; then
@@ -260,5 +274,13 @@ log.popTask
 log.pushTask "Deploying system-metrics-cli app"
 deploy.systemMetricsCLI.deploy "$system_metrics_cli_binary"
 log.popTask
+
+if [ -n "$resources_monitor_binary" ]; then
+	log.pushTask "Deploying resources-monitor service"
+	deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
+	log.popTask
+else
+	log.info "Skipping resources-monitor deploy (no binary provided)."
+fi
 
 log.info "LiteNAS local deployment completed."

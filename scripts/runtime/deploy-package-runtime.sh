@@ -23,6 +23,8 @@ source "$PACKAGE_ROOT/scripts/deploy/system-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/restart-affected-services.sh"
 
 run_mode="full"
@@ -86,6 +88,24 @@ deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
 deploy.webGateway.requireTools
+deploy.resourcesMonitor.requireTools
+
+deployResourcesMonitorIfAvailable() {
+	local should_start="$1"
+	local resources_monitor_binary="$PACKAGE_ROOT/resources-monitor"
+
+	if [ -x "$resources_monitor_binary" ]; then
+		deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
+		return 0
+	fi
+
+	log.warn "resources-monitor binary is not packaged yet; installing runtime user and config only."
+	deploy.resourcesMonitor.ensureRuntimeUser
+	deploy.resourcesMonitor.installConfig
+	deploy.resourcesMonitor.installRules
+	deploy.resourcesMonitor.installLogTarget
+	deploy.resourcesMonitor.installUnitFile
+}
 
 if [ "$run_mode" = "validate" ]; then
 	log.pushTask "Deploying LiteNAS package runtime in validate mode"
@@ -98,6 +118,7 @@ if [ "$run_mode" = "validate" ]; then
 	deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
 	deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
+	deployResourcesMonitorIfAvailable 0
 	log.popTask
 	log.info "LiteNAS package runtime validation deployment completed."
 	exit 0
@@ -118,6 +139,7 @@ deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
 deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
 deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
 deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
+deployResourcesMonitorIfAvailable 0
 log.popTask
 
 log.pushTask "Restarting dependency services"
@@ -130,6 +152,9 @@ deploy.systemLoggingManager.enableAndStart
 deploy.securityLoggingManager.enableAndStart
 deploy.systemMetrics.enableAndStart
 deploy.webGateway.enableAndStart
+if [ -x "$PACKAGE_ROOT/resources-monitor" ]; then
+	deploy.resourcesMonitor.enableAndStart
+fi
 log.popTask
 
 log.info "LiteNAS package runtime deployment completed."

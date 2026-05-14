@@ -57,6 +57,10 @@ docker run --rm \
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas)\" = 'root:lite-nas 711'
 		test -f /etc/lite-nas/auth.conf
 		test -f /etc/lite-nas/system-metrics.conf
+		test -f /etc/lite-nas/resources-monitor.conf
+		test -f /etc/lite-nas/resources-monitor/rules/system-metrics.json
+		id lite-nas-resources-monitor >/dev/null
+		test -f /etc/systemd/system/lite-nas-resources-monitor.service
 		test -f /etc/lite-nas/system-metrics-cli.conf
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas/system-metrics-cli.conf)\" = 'root:root 644'
 		test -f /etc/lite-nas/web-gateway.conf
