@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"lite-nas/services/system-metrics/modules"
+	sharedcontracts "lite-nas/shared/contracts"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
@@ -15,7 +16,7 @@ const (
 	procStatPath       = "/proc/stat"
 	procMemInfoPath    = "/proc/meminfo"
 
-	serviceName = "system-metrics"
+	serviceName = sharedcontracts.ServiceSystemMetrics
 )
 
 // run assembles the system-metrics runtime, registers RPC handlers, starts the

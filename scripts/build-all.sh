@@ -54,6 +54,7 @@ log.pushTask "Building deployable binaries for linux/${target_arch}"
 "$SCRIPT_DIR/build-system-logging-manager-cli-binary.sh" --output="$output_dir/system-logging-manager-cli"
 "$SCRIPT_DIR/build-security-logging-manager-cli-binary.sh" --output="$output_dir/security-logging-manager-cli"
 "$SCRIPT_DIR/build-system-metrics-cli-binary.sh" --output="$output_dir/system-metrics-cli"
+"$SCRIPT_DIR/build-resources-monitor-binary.sh" --output="$output_dir/resources-monitor"
 "$SCRIPT_DIR/build-web-gateway-binary.sh" --output="$output_dir/web-gateway"
 log.popTask
 

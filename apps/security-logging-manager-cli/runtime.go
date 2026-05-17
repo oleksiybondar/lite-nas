@@ -4,13 +4,14 @@ import (
 	"context"
 	"os"
 
+	sharedcontracts "lite-nas/shared/contracts"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	sharedloggingmanagercli "lite-nas/shared/loggingmanagercli"
 )
 
 const (
 	defaultConfigPath = "/etc/lite-nas/security-logging-manager-cli.conf"
-	appName           = "security-logging-manager-cli"
+	appName           = sharedcontracts.AppSecurityLoggingMgrCLI
 )
 
 // run executes CLI command flow.

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	sharedcontracts "lite-nas/shared/contracts"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	sharedloggingmanagernats "lite-nas/shared/loggingmanager/nats"
 	sharedloggingmanagerservice "lite-nas/shared/loggingmanagerservice"
@@ -10,7 +11,7 @@ import (
 
 const (
 	packagedConfigPath = "/etc/lite-nas/security-logging-manager.conf"
-	serviceName        = "security-logging-manager"
+	serviceName        = sharedcontracts.ServiceSecurityLoggingManager
 )
 
 // run assembles and starts the system logging-manager runtime.

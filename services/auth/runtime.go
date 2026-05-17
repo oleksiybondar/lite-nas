@@ -13,13 +13,14 @@ import (
 	"lite-nas/services/auth/sessions"
 	"lite-nas/shared/authtoken"
 	sharedconfig "lite-nas/shared/config"
+	sharedcontracts "lite-nas/shared/contracts"
 	authcontract "lite-nas/shared/contracts/auth"
 	"lite-nas/shared/messaging"
 )
 
 const (
 	packagedConfigPath = "/etc/lite-nas/auth.conf"
-	serviceName        = "auth-service"
+	serviceName        = sharedcontracts.ServiceAuth
 	pamServiceName     = "litenas-auth"
 	refreshTokenTTL    = 24 * time.Hour
 	sessionIDBytes     = 16

@@ -19,6 +19,7 @@ system_logging_manager_cli_binary_path=""
 security_logging_manager_cli_binary_path=""
 system_metrics_cli_binary_path=""
 web_gateway_binary_path=""
+resources_monitor_binary_path=""
 admin_panel_assets_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
@@ -42,6 +43,7 @@ Options:
                                      Use an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
+  --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
@@ -49,8 +51,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -100,6 +102,11 @@ if args.has system-metrics-cli-binary && ! system_metrics_cli_binary_path="$(arg
 fi
 if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg web-gateway-binary)"; then
 	log.error "Missing value for --web-gateway-binary"
+	usage >&2
+	exit 64
+fi
+if args.has resources-monitor-binary && ! resources_monitor_binary_path="$(args.require_arg resources-monitor-binary)"; then
+	log.error "Missing value for --resources-monitor-binary"
 	usage >&2
 	exit 64
 fi
@@ -165,6 +172,12 @@ if [ -z "$web_gateway_binary_path" ]; then
 		"--output=${web_gateway_binary_path}"
 fi
 
+if [ -z "$resources_monitor_binary_path" ]; then
+	resources_monitor_binary_path="$output_dir/${package_name}-${package_arch}/resources-monitor"
+	"$LITE_NAS_REPO_ROOT/scripts/build-resources-monitor-binary.sh" \
+		"--output=${resources_monitor_binary_path}"
+fi
+
 if [ -z "$admin_panel_assets_path" ]; then
 	admin_panel_assets_path="$output_dir/${package_name}-${package_arch}/admin-panel-assets"
 	"$LITE_NAS_REPO_ROOT/scripts/build-admin-panel.sh" \
@@ -208,6 +221,11 @@ fi
 
 if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$resources_monitor_binary_path" ]; then
+	log.error "Missing resources-monitor binary: $resources_monitor_binary_path"
 	exit 1
 fi
 
@@ -269,6 +287,8 @@ ln -sfn /usr/libexec/lite-nas/system-metrics-cli \
 	"$package_root/usr/bin/system-metrics-cli"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
+install -D -m 0755 "$resources_monitor_binary_path" \
+	"$package_root/usr/libexec/lite-nas/resources-monitor"
 package.copyTree "$admin_panel_assets_path" \
 	"$package_root/usr/libexec/lite-nas/admin-panel-assets"
 adminPanelAssets.installFlat \

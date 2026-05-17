@@ -6,7 +6,6 @@ import (
 
 	"lite-nas/shared/testutil/configtest"
 	"lite-nas/shared/testutil/fileiotest"
-	"lite-nas/shared/testutil/testcasetest"
 )
 
 func TestLoadConfigReturnsReaderError(t *testing.T) {
@@ -18,39 +17,30 @@ func TestLoadConfigReturnsReaderError(t *testing.T) {
 func TestLoadConfigMessagingFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := []testcasetest.FieldCase[Config]{
-		{Name: "url", Got: func(cfg Config) any { return cfg.Messaging.URL }, Want: "nats://localhost:4222"},
-		{Name: "client name", Got: func(cfg Config) any { return cfg.Messaging.ClientName }, Want: "resources-monitor"},
-		{Name: "ca path", Got: func(cfg Config) any { return cfg.Messaging.CA }, Want: "/etc/lite-nas/certificates/transport/root-ca.crt"},
-		{Name: "cert path", Got: func(cfg Config) any { return cfg.Messaging.Cert }, Want: "/etc/lite-nas/certificates/transport/lite-nas-resources-monitor/client.crt"},
-		{Name: "key path", Got: func(cfg Config) any { return cfg.Messaging.Key }, Want: "/etc/lite-nas/certificates/transport/lite-nas-resources-monitor/client.key"},
-		{Name: "timeout", Got: func(cfg Config) any { return cfg.Messaging.Timeout }, Want: 9 * time.Second},
-	}
-
-	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
+	cfg := loadConfigFixture(t)
+	assertMessagingConfig(t, cfg)
 }
 
 func TestLoadConfigRulesFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := []testcasetest.FieldCase[Config]{
-		{Name: "first rules file", Got: func(cfg Config) any { return cfg.Rules.Files[0] }, Want: "/etc/lite-nas/rules/system-resources.json"},
-		{Name: "second rules file", Got: func(cfg Config) any { return cfg.Rules.Files[1] }, Want: "/etc/lite-nas/rules/network-resources.json"},
+	cfg := loadConfigFixture(t)
+	if len(cfg.Rules.Files) != 2 {
+		t.Fatalf("len(cfg.Rules.Files) = %d, want 2", len(cfg.Rules.Files))
 	}
-
-	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
+	if cfg.Rules.Files[0] != "/etc/lite-nas/resources-monitor/rules/system-metrics.json" {
+		t.Fatalf("cfg.Rules.Files[0] = %q", cfg.Rules.Files[0])
+	}
+	if cfg.Rules.Files[1] != "/etc/lite-nas/resources-monitor/rules/network-metrics.json" {
+		t.Fatalf("cfg.Rules.Files[1] = %q", cfg.Rules.Files[1])
+	}
 }
 
 func TestLoadConfigLoggingFields(t *testing.T) {
 	t.Parallel()
 
-	testCases := []testcasetest.FieldCase[Config]{
-		{Name: "level", Got: func(cfg Config) any { return cfg.Logging.Level }, Want: "debug"},
-		{Name: "output", Got: func(cfg Config) any { return cfg.Logging.Output }, Want: "file"},
-		{Name: "file path", Got: func(cfg Config) any { return cfg.Logging.FilePath }, Want: "/var/log/lite-nas/resources-monitor.log"},
-	}
-
-	testcasetest.RunFieldCases(t, loadConfigFixture, testCases)
+	cfg := loadConfigFixture(t)
+	assertLoggingConfig(t, cfg)
 }
 
 func TestLoadConfigRejectsMissingRulesFiles(t *testing.T) {
@@ -75,7 +65,7 @@ func loadConfigFixture(t *testing.T) Config {
 	cfg, err := LoadConfig(fileiotest.Reader{
 		Data: []byte(
 			"[rules]\n" +
-				"files=/etc/lite-nas/rules/system-resources.json,/etc/lite-nas/rules/network-resources.json\n" +
+				"files=/etc/lite-nas/resources-monitor/rules/system-metrics.json,/etc/lite-nas/resources-monitor/rules/network-metrics.json\n" +
 				"[messaging]\n" +
 				"url=nats://localhost:4222\n" +
 				"client_name=resources-monitor\n" +
@@ -95,4 +85,41 @@ func loadConfigFixture(t *testing.T) Config {
 	}
 
 	return cfg
+}
+
+func assertMessagingConfig(t *testing.T, cfg Config) {
+	t.Helper()
+
+	checks := []struct {
+		name string
+		got  any
+		want any
+	}{
+		{name: "url", got: cfg.Messaging.URL, want: "nats://localhost:4222"},
+		{name: "client_name", got: cfg.Messaging.ClientName, want: "resources-monitor"},
+		{name: "ca", got: cfg.Messaging.CA, want: "/etc/lite-nas/certificates/transport/root-ca.crt"},
+		{name: "cert", got: cfg.Messaging.Cert, want: "/etc/lite-nas/certificates/transport/lite-nas-resources-monitor/client.crt"},
+		{name: "key", got: cfg.Messaging.Key, want: "/etc/lite-nas/certificates/transport/lite-nas-resources-monitor/client.key"},
+		{name: "timeout", got: cfg.Messaging.Timeout, want: 9 * time.Second},
+	}
+
+	for _, check := range checks {
+		if check.got != check.want {
+			t.Fatalf("cfg.Messaging.%s = %v, want %v", check.name, check.got, check.want)
+		}
+	}
+}
+
+func assertLoggingConfig(t *testing.T, cfg Config) {
+	t.Helper()
+
+	if cfg.Logging.Level != "debug" {
+		t.Fatalf("cfg.Logging.Level = %q", cfg.Logging.Level)
+	}
+	if cfg.Logging.Output != "file" {
+		t.Fatalf("cfg.Logging.Output = %q", cfg.Logging.Output)
+	}
+	if cfg.Logging.FilePath != "/var/log/lite-nas/resources-monitor.log" {
+		t.Fatalf("cfg.Logging.FilePath = %q", cfg.Logging.FilePath)
+	}
 }

@@ -1,6 +1,7 @@
 """System CLI test suite for logging-manager JSON workflows."""
 
 import json
+import re
 import shlex
 import time
 from dataclasses import dataclass
@@ -88,6 +89,9 @@ class EventNotReturnedError(AssertionError):
         super().__init__(f"Event {event_id!r} was not returned by getEvent.")
 
 
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
 def execute_logging_manager_json(
     operator_cli_client: CLIClient,
     cli_binary: str,
@@ -121,7 +125,7 @@ def execute_logging_manager_mutation(
 
 def output_to_json(operator_cli_client: CLIClient) -> object:
     output = operator_cli_client.output
-    json_fragment = extract_json_fragment(output)
+    json_fragment = extract_json_fragment(strip_terminal_control_sequences(output))
     if not json_fragment.strip():
         raise JSONOutputEmptyError(output)
     normalized_json = normalize_wrapped_json(json_fragment)
@@ -136,6 +140,12 @@ def extract_json_fragment(output: str) -> str:
     if not starts:
         return output
     return output[min(starts) :]
+
+
+def strip_terminal_control_sequences(output: str) -> str:
+    """Remove ANSI/control sequences that can appear in interactive PTY output."""
+    cleaned = ANSI_ESCAPE_RE.sub("", output)
+    return cleaned.replace("\r", "")
 
 
 def normalize_wrapped_json(raw_json: str) -> str:

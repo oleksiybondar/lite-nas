@@ -13,11 +13,34 @@ from hyperiontf.executors.pytest import (
     hyperion_test_case_setup,  # noqa: F401
 )
 
+CLI_DEFAULT_PROMPT_ENV = {"PS1": "hyperion$", "PROMPT": "hyperion$", "COLUMNS": "1024"}
+CLI_DEFAULT_ARGS = ["--noprofile", "--norc"]
+CLI_DEFAULT_ENV = {
+    "NO_COLOR": "1",
+    "CLICOLOR": "0",
+    "CLICOLOR_FORCE": "0",
+    "FORCE_COLOR": "0",
+    "TERM": "dumb",
+    **CLI_DEFAULT_PROMPT_ENV,
+}
+
 
 @fixture(autouse=True, log=False)  # type: ignore[untyped-decorator]
 def cli_client(request: pytest.FixtureRequest) -> Generator[CLIClient, None, None]:
     """Create a stable shell-backed CLI client for infrastructure test cases."""
-    client = CLIClient()
+    client = CLIClient(
+        shell_args=CLI_DEFAULT_ARGS,
+        env={
+            "NO_COLOR": "1",
+            "CLICOLOR": "0",
+            "CLICOLOR_FORCE": "0",
+            "FORCE_COLOR": "0",
+            "TERM": "dumb",
+            "PS1": "hyperion$",
+            "PROMPT": "hyperion$",
+            "COLUMNS": "1024",
+        },
+    )
     client.start_session()
     request.addfinalizer(client.quit)
     yield client
@@ -33,18 +56,16 @@ def authenticate_cli_client_as_user(
     cli_client.wait("Password:", timeout=5)
     cli_client.send_keys(password)
     cli_client.wait("$")
-
-    cli_client.detect_action_prompt()
+    replace_prompt(cli_client)
 
 
 def replace_prompt(
     cli_client: CLIClient,
 ) -> None:
     """Replace the current CLI prompt with the provided string."""
-    cli_client.exec_interactive("export PS1='hyperion$'")
-    cli_client.exec_interactive("export PROMPT='hyperion$")
-    cli_client.exec_interactive("export COLUMNS=1024")
-    cli_client.wait("$", timeout=1)
+    for key, value in CLI_DEFAULT_PROMPT_ENV.items():
+        cli_client.exec_interactive(f"export {key}='{value}'")
+    cli_client.wait("$")
     cli_client.detect_action_prompt()
 
 

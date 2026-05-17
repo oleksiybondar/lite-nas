@@ -13,12 +13,13 @@ import (
 	"lite-nas/services/web-gateway/services"
 	"lite-nas/shared/authtoken"
 	sharedconfig "lite-nas/shared/config"
+	sharedcontracts "lite-nas/shared/contracts"
 )
 
 const (
 	packagedConfigPath  = "/etc/lite-nas/web-gateway.conf"
 	packagedAssetRoot   = "/usr/share/lite-nas/web-gateway/assets"
-	serviceName         = "web-gateway"
+	serviceName         = sharedcontracts.ServiceWebGateway
 	apiVersion          = "0.1.0"
 	httpReadTimeout     = 10 * time.Second
 	httpReadHeaderLimit = 5 * time.Second

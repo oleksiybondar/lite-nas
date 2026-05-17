@@ -50,6 +50,7 @@ docker run --rm \
 		dpkg -s aide >/dev/null
 		test -x /usr/libexec/lite-nas/auth-service
 		test -x /usr/libexec/lite-nas/system-metrics
+		test -x /usr/libexec/lite-nas/resources-monitor
 		test -x /usr/libexec/lite-nas/system-metrics-cli
 		test -L /usr/bin/system-metrics-cli
 		test -x /usr/bin/system-metrics-cli

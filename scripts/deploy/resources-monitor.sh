@@ -7,6 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 readonly LITE_NAS_RESOURCES_MONITOR_SERVICE_NAME="${LITE_NAS_RESOURCES_MONITOR_SERVICE_NAME:-lite-nas-resources-monitor}"
 readonly LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER="${LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER:-lite-nas-resources-monitor}"
 readonly LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP="${LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP:-$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER}"
+readonly LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_RESOURCES_MONITOR_BINARY_TARGET="${LITE_NAS_RESOURCES_MONITOR_BINARY_TARGET:-/usr/libexec/lite-nas/resources-monitor}"
 readonly LITE_NAS_RESOURCES_MONITOR_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 readonly LITE_NAS_RESOURCES_MONITOR_CONFIG_SOURCE="${LITE_NAS_RESOURCES_MONITOR_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/resources-monitor.conf}"
@@ -35,15 +36,21 @@ deploy.resourcesMonitor.ensureGroup() {
 }
 
 deploy.resourcesMonitor.ensureRuntimeUser() {
+	deploy.resourcesMonitor.ensureGroup "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP"
 	deploy.resourcesMonitor.ensureGroup "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP"
 	if ! id "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER" >/dev/null 2>&1; then
 		useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin \
 			--gid "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" \
+			--groups "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" \
 			"$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER"
 		return 0
 	fi
 
-	usermod --gid "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER"
+	usermod \
+		--gid "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" \
+		--append \
+		--groups "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" \
+		"$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER"
 }
 
 deploy.resourcesMonitor.installBinary() {
@@ -68,8 +75,8 @@ deploy.resourcesMonitor.installConfig() {
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" "$LITE_NAS_RESOURCES_MONITOR_CONFIG_DIR"
-	install -m 0640 -o root -g "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" \
+	install -d -m 0711 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" "$LITE_NAS_RESOURCES_MONITOR_CONFIG_DIR"
+	install -m 0640 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" \
 		"$LITE_NAS_RESOURCES_MONITOR_CONFIG_SOURCE" \
 		"$LITE_NAS_RESOURCES_MONITOR_CONFIG_TARGET"
 }
@@ -82,17 +89,17 @@ deploy.resourcesMonitor.installRules() {
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" "$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR"
+	install -d -m 0750 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" "$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR"
 
 	while IFS= read -r -d '' rules_file; do
-		install -m 0640 -o root -g "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" \
+		install -m 0640 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" \
 			"$rules_file" \
 			"$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR/$(basename "$rules_file")"
 	done < <(find "$LITE_NAS_RESOURCES_MONITOR_RULES_SOURCE_DIR" -maxdepth 1 -type f -name '*.json' -print0)
 }
 
 deploy.resourcesMonitor.installLogTarget() {
-	install -d -m 0751 -o root -g "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" "$LITE_NAS_RESOURCES_MONITOR_LOG_DIR"
+	install -d -m 0751 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" "$LITE_NAS_RESOURCES_MONITOR_LOG_DIR"
 	if [ ! -f "$LITE_NAS_RESOURCES_MONITOR_LOG_FILE" ]; then
 		install -m 0640 -o "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER" -g "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_GROUP" \
 			/dev/null "$LITE_NAS_RESOURCES_MONITOR_LOG_FILE"

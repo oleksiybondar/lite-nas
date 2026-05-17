@@ -182,7 +182,7 @@ deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$resources_monitor_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -233,6 +233,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [
 		"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"
 		web_gateway_binary="$tmp_dir/web-gateway"
 	fi
+
+	if [ -z "$resources_monitor_binary" ]; then
+		build_args=("--output=$tmp_dir/resources-monitor")
+		"$ENTRYPOINT_DIR/build-resources-monitor-binary.sh" "${build_args[@]}"
+		resources_monitor_binary="$tmp_dir/resources-monitor"
+	fi
 fi
 
 if [ "$should_bootstrap" -eq 1 ]; then
@@ -275,12 +281,8 @@ log.pushTask "Deploying system-metrics-cli app"
 deploy.systemMetricsCLI.deploy "$system_metrics_cli_binary"
 log.popTask
 
-if [ -n "$resources_monitor_binary" ]; then
-	log.pushTask "Deploying resources-monitor service"
-	deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
-	log.popTask
-else
-	log.info "Skipping resources-monitor deploy (no binary provided)."
-fi
+log.pushTask "Deploying resources-monitor service"
+deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
+log.popTask
 
 log.info "LiteNAS local deployment completed."

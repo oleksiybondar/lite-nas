@@ -2,7 +2,7 @@
   {
     "event": "system.metrics.events.stats",
     "event_prefix": "syscpu",
-    "field": "snapshot.cpu.totalUsagePct",
+    "field": "snapshot.CPU.TotalUsagePct",
     "condition": ">=",
     "values": 90,
     "message": "Total CPU usage is above threshold",
@@ -16,7 +16,7 @@
   {
     "event": "system.metrics.events.stats",
     "event_prefix": "sysram",
-    "field": "snapshot.mem.usedPct",
+    "field": "snapshot.Mem.UsedPct",
     "condition": ">=",
     "values": 90,
     "message": "RAM usage is above threshold",

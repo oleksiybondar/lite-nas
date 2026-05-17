@@ -33,36 +33,25 @@ func TestLoadRulesConfigParsesCommaSeparatedFiles(t *testing.T) {
 func TestLoadRulesConfigRejectsMissingFiles(t *testing.T) {
 	t.Parallel()
 
-	cfgFile, err := ini.Load([]byte("[rules]\n"))
-	if err != nil {
-		t.Fatalf("ini.Load() error = %v", err)
+	testCases := []struct {
+		name       string
+		iniContent string
+	}{
+		{name: "missing files", iniContent: "[rules]\n"},
+		{name: "blank files", iniContent: "[rules]\nfiles= ,  \n"},
 	}
 
-	_, err = config.LoadRulesConfig(cfgFile)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 
-	if !strings.Contains(err.Error(), "rules files are required") {
-		t.Fatalf("error = %q, want substring %q", err, "rules files are required")
-	}
-}
+			cfgFile, err := ini.Load([]byte(testCase.iniContent))
+			if err != nil {
+				t.Fatalf("ini.Load() error = %v", err)
+			}
 
-func TestLoadRulesConfigRejectsBlankFiles(t *testing.T) {
-	t.Parallel()
-
-	cfgFile, err := ini.Load([]byte("[rules]\nfiles= ,  \n"))
-	if err != nil {
-		t.Fatalf("ini.Load() error = %v", err)
-	}
-
-	_, err = config.LoadRulesConfig(cfgFile)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-
-	if !strings.Contains(err.Error(), "rules files are required") {
-		t.Fatalf("error = %q, want substring %q", err, "rules files are required")
+			assertLoadRulesConfigError(t, cfgFile, "rules files are required")
+		})
 	}
 }
 
@@ -80,4 +69,17 @@ func loadRulesConfigFixture(t *testing.T, iniContent string) config.RulesConfig 
 	}
 
 	return cfg
+}
+
+func assertLoadRulesConfigError(t *testing.T, cfgFile *ini.File, wantSubstring string) {
+	t.Helper()
+
+	_, err := config.LoadRulesConfig(cfgFile)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+
+	if !strings.Contains(err.Error(), wantSubstring) {
+		t.Fatalf("error = %q, want substring %q", err, wantSubstring)
+	}
 }
