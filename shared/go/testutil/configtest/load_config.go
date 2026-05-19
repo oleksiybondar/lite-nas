@@ -36,3 +36,16 @@ func RunRejectsInvalidConfigCase[T any](
 		t.Fatal("expected invalid config error")
 	}
 }
+
+// RunINIParseErrorCase verifies that a config loader returns an error for
+// malformed INI input.
+func RunINIParseErrorCase[T any](
+	t *testing.T,
+	load func(fileio.Reader) (T, error),
+) {
+	t.Helper()
+
+	if _, err := load(fileiotest.Reader{Data: []byte("[messaging")}); err == nil {
+		t.Fatal("expected INI parse error")
+	}
+}

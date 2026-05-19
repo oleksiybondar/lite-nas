@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"sync"
 
 	"lite-nas/services/zfs-metrics/modules"
+	"lite-nas/services/zfs-metrics/state"
 	sharedcontracts "lite-nas/shared/contracts"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 	sharedlogger "lite-nas/shared/logger"
@@ -17,28 +17,6 @@ const (
 	serviceName        = sharedcontracts.ServiceZFSMetrics
 )
 
-// snapshotState stores latest available snapshot.
-type snapshotState struct {
-	mu       sync.RWMutex
-	latest   metrics.ZFSSnapshot
-	hasValue bool
-}
-
-// Set stores the latest snapshot value and marks state as available.
-func (s *snapshotState) Set(value metrics.ZFSSnapshot) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.latest = value
-	s.hasValue = true
-}
-
-// Get returns current snapshot and a flag showing whether value is available.
-func (s *snapshotState) Get() (metrics.ZFSSnapshot, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.latest, s.hasValue
-}
-
 // run boots infra, starts workers, and serves snapshot publication/RPC.
 func run(ctx context.Context) error {
 	infra, err := modules.NewInfraModule(packagedConfigPath, serviceName)
@@ -47,25 +25,25 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 
-	state := &snapshotState{}
+	store := state.NewHistoryStore(infra.Config.Metrics.HistorySize)
 	channels := modules.NewChannelsModule(1)
 	workerModule, err := modules.NewWorkersModule(infra.Config.Metrics, channels)
 	if err != nil {
 		return err
 	}
-	if err := registerRPCHandlers(infra.Server, state); err != nil {
+	if err := registerRPCHandlers(infra.Server, store); err != nil {
 		return err
 	}
 	startWorkers(ctx, workerModule)
 
 	infra.Logger.Info("zfs metrics service started", "config", packagedConfigPath)
-	return serveSnapshots(ctx, channels.ZFSSnapshots, channels.PollErrors, state, infra.Client, infra.Logger)
+	return serveSnapshots(ctx, channels.ZFSSnapshots, channels.PollErrors, store, infra.Client, infra.Logger)
 }
 
 // registerRPCHandlers registers snapshot read RPC handlers on messaging server.
-func registerRPCHandlers(server messaging.Server, state *snapshotState) error {
-	return server.RegisterRPC(zfsmetricscontract.SnapshotRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
-		snapshot, ok := state.Get()
+func registerRPCHandlers(server messaging.Server, store *state.HistoryStore) error {
+	if err := server.RegisterRPC(zfsmetricscontract.SnapshotRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
+		snapshot, ok := store.Latest()
 		if !ok {
 			return zfsmetricscontract.GetSnapshotResponse{Available: false}, nil
 		}
@@ -73,7 +51,17 @@ func registerRPCHandlers(server messaging.Server, state *snapshotState) error {
 			Available: true,
 			Snapshot:  snapshot,
 		}, nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	if err := server.RegisterRPC(zfsmetricscontract.HistoryRPCSubject, func(_ context.Context, _ messaging.Envelope) (any, error) {
+		return zfsmetricscontract.GetHistoryResponse{Items: store.List()}, nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // serveSnapshots processes worker outputs and publishes snapshot events.
@@ -81,7 +69,7 @@ func serveSnapshots(
 	ctx context.Context,
 	input <-chan metrics.ZFSSnapshot,
 	pollErrors <-chan error,
-	state *snapshotState,
+	store *state.HistoryStore,
 	client messaging.Client,
 	log sharedlogger.Logger,
 ) error {
@@ -92,7 +80,7 @@ func serveSnapshots(
 		case err, ok := <-pollErrors:
 			handlePollError(log, err, ok)
 		case snapshot, ok := <-input:
-			shouldStop := handleSnapshot(ctx, state, client, log, snapshot, ok)
+			shouldStop := handleSnapshot(ctx, store, client, log, snapshot, ok)
 			if shouldStop {
 				return nil
 			}
@@ -117,7 +105,7 @@ func handlePollError(log sharedlogger.Logger, err error, ok bool) {
 // handleSnapshot updates state and publishes snapshot event.
 func handleSnapshot(
 	ctx context.Context,
-	state *snapshotState,
+	store *state.HistoryStore,
 	client messaging.Client,
 	log sharedlogger.Logger,
 	snapshot metrics.ZFSSnapshot,
@@ -127,7 +115,7 @@ func handleSnapshot(
 		return true
 	}
 
-	state.Set(snapshot)
+	store.Add(snapshot)
 	event := zfsmetricscontract.SnapshotUpdatedEvent{Snapshot: snapshot}
 	if err := client.Publish(ctx, zfsmetricscontract.SnapshotEventSubject, event); err != nil {
 		log.Error("failed to publish zfs snapshot", "subject", zfsmetricscontract.SnapshotEventSubject, "error", err)

@@ -20,6 +20,7 @@ type Config struct {
 type MetricsConfig struct {
 	PollInterval time.Duration
 	ZpoolPath    string
+	HistorySize  int
 }
 
 // LoadConfig loads service configuration from the provided reader.
@@ -57,5 +58,6 @@ func loadMetricsConfig(cfgFile *ini.File) (MetricsConfig, error) {
 	return MetricsConfig{
 		PollInterval: pollInterval,
 		ZpoolPath:    section.Key("zpool_path").MustString("/sbin/zpool"),
+		HistorySize:  section.Key("history_size").MustInt(120),
 	}, nil
 }

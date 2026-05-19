@@ -6,4 +6,7 @@ const (
 
 	// SnapshotRPCSubject serves the latest processed ZFS snapshot via request/reply messaging.
 	SnapshotRPCSubject = "zfs.metrics.rpc.snapshot.get"
+
+	// HistoryRPCSubject serves retained ZFS snapshots via request/reply messaging.
+	HistoryRPCSubject = "zfs.metrics.rpc.history.get"
 )

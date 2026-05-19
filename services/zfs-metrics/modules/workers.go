@@ -17,14 +17,7 @@ func NewWorkersModule(
 	cfg serviceconfig.MetricsConfig,
 	channels Channels,
 ) (Workers, error) {
-	pollTicks := make(chan struct{}, 1)
-	timerWorker, err := sharedworkers.NewTimerWorker(
-		sharedworkers.TimerConfig{
-			Interval:    cfg.PollInterval,
-			EmitOnStart: true,
-		},
-		pollTicks,
-	)
+	timerWorker, pollTicks, err := sharedworkers.NewPollingTimerWorker(cfg.PollInterval, 1)
 	if err != nil {
 		return Workers{}, err
 	}

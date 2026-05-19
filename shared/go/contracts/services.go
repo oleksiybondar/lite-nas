@@ -12,6 +12,7 @@ const (
 	ServiceWebGateway             = "web-gateway"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"
+	AppZFSMetricsCLI           = "zfs-metrics-cli"
 	AppSystemLoggingManagerCLI = "system-logging-manager-cli"
 	AppSecurityLoggingMgrCLI   = "security-logging-manager-cli"
 	AppAdminPanel              = "admin-panel"

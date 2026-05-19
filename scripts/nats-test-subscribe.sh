@@ -79,6 +79,7 @@ supported_subscriptions=(
 	"security-logging-manager.muteAlert"
 	"zfs.metrics.events.snapshot"
 	"zfs.metrics.rpc.snapshot.get"
+	"zfs.metrics.rpc.history.get"
 )
 
 for subject in "${supported_subscriptions[@]}"; do
@@ -110,6 +111,7 @@ SUBJECT_PROFILE["security-logging-manager.acknowledgeAlert"]="security-logging-m
 SUBJECT_PROFILE["security-logging-manager.muteAlert"]="security-logging-manager-cli"
 SUBJECT_PROFILE["zfs.metrics.events.snapshot"]="zfs-metrics-cli"
 SUBJECT_PROFILE["zfs.metrics.rpc.snapshot.get"]="zfs-metrics-cli"
+SUBJECT_PROFILE["zfs.metrics.rpc.history.get"]="zfs-metrics-cli"
 
 usage() {
 	cat <<'MSG'
@@ -169,6 +171,7 @@ Supported subscriptions:
   - security-logging-manager.muteAlert
   - zfs.metrics.events.snapshot
   - zfs.metrics.rpc.snapshot.get
+  - zfs.metrics.rpc.history.get
 MSG
 }
 

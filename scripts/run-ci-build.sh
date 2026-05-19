@@ -16,6 +16,7 @@ scripts/build-system-metrics.sh
 scripts/build-system-logging-manager-cli.sh
 scripts/build-security-logging-manager-cli.sh
 scripts/build-system-metrics-cli.sh
+scripts/build-zfs-metrics-cli.sh
 scripts/build-shared.sh
 scripts/build-web-gateway.sh
 scripts/build-admin-panel.sh

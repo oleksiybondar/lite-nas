@@ -16,6 +16,8 @@ litenas_transport_certificates_dir="${LITE_NAS_TRANSPORT_CERTIFICATE_DIR:-$liten
 litenas_group="${LITE_NAS_GROUP:-lite-nas}"
 cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
 cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
+zfs_cli_certificate_user="${LITE_NAS_ZFS_METRICS_CLI_CERT_USER:-lite-nas-zfs-metrics-cli}"
+zfs_cli_access_group="${LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP:-users}"
 system_logging_manager_cli_certificate_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sys-log-mgr-cli}"
 system_logging_manager_cli_access_group="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-operator}"
 security_logging_manager_cli_certificate_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sec-log-mgr-cli}"
@@ -101,6 +103,10 @@ ensure_litenas_groups() {
 	if ! getent group "$cli_access_group" >/dev/null 2>&1; then
 		log.info "Creating CLI access group: $cli_access_group"
 		groupadd --system "$cli_access_group"
+	fi
+	if ! getent group "$zfs_cli_access_group" >/dev/null 2>&1; then
+		log.info "Creating CLI access group: $zfs_cli_access_group"
+		groupadd --system "$zfs_cli_access_group"
 	fi
 	if ! getent group "$system_logging_manager_cli_access_group" >/dev/null 2>&1; then
 		log.info "Creating CLI access group: $system_logging_manager_cli_access_group"
@@ -307,6 +313,12 @@ normalize_certificate_permissions() {
 		chmod 0755 "$litenas_transport_certificates_dir/$cli_certificate_user"
 		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.crt' -exec chmod 0644 {} +
 		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.key' -exec chmod 0644 {} +
+	fi
+	if [ -d "$litenas_transport_certificates_dir/$zfs_cli_certificate_user" ]; then
+		chown -R root:root "$litenas_transport_certificates_dir/$zfs_cli_certificate_user"
+		chmod 0755 "$litenas_transport_certificates_dir/$zfs_cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$zfs_cli_certificate_user" -type f -name '*.crt' -exec chmod 0644 {} +
+		find "$litenas_transport_certificates_dir/$zfs_cli_certificate_user" -type f -name '*.key' -exec chmod 0644 {} +
 	fi
 	if [ -d "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user" ]; then
 		chown -R "root:$system_logging_manager_cli_access_group" "$litenas_transport_certificates_dir/$system_logging_manager_cli_certificate_user"

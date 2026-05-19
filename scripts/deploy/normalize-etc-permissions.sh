@@ -44,6 +44,7 @@ deploy.normalizeLiteNAS() {
 		done < <(find "$litenas_config_dir" -maxdepth 1 -type f -name '*.conf' -print0)
 	fi
 	deploy.normalizePath 0644 "$litenas_cli_config_file" "$owner"
+	deploy.normalizePath 0644 "$litenas_zfs_cli_config_file" "$owner"
 	deploy.normalizePath 0640 "$litenas_system_logging_manager_cli_config_file" "root:${litenas_system_logging_manager_cli_access_group}"
 	deploy.normalizePath 0640 "$litenas_security_logging_manager_cli_config_file" "root:${litenas_security_logging_manager_cli_access_group}"
 
@@ -54,6 +55,9 @@ deploy.normalizeLiteNAS() {
 		while IFS= read -r -d '' identity_dir; do
 			identity_group="$(basename "$identity_dir")"
 			if [ "$identity_group" = "$litenas_cli_certificate_user" ] && getent group "$litenas_cli_access_group" >/dev/null 2>&1; then
+				deploy.normalizePath 0755 "$identity_dir" "$owner"
+				credential_owner="$owner"
+			elif [ "$identity_group" = "$litenas_zfs_cli_certificate_user" ] && getent group "$litenas_zfs_cli_access_group" >/dev/null 2>&1; then
 				deploy.normalizePath 0755 "$identity_dir" "$owner"
 				credential_owner="$owner"
 			elif [ "$identity_group" = "$litenas_system_logging_manager_cli_certificate_user" ] && getent group "$litenas_system_logging_manager_cli_access_group" >/dev/null 2>&1; then
@@ -72,7 +76,7 @@ deploy.normalizeLiteNAS() {
 			while IFS= read -r -d '' credential_file; do
 				if [ "${credential_file##*.}" = "csr" ]; then
 					deploy.normalizePath 0600 "$credential_file" "$credential_owner"
-				elif [ "$identity_group" = "$litenas_cli_certificate_user" ]; then
+				elif [ "$identity_group" = "$litenas_cli_certificate_user" ] || [ "$identity_group" = "$litenas_zfs_cli_certificate_user" ]; then
 					deploy.normalizePath 0644 "$credential_file" "$credential_owner"
 				elif [ "$identity_group" = "$litenas_system_logging_manager_cli_certificate_user" ] || [ "$identity_group" = "$litenas_security_logging_manager_cli_certificate_user" ]; then
 					deploy.normalizePath 0640 "$credential_file" "$credential_owner"
@@ -149,6 +153,8 @@ deploy.normalizeEtcPermissions() {
 	local nats_certificate_owner="root:root"
 	local litenas_cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
 	local litenas_cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
+	local litenas_zfs_cli_certificate_user="${LITE_NAS_ZFS_METRICS_CLI_CERT_USER:-lite-nas-zfs-metrics-cli}"
+	local litenas_zfs_cli_access_group="${LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP:-users}"
 	local litenas_system_logging_manager_cli_certificate_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sys-log-mgr-cli}"
 	local litenas_system_logging_manager_cli_access_group="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-operator}"
 	local litenas_security_logging_manager_cli_certificate_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sec-log-mgr-cli}"
@@ -158,6 +164,7 @@ deploy.normalizeEtcPermissions() {
 	local nats_certificate_dir="$nats_config_dir/certificates"
 	local litenas_config_dir="$target_dir/lite-nas"
 	local litenas_cli_config_file="$litenas_config_dir/system-metrics-cli.conf"
+	local litenas_zfs_cli_config_file="$litenas_config_dir/zfs-metrics-cli.conf"
 	local litenas_system_logging_manager_cli_config_file="$litenas_config_dir/system-logging-manager-cli.conf"
 	local litenas_security_logging_manager_cli_config_file="$litenas_config_dir/security-logging-manager-cli.conf"
 	local litenas_certificates_dir="$litenas_config_dir/certificates"
