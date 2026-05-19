@@ -5,6 +5,7 @@ package contracts
 const (
 	ServiceAuth                   = "auth-service"
 	ServiceSystemMetrics          = "system-metrics"
+	ServiceZFSMetrics             = "zfs-metrics"
 	ServiceResourcesMonitor       = "resources-monitor"
 	ServiceSystemLoggingManager   = "system-logging-manager"
 	ServiceSecurityLoggingManager = "security-logging-manager"

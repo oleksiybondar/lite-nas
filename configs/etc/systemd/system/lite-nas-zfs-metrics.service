@@ -1,0 +1,43 @@
+[Unit]
+Description=LiteNAS zfs metrics service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-zfs-metrics
+Group=lite-nas-zfs-metrics
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/zfs-metrics
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=no
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas /sbin/zpool /usr/sbin/zpool
+ReadWritePaths=/var/log/lite-nas/zfs-metrics.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

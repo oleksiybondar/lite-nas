@@ -17,6 +17,7 @@
     "**/.cache/**",
     "**/.build/**",
     "**/.artifacts/**",
+    "**/shared/go/parsers/generated/**",
     "**/*.lock",
     "**/package-lock.json",
     "**/pnpm-lock.yaml",

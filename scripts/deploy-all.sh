@@ -13,11 +13,15 @@ source "$ENTRYPOINT_DIR/deploy/security-logging-manager.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/zfs-metrics.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
@@ -27,9 +31,11 @@ auth_service_binary=""
 system_logging_manager_binary=""
 security_logging_manager_binary=""
 system_metrics_binary=""
+zfs_metrics_binary=""
 system_logging_manager_cli_binary=""
 security_logging_manager_cli_binary=""
 system_metrics_cli_binary=""
+zfs_metrics_cli_binary=""
 web_gateway_binary=""
 resources_monitor_binary=""
 should_bootstrap=1
@@ -47,12 +53,14 @@ Options:
   --security-logging-manager-binary PATH
                                   Install an existing security-logging-manager binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
+  --zfs-metrics-binary PATH       Install an existing zfs-metrics binary.
   --system-logging-manager-cli-binary PATH
                                   Install an existing system-logging-manager-cli binary.
   --security-logging-manager-cli-binary PATH
                                   Install an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary PATH
                                   Install an existing system-metrics-cli binary.
+  --zfs-metrics-cli-binary PATH   Install an existing zfs-metrics-cli binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
   --no-start                      Install files but do not enable or start services.
@@ -80,6 +88,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		system_metrics_binary="$2"
+		shift 2
+		;;
+	--zfs-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --zfs-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		zfs_metrics_binary="$2"
 		shift 2
 		;;
 	--system-logging-manager-binary)
@@ -125,6 +142,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		system_metrics_cli_binary="$2"
+		shift 2
+		;;
+	--zfs-metrics-cli-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --zfs-metrics-cli-binary"
+			usage >&2
+			exit 2
+		fi
+		zfs_metrics_cli_binary="$2"
 		shift 2
 		;;
 	--web-gateway-binary)
@@ -175,14 +201,16 @@ deploy.authService.requireTools
 deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
 deploy.systemMetrics.requireTools
+deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
+deploy.zfsMetricsCLI.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$resources_monitor_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -210,6 +238,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [
 		system_metrics_binary="$tmp_dir/system-metrics"
 	fi
 
+	if [ -z "$zfs_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/zfs-metrics")
+		"$ENTRYPOINT_DIR/build-zfs-metrics-binary.sh" "${build_args[@]}"
+		zfs_metrics_binary="$tmp_dir/zfs-metrics"
+	fi
+
 	if [ -z "$system_logging_manager_cli_binary" ]; then
 		build_args=("--output=$tmp_dir/system-logging-manager-cli")
 		"$ENTRYPOINT_DIR/build-system-logging-manager-cli-binary.sh" "${build_args[@]}"
@@ -226,6 +260,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [
 		build_args=("--output=$tmp_dir/system-metrics-cli")
 		"$ENTRYPOINT_DIR/build-system-metrics-cli-binary.sh" "${build_args[@]}"
 		system_metrics_cli_binary="$tmp_dir/system-metrics-cli"
+	fi
+
+	if [ -z "$zfs_metrics_cli_binary" ]; then
+		build_args=("--output=$tmp_dir/zfs-metrics-cli")
+		"$ENTRYPOINT_DIR/build-zfs-metrics-cli-binary.sh" "${build_args[@]}"
+		zfs_metrics_cli_binary="$tmp_dir/zfs-metrics-cli"
 	fi
 
 	if [ -z "$web_gateway_binary" ]; then
@@ -265,6 +305,10 @@ log.pushTask "Deploying system-metrics service"
 deploy.systemMetrics.deploy "$system_metrics_binary" "$should_start"
 log.popTask
 
+log.pushTask "Deploying zfs-metrics service"
+deploy.zfsMetrics.deploy "$zfs_metrics_binary" "$should_start"
+log.popTask
+
 log.pushTask "Deploying web-gateway service"
 deploy.webGateway.deploy "$web_gateway_binary" "$should_start"
 log.popTask
@@ -279,6 +323,10 @@ log.popTask
 
 log.pushTask "Deploying system-metrics-cli app"
 deploy.systemMetricsCLI.deploy "$system_metrics_cli_binary"
+log.popTask
+
+log.pushTask "Deploying zfs-metrics-cli app"
+deploy.zfsMetricsCLI.deploy "$zfs_metrics_cli_binary"
 log.popTask
 
 log.pushTask "Deploying resources-monitor service"

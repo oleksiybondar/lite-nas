@@ -9,6 +9,11 @@ source "$SCRIPT_DIR/helpers/sudo-guard.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/tool-paths.sh"
 
+ANTLR_VERSION="4.13.2"
+ANTLR_JAR_DIR="$REPO_ROOT/.bin/antlr4"
+ANTLR_JAR_FILE="$ANTLR_JAR_DIR/antlr-$ANTLR_VERSION-complete.jar"
+ANTLR_JAR_URL="https://www.antlr.org/download/antlr-$ANTLR_VERSION-complete.jar"
+
 sudo.guard.requireRoot "scripts/install-dev-dependencies.sh"
 
 run_as_user() {
@@ -48,7 +53,7 @@ install_apt_packages() {
 		cat <<'MSG' >&2
 Missing required base tooling, and apt-get is not available.
 
-Install Node.js, npm, Go, shellcheck, shfmt, and Debian packaging tools manually, then re-run this script.
+Install Node.js, npm, Go, shellcheck, shfmt, Java runtime, curl, and Debian packaging tools manually, then re-run this script.
 On macOS, use Homebrew:
   brew install node go shellcheck shfmt actionlint
 MSG
@@ -57,9 +62,9 @@ MSG
 
 	log.pushTask "Installing Debian/Ubuntu base packages"
 	apt-get update
-	if ! apt-get install -y git nodejs npm golang-go shellcheck shfmt lintian debconf gcc libc6-dev libpam0g-dev python3 python3-venv; then
+	if ! apt-get install -y git curl nodejs npm golang-go shellcheck shfmt lintian debconf gcc libc6-dev libpam0g-dev python3 python3-venv default-jre-headless; then
 		log.warn "Could not install shfmt with apt-get; it will be installed with go install instead."
-		apt-get install -y git nodejs npm golang-go shellcheck lintian debconf gcc libc6-dev libpam0g-dev python3 python3-venv
+		apt-get install -y git curl nodejs npm golang-go shellcheck lintian debconf gcc libc6-dev libpam0g-dev python3 python3-venv default-jre-headless
 	fi
 	log.popTask
 }
@@ -74,7 +79,7 @@ has_pam_development_headers() {
 }
 
 missing_base_tools=()
-for tool in node npm go shellcheck shfmt gcc python3; do
+for tool in node npm go shellcheck shfmt gcc python3 java curl; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		missing_base_tools+=("$tool")
 	fi
@@ -95,7 +100,7 @@ if [ "${#missing_base_tools[@]}" -gt 0 ] || [ "${#missing_dev_components[@]}" -g
 fi
 
 log.pushTask "Checking base tooling"
-for tool in node npm go shellcheck shfmt gcc python3; do
+for tool in node npm go shellcheck shfmt gcc python3 java curl; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		log.error "Missing required command after installation attempt: $tool"
 		exit 1
@@ -142,6 +147,13 @@ log.popTask
 
 log.pushTask "Installing Git hooks"
 run_as_user npx lefthook install
+log.popTask
+
+log.pushTask "Preparing ANTLR toolchain"
+ensure_user_writable_directory "$ANTLR_JAR_DIR"
+if [ ! -f "$ANTLR_JAR_FILE" ]; then
+	run_as_user curl -fsSL "$ANTLR_JAR_URL" -o "$ANTLR_JAR_FILE"
+fi
 log.popTask
 
 log.info "Developer tooling is installed."

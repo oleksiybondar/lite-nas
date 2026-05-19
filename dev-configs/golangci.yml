@@ -2,6 +2,8 @@ version: "2"
 
 run:
   timeout: 5m
+  skip-dirs:
+    - shared/go/parsers/generated
 
 linters:
   enable:
