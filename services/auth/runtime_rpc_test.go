@@ -158,6 +158,50 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	}
 }
 
+func TestHandleServiceTokenLoginRPCIssuesServiceTokenPair(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	response, err := handleServiceTokenLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenLoginRequest{
+		Service: "web-gateway",
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
+	}
+	if response.AccessToken == "" || response.RefreshToken == "" {
+		t.Fatalf("response tokens = (%q, %q), want both set", response.AccessToken, response.RefreshToken)
+	}
+	if response.ExpiresAt.IsZero() {
+		t.Fatal("ExpiresAt is zero, want set")
+	}
+}
+
+func TestHandleServiceTokenRefreshRPCRotatesServiceTokenPair(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	loginResponse, err := handleServiceTokenLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenLoginRequest{
+		Service: "web-gateway",
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
+	}
+
+	refreshResponse, err := handleServiceTokenRefreshRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenRefreshRequest{
+		Service:      "web-gateway",
+		RefreshToken: loginResponse.RefreshToken,
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenRefreshRPC() error = %v", err)
+	}
+	if refreshResponse.AccessToken == "" || refreshResponse.RefreshToken == "" {
+		t.Fatalf("refresh tokens = (%q, %q), want both set", refreshResponse.AccessToken, refreshResponse.RefreshToken)
+	}
+	if refreshResponse.RefreshToken == loginResponse.RefreshToken {
+		t.Fatal("refresh token was not rotated")
+	}
+}
+
 func TestHandleRefreshRPCReturnsEmptyForUnknownRefreshToken(t *testing.T) {
 	t.Parallel()
 
@@ -362,6 +406,8 @@ func TestRegisterRPCHandlersRegistersAuthSubjects(t *testing.T) {
 		authcontract.RefreshRPCSubject,
 		authcontract.LogoutRPCSubject,
 		authcontract.ValidateAccessTokenRPCSubject,
+		authcontract.ServiceTokenLoginRPCSubject,
+		authcontract.ServiceTokenRefreshRPCSubject,
 	} {
 		if server.handlers[subject] == nil {
 			t.Fatalf("handler for %q was not registered", subject)
@@ -410,12 +456,29 @@ func authRuntimeFixture(t *testing.T, authResult pamauth.Result) authRuntime {
 			},
 		},
 		Tokens: authTokenRuntime{
-			Issuer:   issuer,
-			Verifier: verifier,
+			Issuer:        issuer,
+			ServiceIssuer: mustNewServiceIssuer(t, privateKey),
+			Verifier:      verifier,
 		},
-		RefreshStore: sessions.NewStore(time.Now, sessions.StoreOptions{}),
-		Validator:    newRequestValidator(),
+		RefreshStore:      sessions.NewStore(time.Now, sessions.StoreOptions{}),
+		ServiceTokenStore: newServiceTokenStore(time.Now),
+		Validator:         newRequestValidator(),
 	}
+}
+
+func mustNewServiceIssuer(t *testing.T, privateKey []byte) authtoken.Issuer {
+	t.Helper()
+
+	issuer, err := authtoken.NewIssuer(authtoken.IssuerOptions{
+		Issuer:         "lite-nas-auth",
+		Audience:       "lite-nas-management-api",
+		AccessLifetime: serviceTokenTTL,
+	}, privateKey)
+	if err != nil {
+		t.Fatalf("NewIssuer(service token) error = %v", err)
+	}
+
+	return issuer
 }
 
 // recordingRequestValidator is a test double for injected RPC validation.

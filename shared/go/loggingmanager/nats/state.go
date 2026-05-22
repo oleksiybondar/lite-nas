@@ -14,7 +14,7 @@ func handleUpdateAlertStateRPC(core *sharedloggingmanager.Core) sharedmessaging.
 		if err != nil {
 			return nil, err
 		}
-		if core.SetState(input) == nil {
+		if core.SetState(input.ToDTO()) == nil {
 			return loggingmanagercontract.OKResponse{OK: true}, nil
 		}
 		return loggingmanagercontract.OKResponse{OK: false}, nil

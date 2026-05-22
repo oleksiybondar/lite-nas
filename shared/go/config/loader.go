@@ -11,6 +11,7 @@ import (
 type SharedConfig struct {
 	Messaging MessagingConfig
 	Logging   LoggingConfig
+	Auth      AuthConfig
 }
 
 // LoadINI reads configuration bytes from the supplied reader and parses them as
@@ -24,7 +25,7 @@ func LoadINI(reader fileio.Reader) (*ini.File, error) {
 	return ini.Load(data)
 }
 
-// LoadSharedConfig extracts the shared [messaging] and [logging] sections from
+// LoadSharedConfig extracts shared bootstrap sections from
 // a parsed INI document.
 func LoadSharedConfig(cfgFile *ini.File) (SharedConfig, error) {
 	messagingConfig, err := LoadMessagingConfig(cfgFile)
@@ -36,9 +37,14 @@ func LoadSharedConfig(cfgFile *ini.File) (SharedConfig, error) {
 	if err != nil {
 		return SharedConfig{}, err
 	}
+	authConfig, err := LoadAuthConfig(cfgFile)
+	if err != nil {
+		return SharedConfig{}, err
+	}
 
 	return SharedConfig{
 		Messaging: messagingConfig,
 		Logging:   loggingConfig,
+		Auth:      authConfig,
 	}, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	servicemodules "lite-nas/services/resources-monitor/modules"
@@ -11,6 +12,7 @@ import (
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	"lite-nas/shared/eventmanager"
 	"lite-nas/shared/messaging"
+	"lite-nas/shared/servicetoken"
 )
 
 const (
@@ -57,11 +59,44 @@ func runWithDependencies(
 		return err
 	}
 
+	infra.AuthRefreshTimer.Start(ctx)
+	go runAuthRefreshLoop(ctx, infra)
+
 	infra.Logger.Info("resources monitor service started", "config", packagedConfigPath, "rules", len(loadedRules))
 
 	<-ctx.Done()
 	infra.Logger.Info("resources monitor service stopping")
 	return ctx.Err()
+}
+
+func runAuthRefreshLoop(ctx context.Context, infra servicemodules.Infra) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-infra.AuthRefreshTicks:
+			handleAuthRefreshTick(ctx, infra)
+		}
+	}
+}
+
+func handleAuthRefreshTick(ctx context.Context, infra servicemodules.Infra) {
+	refreshErr := infra.AuthTokenManager.Refresh(ctx)
+	if refreshErr == nil {
+		infra.Logger.Debug("resources monitor auth token refreshed")
+		return
+	}
+
+	if !errors.Is(refreshErr, servicetoken.ErrTokenUnavailable) {
+		infra.Logger.Warn("resources monitor auth token refresh failed", "error", refreshErr)
+	}
+
+	if err := infra.AuthTokenManager.Login(ctx); err != nil {
+		infra.Logger.Warn("resources monitor auth token login failed", "error", err)
+		return
+	}
+
+	infra.Logger.Info("resources monitor auth token login succeeded")
 }
 
 // registerSubscriptions wires subject handlers required by resources-monitor.

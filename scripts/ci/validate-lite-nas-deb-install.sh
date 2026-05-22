@@ -65,6 +65,14 @@ docker run --rm \
 		test -f /etc/lite-nas/system-metrics-cli.conf
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas/system-metrics-cli.conf)\" = 'root:root 644'
 		test -f /etc/lite-nas/web-gateway.conf
+		test -f /etc/lite-nas/certificates/auth/token-signing.key
+		test -f /etc/lite-nas/certificates/auth/token-signing.crt
+		test -f /etc/lite-nas/certificates/identities/root-ca.key
+		test -f /etc/lite-nas/certificates/identities/root-ca.crt
+		test -f /etc/lite-nas/certificates/identities/lite-nas-auth-service/client.crt
+		test -f /etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.crt
+		test -f /etc/lite-nas/certificates/identities/lite-nas-sys-log-mgr-cli/client.crt
+		test -f /etc/lite-nas/certificates/identities/lite-nas-sec-log-mgr-cli/client.crt
 		test -d /var/log/lite-nas
 		test \"\$(stat -c '%U:%G %a' /var/log/lite-nas)\" = 'root:lite-nas 751'
 		test -f /var/log/lite-nas/auth-service.log

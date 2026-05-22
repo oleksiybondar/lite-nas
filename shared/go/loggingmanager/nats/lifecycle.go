@@ -14,7 +14,7 @@ func handleAcknowledgeAlertRPC(core *sharedloggingmanager.Core) sharedmessaging.
 		if err != nil {
 			return nil, err
 		}
-		if core.AcknowledgeEvent(input) == nil {
+		if core.AcknowledgeEvent(input.ToDTO()) == nil {
 			return loggingmanagercontract.OKResponse{OK: true}, nil
 		}
 		return loggingmanagercontract.OKResponse{OK: false}, nil
@@ -27,7 +27,7 @@ func handleMuteAlertRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHand
 		if err != nil {
 			return nil, err
 		}
-		if core.MuteEvent(input) == nil {
+		if core.MuteEvent(input.ToDTO()) == nil {
 			return loggingmanagercontract.OKResponse{OK: true}, nil
 		}
 		return loggingmanagercontract.OKResponse{OK: false}, nil

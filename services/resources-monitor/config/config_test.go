@@ -43,6 +43,27 @@ func TestLoadConfigLoggingFields(t *testing.T) {
 	assertLoggingConfig(t, cfg)
 }
 
+func TestLoadConfigAuthFields(t *testing.T) {
+	t.Parallel()
+
+	cfg := loadConfigFixture(t)
+	if cfg.Auth.CA != "/etc/lite-nas/certificates/identities/root-ca.crt" {
+		t.Fatalf("cfg.Auth.CA = %q", cfg.Auth.CA)
+	}
+	if cfg.Auth.Cert != "/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.crt" {
+		t.Fatalf("cfg.Auth.Cert = %q", cfg.Auth.Cert)
+	}
+	if cfg.Auth.Key != "/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.key" {
+		t.Fatalf("cfg.Auth.Key = %q", cfg.Auth.Key)
+	}
+	if cfg.Auth.ServiceName != "resources-monitor" {
+		t.Fatalf("cfg.Auth.ServiceName = %q", cfg.Auth.ServiceName)
+	}
+	if cfg.Auth.ServiceLogin != "lite-nas-resources-monitor" {
+		t.Fatalf("cfg.Auth.ServiceLogin = %q", cfg.Auth.ServiceLogin)
+	}
+}
+
 func TestLoadConfigRejectsMissingRulesFiles(t *testing.T) {
 	t.Parallel()
 
@@ -73,6 +94,12 @@ func loadConfigFixture(t *testing.T) Config {
 				"cert=/etc/lite-nas/certificates/transport/lite-nas-resources-monitor/client.crt\n" +
 				"key=/etc/lite-nas/certificates/transport/lite-nas-resources-monitor/client.key\n" +
 				"timeout=9s\n" +
+				"[auth]\n" +
+				"ca=/etc/lite-nas/certificates/identities/root-ca.crt\n" +
+				"cert=/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.crt\n" +
+				"key=/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.key\n" +
+				"service_name=resources-monitor\n" +
+				"service_login=lite-nas-resources-monitor\n" +
 				"[logging]\n" +
 				"level=debug\n" +
 				"format=rfc5424\n" +

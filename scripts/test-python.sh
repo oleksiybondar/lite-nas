@@ -27,7 +27,7 @@ run_marker_tests() {
 
 	log.pushTask "Running Python ${category} tests"
 	set +e
-	"$pytest_bin" -c pytest.ini . -m "$category" "$@"
+	"$pytest_bin" -c pytest.ini . -m "$category" -x "$@"
 	status=$?
 	set -e
 
@@ -48,8 +48,7 @@ run_category_suite() {
 }
 
 # Keep execution ordered from base system checks to highest-level UI flows.
-categories=(infra api cli ui)
-categories=(cli)
+categories=(infra cli api ui)
 
 for category in "${categories[@]}"; do
 	run_category_suite "$category" "$@"

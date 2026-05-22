@@ -14,7 +14,7 @@ func handleGetAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHand
 		if err != nil {
 			return nil, err
 		}
-		items, err := core.ListEvents(input)
+		items, err := core.ListEvents(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}
@@ -30,7 +30,7 @@ func handleGetAlertRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHandl
 		if err != nil {
 			return nil, err
 		}
-		item, found, err := core.GetEvent(input)
+		item, found, err := core.GetEvent(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}
@@ -50,7 +50,7 @@ func handleGetActiveAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.R
 		if err != nil {
 			return nil, err
 		}
-		items, err := core.ListActiveEvents(input)
+		items, err := core.ListActiveEvents(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}
@@ -66,7 +66,7 @@ func handleGetUnacknowledgedActiveAlertsRPC(core *sharedloggingmanager.Core) sha
 		if err != nil {
 			return nil, err
 		}
-		items, err := core.ListActiveUnacknowledgedEvents(input)
+		items, err := core.ListActiveUnacknowledgedEvents(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}

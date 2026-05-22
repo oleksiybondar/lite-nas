@@ -9,10 +9,12 @@ import (
 //
 // It groups configuration by domain to reflect service responsibilities:
 //   - Messaging: external messaging system connectivity
+//   - Auth: service auth identity settings
 //   - Rules: rule file locations used by the monitor
 //   - Logging: application logging behavior
 type Config struct {
 	Messaging sharedconfig.MessagingConfig
+	Auth      sharedconfig.AuthConfig
 	Rules     sharedconfig.RulesConfig
 	Logging   sharedconfig.LoggingConfig
 }
@@ -37,6 +39,7 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 
 	return Config{
 		Messaging: sharedCfg.Messaging,
+		Auth:      sharedCfg.Auth,
 		Rules:     rulesConfig,
 		Logging:   sharedCfg.Logging,
 	}, nil

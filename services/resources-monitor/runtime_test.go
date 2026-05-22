@@ -11,9 +11,12 @@ import (
 	"lite-nas/services/resources-monitor/processor"
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedconfig "lite-nas/shared/config"
+	authcontract "lite-nas/shared/contracts/auth"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	sharedmodules "lite-nas/shared/modules"
+	"lite-nas/shared/servicetoken"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 func TestInitialEventCounterUsesNonNegativeSeed(t *testing.T) {
@@ -111,6 +114,55 @@ func TestRunWithDependenciesReturnsContextCanceledOnGracefulStop(t *testing.T) {
 	}
 }
 
+func TestHandleAuthRefreshTickRefreshesTokenWhenAvailable(t *testing.T) {
+	t.Parallel()
+
+	infra := buildAuthTickTestInfra(t, authTickClientStub{
+		refreshResponse: authcontract.ServiceTokenRefreshResponse{
+			AccessToken:  "AT-refreshed",
+			RefreshToken: "RT-refreshed",
+			ExpiresAt:    time.Unix(200, 0),
+		},
+	})
+
+	if err := infra.AuthTokenManager.Login(t.Context()); err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+
+	handleAuthRefreshTick(t.Context(), infra)
+
+	accessToken, _, err := infra.AuthTokenManager.Token()
+	if err != nil {
+		t.Fatalf("Token() error = %v", err)
+	}
+	if accessToken != "AT-refreshed" {
+		t.Fatalf("access token = %q, want %q", accessToken, "AT-refreshed")
+	}
+}
+
+func TestHandleAuthRefreshTickFallsBackToLoginOnRefreshError(t *testing.T) {
+	t.Parallel()
+
+	infra := buildAuthTickTestInfra(t, authTickClientStub{
+		refreshErr: errors.New("refresh failed"),
+		loginResponse: authcontract.ServiceTokenLoginResponse{
+			AccessToken:  "AT-login",
+			RefreshToken: "RT-login",
+			ExpiresAt:    time.Unix(300, 0),
+		},
+	})
+
+	handleAuthRefreshTick(t.Context(), infra)
+
+	accessToken, _, err := infra.AuthTokenManager.Token()
+	if err != nil {
+		t.Fatalf("Token() error = %v", err)
+	}
+	if accessToken != "AT-login" {
+		t.Fatalf("access token = %q, want %q", accessToken, "AT-login")
+	}
+}
+
 type stubServer struct {
 	subscribeErr error
 }
@@ -139,14 +191,102 @@ func (stubClient) Drain() error { return nil }
 func (stubClient) Close()       {}
 
 func buildTestInfra() servicemodules.Infra {
+	authTokenManager, err := servicetoken.NewManager(stubClient{}, servicetoken.Options{Service: "resources-monitor"})
+	if err != nil {
+		panic(err)
+	}
+	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
+	if err != nil {
+		panic(err)
+	}
+
 	return servicemodules.Infra{
-		CoreInfra: sharedmodules.CoreInfra{
-			Logger: sharedlogger.NewNop(),
-			Client: stubClient{},
-			Server: &stubServer{},
+		CoreClientAuthInfra: sharedmodules.CoreClientAuthInfra{
+			CoreInfra: sharedmodules.CoreInfra{
+				Logger: sharedlogger.NewNop(),
+				Client: stubClient{},
+				Server: &stubServer{},
+			},
+			AuthTokenManager: authTokenManager,
+			AuthRefreshTimer: authRefreshTimer,
+			AuthRefreshTicks: authRefreshTicks,
 		},
 		Config: serviceconfig.Config{
 			Rules: sharedconfig.RulesConfig{Files: []string{"/tmp/rules.json"}},
+		},
+	}
+}
+
+type authTickClientStub struct {
+	loginResponse   authcontract.ServiceTokenLoginResponse
+	refreshResponse authcontract.ServiceTokenRefreshResponse
+	loginErr        error
+	refreshErr      error
+}
+
+func (stub authTickClientStub) Request(_ context.Context, subject string, _ any, response any) error {
+	switch subject {
+	case authcontract.ServiceTokenLoginRPCSubject:
+		if stub.loginErr != nil {
+			return stub.loginErr
+		}
+		out, ok := response.(*authcontract.ServiceTokenLoginResponse)
+		if !ok {
+			return errors.New("unexpected login response type")
+		}
+		if stub.loginResponse.AccessToken == "" {
+			stub.loginResponse = authcontract.ServiceTokenLoginResponse{
+				AccessToken:  "AT-login-default",
+				RefreshToken: "RT-login-default",
+				ExpiresAt:    time.Unix(100, 0),
+			}
+		}
+		*out = stub.loginResponse
+		return nil
+	case authcontract.ServiceTokenRefreshRPCSubject:
+		if stub.refreshErr != nil {
+			return stub.refreshErr
+		}
+		out, ok := response.(*authcontract.ServiceTokenRefreshResponse)
+		if !ok {
+			return errors.New("unexpected refresh response type")
+		}
+		if stub.refreshResponse.AccessToken == "" {
+			stub.refreshResponse = authcontract.ServiceTokenRefreshResponse{
+				AccessToken:  "AT-refresh-default",
+				RefreshToken: "RT-refresh-default",
+				ExpiresAt:    time.Unix(150, 0),
+			}
+		}
+		*out = stub.refreshResponse
+		return nil
+	default:
+		return errors.New("unexpected subject")
+	}
+}
+
+func buildAuthTickTestInfra(t *testing.T, client authTickClientStub) servicemodules.Infra {
+	t.Helper()
+
+	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
+	if err != nil {
+		t.Fatalf("NewManager() error = %v", err)
+	}
+	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
+	if err != nil {
+		t.Fatalf("NewPollingTimerWorker() error = %v", err)
+	}
+
+	return servicemodules.Infra{
+		CoreClientAuthInfra: sharedmodules.CoreClientAuthInfra{
+			CoreInfra: sharedmodules.CoreInfra{
+				Logger: sharedlogger.NewNop(),
+				Client: stubClient{},
+				Server: &stubServer{},
+			},
+			AuthTokenManager: authTokenManager,
+			AuthRefreshTimer: authRefreshTimer,
+			AuthRefreshTicks: authRefreshTicks,
 		},
 	}
 }

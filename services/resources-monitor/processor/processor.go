@@ -12,7 +12,6 @@ import (
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	"lite-nas/shared/eventmanager"
 	sharedlogger "lite-nas/shared/logger"
-	"lite-nas/shared/loggingmanager/dto"
 	sharedloggingenum "lite-nas/shared/loggingmanager/enum"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/ruleevaluator"
@@ -277,7 +276,7 @@ func (p *Processor) nextEventID(prefix string) string {
 }
 
 // assignOccurrenceValue maps a dynamic value into typed occurrence fields.
-func assignOccurrenceValue(occurrence *dto.OccurrenceRow, value any) {
+func assignOccurrenceValue(occurrence *loggingmanagercontract.AlertOccurrencePayload, value any) {
 	if numericValue, valueType, ok := toOccurrenceNumber(value); ok {
 		occurrence.ValueType = valueType
 		occurrence.ValueNum = &numericValue

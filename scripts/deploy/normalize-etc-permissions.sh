@@ -104,6 +104,45 @@ deploy.normalizeLiteNAS() {
 		done < <(find "$litenas_auth_certificates_dir" -maxdepth 1 -type f -name '*.key' -print0)
 	fi
 
+	if [ -d "$litenas_identities_certificates_dir" ]; then
+		deploy.normalizePath 0750 "$litenas_identities_certificates_dir" "$litenas_config_owner"
+		while IFS= read -r -d '' identity_file; do
+			case "${identity_file##*.}" in
+			key | srl)
+				deploy.normalizePath 0600 "$identity_file" "$owner"
+				;;
+			crt)
+				deploy.normalizePath 0640 "$identity_file" "$litenas_config_owner"
+				;;
+			esac
+		done < <(find "$litenas_identities_certificates_dir" -maxdepth 1 -type f \( -name '*.crt' -o -name '*.key' -o -name '*.srl' \) -print0)
+
+		while IFS= read -r -d '' identity_leaf_dir; do
+			identity_group="$(basename "$identity_leaf_dir")"
+			if getent group "$identity_group" >/dev/null 2>&1; then
+				deploy.normalizePath 0750 "$identity_leaf_dir" "root:${identity_group}"
+				credential_owner="root:${identity_group}"
+			else
+				deploy.normalizePath 0750 "$identity_leaf_dir" "$litenas_config_owner"
+				credential_owner="$litenas_config_owner"
+			fi
+
+			while IFS= read -r -d '' credential_file; do
+				case "${credential_file##*.}" in
+				key)
+					deploy.normalizePath 0600 "$credential_file" "$credential_owner"
+					;;
+				crt)
+					deploy.normalizePath 0640 "$credential_file" "$credential_owner"
+					;;
+				csr)
+					deploy.normalizePath 0600 "$credential_file" "$credential_owner"
+					;;
+				esac
+			done < <(find "$identity_leaf_dir" -maxdepth 1 -type f \( -name '*.crt' -o -name '*.key' -o -name '*.csr' \) -print0)
+		done < <(find "$litenas_identities_certificates_dir" -mindepth 1 -maxdepth 1 -type d -print0)
+	fi
+
 	log.popTask
 }
 
@@ -172,6 +211,7 @@ deploy.normalizeEtcPermissions() {
 	local litenas_transport_ca_cert="$litenas_transport_certificates_dir/root-ca.crt"
 	local litenas_nginx_certificates_dir="$litenas_certificates_dir/nginx"
 	local litenas_auth_certificates_dir="$litenas_certificates_dir/auth"
+	local litenas_identities_certificates_dir="$litenas_certificates_dir/identities"
 	local default_dir="$target_dir/default"
 	local ufw_config_dir="$target_dir/ufw"
 	local ufw_default_config="$default_dir/ufw"
@@ -187,6 +227,7 @@ deploy.normalizeEtcPermissions() {
 	local identity_group
 	local credential_owner
 	local credential_file
+	local identity_leaf_dir
 
 	if [ ! -d "$target_dir" ]; then
 		log.error "Missing target etc directory: $target_dir"

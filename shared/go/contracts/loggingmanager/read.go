@@ -9,9 +9,33 @@ import (
 )
 
 type (
-	ListAlertsInput = loggingmanagerdto.ListEventsInput
-	GetAlertInput   = loggingmanagerdto.GetEventHistoryInput
+	// ListAlertsInput defines paginated read input including auth context.
+	ListAlertsInput struct {
+		AccessToken string                     `json:"access_token" validate:"required,min=1,max=8192"`
+		Page        int                        `json:"page" validate:"required,gte=1"`
+		PageSize    int                        `json:"page_size" validate:"omitempty,gte=1,lte=500"`
+		Filters     []loggingmanagerdto.Filter `json:"filters,omitempty" validate:"omitempty,dive"`
+	}
+	// GetAlertInput defines single-alert read input including auth context.
+	GetAlertInput struct {
+		AccessToken string `json:"access_token" validate:"required,min=1,max=8192"`
+		EventID     string `json:"event_id" validate:"required,max=20,loggingmanager_event_id"`
+	}
 )
+
+// ToDTO converts read list contract input into core DTO input.
+func (input ListAlertsInput) ToDTO() loggingmanagerdto.ListEventsInput {
+	return loggingmanagerdto.ListEventsInput{
+		Page:     input.Page,
+		PageSize: input.PageSize,
+		Filters:  input.Filters,
+	}
+}
+
+// ToDTO converts single-alert contract input into core DTO input.
+func (input GetAlertInput) ToDTO() loggingmanagerdto.GetEventHistoryInput {
+	return loggingmanagerdto.GetEventHistoryInput{EventID: input.EventID}
+}
 
 // ListAlertItem defines the flattened read model for alert list responses.
 //

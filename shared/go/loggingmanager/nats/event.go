@@ -14,7 +14,7 @@ func handleAlert(core *sharedloggingmanager.Core) sharedmessaging.MessageHandler
 		if err != nil {
 			return err
 		}
-		_, err = core.CreateEvent(payload)
+		_, err = core.CreateEvent(payload.ToDTO())
 		return err
 	}
 }
@@ -25,6 +25,6 @@ func handleAlertOccurrence(core *sharedloggingmanager.Core) sharedmessaging.Mess
 		if err != nil {
 			return err
 		}
-		return core.AddOccurrence(payload)
+		return core.AddOccurrence(payload.ToDTO())
 	}
 }

@@ -36,12 +36,14 @@ func LoadMessagingConfig(cfgFile *ini.File) (MessagingConfig, error) {
 		return MessagingConfig{}, err
 	}
 
+	certificate := loadCertificateConfig(section)
+
 	return MessagingConfig{
 		URL:        section.Key("url").String(),
 		ClientName: section.Key("client_name").String(),
-		CA:         section.Key("ca").String(),
-		Cert:       section.Key("cert").String(),
-		Key:        section.Key("key").String(),
+		CA:         certificate.CA,
+		Cert:       certificate.Cert,
+		Key:        certificate.Key,
 		Timeout:    timeout,
 	}, nil
 }

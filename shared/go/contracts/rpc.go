@@ -81,6 +81,16 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  authcontract.ValidateAccessTokenRequest{},
 			Response: authcontract.ValidateAccessTokenResponse{},
 		},
+		"login_service_token": {
+			Subject:  authcontract.ServiceTokenLoginRPCSubject,
+			Request:  authcontract.ServiceTokenLoginRequest{},
+			Response: authcontract.ServiceTokenLoginResponse{},
+		},
+		"refresh_service_token": {
+			Subject:  authcontract.ServiceTokenRefreshRPCSubject,
+			Request:  authcontract.ServiceTokenRefreshRequest{},
+			Response: authcontract.ServiceTokenRefreshResponse{},
+		},
 		"set_lockdown": {
 			Subject:  authcontract.SetLockdownRPCSubject,
 			Request:  authcontract.SetLockdownRequest{},
