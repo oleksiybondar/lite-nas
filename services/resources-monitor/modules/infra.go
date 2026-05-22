@@ -22,14 +22,34 @@ type Infra struct {
 // NewInfraModule loads service config and constructs shared runtime
 // infrastructure.
 func NewInfraModule(configPath string, serviceName string) (Infra, error) {
-	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	cfg, err := loadConfigWithDefaultAuthService(configPath, serviceName)
 	if err != nil {
 		return Infra{}, err
 	}
 
-	cfg, err := serviceconfig.LoadConfig(cfgReader)
+	core, err := buildCoreAuthInfra(serviceName, cfg)
 	if err != nil {
 		return Infra{}, err
+	}
+
+	return Infra{
+		CoreClientAuthInfra: core,
+		Config:              cfg,
+	}, nil
+}
+
+func loadConfigWithDefaultAuthService(
+	configPath string,
+	serviceName string,
+) (serviceconfig.Config, error) {
+	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	if err != nil {
+		return serviceconfig.Config{}, err
+	}
+
+	cfg, err := serviceconfig.LoadConfig(cfgReader)
+	if err != nil {
+		return serviceconfig.Config{}, err
 	}
 
 	authServiceName := cfg.Auth.ServiceName
@@ -38,6 +58,13 @@ func NewInfraModule(configPath string, serviceName string) (Infra, error) {
 	}
 	cfg.Auth.ServiceName = authServiceName
 
+	return cfg, nil
+}
+
+func buildCoreAuthInfra(
+	serviceName string,
+	cfg serviceconfig.Config,
+) (sharedmodules.CoreClientAuthInfra, error) {
 	core, err := sharedmodules.NewCoreClientAuthInfra(
 		serviceName,
 		cfg.Logging,
@@ -46,24 +73,22 @@ func NewInfraModule(configPath string, serviceName string) (Infra, error) {
 		defaultAuthRefreshInterval,
 	)
 	if err != nil {
-		return Infra{}, err
+		return sharedmodules.CoreClientAuthInfra{}, err
 	}
 
 	server, err := messaging.NewServer(cfg.Messaging, core.Logger, messaging.NewJSONCodec())
 	if err != nil {
 		core.Close()
-		return Infra{}, err
+		return sharedmodules.CoreClientAuthInfra{}, err
 	}
+
 	core.Server = server
 	core.Client = authTokenClient{
 		client:       core.Client,
 		tokenManager: core.AuthTokenManager,
 	}
 
-	return Infra{
-		CoreClientAuthInfra: core,
-		Config:              cfg,
-	}, nil
+	return core, nil
 }
 
 type authTokenClient struct {

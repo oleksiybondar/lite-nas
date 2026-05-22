@@ -9,7 +9,6 @@ import (
 	"os"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
-	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 	"lite-nas/shared/loggingmanager/enum"
 )
 
@@ -207,13 +206,13 @@ type occurrencePayloadInput struct {
 	LegacyBody json.RawMessage `json:"-"`
 }
 
-func decodeOccurrencePayload(data string) (loggingmanagerdto.OccurrenceRow, error) {
+func decodeOccurrencePayload(data string) (loggingmanagercontract.AlertOccurrencePayload, error) {
 	var payload occurrencePayloadInput
 	if err := decodeJSON(data, &payload); err != nil {
-		return loggingmanagerdto.OccurrenceRow{}, err
+		return loggingmanagercontract.AlertOccurrencePayload{}, err
 	}
 
-	row := loggingmanagerdto.OccurrenceRow{
+	row := loggingmanagercontract.AlertOccurrencePayload{
 		EventID:   payload.EventID,
 		Timestamp: payload.Timestamp,
 		ValueType: payload.ValueType,

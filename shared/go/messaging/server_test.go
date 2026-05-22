@@ -82,6 +82,57 @@ func TestServerHandleMessageReturnsNilOnSuccess(t *testing.T) {
 	}
 }
 
+func TestServerHandleMessageRunsSubscriptionMiddlewaresInOrder(t *testing.T) {
+	t.Parallel()
+
+	order := make([]string, 0, 3)
+	srv := &server{subscriptionMiddlewares: []SubscriptionMiddleware{
+		traceSubscriptionMiddleware("mw1", &order),
+		traceSubscriptionMiddleware("mw2", &order),
+	}}
+
+	err := srv.handleMessage(recordMessageHandler(&order), Envelope{Subject: "system.metrics"})
+	if err != nil {
+		t.Fatalf("handleMessage() error = %v", err)
+	}
+
+	assertEqualSlice(t, order, []string{
+		"mw1-before",
+		"mw2-before",
+		"handler",
+		"mw2-after",
+		"mw1-after",
+	})
+}
+
+func TestServerHandleMessageStopsOnMiddlewareError(t *testing.T) {
+	t.Parallel()
+
+	order := make([]string, 0, 1)
+	srv := &server{
+		subscriptionMiddlewares: []SubscriptionMiddleware{
+			func(
+				_ context.Context,
+				_ Envelope,
+				_ MessageNext,
+			) error {
+				order = append(order, "mw")
+				return errors.New("blocked")
+			},
+		},
+	}
+
+	err := srv.handleMessage(func(context.Context, Envelope) error {
+		t.Fatal("handler should not be called")
+		return nil
+	}, Envelope{Subject: "system.metrics"})
+	if !errors.Is(err, ErrHandlerFailed) {
+		t.Fatalf("handleMessage() error = %v, want wrapped ErrHandlerFailed", err)
+	}
+
+	assertEqualSlice(t, order, []string{"mw"})
+}
+
 func TestServerHandleRPCRejectsMissingReplySubject(t *testing.T) {
 	t.Parallel()
 
@@ -91,6 +142,89 @@ func TestServerHandleRPCRejectsMissingReplySubject(t *testing.T) {
 	)
 	if !errors.Is(err, ErrHandlerFailed) {
 		t.Fatalf("handleRPC() error = %v, want wrapped ErrHandlerFailed", err)
+	}
+}
+
+func TestServerHandleRPCRunsMiddlewaresInOrder(t *testing.T) {
+	t.Parallel()
+
+	order := make([]string, 0, 3)
+	srv := &server{
+		codec:      stubCodec{},
+		connection: &connection{},
+		rpcMiddlewares: []RPCMiddleware{
+			traceRPCMiddleware("mw1", &order),
+			traceRPCMiddleware("mw2", &order),
+		},
+	}
+
+	err := srv.handleRPC(
+		recordRPCHandler(&order),
+		Envelope{Subject: "system.metrics", ReplyTo: "_INBOX.reply"},
+	)
+	assertErrorIs(t, err, ErrNotConnected)
+
+	assertEqualSlice(t, order, []string{
+		"mw1-before",
+		"mw2-before",
+		"handler",
+		"mw2-after",
+		"mw1-after",
+	})
+}
+
+func TestServerHandleRPCStopsOnMiddlewareError(t *testing.T) {
+	t.Parallel()
+
+	order := make([]string, 0, 1)
+	srv := &server{
+		codec:      stubCodec{},
+		connection: &connection{},
+		rpcMiddlewares: []RPCMiddleware{
+			func(
+				_ context.Context,
+				_ Envelope,
+				_ RPCNext,
+			) (any, error) {
+				order = append(order, "mw")
+				return nil, errors.New("blocked")
+			},
+		},
+	}
+
+	err := srv.handleRPC(
+		func(context.Context, Envelope) (any, error) {
+			t.Fatal("handler should not be called")
+			return "ok", nil
+		},
+		Envelope{Subject: "system.metrics", ReplyTo: "_INBOX.reply"},
+	)
+	if !errors.Is(err, ErrHandlerFailed) {
+		t.Fatalf("handleRPC() error = %v, want wrapped ErrHandlerFailed", err)
+	}
+	assertEqualSlice(t, order, []string{"mw"})
+}
+
+func TestServerUseMiddlewareAppendsMiddlewares(t *testing.T) {
+	t.Parallel()
+
+	srv := &server{}
+	srv.UseSubscriptionMiddleware(
+		func(ctx context.Context, envelope Envelope, next MessageNext) error {
+			return next(ctx, envelope)
+		},
+	)
+	srv.UseRPCMiddleware(
+		func(ctx context.Context, envelope Envelope, next RPCNext) (any, error) {
+			return next(ctx, envelope)
+		},
+	)
+
+	if len(srv.subscriptionMiddlewares) != 1 {
+		t.Fatalf("len(subscriptionMiddlewares) = %d, want 1", len(srv.subscriptionMiddlewares))
+	}
+	if len(srv.rpcMiddlewares) != 1 {
+		t.Fatalf("len(rpcMiddlewares) = %d, want 1", len(srv.rpcMiddlewares))
 	}
 }
 
@@ -234,5 +368,50 @@ func TestNewHeadersFromMessageSkipsEmptyHeaderValues(t *testing.T) {
 
 	if headers["Type"] != "json" {
 		t.Fatalf("headers = %#v, want Type=json", headers)
+	}
+}
+
+func assertEqualSlice(t *testing.T, actual []string, expected []string) {
+	t.Helper()
+
+	if len(actual) != len(expected) {
+		t.Fatalf("len(actual) = %d, want %d (%v)", len(actual), len(expected), actual)
+	}
+	for index := range expected {
+		if actual[index] != expected[index] {
+			t.Fatalf("actual[%d] = %q, want %q (%v)", index, actual[index], expected[index], actual)
+		}
+	}
+}
+
+func traceSubscriptionMiddleware(name string, order *[]string) SubscriptionMiddleware {
+	return func(ctx context.Context, envelope Envelope, next MessageNext) error {
+		*order = append(*order, name+"-before")
+		err := next(ctx, envelope)
+		*order = append(*order, name+"-after")
+		return err
+	}
+}
+
+func recordMessageHandler(order *[]string) MessageHandler {
+	return func(context.Context, Envelope) error {
+		*order = append(*order, "handler")
+		return nil
+	}
+}
+
+func traceRPCMiddleware(name string, order *[]string) RPCMiddleware {
+	return func(ctx context.Context, envelope Envelope, next RPCNext) (any, error) {
+		*order = append(*order, name+"-before")
+		response, err := next(ctx, envelope)
+		*order = append(*order, name+"-after")
+		return response, err
+	}
+}
+
+func recordRPCHandler(order *[]string) RPCHandler {
+	return func(context.Context, Envelope) (any, error) {
+		*order = append(*order, "handler")
+		return "ok", nil
 	}
 }

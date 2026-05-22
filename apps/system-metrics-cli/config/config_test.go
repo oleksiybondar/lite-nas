@@ -73,11 +73,7 @@ func TestLoadConfigReturnsLoggingConfigError(t *testing.T) {
 	configtest.RunRejectsInvalidConfigCase(
 		t,
 		LoadConfig,
-		"[messaging]\n"+
-			"url=nats://127.0.0.1:4222\n"+
-			"timeout=5s\n"+
-			"[logging]\n"+
-			"output=file\n",
+		configtest.InvalidSharedMessagingLoggingConfigFixture(),
 	)
 }
 

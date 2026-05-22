@@ -13,6 +13,7 @@ import (
 type Config struct {
 	Messaging      sharedconfig.MessagingConfig
 	Logging        sharedconfig.LoggingConfig
+	AuthTokens     sharedconfig.AuthTokenConfig
 	LoggingManager loggingmanagerconfig.LoggingManagerConfig
 }
 
@@ -59,12 +60,7 @@ func loadConfig(configPath string) (Config, error) {
 		return Config{}, err
 	}
 
-	messagingCfg, err := sharedconfig.LoadMessagingConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	loggingCfg, err := sharedconfig.LoadLoggingConfig(cfgFile)
+	sharedCfg, err := sharedconfig.LoadSharedAuthTokenConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
@@ -75,8 +71,9 @@ func loadConfig(configPath string) (Config, error) {
 	}
 
 	return Config{
-		Messaging:      messagingCfg,
-		Logging:        loggingCfg,
+		Messaging:      sharedCfg.Messaging,
+		Logging:        sharedCfg.Logging,
+		AuthTokens:     sharedCfg.AuthTokens,
 		LoggingManager: loggingManagerCfg,
 	}, nil
 }

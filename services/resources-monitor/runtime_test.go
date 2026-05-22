@@ -175,6 +175,10 @@ func (server *stubServer) RegisterRPC(string, messaging.RPCHandler) error {
 	return nil
 }
 
+func (server *stubServer) UseSubscriptionMiddleware(...messaging.SubscriptionMiddleware) {}
+
+func (server *stubServer) UseRPCMiddleware(...messaging.RPCMiddleware) {}
+
 func (server *stubServer) Drain() error {
 	return nil
 }
@@ -227,41 +231,59 @@ type authTickClientStub struct {
 func (stub authTickClientStub) Request(_ context.Context, subject string, _ any, response any) error {
 	switch subject {
 	case authcontract.ServiceTokenLoginRPCSubject:
-		if stub.loginErr != nil {
-			return stub.loginErr
-		}
-		out, ok := response.(*authcontract.ServiceTokenLoginResponse)
-		if !ok {
-			return errors.New("unexpected login response type")
-		}
-		if stub.loginResponse.AccessToken == "" {
-			stub.loginResponse = authcontract.ServiceTokenLoginResponse{
-				AccessToken:  "AT-login-default",
-				RefreshToken: "RT-login-default",
-				ExpiresAt:    time.Unix(100, 0),
-			}
-		}
-		*out = stub.loginResponse
-		return nil
+		return stub.handleLoginRequest(response)
 	case authcontract.ServiceTokenRefreshRPCSubject:
-		if stub.refreshErr != nil {
-			return stub.refreshErr
-		}
-		out, ok := response.(*authcontract.ServiceTokenRefreshResponse)
-		if !ok {
-			return errors.New("unexpected refresh response type")
-		}
-		if stub.refreshResponse.AccessToken == "" {
-			stub.refreshResponse = authcontract.ServiceTokenRefreshResponse{
-				AccessToken:  "AT-refresh-default",
-				RefreshToken: "RT-refresh-default",
-				ExpiresAt:    time.Unix(150, 0),
-			}
-		}
-		*out = stub.refreshResponse
-		return nil
+		return stub.handleRefreshRequest(response)
 	default:
 		return errors.New("unexpected subject")
+	}
+}
+
+func (stub authTickClientStub) handleLoginRequest(response any) error {
+	if stub.loginErr != nil {
+		return stub.loginErr
+	}
+	out, ok := response.(*authcontract.ServiceTokenLoginResponse)
+	if !ok {
+		return errors.New("unexpected login response type")
+	}
+	loginResponse := stub.loginResponse
+	if loginResponse.AccessToken == "" {
+		loginResponse = defaultLoginResponse()
+	}
+	*out = loginResponse
+	return nil
+}
+
+func (stub authTickClientStub) handleRefreshRequest(response any) error {
+	if stub.refreshErr != nil {
+		return stub.refreshErr
+	}
+	out, ok := response.(*authcontract.ServiceTokenRefreshResponse)
+	if !ok {
+		return errors.New("unexpected refresh response type")
+	}
+	refreshResponse := stub.refreshResponse
+	if refreshResponse.AccessToken == "" {
+		refreshResponse = defaultRefreshResponse()
+	}
+	*out = refreshResponse
+	return nil
+}
+
+func defaultLoginResponse() authcontract.ServiceTokenLoginResponse {
+	return authcontract.ServiceTokenLoginResponse{
+		AccessToken:  "login-placeholder-value",
+		RefreshToken: "refresh-placeholder-value",
+		ExpiresAt:    time.Unix(100, 0),
+	}
+}
+
+func defaultRefreshResponse() authcontract.ServiceTokenRefreshResponse {
+	return authcontract.ServiceTokenRefreshResponse{
+		AccessToken:  "login-placeholder-value-refreshed",
+		RefreshToken: "refresh-placeholder-value-refreshed",
+		ExpiresAt:    time.Unix(150, 0),
 	}
 }
 

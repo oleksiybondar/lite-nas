@@ -14,26 +14,10 @@ const defaultAuthRefreshInterval = 24 * time.Hour
 
 // LoadInfra constructs messaging client infra for a logging-manager CLI app.
 func LoadInfra(configPath string, appName string) (func(), MessagingClient, error) {
-	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	cfg, err := loadConfig(configPath, appName)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	cfgFile, err := sharedconfig.LoadINI(cfgReader)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cfg, err := sharedconfig.LoadSharedConfig(cfgFile)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	authServiceName := cfg.Auth.ServiceName
-	if authServiceName == "" {
-		authServiceName = appName
-	}
-	cfg.Auth.ServiceName = authServiceName
 
 	core, err := sharedmodules.NewCoreClientAuthInfra(
 		appName,
@@ -46,12 +30,43 @@ func LoadInfra(configPath string, appName string) (func(), MessagingClient, erro
 		return nil, nil, err
 	}
 
-	if err := core.AuthTokenManager.Login(context.Background()); err != nil {
-		core.Close()
+	if err := loginTokenManager(core); err != nil {
 		return nil, nil, err
 	}
 
 	return core.Close, authTokenClient{client: core.Client, tokenManager: core.AuthTokenManager}, nil
+}
+
+func loadConfig(configPath string, appName string) (sharedconfig.SharedConfig, error) {
+	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	if err != nil {
+		return sharedconfig.SharedConfig{}, err
+	}
+
+	cfgFile, err := sharedconfig.LoadINI(cfgReader)
+	if err != nil {
+		return sharedconfig.SharedConfig{}, err
+	}
+
+	cfg, err := sharedconfig.LoadSharedConfig(cfgFile)
+	if err != nil {
+		return sharedconfig.SharedConfig{}, err
+	}
+
+	authServiceName := cfg.Auth.ServiceName
+	if authServiceName == "" {
+		authServiceName = appName
+	}
+	cfg.Auth.ServiceName = authServiceName
+	return cfg, nil
+}
+
+func loginTokenManager(core sharedmodules.CoreClientAuthInfra) error {
+	if err := core.AuthTokenManager.Login(context.Background()); err != nil {
+		core.Close()
+		return err
+	}
+	return nil
 }
 
 type authTokenClient struct {
@@ -98,29 +113,46 @@ func (client authTokenClient) currentToken(ctx context.Context) (string, error) 
 }
 
 func withAccessToken(payload any, accessToken string) any {
+	if updated, ok := injectAccessTokenMutationPayload(payload, accessToken); ok {
+		return updated
+	}
+	if updated, ok := injectAccessTokenReadPayload(payload, accessToken); ok {
+		return updated
+	}
+	return payload
+}
+
+func injectAccessTokenMutationPayload(payload any, accessToken string) (any, bool) {
 	switch typed := payload.(type) {
 	case loggingmanagercontract.AlertPayload:
 		typed.AccessToken = accessToken
-		return typed
+		return typed, true
 	case loggingmanagercontract.AlertOccurrencePayload:
 		typed.AccessToken = accessToken
-		return typed
-	case loggingmanagercontract.ListAlertsInput:
-		typed.AccessToken = accessToken
-		return typed
-	case loggingmanagercontract.GetAlertInput:
-		typed.AccessToken = accessToken
-		return typed
+		return typed, true
 	case loggingmanagercontract.UpdateAlertStateInput:
 		typed.AccessToken = accessToken
-		return typed
+		return typed, true
 	case loggingmanagercontract.AcknowledgeAlertInput:
 		typed.AccessToken = accessToken
-		return typed
+		return typed, true
 	case loggingmanagercontract.MuteAlertInput:
 		typed.AccessToken = accessToken
-		return typed
+		return typed, true
 	default:
-		return payload
+		return nil, false
+	}
+}
+
+func injectAccessTokenReadPayload(payload any, accessToken string) (any, bool) {
+	switch typed := payload.(type) {
+	case loggingmanagercontract.ListAlertsInput:
+		typed.AccessToken = accessToken
+		return typed, true
+	case loggingmanagercontract.GetAlertInput:
+		typed.AccessToken = accessToken
+		return typed, true
+	default:
+		return nil, false
 	}
 }
