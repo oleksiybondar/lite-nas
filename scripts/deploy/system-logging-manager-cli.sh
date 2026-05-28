@@ -6,6 +6,8 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 
 readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-operator}"
+readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sys-log-mgr-cli}"
+readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_GROUP="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_GROUP:-$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER}"
 readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY_TARGET="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY_TARGET:-/usr/libexec/lite-nas/system-logging-manager-cli}"
 readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_SYMLINK_TARGET="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_SYMLINK_TARGET:-/usr/bin/system-logging-manager-cli}"
 readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
@@ -16,7 +18,7 @@ readonly LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_LOG_FILE="${LITE_NAS_SYSTEM_LOGGING
 
 deploy.systemLoggingManagerCLI.requireTools() {
 	local tool
-	local tools=(getent groupadd install ln chmod chown realpath)
+	local tools=(getent groupadd install ln chmod chown realpath id useradd usermod)
 	for tool in "${tools[@]}"; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
@@ -34,6 +36,35 @@ deploy.systemLoggingManagerCLI.ensureAccessGroup() {
 		return
 	fi
 	groupadd --system "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP"
+}
+
+deploy.systemLoggingManagerCLI.ensureIdentityGroup() {
+	if getent group "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_GROUP" >/dev/null 2>&1; then
+		return
+	fi
+	groupadd --system "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_GROUP"
+}
+
+deploy.systemLoggingManagerCLI.ensureIdentityUser() {
+	deploy.systemLoggingManagerCLI.ensureIdentityGroup
+
+	if ! id "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER" >/dev/null 2>&1; then
+		useradd \
+			--system \
+			--no-create-home \
+			--home-dir /nonexistent \
+			--shell /usr/sbin/nologin \
+			--gid "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_GROUP" \
+			--groups "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CONFIG_GROUP,$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP" \
+			"$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER"
+		return 0
+	fi
+
+	usermod \
+		--gid "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_GROUP" \
+		--append \
+		--groups "$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CONFIG_GROUP,$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP" \
+		"$LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER"
 }
 
 deploy.systemLoggingManagerCLI.installBinary() {
@@ -83,6 +114,7 @@ deploy.systemLoggingManagerCLI.deploy() {
 	local source_binary="$1"
 	deploy.systemLoggingManagerCLI.ensureConfigGroup
 	deploy.systemLoggingManagerCLI.ensureAccessGroup
+	deploy.systemLoggingManagerCLI.ensureIdentityUser
 	deploy.systemLoggingManagerCLI.installBinary "$source_binary"
 	deploy.systemLoggingManagerCLI.installBinarySymlink
 	deploy.systemLoggingManagerCLI.installConfig

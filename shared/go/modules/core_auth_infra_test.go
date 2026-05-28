@@ -13,7 +13,7 @@ func TestBuildCoreClientAuthInfraWiresAuthDeps(t *testing.T) {
 
 	module, err := buildCoreClientAuthInfra(
 		CoreInfra{Client: &messagingtest.RecordingClient{}},
-		sharedconfig.AuthConfig{ServiceName: "resources-monitor"},
+		sharedconfig.AuthConfig{ServiceName: "resources-monitor", ServiceLogin: "lite-nas-resources-monitor"},
 		24*time.Hour,
 	)
 	if err != nil {
@@ -44,7 +44,7 @@ func TestBuildCoreClientAuthInfraRejectsInvalidRefreshInterval(t *testing.T) {
 
 	if _, err := buildCoreClientAuthInfra(
 		CoreInfra{Client: &messagingtest.RecordingClient{}},
-		sharedconfig.AuthConfig{ServiceName: "resources-monitor"},
+		sharedconfig.AuthConfig{ServiceName: "resources-monitor", ServiceLogin: "lite-nas-resources-monitor"},
 		0,
 	); err == nil {
 		t.Fatal("buildCoreClientAuthInfra() error = nil, want invalid interval error")

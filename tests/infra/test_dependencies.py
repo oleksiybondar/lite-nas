@@ -5,6 +5,7 @@ from constants import DEPENDENCY_PACKAGES
 from hyperiontf import CLIClient
 
 DEPENDENCY_PACKAGE_MARKS = {
+    "acl": pytest.mark.ACL,
     "aide": pytest.mark.AIDE,
     "zfsutils-linux": pytest.mark.ZFS,
     "nginx": pytest.mark.Nginx,
@@ -19,7 +20,7 @@ DEPENDENCY_PACKAGE_CASES = [
 
 def assert_apt_package_is_installed(cli_client: CLIClient, package: str) -> None:
     """Verify that apt lists the requested package as installed."""
-    cli_client.execute(f"apt list --installed {package} -o APT::Color=0 2>/dev/null")
+    cli_client.execute(f"apt list --installed {package} -o APT::Color=0 2>/dev/null", timeout=120)
     cli_client.assert_output_contains(f"{package}/")
 
 

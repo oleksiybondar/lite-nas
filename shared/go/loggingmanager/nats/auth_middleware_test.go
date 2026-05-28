@@ -13,7 +13,8 @@ var errUnexpectedNextCall = errors.New("next should not be called")
 
 // middlewareVerifierStub is a test double for access-token verifier calls.
 type middlewareVerifierStub struct {
-	err error
+	err    error
+	claims authtoken.AccessClaims
 }
 
 // Verify returns configured verification error.
@@ -24,7 +25,7 @@ func (stub middlewareVerifierStub) Verify(tokenText string) (authtoken.AccessCla
 	if stub.err != nil {
 		return authtoken.AccessClaims{}, stub.err
 	}
-	return authtoken.AccessClaims{}, nil
+	return stub.claims, nil
 }
 
 func TestSubscriptionMiddlewareCallsNextWhenTokenIsValid(t *testing.T) {
@@ -126,5 +127,51 @@ func TestRPCMiddlewareRejectsInvalidToken(t *testing.T) {
 	)
 	if !errors.Is(err, errAccessTokenDenied) {
 		t.Fatalf("middleware() error = %v, want errAccessTokenDenied", err)
+	}
+}
+
+func TestRoleAuthorizationRPCMiddlewareAllowsMatchingRole(t *testing.T) {
+	t.Parallel()
+
+	middleware := NewRoleAuthorizationRPCMiddleware(AuthorizationPolicy{
+		RPCRolesBySubject: map[string][]string{
+			"subject.protected": {"operator"},
+		},
+	})
+
+	claims := authtoken.AccessClaims{Roles: []string{"operator"}}
+	result, err := middleware(
+		context.WithValue(context.Background(), accessClaimsContextKey{}, claims),
+		sharedmessaging.Envelope{Subject: "subject.protected"},
+		func(context.Context, sharedmessaging.Envelope) (any, error) {
+			return "ok", nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("middleware() error = %v", err)
+	}
+	if result != "ok" {
+		t.Fatalf("result = %v, want ok", result)
+	}
+}
+
+func TestRoleAuthorizationRPCMiddlewareRejectsMissingRole(t *testing.T) {
+	t.Parallel()
+
+	middleware := NewRoleAuthorizationRPCMiddleware(AuthorizationPolicy{
+		RPCRolesBySubject: map[string][]string{
+			"subject.protected": {"operator"},
+		},
+	})
+
+	_, err := middleware(
+		context.WithValue(context.Background(), accessClaimsContextKey{}, authtoken.AccessClaims{Roles: []string{"viewer"}}),
+		sharedmessaging.Envelope{Subject: "subject.protected"},
+		func(context.Context, sharedmessaging.Envelope) (any, error) {
+			return nil, errUnexpectedNextCall
+		},
+	)
+	if !errors.Is(err, errInsufficientRole) {
+		t.Fatalf("middleware() error = %v, want errInsufficientRole", err)
 	}
 }

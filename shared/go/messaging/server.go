@@ -223,6 +223,7 @@ func (s *server) handleRPC(
 
 	response, err := chain(context.Background(), envelope)
 	if err != nil {
+		_ = s.publishRPCError(envelope.ReplyTo, err)
 		return fmt.Errorf("%w: %w", ErrHandlerFailed, err)
 	}
 
@@ -236,6 +237,15 @@ func (s *server) handleRPC(
 	}
 
 	return nil
+}
+
+func (s *server) publishRPCError(replySubject string, cause error) error {
+	payload, err := s.codec.Marshal(rpcErrorPayload{Error: cause.Error()})
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrEncodeFailed, err)
+	}
+
+	return s.connection.publish(replySubject, payload)
 }
 
 // wrapSubscriptionMiddlewares composes subscription middleware in registration

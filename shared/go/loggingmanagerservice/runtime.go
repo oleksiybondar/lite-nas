@@ -16,10 +16,11 @@ func Run(
 	ctx context.Context,
 	infra Infra,
 	subjects sharedloggingmanagernats.Subjects,
+	authorizationPolicy sharedloggingmanagernats.AuthorizationPolicy,
 	configPath string,
 	logName string,
 ) error {
-	if err := configureAuthMiddleware(infra); err != nil {
+	if err := configureAuthMiddleware(infra, authorizationPolicy); err != nil {
 		return err
 	}
 
@@ -37,7 +38,10 @@ func Run(
 	return ctx.Err()
 }
 
-func configureAuthMiddleware(infra Infra) error {
+func configureAuthMiddleware(
+	infra Infra,
+	authorizationPolicy sharedloggingmanagernats.AuthorizationPolicy,
+) error {
 	authVerifier, err := newAuthTokenVerifier(infra.Config.AuthTokens)
 	if err != nil {
 		return err
@@ -45,9 +49,11 @@ func configureAuthMiddleware(infra Infra) error {
 
 	infra.Server.UseSubscriptionMiddleware(
 		sharedloggingmanagernats.NewAccessTokenValidationSubscriptionMiddleware(authVerifier),
+		sharedloggingmanagernats.NewRoleAuthorizationSubscriptionMiddleware(authorizationPolicy),
 	)
 	infra.Server.UseRPCMiddleware(
 		sharedloggingmanagernats.NewAccessTokenValidationRPCMiddleware(authVerifier),
+		sharedloggingmanagernats.NewRoleAuthorizationRPCMiddleware(authorizationPolicy),
 	)
 	return nil
 }

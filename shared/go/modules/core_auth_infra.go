@@ -45,8 +45,13 @@ func buildCoreClientAuthInfra(
 	authConfig sharedconfig.AuthConfig,
 	refreshInterval time.Duration,
 ) (CoreClientAuthInfra, error) {
+	serviceLogin := authConfig.ServiceLogin
+	if serviceLogin == "" {
+		serviceLogin = authConfig.ServiceName
+	}
+
 	manager, err := servicetoken.NewManager(core.Client, servicetoken.Options{
-		Service: authConfig.ServiceName,
+		Service: serviceLogin,
 	})
 	if err != nil {
 		return CoreClientAuthInfra{}, err

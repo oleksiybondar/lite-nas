@@ -202,6 +202,39 @@ func TestHandleServiceTokenLoginRPCIssuesServiceTokenPair(t *testing.T) {
 	}
 }
 
+func TestHandleServiceTokenLoginRPCUsesRBACRolesForServiceIdentity(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	runtimeDeps.Client = runtimeClientStub{
+		response: rbaccontract.GetSubjectRolesResponse{
+			UID:    "lite-nas-sec-log-mgr-cli",
+			Groups: []string{"lite-nas-security"},
+		},
+	}
+
+	response, err := handleServiceTokenLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenLoginRequest{
+		Service: "lite-nas-sec-log-mgr-cli",
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
+	}
+	if response.AccessToken == "" {
+		t.Fatal("AccessToken is empty, want issued token")
+	}
+
+	claims, verifyErr := runtimeDeps.Tokens.Verifier.Verify(response.AccessToken)
+	if verifyErr != nil {
+		t.Fatalf("Verify() error = %v", verifyErr)
+	}
+	if claims.Subject != "lite-nas-sec-log-mgr-cli" {
+		t.Fatalf("claims subject = %q, want lite-nas-sec-log-mgr-cli", claims.Subject)
+	}
+	if len(claims.Roles) != 1 || claims.Roles[0] != "lite-nas-security" {
+		t.Fatalf("claims roles = %#v, want [lite-nas-security]", claims.Roles)
+	}
+}
+
 func TestHandleServiceTokenRefreshRPCRotatesServiceTokenPair(t *testing.T) {
 	t.Parallel()
 

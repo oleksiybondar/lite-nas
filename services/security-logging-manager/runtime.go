@@ -22,7 +22,15 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 
-	return sharedloggingmanagerservice.Run(ctx, infra, buildNATSSubjects(), packagedConfigPath, "security logging manager")
+	subjects := buildNATSSubjects()
+	return sharedloggingmanagerservice.Run(
+		ctx,
+		infra,
+		subjects,
+		buildAuthorizationPolicy(subjects),
+		packagedConfigPath,
+		"security logging manager",
+	)
 }
 
 func buildNATSSubjects() sharedloggingmanagernats.Subjects {
@@ -36,5 +44,25 @@ func buildNATSSubjects() sharedloggingmanagernats.Subjects {
 		UpdateAlertStateRPCSubject:              securityloggingmanagercontract.UpdateAlertStateRPCSubject,
 		AcknowledgeAlertRPCSubject:              securityloggingmanagercontract.AcknowledgeAlertRPCSubject,
 		MuteAlertRPCSubject:                     securityloggingmanagercontract.MuteAlertRPCSubject,
+	}
+}
+
+func buildAuthorizationPolicy(subjects sharedloggingmanagernats.Subjects) sharedloggingmanagernats.AuthorizationPolicy {
+	allowedRoles := []string{"admin", "security", "security-officer", "lite-nas-security"}
+
+	return sharedloggingmanagernats.AuthorizationPolicy{
+		RPCRolesBySubject: map[string][]string{
+			subjects.GetAlertsRPCSubject:                     allowedRoles,
+			subjects.GetAlertRPCSubject:                      allowedRoles,
+			subjects.GetActiveAlertsRPCSubject:               allowedRoles,
+			subjects.GetUnacknowledgedActiveAlertsRPCSubject: allowedRoles,
+			subjects.UpdateAlertStateRPCSubject:              allowedRoles,
+			subjects.AcknowledgeAlertRPCSubject:              allowedRoles,
+			subjects.MuteAlertRPCSubject:                     allowedRoles,
+		},
+		SubscriptionRolesBySubject: map[string][]string{
+			subjects.AlertSubject:           allowedRoles,
+			subjects.AlertOccurrenceSubject: allowedRoles,
+		},
 	}
 }

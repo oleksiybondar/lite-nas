@@ -22,7 +22,15 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 
-	return sharedloggingmanagerservice.Run(ctx, infra, buildNATSSubjects(), packagedConfigPath, "system logging manager")
+	subjects := buildNATSSubjects()
+	return sharedloggingmanagerservice.Run(
+		ctx,
+		infra,
+		subjects,
+		buildAuthorizationPolicy(subjects),
+		packagedConfigPath,
+		"system logging manager",
+	)
 }
 
 func buildNATSSubjects() sharedloggingmanagernats.Subjects {
@@ -36,5 +44,21 @@ func buildNATSSubjects() sharedloggingmanagernats.Subjects {
 		UpdateAlertStateRPCSubject:              systemloggingmanagercontract.UpdateAlertStateRPCSubject,
 		AcknowledgeAlertRPCSubject:              systemloggingmanagercontract.AcknowledgeAlertRPCSubject,
 		MuteAlertRPCSubject:                     systemloggingmanagercontract.MuteAlertRPCSubject,
+	}
+}
+
+func buildAuthorizationPolicy(subjects sharedloggingmanagernats.Subjects) sharedloggingmanagernats.AuthorizationPolicy {
+	writeRoles := []string{"admin", "sudo", "operator", "lite-nas-operator"}
+
+	return sharedloggingmanagernats.AuthorizationPolicy{
+		RPCRolesBySubject: map[string][]string{
+			subjects.UpdateAlertStateRPCSubject: writeRoles,
+			subjects.AcknowledgeAlertRPCSubject: writeRoles,
+			subjects.MuteAlertRPCSubject:        writeRoles,
+		},
+		SubscriptionRolesBySubject: map[string][]string{
+			subjects.AlertSubject:           writeRoles,
+			subjects.AlertOccurrenceSubject: writeRoles,
+		},
 	}
 }

@@ -8,6 +8,7 @@ readonly LITE_NAS_SYSTEM_METRICS_SERVICE_NAME="${LITE_NAS_SYSTEM_METRICS_SERVICE
 readonly LITE_NAS_SYSTEM_METRICS_RUNTIME_USER="${LITE_NAS_SYSTEM_METRICS_RUNTIME_USER:-lite-nas-system-metrics}"
 readonly LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP="${LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP:-$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER}"
 readonly LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
+readonly LITE_NAS_SYSTEM_METRICS_OPERATOR_GROUP="${LITE_NAS_OPERATOR_GROUP:-lite-nas-operator}"
 readonly LITE_NAS_SYSTEM_METRICS_BINARY_TARGET="${LITE_NAS_SYSTEM_METRICS_BINARY_TARGET:-/usr/libexec/lite-nas/system-metrics}"
 readonly LITE_NAS_SYSTEM_METRICS_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 readonly LITE_NAS_SYSTEM_METRICS_CONFIG_SOURCE="${LITE_NAS_SYSTEM_METRICS_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/system-metrics.conf}"
@@ -66,6 +67,7 @@ deploy.systemMetrics.ensureGroup() {
 deploy.systemMetrics.ensureRuntimeUser() {
 	deploy.systemMetrics.ensureGroup "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP"
 	deploy.systemMetrics.ensureGroup "$LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP"
+	deploy.systemMetrics.ensureGroup "$LITE_NAS_SYSTEM_METRICS_OPERATOR_GROUP"
 
 	if ! id "$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER" >/dev/null 2>&1; then
 		log.info "Creating system user: $LITE_NAS_SYSTEM_METRICS_RUNTIME_USER"
@@ -75,7 +77,7 @@ deploy.systemMetrics.ensureRuntimeUser() {
 			--home-dir /nonexistent \
 			--shell /usr/sbin/nologin \
 			--gid "$LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP" \
-			--groups "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP" \
+			--groups "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP,$LITE_NAS_SYSTEM_METRICS_OPERATOR_GROUP" \
 			"$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER"
 		return 0
 	fi
@@ -84,7 +86,7 @@ deploy.systemMetrics.ensureRuntimeUser() {
 	usermod \
 		--gid "$LITE_NAS_SYSTEM_METRICS_RUNTIME_GROUP" \
 		--append \
-		--groups "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP" \
+		--groups "$LITE_NAS_SYSTEM_METRICS_CONFIG_GROUP,$LITE_NAS_SYSTEM_METRICS_OPERATOR_GROUP" \
 		"$LITE_NAS_SYSTEM_METRICS_RUNTIME_USER"
 }
 

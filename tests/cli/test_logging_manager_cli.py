@@ -119,7 +119,7 @@ def execute_logging_manager_mutation(
     command: str,
 ) -> None:
     """Run mutation command without JSON mode and require successful exit."""
-    operator_cli_client.execute(f"{cli_binary} {command}", timeout=10)
+    operator_cli_client.execute(f"{cli_binary} {command}")
     operator_cli_client.assert_exit_code(0)
 
 

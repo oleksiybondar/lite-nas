@@ -468,9 +468,12 @@ func handleServiceTokenRefreshRPC(runtimeDeps authRuntime, envelope messaging.En
 
 // issueServiceToken creates and stores one active service token session.
 func issueServiceToken(runtimeDeps authRuntime, service string) (string, string, time.Time, bool) {
+	subject, roles := resolvePrincipalRoles(runtimeDeps, service)
+
 	accessToken, claims, err := runtimeDeps.Tokens.ServiceIssuer.Issue(authtoken.Principal{
-		Subject: service,
+		Subject: subject,
 		Login:   service,
+		Roles:   roles,
 	})
 	if err != nil {
 		return "", "", time.Time{}, false
@@ -484,9 +487,12 @@ func issueServiceToken(runtimeDeps authRuntime, service string) (string, string,
 
 // rotateServiceToken rotates a service token session when refresh token matches.
 func rotateServiceToken(runtimeDeps authRuntime, service string, refreshToken string) (string, string, time.Time, bool) {
+	subject, roles := resolvePrincipalRoles(runtimeDeps, service)
+
 	accessToken, claims, err := runtimeDeps.Tokens.ServiceIssuer.Issue(authtoken.Principal{
-		Subject: service,
+		Subject: subject,
 		Login:   service,
+		Roles:   roles,
 	})
 	if err != nil {
 		return "", "", time.Time{}, false

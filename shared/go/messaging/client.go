@@ -121,6 +121,10 @@ func (c *client) Request(
 		return err
 	}
 
+	if err := c.decodeRPCError(reply.Data); err != nil {
+		return err
+	}
+
 	if err := c.codec.Unmarshal(reply.Data, response); err != nil {
 		return fmt.Errorf("%w: %w", ErrDecodeFailed, err)
 	}
@@ -155,4 +159,15 @@ func (c *client) resolveTimeout(ctx context.Context) (time.Duration, error) {
 	}
 
 	return timeout, nil
+}
+
+func (c *client) decodeRPCError(data []byte) error {
+	var payload rpcErrorPayload
+	if err := c.codec.Unmarshal(data, &payload); err != nil {
+		return nil
+	}
+	if payload.Error == "" {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrHandlerFailed, payload.Error)
 }
