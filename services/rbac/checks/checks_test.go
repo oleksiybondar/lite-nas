@@ -5,9 +5,12 @@ import (
 	"errors"
 	"os/exec"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 
 	getfaclparser "lite-nas/shared/parsers/acl/getfacl"
+	idparser "lite-nas/shared/parsers/id/identity"
 )
 
 func TestCanReadUsesOwnerPermission(t *testing.T) {
@@ -117,11 +120,11 @@ func TestSharedParseACLDataParsesNamedEntriesAndMask(t *testing.T) {
 func TestParseIdentityParsesAllFields(t *testing.T) {
 	t.Parallel()
 
-	identity, err := parseIdentity("1002\n", "1002\n", "testuser\n", "testgroup\n", "testgroup wheel\n")
+	identity, err := idparser.Parse("uid=1002(testuser) gid=1002(testgroup) groups=1002(testgroup),27(wheel)")
 	if err != nil {
 		t.Fatalf("parseIdentity() error = %v", err)
 	}
-	assertIdentityCoreFields(t, identity, 1002, 1002, "testuser", "testgroup")
+	assertIdentityCoreFields(t, identity, "1002", "1002", "testuser", "testgroup")
 	assertIdentityGroups(t, identity, []string{"testgroup", "wheel"})
 }
 
@@ -140,12 +143,15 @@ func withResolvedPath(t *testing.T, resolvedPath string, run func()) {
 }
 
 func identityCalls(uid string, username string, primaryGroup string, groups string) []scriptedCall {
+	groupEntries := groupsWithIDs(groups)
 	return []scriptedCall{
-		{name: "id", args: []string{"-u", uid}, output: uid + "\n"},
-		{name: "id", args: []string{"-g", uid}, output: uid + "\n"},
-		{name: "id", args: []string{"-nu", uid}, output: username + "\n"},
-		{name: "id", args: []string{"-ng", uid}, output: primaryGroup + "\n"},
-		{name: "id", args: []string{"-Gn", uid}, output: groups + "\n"},
+		{
+			name: "id",
+			args: []string{uid},
+			output: "uid=" + uid + "(" + username + ") " +
+				"gid=" + uid + "(" + primaryGroup + ") " +
+				"groups=" + groupEntries + "\n",
+		},
 	}
 }
 
@@ -214,18 +220,27 @@ func assertNamedEntryExists(t *testing.T, entries map[string]getfaclparser.Permi
 	}
 }
 
-func assertIdentityCoreFields(t *testing.T, identity Identity, uid uint32, gid uint32, username string, primaryGroup string) {
+func assertIdentityCoreFields(t *testing.T, identity idparser.Identity, uid string, gid string, username string, primaryGroup string) {
 	t.Helper()
 	if identity.UID != uid || identity.GID != gid || identity.Username != username || identity.PrimaryGroup != primaryGroup {
 		t.Fatalf("identity parse mismatch: %#v", identity)
 	}
 }
 
-func assertIdentityGroups(t *testing.T, identity Identity, wantGroups []string) {
+func assertIdentityGroups(t *testing.T, identity idparser.Identity, wantGroups []string) {
 	t.Helper()
 	if !reflect.DeepEqual(identity.Groups, wantGroups) {
 		t.Fatalf("groups parse mismatch: %#v", identity.Groups)
 	}
+}
+
+func groupsWithIDs(groups string) string {
+	parts := strings.Fields(groups)
+	entries := make([]string, 0, len(parts))
+	for index, part := range parts {
+		entries = append(entries, strconv.Itoa(1000+index)+"("+part+")")
+	}
+	return strings.Join(entries, ",")
 }
 
 type scriptedCall struct {

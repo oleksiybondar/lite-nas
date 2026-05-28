@@ -8,46 +8,26 @@ import (
 	"strings"
 
 	getfaclparser "lite-nas/shared/parsers/acl/getfacl"
+	idparser "lite-nas/shared/parsers/id/identity"
 )
 
 var evalSymlinks = filepath.EvalSymlinks
 
 // ResolveIdentityByUID resolves identity information for one UID.
-func ResolveIdentityByUID(ctx context.Context, runner Runner, uid uint32) (Identity, error) {
+func ResolveIdentityByUID(ctx context.Context, runner Runner, uid uint32) (idparser.Identity, error) {
 	uidText := strconv.FormatUint(uint64(uid), 10)
 
-	uidOutput, err := runner.Run(ctx, "id", "-u", uidText)
+	idOutput, err := runner.Run(ctx, "id", uidText)
 	if err != nil {
-		return Identity{}, fmt.Errorf("id -u failed: %w", err)
+		return idparser.Identity{}, fmt.Errorf("id failed: %w", err)
 	}
 
-	gidOutput, err := runner.Run(ctx, "id", "-g", uidText)
+	identity, err := idparser.Parse(string(idOutput))
 	if err != nil {
-		return Identity{}, fmt.Errorf("id -g failed: %w", err)
+		return idparser.Identity{}, fmt.Errorf("id parse failed: %w", err)
 	}
 
-	usernameOutput, err := runner.Run(ctx, "id", "-nu", uidText)
-	if err != nil {
-		return Identity{}, fmt.Errorf("id -nu failed: %w", err)
-	}
-
-	primaryGroupOutput, err := runner.Run(ctx, "id", "-ng", uidText)
-	if err != nil {
-		return Identity{}, fmt.Errorf("id -ng failed: %w", err)
-	}
-
-	groupsOutput, err := runner.Run(ctx, "id", "-Gn", uidText)
-	if err != nil {
-		return Identity{}, fmt.Errorf("id -Gn failed: %w", err)
-	}
-
-	return parseIdentity(
-		string(uidOutput),
-		string(gidOutput),
-		string(usernameOutput),
-		string(primaryGroupOutput),
-		string(groupsOutput),
-	)
+	return identity, nil
 }
 
 func readACLForPath(ctx context.Context, runner Runner, path string) (getfaclparser.Document, error) {
@@ -69,7 +49,7 @@ func readACLForPath(ctx context.Context, runner Runner, path string) (getfaclpar
 	return document, nil
 }
 
-func hasGroup(identity Identity, name string) bool {
+func hasGroup(identity idparser.Identity, name string) bool {
 	if identity.PrimaryGroup == name {
 		return true
 	}
@@ -116,7 +96,7 @@ func isPermissionAllowed(permission getfaclparser.Permission, operation string) 
 	}
 }
 
-func evaluateAccess(identity Identity, acl getfaclparser.Document, operation string) bool {
+func evaluateAccess(identity idparser.Identity, acl getfaclparser.Document, operation string) bool {
 	if ownerPermission, ok := ownerPermission(identity, acl); ok {
 		return isPermissionAllowed(ownerPermission, operation)
 	}
@@ -132,14 +112,14 @@ func evaluateAccess(identity Identity, acl getfaclparser.Document, operation str
 	return isPermissionAllowed(acl.Other, operation)
 }
 
-func ownerPermission(identity Identity, acl getfaclparser.Document) (getfaclparser.Permission, bool) {
+func ownerPermission(identity idparser.Identity, acl getfaclparser.Document) (getfaclparser.Permission, bool) {
 	if identity.Username != acl.Owner {
 		return getfaclparser.Permission{}, false
 	}
 	return acl.User, true
 }
 
-func matchedNamedUserPermission(identity Identity, acl getfaclparser.Document) (getfaclparser.Permission, bool) {
+func matchedNamedUserPermission(identity idparser.Identity, acl getfaclparser.Document) (getfaclparser.Permission, bool) {
 	permission, ok := acl.NamedUsers[identity.Username]
 	if !ok {
 		return getfaclparser.Permission{}, false
@@ -147,12 +127,12 @@ func matchedNamedUserPermission(identity Identity, acl getfaclparser.Document) (
 	return applyMask(permission, acl.Mask), true
 }
 
-func groupPermissionAllows(identity Identity, acl getfaclparser.Document, operation string) bool {
+func groupPermissionAllows(identity idparser.Identity, acl getfaclparser.Document, operation string) bool {
 	maskedGroupPermission := applyMask(matchedGroupPermission(identity, acl), acl.Mask)
 	return isPermissionAllowed(maskedGroupPermission, operation)
 }
 
-func matchedGroupPermission(identity Identity, acl getfaclparser.Document) getfaclparser.Permission {
+func matchedGroupPermission(identity idparser.Identity, acl getfaclparser.Document) getfaclparser.Permission {
 	groupClassPermission := getfaclparser.Permission{}
 	if hasGroup(identity, acl.Group) {
 		groupClassPermission = unionPermission(groupClassPermission, acl.GroupObject)
