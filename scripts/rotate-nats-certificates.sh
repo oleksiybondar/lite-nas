@@ -127,9 +127,9 @@ ensure_litenas_groups() {
 
 ensure_directories() {
 	install -d -m 0750 "$nats_certificate_dir"
-	install -d -m 0750 -o root -g "$litenas_group" "$litenas_config_dir"
-	install -d -m 0750 -o root -g "$litenas_group" "$litenas_certificates_dir"
-	install -d -m 0750 -o root -g "$litenas_group" "$litenas_transport_certificates_dir"
+	install -d -m 0711 -o root -g "$litenas_group" "$litenas_config_dir"
+	install -d -m 0711 -o root -g "$litenas_group" "$litenas_certificates_dir"
+	install -d -m 0711 -o root -g "$litenas_group" "$litenas_transport_certificates_dir"
 
 	for certificate_user in "${certificate_users[@]}"; do
 		install -d -m 0750 -o root -g "$certificate_user" "$litenas_transport_certificates_dir/$certificate_user"
@@ -296,7 +296,7 @@ normalize_certificate_permissions() {
 	find "$nats_certificate_dir" -type f -name '*.srl' -exec chmod 0640 {} +
 
 	chown "root:$litenas_group" "$litenas_config_dir" "$litenas_certificates_dir" "$litenas_transport_certificates_dir"
-	chmod 0750 "$litenas_config_dir" "$litenas_certificates_dir" "$litenas_transport_certificates_dir"
+	chmod 0711 "$litenas_config_dir" "$litenas_certificates_dir" "$litenas_transport_certificates_dir"
 	chown root:root "$litenas_transport_certificates_dir/root-ca.crt"
 	chmod 0644 "$litenas_transport_certificates_dir/root-ca.crt"
 

@@ -5,6 +5,8 @@ DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/ufw.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/normalize-etc-permissions.sh"
 
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_SECURITY_GROUP="${LITE_NAS_SECURITY_GROUP:-lite-nas-security}"
@@ -75,6 +77,7 @@ deploy.liteNAS.bootstrap() {
 		systemctl restart nats-server.service
 	else
 		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
+		deploy.normalizeEtcPermissions /etc
 	fi
 
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing

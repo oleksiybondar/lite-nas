@@ -1,7 +1,5 @@
 """System infrastructure test suite for deployed certificate path permissions."""
 
-import os
-
 import pytest
 from hyperiontf import CLIClient
 
@@ -31,7 +29,7 @@ CERT_PERMISSION_CASES = [
         "/etc/lite-nas/certificates/auth",
         "root:lite-nas",
         "750",
-        False,
+        True,
         id="auth-cert-dir",
     ),
     pytest.param(
@@ -59,7 +57,7 @@ def assert_path_owner_and_mode(
 ) -> None:
     """Verify a certificate path exists and matches expected owner/group and mode."""
     cli_client.execute(
-        f"if [ -e '{path}' ]; then "
+        f"if test -e '{path}'; then "
         f"actual=\"$(stat -c '%U:%G %a' '{path}')\"; "
         f"if [ \"$actual\" = '{expected_owner_group} {expected_mode}' ]; then "
         f"echo '__OK__ {path}'; "
@@ -71,6 +69,18 @@ def assert_path_owner_and_mode(
         "fi"
     )
     cli_client.assert_output_contains(f"__OK__ {path}")
+
+
+def assert_path_not_accessible(cli_client: CLIClient, path: str) -> None:
+    """Verify a sensitive path is not discoverable to an unprivileged shell user."""
+    cli_client.execute(
+        f"if test -e '{path}'; then "
+        f"echo '__UNEXPECTED_ACCESS__ {path}'; "
+        "else "
+        f"echo '__NO_ACCESS__ {path}'; "
+        "fi"
+    )
+    cli_client.assert_output_contains(f"__NO_ACCESS__ {path}")
 
 
 @pytest.mark.infra
@@ -97,8 +107,8 @@ def test_certificate_paths_have_expected_permissions(
     Expected result:
     - The path exists and matches the expected owner/group and mode.
     """
-    if requires_privileged_metadata and os.geteuid() != 0:
-        pytest.skip(
-            "Metadata verification for strict certificate files requires root-level traversal."
-        )
+    if requires_privileged_metadata:
+        assert_path_not_accessible(cli_client, path)
+        return
+
     assert_path_owner_and_mode(cli_client, path, owner_group, mode)

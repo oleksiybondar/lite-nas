@@ -25,15 +25,7 @@ func TestLoadConfigDoesNotRequireAuthSection(t *testing.T) {
 	if cfg.Messaging.ClientName != "rbac-service" {
 		t.Fatalf("cfg.Messaging.ClientName = %q", cfg.Messaging.ClientName)
 	}
-	if cfg.Cache.InvalidateInterval != time.Hour {
-		t.Fatalf("cfg.Cache.InvalidateInterval = %s", cfg.Cache.InvalidateInterval)
-	}
-	if cfg.Cache.RealUserTTL != 24*time.Hour {
-		t.Fatalf("cfg.Cache.RealUserTTL = %s", cfg.Cache.RealUserTTL)
-	}
-	if cfg.Cache.NonInteractiveUserTTL != 7*24*time.Hour {
-		t.Fatalf("cfg.Cache.NonInteractiveUserTTL = %s", cfg.Cache.NonInteractiveUserTTL)
-	}
+	assertDefaultCacheConfig(t, cfg)
 }
 
 func TestLoadConfigAppliesCacheDefaultsWhenSectionMissing(t *testing.T) {
@@ -43,6 +35,12 @@ func TestLoadConfigAppliesCacheDefaultsWhenSectionMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
+
+	assertDefaultCacheConfig(t, cfg)
+}
+
+func assertDefaultCacheConfig(t *testing.T, cfg Config) {
+	t.Helper()
 
 	if cfg.Cache.InvalidateInterval != time.Hour {
 		t.Fatalf("cfg.Cache.InvalidateInterval = %s", cfg.Cache.InvalidateInterval)

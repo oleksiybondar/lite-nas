@@ -195,11 +195,7 @@ func (stubClient) Drain() error { return nil }
 func (stubClient) Close()       {}
 
 func buildTestInfra() servicemodules.Infra {
-	authTokenManager, err := servicetoken.NewManager(stubClient{}, servicetoken.Options{Service: "resources-monitor"})
-	if err != nil {
-		panic(err)
-	}
-	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
+	authTokenManager, authRefreshTimer, authRefreshTicks, err := buildAuthInfraComponents(stubClient{})
 	if err != nil {
 		panic(err)
 	}
@@ -228,6 +224,8 @@ type authTickClientStub struct {
 	refreshErr      error
 }
 
+func (stub authTickClientStub) Publish(context.Context, string, any) error { return nil }
+
 func (stub authTickClientStub) Request(_ context.Context, subject string, _ any, response any) error {
 	switch subject {
 	case authcontract.ServiceTokenLoginRPCSubject:
@@ -238,6 +236,10 @@ func (stub authTickClientStub) Request(_ context.Context, subject string, _ any,
 		return errors.New("unexpected subject")
 	}
 }
+
+func (stub authTickClientStub) Drain() error { return nil }
+
+func (stub authTickClientStub) Close() {}
 
 func (stub authTickClientStub) handleLoginRequest(response any) error {
 	if stub.loginErr != nil {
@@ -290,13 +292,9 @@ func defaultRefreshResponse() authcontract.ServiceTokenRefreshResponse {
 func buildAuthTickTestInfra(t *testing.T, client authTickClientStub) servicemodules.Infra {
 	t.Helper()
 
-	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
+	authTokenManager, authRefreshTimer, authRefreshTicks, err := buildAuthInfraComponents(client)
 	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
-	if err != nil {
-		t.Fatalf("NewPollingTimerWorker() error = %v", err)
+		t.Fatalf("buildAuthInfraComponents() error = %v", err)
 	}
 
 	return servicemodules.Infra{
@@ -311,4 +309,20 @@ func buildAuthTickTestInfra(t *testing.T, client authTickClientStub) servicemodu
 			AuthRefreshTicks: authRefreshTicks,
 		},
 	}
+}
+
+func buildAuthInfraComponents(
+	client messaging.Client,
+) (*servicetoken.Manager, sharedworkers.TimerWorker, <-chan struct{}, error) {
+	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
+	if err != nil {
+		return nil, sharedworkers.TimerWorker{}, nil, err
+	}
+
+	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
+	if err != nil {
+		return nil, sharedworkers.TimerWorker{}, nil, err
+	}
+
+	return authTokenManager, authRefreshTimer, authRefreshTicks, nil
 }
