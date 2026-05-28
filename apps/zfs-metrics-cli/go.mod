@@ -2,7 +2,7 @@ module lite-nas/apps/zfs-metrics-cli
 
 go 1.25.0
 
-require lite-nas/shared v0.0.1
+require lite-nas/shared v0.1.0
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

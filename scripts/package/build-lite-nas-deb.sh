@@ -10,7 +10,7 @@ source "$SCRIPT_DIR/../helpers/admin-panel-assets.sh"
 cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas"
-package_version="${LITE_NAS_PACKAGE_VERSION:-0.1.1}"
+package_version="${LITE_NAS_PACKAGE_VERSION:-0.2.0}"
 auth_service_binary_path=""
 system_logging_manager_binary_path=""
 security_logging_manager_binary_path=""
