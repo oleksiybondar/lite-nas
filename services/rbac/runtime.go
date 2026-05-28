@@ -74,54 +74,87 @@ func forwardInvalidateTicks(ctx context.Context, ticks <-chan struct{}, invalida
 }
 
 func registerRPCHandlers(server messaging.Server, requestValidator *validator.Validate, service *decisionService) error {
-	rpcs := map[string]func(context.Context, messaging.Envelope) (any, error){
-		rbaccontract.GetSubjectRolesRPCSubject: func(ctx context.Context, envelope messaging.Envelope) (any, error) {
-			var request rbaccontract.GetSubjectRolesRequest
-			if !decodeRPCRequest(envelope, &request, requestValidator) {
-				return rbaccontract.GetSubjectRolesResponse{}, nil
-			}
-
-			uid, groups, ok := service.GetSubjectRoles(ctx, request.Username)
-			if !ok {
-				return rbaccontract.GetSubjectRolesResponse{}, nil
-			}
-
-			return rbaccontract.GetSubjectRolesResponse{UID: uid, Groups: groups}, nil
-		},
-		rbaccontract.CanReadPathRPCSubject: func(ctx context.Context, envelope messaging.Envelope) (any, error) {
-			return handlePathCheckRPC(ctx, envelope, requestValidator, service.CanRead)
-		},
-		rbaccontract.CanWritePathRPCSubject: func(ctx context.Context, envelope messaging.Envelope) (any, error) {
-			return handlePathCheckRPC(ctx, envelope, requestValidator, service.CanWrite)
-		},
-		rbaccontract.CanExecPathRPCSubject: func(ctx context.Context, envelope messaging.Envelope) (any, error) {
-			return handlePathCheckRPC(ctx, envelope, requestValidator, service.CanExec)
-		},
-		rbaccontract.CanSudoExecRPCSubject: func(ctx context.Context, envelope messaging.Envelope) (any, error) {
-			var request rbaccontract.CheckSudoExecRequest
-			if !decodeRPCRequest(envelope, &request, requestValidator) {
-				return rbaccontract.DecisionResponse{Allowed: false}, nil
-			}
-			return rbaccontract.DecisionResponse{
-				Allowed: service.CanSudoExec(ctx, request.UID, request.Command),
-			}, nil
-		},
-		rbaccontract.InvalidateCacheRPCSubject: func(_ context.Context, envelope messaging.Envelope) (any, error) {
-			var request rbaccontract.InvalidateCacheRequest
-			if !decodeRPCRequest(envelope, &request, requestValidator) {
-				return rbaccontract.InvalidateCacheResponse{OK: false}, nil
-			}
-			service.InvalidateCache(request.UID)
-			return rbaccontract.InvalidateCacheResponse{OK: true}, nil
-		},
+	if err := registerRPCEndpoint(server, rbaccontract.GetSubjectRolesRPCSubject, newGetSubjectRolesHandler(requestValidator, service)); err != nil {
+		return err
 	}
+	if err := registerRPCEndpoint(server, rbaccontract.CanReadPathRPCSubject, newPathCheckHandler(requestValidator, service.CanRead)); err != nil {
+		return err
+	}
+	if err := registerRPCEndpoint(server, rbaccontract.CanWritePathRPCSubject, newPathCheckHandler(requestValidator, service.CanWrite)); err != nil {
+		return err
+	}
+	if err := registerRPCEndpoint(server, rbaccontract.CanExecPathRPCSubject, newPathCheckHandler(requestValidator, service.CanExec)); err != nil {
+		return err
+	}
+	if err := registerRPCEndpoint(server, rbaccontract.CanSudoExecRPCSubject, newCanSudoExecHandler(requestValidator, service)); err != nil {
+		return err
+	}
+	return registerRPCEndpoint(server, rbaccontract.InvalidateCacheRPCSubject, newInvalidateCacheHandler(requestValidator, service))
+}
 
-	for subject, handler := range rpcs {
-		if err := server.RegisterRPC(subject, handler); err != nil {
-			return err
+func registerRPCEndpoint(
+	server messaging.Server,
+	subject string,
+	handler func(context.Context, messaging.Envelope) (any, error),
+) error {
+	return server.RegisterRPC(subject, handler)
+}
+
+func newGetSubjectRolesHandler(
+	requestValidator *validator.Validate,
+	service *decisionService,
+) func(context.Context, messaging.Envelope) (any, error) {
+	return func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		var request rbaccontract.GetSubjectRolesRequest
+		if !decodeRPCRequest(envelope, &request, requestValidator) {
+			return rbaccontract.GetSubjectRolesResponse{}, nil
 		}
+
+		uid, groups, ok := service.GetSubjectRoles(ctx, request.Username)
+		if !ok {
+			return rbaccontract.GetSubjectRolesResponse{}, nil
+		}
+
+		return rbaccontract.GetSubjectRolesResponse{UID: uid, Groups: groups}, nil
 	}
-	return nil
+}
+
+func newPathCheckHandler(
+	requestValidator *validator.Validate,
+	checkFn func(context.Context, string, string) bool,
+) func(context.Context, messaging.Envelope) (any, error) {
+	return func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		return handlePathCheckRPC(ctx, envelope, requestValidator, checkFn)
+	}
+}
+
+func newCanSudoExecHandler(
+	requestValidator *validator.Validate,
+	service *decisionService,
+) func(context.Context, messaging.Envelope) (any, error) {
+	return func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		var request rbaccontract.CheckSudoExecRequest
+		if !decodeRPCRequest(envelope, &request, requestValidator) {
+			return rbaccontract.DecisionResponse{Allowed: false}, nil
+		}
+		return rbaccontract.DecisionResponse{
+			Allowed: service.CanSudoExec(ctx, request.UID, request.Command),
+		}, nil
+	}
+}
+
+func newInvalidateCacheHandler(
+	requestValidator *validator.Validate,
+	service *decisionService,
+) func(context.Context, messaging.Envelope) (any, error) {
+	return func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		var request rbaccontract.InvalidateCacheRequest
+		if !decodeRPCRequest(envelope, &request, requestValidator) {
+			return rbaccontract.InvalidateCacheResponse{OK: false}, nil
+		}
+		service.InvalidateCache(request.UID)
+		return rbaccontract.InvalidateCacheResponse{OK: true}, nil
+	}
 }
 
 func handlePathCheckRPC(
