@@ -48,7 +48,7 @@ func (c AuthController) Login(
 	now := time.Now()
 	session, err := c.service.Login(ctx, now, input.Body.Login, input.Body.Password, authRequestContext(input.UserAgent))
 	if err != nil {
-		return nil, huma.Error401Unauthorized("invalid login or password")
+		return nil, mapAuthError(err, "invalid login or password")
 	}
 
 	return &authdto.SessionOutput{

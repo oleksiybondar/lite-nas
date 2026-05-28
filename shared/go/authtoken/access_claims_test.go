@@ -37,25 +37,12 @@ func TestAccessClaimsMarshalIncludesIdentityAndAuthorizationFields(t *testing.T)
 	assertJSONArrayField(t, got, "roles", "operator")
 }
 
-func TestAccessClaimsMarshalOmitsEmptyAuthorizationFields(t *testing.T) {
+func TestAccessClaimsMarshalIncludesEmptyAuthorizationArrays(t *testing.T) {
 	t.Parallel()
 
-	data, err := json.Marshal(AccessClaims{Login: "alice"})
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("json.Unmarshal() error = %v", err)
-	}
-
-	if _, ok := got["scopes"]; ok {
-		t.Fatalf("scopes field present in %#v, want omitted", got)
-	}
-	if _, ok := got["roles"]; ok {
-		t.Fatalf("roles field present in %#v, want omitted", got)
-	}
+	got := mustMarshalClaimsMap(t, AccessClaims{Login: "alice", Scopes: []string{}, Roles: []string{}})
+	assertEmptyJSONArrayField(t, got, "scopes")
+	assertEmptyJSONArrayField(t, got, "roles")
 }
 
 func assertJSONField(t *testing.T, fields map[string]any, name string, want string) {
@@ -74,4 +61,29 @@ func assertJSONArrayField(t *testing.T, fields map[string]any, name string, want
 	if !ok || len(values) != 1 || values[0] != want {
 		t.Fatalf("%s = %#v, want [%q]", name, fields[name], want)
 	}
+}
+
+func assertEmptyJSONArrayField(t *testing.T, fields map[string]any, name string) {
+	t.Helper()
+
+	values, ok := fields[name].([]any)
+	if !ok || len(values) != 0 {
+		t.Fatalf("%s = %#v, want []", name, fields[name])
+	}
+}
+
+func mustMarshalClaimsMap(t *testing.T, claims AccessClaims) map[string]any {
+	t.Helper()
+
+	data, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	var got map[string]any
+	if err = json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+
+	return got
 }

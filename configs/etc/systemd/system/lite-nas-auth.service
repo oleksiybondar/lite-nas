@@ -1,6 +1,6 @@
 [Unit]
 Description=LiteNAS auth service
-After=network-online.target nats-server.service
+After=network-online.target nats-server.service lite-nas-rbac.service
 Wants=network-online.target
 Requires=nats-server.service
 

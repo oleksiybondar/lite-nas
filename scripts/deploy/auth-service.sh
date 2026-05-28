@@ -12,6 +12,8 @@ readonly LITE_NAS_AUTH_CONFIG_SOURCE="${LITE_NAS_AUTH_CONFIG_SOURCE:-$LITE_NAS_R
 readonly LITE_NAS_AUTH_CONFIG_TARGET="${LITE_NAS_AUTH_CONFIG_TARGET:-$LITE_NAS_AUTH_CONFIG_DIR/auth.conf}"
 readonly LITE_NAS_AUTH_UNIT_TEMPLATE="${LITE_NAS_AUTH_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-auth.service}"
 readonly LITE_NAS_AUTH_UNIT_TARGET="${LITE_NAS_AUTH_UNIT_TARGET:-/etc/systemd/system/lite-nas-auth.service}"
+readonly LITE_NAS_AUTH_PAM_TEMPLATE="${LITE_NAS_AUTH_PAM_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/pam.d/litenas-auth}"
+readonly LITE_NAS_AUTH_PAM_TARGET="${LITE_NAS_AUTH_PAM_TARGET:-/etc/pam.d/litenas-auth}"
 readonly LITE_NAS_AUTH_LOG_DIR="${LITE_NAS_AUTH_LOG_DIR:-/var/log/lite-nas}"
 readonly LITE_NAS_AUTH_LOG_FILE="${LITE_NAS_AUTH_LOG_FILE:-$LITE_NAS_AUTH_LOG_DIR/auth-service.log}"
 readonly LITE_NAS_AUTH_LEGACY_LOG_FILE="/var/lib/lite-nas/auth-service.log"
@@ -119,6 +121,15 @@ deploy.authService.installUnitFile() {
 	install -D -m 0644 "$LITE_NAS_AUTH_UNIT_TEMPLATE" "$LITE_NAS_AUTH_UNIT_TARGET"
 }
 
+deploy.authService.installPAMService() {
+	if [ ! -f "$LITE_NAS_AUTH_PAM_TEMPLATE" ]; then
+		log.error "Missing PAM template: $LITE_NAS_AUTH_PAM_TEMPLATE"
+		exit 1
+	fi
+
+	install -D -m 0644 "$LITE_NAS_AUTH_PAM_TEMPLATE" "$LITE_NAS_AUTH_PAM_TARGET"
+}
+
 deploy.authService.enableAndStart() {
 	systemctl daemon-reload
 	systemctl enable --now "$LITE_NAS_AUTH_SERVICE_NAME.service"
@@ -133,6 +144,7 @@ deploy.authService.deploy() {
 	deploy.authService.installConfig
 	deploy.authService.installLogTarget
 	deploy.authService.installUnitFile
+	deploy.authService.installPAMService
 
 	if [ "$should_start" = "1" ]; then
 		deploy.authService.enableAndStart

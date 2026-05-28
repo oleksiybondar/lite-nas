@@ -15,6 +15,7 @@ import (
 	sharedconfig "lite-nas/shared/config"
 	sharedcontracts "lite-nas/shared/contracts"
 	authcontract "lite-nas/shared/contracts/auth"
+	rbaccontract "lite-nas/shared/contracts/rbac"
 	"lite-nas/shared/messaging"
 )
 
@@ -24,6 +25,7 @@ const (
 	pamServiceName     = "litenas-auth"
 	refreshTokenTTL    = 24 * time.Hour
 	serviceTokenTTL    = 36 * time.Hour
+	rbacLookupTimeout  = 300 * time.Millisecond
 	sessionIDBytes     = 16
 )
 
@@ -55,6 +57,7 @@ func run(ctx context.Context) error {
 		RefreshStore:      newRefreshStore(infra.Config.AuthTokens),
 		ServiceTokenStore: newServiceTokenStore(time.Now),
 		Validator:         newRequestValidator(),
+		Client:            infra.Client,
 	}
 	if err := registerRPCHandlers(infra.Server, runtimeDeps); err != nil {
 		return err
@@ -80,6 +83,7 @@ type authRuntime struct {
 	RefreshStore      *sessions.Store
 	ServiceTokenStore *serviceTokenStore
 	Validator         requestValidator
+	Client            messaging.Client
 }
 
 type authTokenRuntime struct {
@@ -250,12 +254,14 @@ func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authc
 		return loginResponseFromPAM(result), nil
 	}
 
-	accessToken, issued := issueAccessToken(runtimeDeps, result.Username, result.Username)
+	login := resolvedLogin(result.Username, request.Username)
+	subject, roles := resolvePrincipalRoles(runtimeDeps, login)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles)
 	if !issued {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
 	}
 
-	refreshToken, created := createRefreshToken(runtimeDeps, request, result.Username)
+	refreshToken, created := createRefreshToken(runtimeDeps, request, subject, login)
 	if !created {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
 	}
@@ -264,6 +270,13 @@ func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authc
 	response.AccessToken = accessToken
 	response.RefreshToken = refreshToken
 	return response, nil
+}
+
+func resolvedLogin(authenticatedUsername string, requestUsername string) string {
+	if authenticatedUsername != "" {
+		return authenticatedUsername
+	}
+	return requestUsername
 }
 
 func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRequest) (pamauth.Result, bool) {
@@ -281,10 +294,11 @@ func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRe
 	return result, true
 }
 
-func issueAccessToken(runtimeDeps authRuntime, subject string, login string) (string, bool) {
+func issueAccessToken(runtimeDeps authRuntime, subject string, login string, roles []string) (string, bool) {
 	accessToken, _, err := runtimeDeps.Tokens.Issuer.Issue(authtoken.Principal{
 		Subject: subject,
 		Login:   login,
+		Roles:   roles,
 	})
 	if err != nil {
 		return "", false
@@ -293,10 +307,37 @@ func issueAccessToken(runtimeDeps authRuntime, subject string, login string) (st
 	return accessToken, true
 }
 
-func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginRequest, username string) (string, bool) {
+func resolvePrincipalRoles(runtimeDeps authRuntime, username string) (string, []string) {
+	if runtimeDeps.Client == nil {
+		return username, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), rbacLookupTimeout)
+	defer cancel()
+
+	response := rbaccontract.GetSubjectRolesResponse{}
+	err := runtimeDeps.Client.Request(
+		ctx,
+		rbaccontract.GetSubjectRolesRPCSubject,
+		rbaccontract.GetSubjectRolesRequest{Username: username},
+		&response,
+	)
+	if err != nil {
+		return username, nil
+	}
+
+	subject := response.UID
+	if subject == "" {
+		subject = username
+	}
+
+	return subject, response.Groups
+}
+
+func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginRequest, subject string, username string) (string, bool) {
 	refreshToken, _, err := runtimeDeps.RefreshStore.Create(sessions.CreateInput{
 		SessionID: newSessionID(),
-		Subject:   username,
+		Subject:   subject,
 		Login:     username,
 		Context:   refreshContext(request.ClientIP, request.UserAgent),
 		TTL:       refreshTokenTTL,
@@ -319,7 +360,8 @@ func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (aut
 		return authcontract.RefreshResponse{}, nil
 	}
 
-	accessToken, issued := issueAccessToken(runtimeDeps, record.Subject, record.Login)
+	subject, roles := resolvePrincipalRoles(runtimeDeps, record.Login)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, record.Login, roles)
 	if !issued {
 		return authcontract.RefreshResponse{}, nil
 	}
