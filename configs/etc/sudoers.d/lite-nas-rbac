@@ -1,0 +1,1 @@
+lite-nas-rbac ALL=(ALL) NOPASSWD: /usr/bin/sudo -n -l -U *

@@ -12,6 +12,7 @@ cd "$LITE_NAS_REPO_ROOT"
 package_name="lite-nas"
 package_version="${LITE_NAS_PACKAGE_VERSION:-0.2.0}"
 auth_service_binary_path=""
+rbac_service_binary_path=""
 system_logging_manager_binary_path=""
 security_logging_manager_binary_path=""
 system_metrics_binary_path=""
@@ -32,6 +33,7 @@ Usage: scripts/package/build-lite-nas-deb.sh [options]
 Options:
   --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or 0.1.0.
   --auth-service-binary=PATH         Use an existing auth-service binary.
+  --rbac-service-binary=PATH         Use an existing rbac-service binary.
   --system-logging-manager-binary=PATH
                                      Use an existing system-logging-manager binary.
   --security-logging-manager-binary=PATH
@@ -51,8 +53,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -67,6 +69,11 @@ if args.has version && ! package_version="$(args.require_arg version)"; then
 fi
 if args.has auth-service-binary && ! auth_service_binary_path="$(args.require_arg auth-service-binary)"; then
 	log.error "Missing value for --auth-service-binary"
+	usage >&2
+	exit 64
+fi
+if args.has rbac-service-binary && ! rbac_service_binary_path="$(args.require_arg rbac-service-binary)"; then
+	log.error "Missing value for --rbac-service-binary"
 	usage >&2
 	exit 64
 fi
@@ -129,6 +136,11 @@ if [ -z "$auth_service_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-auth-service-binary.sh" \
 		"--output=${auth_service_binary_path}"
 fi
+if [ -z "$rbac_service_binary_path" ]; then
+	rbac_service_binary_path="$output_dir/${package_name}-${package_arch}/rbac-service"
+	"$LITE_NAS_REPO_ROOT/scripts/build-rbac-service-binary.sh" \
+		"--output=${rbac_service_binary_path}"
+fi
 
 if [ -z "$system_logging_manager_binary_path" ]; then
 	system_logging_manager_binary_path="$output_dir/${package_name}-${package_arch}/system-logging-manager"
@@ -186,6 +198,10 @@ fi
 
 if [ ! -f "$auth_service_binary_path" ]; then
 	log.error "Missing auth-service binary: $auth_service_binary_path"
+	exit 1
+fi
+if [ ! -f "$rbac_service_binary_path" ]; then
+	log.error "Missing rbac-service binary: $rbac_service_binary_path"
 	exit 1
 fi
 
@@ -266,6 +282,8 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.s
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh"
 install -D -m 0755 "$auth_service_binary_path" \
 	"$package_root/usr/libexec/lite-nas/auth-service"
+install -D -m 0755 "$rbac_service_binary_path" \
+	"$package_root/usr/libexec/lite-nas/rbac-service"
 install -D -m 0755 "$system_logging_manager_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager"
 install -D -m 0755 "$security_logging_manager_binary_path" \
@@ -304,6 +322,7 @@ chmod 0755 \
 	"$package_root/usr/bin/system-logging-manager-cli" \
 	"$package_root/usr/bin/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/auth-service" \
+	"$package_root/usr/libexec/lite-nas/rbac-service" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \

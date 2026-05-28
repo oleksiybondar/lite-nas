@@ -1,19 +1,35 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"testing"
+	"time"
+
+	rbacmodules "lite-nas/services/rbac/modules"
+	sharedworkers "lite-nas/shared/workers"
 )
 
-func TestRunReturnsCanceledContextErrorOnGracefulShutdown(t *testing.T) {
+func TestRunReturnsInfraError(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
+	wantErr := errors.New("infra failed")
+	originalInfraFactory := newInfraModule
+	originalTimerFactory := newPollingTimerFunc
+	t.Cleanup(func() {
+		newInfraModule = originalInfraFactory
+		newPollingTimerFunc = originalTimerFactory
+	})
 
-	err := run(ctx)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("run() error = %v, want %v", err, context.Canceled)
+	newInfraModule = func(string, string) (rbacmodules.Infra, error) {
+		return rbacmodules.Infra{}, wantErr
+	}
+	newPollingTimerFunc = func(interval time.Duration, bufferSize int) (sharedworkers.TimerWorker, <-chan struct{}, error) {
+		t.Fatal("timer factory should not be called when infra bootstrap fails")
+		return sharedworkers.TimerWorker{}, nil, nil
+	}
+
+	err := run(t.Context())
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("run() error = %v, want %v", err, wantErr)
 	}
 }

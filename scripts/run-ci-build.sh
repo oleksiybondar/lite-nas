@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/helpers/tool-paths.sh"
 cd "$(git rev-parse --show-toplevel)"
 log.pushTask "Running local CI build checks"
 scripts/build-auth-service.sh
+scripts/build-rbac-service.sh
 scripts/build-system-logging-manager.sh
 scripts/build-security-logging-manager.sh
 scripts/build-system-metrics.sh

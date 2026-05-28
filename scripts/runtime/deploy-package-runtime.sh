@@ -9,6 +9,8 @@ source "$PACKAGE_ROOT/scripts/deploy/lite-nas.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/auth-service.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/rbac-service.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/system-logging-manager.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/security-logging-manager.sh"
@@ -81,6 +83,7 @@ sudo.guard.requireRoot "scripts/runtime/deploy-package-runtime.sh"
 
 deploy.liteNAS.requireTools
 deploy.authService.requireTools
+deploy.rbacService.requireTools
 deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
 deploy.systemMetrics.requireTools
@@ -94,6 +97,7 @@ if [ "$run_mode" = "validate" ]; then
 	log.pushTask "Deploying LiteNAS package runtime in validate mode"
 	export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
 	deploy.authService.deploy "$PACKAGE_ROOT/auth-service" 0
+	deploy.rbacService.deploy "$PACKAGE_ROOT/rbac-service" 0
 	deploy.systemLoggingManager.deploy "$PACKAGE_ROOT/system-logging-manager" 0
 	deploy.securityLoggingManager.deploy "$PACKAGE_ROOT/security-logging-manager" 0
 	deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
@@ -115,6 +119,7 @@ export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
 
 log.pushTask "Deploying LiteNAS runtime files without service start"
 deploy.authService.deploy "$PACKAGE_ROOT/auth-service" 0
+deploy.rbacService.deploy "$PACKAGE_ROOT/rbac-service" 0
 deploy.systemLoggingManager.deploy "$PACKAGE_ROOT/system-logging-manager" 0
 deploy.securityLoggingManager.deploy "$PACKAGE_ROOT/security-logging-manager" 0
 deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
@@ -131,6 +136,7 @@ log.popTask
 
 log.pushTask "Starting LiteNAS services"
 deploy.authService.enableAndStart
+deploy.rbacService.enableAndStart
 deploy.systemLoggingManager.enableAndStart
 deploy.securityLoggingManager.enableAndStart
 deploy.systemMetrics.enableAndStart

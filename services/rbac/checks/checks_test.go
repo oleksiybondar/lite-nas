@@ -17,7 +17,7 @@ func TestCanReadUsesOwnerPermission(t *testing.T) {
 	t.Parallel()
 
 	runCanAccessTest(t, func(ctx context.Context, runner Runner) (bool, error) {
-		return CanRead(ctx, runner, 1002, "/input/path")
+		return CanRead(ctx, runner, "1002", "/input/path")
 	}, append(identityCalls("1002", "testuser", "testgroup", "testgroup wheel"),
 		scriptedCall{
 			name:   "getfacl",
@@ -39,7 +39,7 @@ func TestCanWriteUsesGroupPermissionMaskedByMask(t *testing.T) {
 	))
 
 	withResolvedPath(t, "/resolved/path", func() {
-		allowed, err := CanWrite(t.Context(), runner, 1002, "/input/path")
+		allowed, err := CanWrite(t.Context(), runner, "1002", "/input/path")
 		if err != nil {
 			t.Fatalf("CanWrite() error = %v", err)
 		}
@@ -53,7 +53,7 @@ func TestCanExecUsesOtherPermissionWhenNoOwnerOrGroupMatch(t *testing.T) {
 	t.Parallel()
 
 	runCanAccessTest(t, func(ctx context.Context, runner Runner) (bool, error) {
-		return CanExec(ctx, runner, 1002, "/input/path")
+		return CanExec(ctx, runner, "1002", "/input/path")
 	}, append(identityCalls("1002", "testuser", "testgroup", "testgroup"),
 		scriptedCall{
 			name:   "getfacl",
@@ -158,7 +158,7 @@ func identityCalls(uid string, username string, primaryGroup string, groups stri
 func assertCanSudoExecFails(t *testing.T, runner Runner) {
 	t.Helper()
 
-	allowed, err := CanSudoExec(t.Context(), runner, 1002, "/usr/bin/zfs")
+	allowed, err := CanSudoExec(t.Context(), runner, "1002", "/usr/bin/zfs")
 	if err == nil {
 		t.Fatalf("CanSudoExec() error = nil, want non-nil")
 	}
@@ -170,7 +170,7 @@ func assertCanSudoExecFails(t *testing.T, runner Runner) {
 func assertCanSudoExecAllowed(t *testing.T, runner Runner, wantAllowed bool) {
 	t.Helper()
 
-	allowed, err := CanSudoExec(t.Context(), runner, 1002, "/usr/bin/zfs")
+	allowed, err := CanSudoExec(t.Context(), runner, "1002", "/usr/bin/zfs")
 	if err != nil {
 		t.Fatalf("CanSudoExec() error = %v", err)
 	}

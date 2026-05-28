@@ -36,6 +36,8 @@ create_systemd_validation_root() {
 
 	cp configs/etc/systemd/system/lite-nas-auth.service \
 		"$systemd_root/etc/systemd/system/lite-nas-auth.service"
+	cp configs/etc/systemd/system/lite-nas-rbac.service \
+		"$systemd_root/etc/systemd/system/lite-nas-rbac.service"
 	cp configs/etc/systemd/system/lite-nas-system-metrics.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-metrics.service"
 	cp configs/etc/systemd/system/lite-nas-web-gateway.service \
@@ -45,7 +47,7 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-resources-monitor.service \
 		"$systemd_root/etc/systemd/system/lite-nas-resources-monitor.service"
 
-	for binary in auth-service system-metrics web-gateway system-logging-manager resources-monitor; do
+	for binary in auth-service rbac-service system-metrics web-gateway system-logging-manager resources-monitor; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -102,6 +104,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 	systemd-analyze verify \
 		--root="$systemd_root" \
 		lite-nas-auth.service \
+		lite-nas-rbac.service \
 		lite-nas-system-logging-manager.service \
 		lite-nas-system-metrics.service \
 		lite-nas-resources-monitor.service \

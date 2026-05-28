@@ -7,6 +7,8 @@ source "$ENTRYPOINT_DIR/deploy/lite-nas.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/auth-service.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/rbac-service.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-logging-manager.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-logging-manager.sh"
@@ -28,6 +30,7 @@ source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
 
 auth_service_binary=""
+rbac_service_binary=""
 system_logging_manager_binary=""
 security_logging_manager_binary=""
 system_metrics_binary=""
@@ -48,6 +51,7 @@ Usage: scripts/deploy-all.sh [options]
 
 Options:
   --auth-service-binary PATH      Install an existing auth-service binary.
+  --rbac-service-binary PATH      Install an existing rbac-service binary.
   --system-logging-manager-binary PATH
                                   Install an existing system-logging-manager binary.
   --security-logging-manager-binary PATH
@@ -79,6 +83,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		auth_service_binary="$2"
+		shift 2
+		;;
+	--rbac-service-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --rbac-service-binary"
+			usage >&2
+			exit 2
+		fi
+		rbac_service_binary="$2"
 		shift 2
 		;;
 	--system-metrics-binary)
@@ -198,6 +211,7 @@ done
 sudo.guard.requireRoot "scripts/deploy-all.sh"
 deploy.liteNAS.requireTools
 deploy.authService.requireTools
+deploy.rbacService.requireTools
 deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
 deploy.systemMetrics.requireTools
@@ -210,7 +224,7 @@ deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$resources_monitor_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -218,6 +232,11 @@ if [ -z "$auth_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [
 		build_args=("--output=$tmp_dir/auth-service")
 		"$ENTRYPOINT_DIR/build-auth-service-binary.sh" "${build_args[@]}"
 		auth_service_binary="$tmp_dir/auth-service"
+	fi
+	if [ -z "$rbac_service_binary" ]; then
+		build_args=("--output=$tmp_dir/rbac-service")
+		"$ENTRYPOINT_DIR/build-rbac-service-binary.sh" "${build_args[@]}"
+		rbac_service_binary="$tmp_dir/rbac-service"
 	fi
 
 	if [ -z "$system_logging_manager_binary" ]; then
@@ -291,6 +310,10 @@ fi
 
 log.pushTask "Deploying auth-service"
 deploy.authService.deploy "$auth_service_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying rbac-service"
+deploy.rbacService.deploy "$rbac_service_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying system-logging-manager service"

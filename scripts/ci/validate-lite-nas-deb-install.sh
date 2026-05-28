@@ -49,6 +49,7 @@ docker run --rm \
 		dpkg -s lite-nas >/dev/null
 		dpkg -s aide >/dev/null
 		test -x /usr/libexec/lite-nas/auth-service
+		test -x /usr/libexec/lite-nas/rbac-service
 		test -x /usr/libexec/lite-nas/system-metrics
 		test -x /usr/libexec/lite-nas/resources-monitor
 		test -x /usr/libexec/lite-nas/system-metrics-cli
@@ -57,11 +58,13 @@ docker run --rm \
 		test -x /usr/libexec/lite-nas/web-gateway
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas)\" = 'root:lite-nas 711'
 		test -f /etc/lite-nas/auth.conf
+		test -f /etc/lite-nas/rbac-service.conf
 		test -f /etc/lite-nas/system-metrics.conf
 		test -f /etc/lite-nas/resources-monitor.conf
 		test -f /etc/lite-nas/resources-monitor/rules/system-metrics.json
 		id lite-nas-resources-monitor >/dev/null
 		test -f /etc/systemd/system/lite-nas-resources-monitor.service
+		test -f /etc/systemd/system/lite-nas-rbac.service
 		test -f /etc/lite-nas/system-metrics-cli.conf
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas/system-metrics-cli.conf)\" = 'root:root 644'
 		test -f /etc/lite-nas/web-gateway.conf

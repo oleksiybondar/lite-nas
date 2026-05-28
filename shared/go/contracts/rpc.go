@@ -3,6 +3,7 @@ package contracts
 import (
 	authcontract "lite-nas/shared/contracts/auth"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
@@ -95,6 +96,38 @@ var RPCByService = map[string]map[string]RPCContract{
 			Subject:  authcontract.SetLockdownRPCSubject,
 			Request:  authcontract.SetLockdownRequest{},
 			Response: authcontract.SetLockdownResponse{},
+		},
+	},
+	ServiceRBAC: {
+		"get_subject_roles": {
+			Subject:  rbaccontract.GetSubjectRolesRPCSubject,
+			Request:  rbaccontract.GetSubjectRolesRequest{},
+			Response: rbaccontract.GetSubjectRolesResponse{},
+		},
+		"check_path_read": {
+			Subject:  rbaccontract.CanReadPathRPCSubject,
+			Request:  rbaccontract.CheckPathRequest{},
+			Response: rbaccontract.DecisionResponse{},
+		},
+		"check_path_write": {
+			Subject:  rbaccontract.CanWritePathRPCSubject,
+			Request:  rbaccontract.CheckPathRequest{},
+			Response: rbaccontract.DecisionResponse{},
+		},
+		"check_path_exec": {
+			Subject:  rbaccontract.CanExecPathRPCSubject,
+			Request:  rbaccontract.CheckPathRequest{},
+			Response: rbaccontract.DecisionResponse{},
+		},
+		"check_sudo_exec": {
+			Subject:  rbaccontract.CanSudoExecRPCSubject,
+			Request:  rbaccontract.CheckSudoExecRequest{},
+			Response: rbaccontract.DecisionResponse{},
+		},
+		"invalidate_cache": {
+			Subject:  rbaccontract.InvalidateCacheRPCSubject,
+			Request:  rbaccontract.InvalidateCacheRequest{},
+			Response: rbaccontract.InvalidateCacheResponse{},
 		},
 	},
 }

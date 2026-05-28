@@ -184,6 +184,22 @@ deploy.normalizeSystemd() {
 	log.popTask
 }
 
+deploy.normalizeSudoers() {
+	local sudoers_dir="$target_dir/sudoers.d"
+	local sudoers_file
+
+	log.pushTask "Normalizing sudoers drop-in permissions"
+	deploy.normalizePath 0750 "$sudoers_dir" "$owner"
+
+	if [ -d "$sudoers_dir" ]; then
+		while IFS= read -r -d '' sudoers_file; do
+			deploy.normalizePath 0440 "$sudoers_file" "$owner"
+		done < <(find "$sudoers_dir" -maxdepth 1 -type f -name 'lite-nas-*' -print0)
+	fi
+
+	log.popTask
+}
+
 deploy.normalizeEtcPermissions() {
 	local target_dir="${1:-${LITE_NAS_ETC_TARGET:-/etc}}"
 	local owner="${LITE_NAS_ETC_OWNER:-root:root}"
@@ -248,4 +264,5 @@ deploy.normalizeEtcPermissions() {
 	deploy.normalizeUFW
 	deploy.normalizeNginx
 	deploy.normalizeSystemd
+	deploy.normalizeSudoers
 }

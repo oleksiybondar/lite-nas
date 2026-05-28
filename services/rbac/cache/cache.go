@@ -9,20 +9,20 @@ import (
 // Store keeps sudo decision cache entries indexed by UID and normalized command key.
 type Store struct {
 	mutex        sync.RWMutex
-	entries      map[uint32]map[string]Entry
+	entries      map[string]map[string]Entry
 	invalidateCh <-chan struct{}
 }
 
 // NewStore constructs a cache store with a channel used to trigger TTL invalidation passes.
 func NewStore(invalidateCh <-chan struct{}) *Store {
 	return &Store{
-		entries:      make(map[uint32]map[string]Entry),
+		entries:      make(map[string]map[string]Entry),
 		invalidateCh: invalidateCh,
 	}
 }
 
 // Get returns the cached entry for UID and command key when present.
-func (store *Store) Get(uid uint32, commandKey string) (Entry, bool) {
+func (store *Store) Get(uid string, commandKey string) (Entry, bool) {
 	store.mutex.RLock()
 	defer store.mutex.RUnlock()
 
@@ -40,7 +40,7 @@ func (store *Store) Get(uid uint32, commandKey string) (Entry, bool) {
 }
 
 // Set stores or replaces a cached entry for UID and command key.
-func (store *Store) Set(uid uint32, commandKey string, entry Entry) {
+func (store *Store) Set(uid string, commandKey string, entry Entry) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
@@ -54,7 +54,7 @@ func (store *Store) Set(uid uint32, commandKey string, entry Entry) {
 }
 
 // InvalidateUID removes all cached decisions for a single UID.
-func (store *Store) InvalidateUID(uid uint32) {
+func (store *Store) InvalidateUID(uid string) {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
@@ -66,7 +66,7 @@ func (store *Store) InvalidateAll() {
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 
-	store.entries = make(map[uint32]map[string]Entry)
+	store.entries = make(map[string]map[string]Entry)
 }
 
 // InvalidateExpired removes entries that are no longer valid at the provided time.
@@ -89,7 +89,7 @@ func invalidateExpiredByCommand(byCommand map[string]Entry, now time.Time) {
 	}
 }
 
-func deleteUIDIfEmpty(entries map[uint32]map[string]Entry, uid uint32, byCommand map[string]Entry) {
+func deleteUIDIfEmpty(entries map[string]map[string]Entry, uid string, byCommand map[string]Entry) {
 	if len(byCommand) != 0 {
 		return
 	}

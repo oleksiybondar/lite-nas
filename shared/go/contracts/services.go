@@ -10,6 +10,7 @@ const (
 	ServiceSystemLoggingManager   = "system-logging-manager"
 	ServiceSecurityLoggingManager = "security-logging-manager"
 	ServiceWebGateway             = "web-gateway"
+	ServiceRBAC                   = "rbac-service"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"
 	AppZFSMetricsCLI           = "zfs-metrics-cli"

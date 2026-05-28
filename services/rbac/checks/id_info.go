@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	getfaclparser "lite-nas/shared/parsers/acl/getfacl"
@@ -14,10 +13,8 @@ import (
 var evalSymlinks = filepath.EvalSymlinks
 
 // ResolveIdentityByUID resolves identity information for one UID.
-func ResolveIdentityByUID(ctx context.Context, runner Runner, uid uint32) (idparser.Identity, error) {
-	uidText := strconv.FormatUint(uint64(uid), 10)
-
-	idOutput, err := runner.Run(ctx, "id", uidText)
+func ResolveIdentityByUID(ctx context.Context, runner Runner, uid string) (idparser.Identity, error) {
+	idOutput, err := runner.Run(ctx, "id", uid)
 	if err != nil {
 		return idparser.Identity{}, fmt.Errorf("id failed: %w", err)
 	}

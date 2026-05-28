@@ -8,7 +8,7 @@ import (
 )
 
 // CanSudoExec reports whether one UID is allowed to run one command through sudo policy.
-func CanSudoExec(ctx context.Context, runner Runner, uid uint32, command string) (bool, error) {
+func CanSudoExec(ctx context.Context, runner Runner, uid string, command string) (bool, error) {
 	identity, err := ResolveIdentityByUID(ctx, runner, uid)
 	if err != nil {
 		return false, err
