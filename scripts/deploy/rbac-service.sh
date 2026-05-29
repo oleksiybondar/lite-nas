@@ -120,7 +120,7 @@ deploy.rbacService.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_RBAC_CONFIG_GROUP" "$LITE_NAS_RBAC_CONFIG_DIR"
-	install -m 0640 -o root -g "$LITE_NAS_RBAC_CONFIG_GROUP" \
+	install -m 0640 -o "$LITE_NAS_RBAC_RUNTIME_USER" -g "$LITE_NAS_RBAC_CONFIG_GROUP" \
 		"$LITE_NAS_RBAC_CONFIG_SOURCE" \
 		"$LITE_NAS_RBAC_CONFIG_TARGET"
 }

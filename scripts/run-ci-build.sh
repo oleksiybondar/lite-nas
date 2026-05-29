@@ -13,6 +13,8 @@ scripts/build-auth-service.sh
 scripts/build-rbac-service.sh
 scripts/build-system-logging-manager.sh
 scripts/build-security-logging-manager.sh
+scripts/build-system-email-notifier.sh
+scripts/build-security-email-notifier.sh
 scripts/build-system-metrics.sh
 scripts/build-system-logging-manager-cli.sh
 scripts/build-security-logging-manager-cli.sh

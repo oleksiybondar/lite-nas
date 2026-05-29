@@ -6,6 +6,8 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_USER="${LITE_NAS_SYSTEM_METRICS_CLI_USER:-lite-nas-system-metrics-cli}"
+readonly LITE_NAS_SYSTEM_METRICS_CLI_GROUP="${LITE_NAS_SYSTEM_METRICS_CLI_GROUP:-$LITE_NAS_SYSTEM_METRICS_CLI_USER}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_BINARY_TARGET:-/usr/libexec/lite-nas/system-metrics-cli}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_SYMLINK_TARGET="${LITE_NAS_SYSTEM_METRICS_CLI_SYMLINK_TARGET:-/usr/bin/system-metrics-cli}"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
@@ -30,10 +32,13 @@ deploy.systemMetricsCLI.requireTools() {
 	local tools=(
 		getent
 		groupadd
+		id
 		install
 		ln
 		chmod
 		chown
+		useradd
+		usermod
 	)
 
 	for tool in "${tools[@]}"; do
@@ -41,22 +46,38 @@ deploy.systemMetricsCLI.requireTools() {
 	done
 }
 
-deploy.systemMetricsCLI.ensureConfigGroup() {
-	if getent group "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" >/dev/null 2>&1; then
+deploy.systemMetricsCLI.ensureGroup() {
+	local group_name="$1"
+
+	if getent group "$group_name" >/dev/null 2>&1; then
 		return
 	fi
 
-	log.info "Creating system group: $LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
-	groupadd --system "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
+	log.info "Creating system group: $group_name"
+	groupadd --system "$group_name"
+}
+
+deploy.systemMetricsCLI.ensureConfigGroup() {
+	deploy.systemMetricsCLI.ensureGroup "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP"
 }
 
 deploy.systemMetricsCLI.ensureAccessGroup() {
-	if getent group "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP" >/dev/null 2>&1; then
+	deploy.systemMetricsCLI.ensureGroup "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP"
+}
+
+deploy.systemMetricsCLI.ensureUser() {
+	deploy.systemMetricsCLI.ensureGroup "$LITE_NAS_SYSTEM_METRICS_CLI_GROUP"
+	if ! id "$LITE_NAS_SYSTEM_METRICS_CLI_USER" >/dev/null 2>&1; then
+		useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin \
+			--gid "$LITE_NAS_SYSTEM_METRICS_CLI_GROUP" \
+			--groups "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP,$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP" \
+			"$LITE_NAS_SYSTEM_METRICS_CLI_USER"
 		return
 	fi
 
-	log.info "Creating system group: $LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP"
-	groupadd --system "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP"
+	usermod --gid "$LITE_NAS_SYSTEM_METRICS_CLI_GROUP" --append \
+		--groups "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP,$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP" \
+		"$LITE_NAS_SYSTEM_METRICS_CLI_USER"
 }
 
 deploy.systemMetricsCLI.installBinary() {
@@ -94,7 +115,7 @@ deploy.systemMetricsCLI.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_DIR"
-	install -m 0644 -o root -g root \
+	install -m 0640 -o "$LITE_NAS_SYSTEM_METRICS_CLI_USER" -g "$LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP" \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_SOURCE" \
 		"$LITE_NAS_SYSTEM_METRICS_CLI_CONFIG_TARGET"
 }
@@ -114,6 +135,7 @@ deploy.systemMetricsCLI.deploy() {
 
 	deploy.systemMetricsCLI.ensureConfigGroup
 	deploy.systemMetricsCLI.ensureAccessGroup
+	deploy.systemMetricsCLI.ensureUser
 	deploy.systemMetricsCLI.installBinary "$source_binary"
 	deploy.systemMetricsCLI.installBinarySymlink
 	deploy.systemMetricsCLI.installConfig

@@ -95,5 +95,9 @@ deploy.entrypoint.run() {
 	fi
 	log.popTask
 
+	log.pushTask "Normalizing deployed LiteNAS permissions"
+	deploy.normalizeEtcPermissions /etc
+	log.popTask
+
 	log.info "$completion_message"
 }

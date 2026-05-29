@@ -1,0 +1,40 @@
+#include <tunables/global>
+
+profile /usr/lib/postfix/sbin/* flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+  #include <abstractions/postfix-common>
+
+  capability chown,
+  capability dac_override,
+  capability fowner,
+  capability kill,
+  capability net_bind_service,
+  capability setgid,
+  capability setuid,
+  capability sys_resource,
+
+  network inet stream,
+  network inet6 stream,
+  network unix stream,
+  network unix dgram,
+
+  /usr/lib/postfix/sbin/** mr,
+  /usr/sbin/** rix,
+  /etc/postfix/** r,
+  /etc/aliases r,
+  /etc/aliases.db r,
+  /etc/hosts r,
+  /etc/host.conf r,
+  /etc/hostname r,
+  /etc/mailname r,
+  /etc/nsswitch.conf r,
+  /etc/resolv.conf r,
+  /etc/services r,
+  /etc/ssl/** r,
+  /run/** rw,
+  /var/lib/postfix/** rwk,
+  /var/log/** rw,
+  /var/spool/postfix/** rwk,
+}

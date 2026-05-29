@@ -13,6 +13,10 @@ source "$ENTRYPOINT_DIR/deploy/system-logging-manager.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-logging-manager.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/system-email-notifier.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/security-email-notifier.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/zfs-metrics.sh"
@@ -33,6 +37,8 @@ auth_service_binary=""
 rbac_service_binary=""
 system_logging_manager_binary=""
 security_logging_manager_binary=""
+system_email_notifier_binary=""
+security_email_notifier_binary=""
 system_metrics_binary=""
 zfs_metrics_binary=""
 system_logging_manager_cli_binary=""
@@ -56,6 +62,10 @@ Options:
                                   Install an existing system-logging-manager binary.
   --security-logging-manager-binary PATH
                                   Install an existing security-logging-manager binary.
+  --system-email-notifier-binary PATH
+                                  Install an existing system-email-notifier binary.
+  --security-email-notifier-binary PATH
+                                  Install an existing security-email-notifier binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
   --zfs-metrics-binary PATH       Install an existing zfs-metrics binary.
   --system-logging-manager-cli-binary PATH
@@ -128,6 +138,24 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		security_logging_manager_binary="$2"
+		shift 2
+		;;
+	--system-email-notifier-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --system-email-notifier-binary"
+			deploy.all.usage >&2
+			exit 2
+		fi
+		system_email_notifier_binary="$2"
+		shift 2
+		;;
+	--security-email-notifier-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --security-email-notifier-binary"
+			deploy.all.usage >&2
+			exit 2
+		fi
+		security_email_notifier_binary="$2"
 		shift 2
 		;;
 	--system-logging-manager-cli-binary)
@@ -214,6 +242,8 @@ deploy.authService.requireTools
 deploy.rbacService.requireTools
 deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
+deploy.systemEmailNotifier.requireTools
+deploy.securityEmailNotifier.requireTools
 deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
@@ -249,6 +279,18 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		build_args=("--output=$tmp_dir/security-logging-manager")
 		"$ENTRYPOINT_DIR/build-security-logging-manager-binary.sh" "${build_args[@]}"
 		security_logging_manager_binary="$tmp_dir/security-logging-manager"
+	fi
+
+	if [ -z "$system_email_notifier_binary" ]; then
+		build_args=("--output=$tmp_dir/system-email-notifier")
+		"$ENTRYPOINT_DIR/build-system-email-notifier-binary.sh" "${build_args[@]}"
+		system_email_notifier_binary="$tmp_dir/system-email-notifier"
+	fi
+
+	if [ -z "$security_email_notifier_binary" ]; then
+		build_args=("--output=$tmp_dir/security-email-notifier")
+		"$ENTRYPOINT_DIR/build-security-email-notifier-binary.sh" "${build_args[@]}"
+		security_email_notifier_binary="$tmp_dir/security-email-notifier"
 	fi
 
 	if [ -z "$system_metrics_binary" ]; then
@@ -324,6 +366,14 @@ log.pushTask "Deploying security-logging-manager service"
 deploy.securityLoggingManager.deploy "$security_logging_manager_binary" "$should_start"
 log.popTask
 
+log.pushTask "Deploying system-email-notifier service"
+deploy.systemEmailNotifier.deploy "$system_email_notifier_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying security-email-notifier service"
+deploy.securityEmailNotifier.deploy "$security_email_notifier_binary" "$should_start"
+log.popTask
+
 log.pushTask "Deploying system-metrics service"
 deploy.systemMetrics.deploy "$system_metrics_binary" "$should_start"
 log.popTask
@@ -354,6 +404,10 @@ log.popTask
 
 log.pushTask "Deploying resources-monitor service"
 deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Normalizing deployed LiteNAS permissions"
+deploy.normalizeEtcPermissions /etc
 log.popTask
 
 log.info "LiteNAS local deployment completed."

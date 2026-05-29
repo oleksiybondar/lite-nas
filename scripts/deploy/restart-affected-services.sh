@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 affected_services=(
+	apparmor
 	nats-server
+	postfix
 	nginx
 )
 systemd_reloaded=0

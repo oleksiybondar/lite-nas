@@ -15,6 +15,8 @@ auth_service_binary_path=""
 rbac_service_binary_path=""
 system_logging_manager_binary_path=""
 security_logging_manager_binary_path=""
+system_email_notifier_binary_path=""
+security_email_notifier_binary_path=""
 system_metrics_binary_path=""
 system_logging_manager_cli_binary_path=""
 security_logging_manager_cli_binary_path=""
@@ -38,6 +40,10 @@ Options:
                                      Use an existing system-logging-manager binary.
   --security-logging-manager-binary=PATH
                                      Use an existing security-logging-manager binary.
+  --system-email-notifier-binary=PATH
+                                     Use an existing system-email-notifier binary.
+  --security-email-notifier-binary=PATH
+                                     Use an existing security-email-notifier binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --system-logging-manager-cli-binary=PATH
                                      Use an existing system-logging-manager-cli binary.
@@ -53,8 +59,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary system-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -84,6 +90,16 @@ if args.has system-logging-manager-binary && ! system_logging_manager_binary_pat
 fi
 if args.has security-logging-manager-binary && ! security_logging_manager_binary_path="$(args.require_arg security-logging-manager-binary)"; then
 	log.error "Missing value for --security-logging-manager-binary"
+	usage >&2
+	exit 64
+fi
+if args.has system-email-notifier-binary && ! system_email_notifier_binary_path="$(args.require_arg system-email-notifier-binary)"; then
+	log.error "Missing value for --system-email-notifier-binary"
+	usage >&2
+	exit 64
+fi
+if args.has security-email-notifier-binary && ! security_email_notifier_binary_path="$(args.require_arg security-email-notifier-binary)"; then
+	log.error "Missing value for --security-email-notifier-binary"
 	usage >&2
 	exit 64
 fi
@@ -154,6 +170,18 @@ if [ -z "$security_logging_manager_binary_path" ]; then
 		"--output=${security_logging_manager_binary_path}"
 fi
 
+if [ -z "$system_email_notifier_binary_path" ]; then
+	system_email_notifier_binary_path="$output_dir/${package_name}-${package_arch}/system-email-notifier"
+	"$LITE_NAS_REPO_ROOT/scripts/build-system-email-notifier-binary.sh" \
+		"--output=${system_email_notifier_binary_path}"
+fi
+
+if [ -z "$security_email_notifier_binary_path" ]; then
+	security_email_notifier_binary_path="$output_dir/${package_name}-${package_arch}/security-email-notifier"
+	"$LITE_NAS_REPO_ROOT/scripts/build-security-email-notifier-binary.sh" \
+		"--output=${security_email_notifier_binary_path}"
+fi
+
 if [ -z "$system_metrics_binary_path" ]; then
 	system_metrics_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
@@ -212,6 +240,16 @@ fi
 
 if [ ! -f "$security_logging_manager_binary_path" ]; then
 	log.error "Missing security-logging-manager binary: $security_logging_manager_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$system_email_notifier_binary_path" ]; then
+	log.error "Missing system-email-notifier binary: $system_email_notifier_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$security_email_notifier_binary_path" ]; then
+	log.error "Missing security-email-notifier binary: $security_email_notifier_binary_path"
 	exit 1
 fi
 
@@ -288,6 +326,10 @@ install -D -m 0755 "$system_logging_manager_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager"
 install -D -m 0755 "$security_logging_manager_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager"
+install -D -m 0755 "$system_email_notifier_binary_path" \
+	"$package_root/usr/libexec/lite-nas/system-email-notifier"
+install -D -m 0755 "$security_email_notifier_binary_path" \
+	"$package_root/usr/libexec/lite-nas/security-email-notifier"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$system_logging_manager_cli_binary_path" \
@@ -325,6 +367,8 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/rbac-service" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager" \
+	"$package_root/usr/libexec/lite-nas/system-email-notifier" \
+	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \

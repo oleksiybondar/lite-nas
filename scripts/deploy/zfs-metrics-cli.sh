@@ -7,6 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 readonly LITE_NAS_ZFS_METRICS_CLI_USER="${LITE_NAS_ZFS_METRICS_CLI_USER:-lite-nas-zfs-metrics-cli}"
 readonly LITE_NAS_ZFS_METRICS_CLI_GROUP="${LITE_NAS_ZFS_METRICS_CLI_GROUP:-$LITE_NAS_ZFS_METRICS_CLI_USER}"
 readonly LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
+readonly LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP="${LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP:-users}"
 readonly LITE_NAS_ZFS_METRICS_CLI_BINARY_TARGET="${LITE_NAS_ZFS_METRICS_CLI_BINARY_TARGET:-/usr/libexec/lite-nas/zfs-metrics-cli}"
 readonly LITE_NAS_ZFS_METRICS_CLI_SYMLINK_TARGET="${LITE_NAS_ZFS_METRICS_CLI_SYMLINK_TARGET:-/usr/bin/zfs-metrics-cli}"
 readonly LITE_NAS_ZFS_METRICS_CLI_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
@@ -35,14 +36,17 @@ deploy.zfsMetricsCLI.ensureGroup() {
 deploy.zfsMetricsCLI.ensureUser() {
 	deploy.zfsMetricsCLI.ensureGroup "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP"
 	deploy.zfsMetricsCLI.ensureGroup "$LITE_NAS_ZFS_METRICS_CLI_GROUP"
+	deploy.zfsMetricsCLI.ensureGroup "$LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP"
 	if ! id "$LITE_NAS_ZFS_METRICS_CLI_USER" >/dev/null 2>&1; then
 		useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin \
 			--gid "$LITE_NAS_ZFS_METRICS_CLI_GROUP" \
-			--groups "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP" \
+			--groups "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP,$LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP" \
 			"$LITE_NAS_ZFS_METRICS_CLI_USER"
 		return
 	fi
-	usermod --gid "$LITE_NAS_ZFS_METRICS_CLI_GROUP" --append --groups "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_ZFS_METRICS_CLI_USER"
+	usermod --gid "$LITE_NAS_ZFS_METRICS_CLI_GROUP" --append \
+		--groups "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP,$LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP" \
+		"$LITE_NAS_ZFS_METRICS_CLI_USER"
 }
 
 deploy.zfsMetricsCLI.ensureMessagingCertificates() {
@@ -81,7 +85,8 @@ deploy.zfsMetricsCLI.installConfig() {
 		exit 1
 	fi
 	install -d -m 0711 -o root -g "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_GROUP" "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_DIR"
-	install -m 0644 -o root -g root "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_SOURCE" "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_TARGET"
+	install -m 0640 -o "$LITE_NAS_ZFS_METRICS_CLI_USER" -g "$LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP" \
+		"$LITE_NAS_ZFS_METRICS_CLI_CONFIG_SOURCE" "$LITE_NAS_ZFS_METRICS_CLI_CONFIG_TARGET"
 }
 
 deploy.zfsMetricsCLI.installLogTarget() {

@@ -6,6 +6,10 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/ufw.sh"
 # shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/apparmor.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/postfix.sh"
+# shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/normalize-etc-permissions.sh"
 
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
@@ -70,6 +74,8 @@ deploy.liteNAS.bootstrap() {
 	deploy.liteNAS.ensureCommonGroup
 	deploy.liteNAS.ensureRoleGroups
 	deploy.liteNAS.ensureLogDir
+	deploy.apparmor.requireTools
+	deploy.postfix.requireTools
 
 	if [ "$manage_nats_config" = "1" ]; then
 		"$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" --no-restart
@@ -77,8 +83,11 @@ deploy.liteNAS.bootstrap() {
 		systemctl restart nats-server.service
 	else
 		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
-		deploy.normalizeEtcPermissions /etc
 	fi
+
+	deploy.apparmor.deploy 1
+	deploy.postfix.deploy 1
+	deploy.normalizeEtcPermissions /etc
 
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.sh" --if-missing

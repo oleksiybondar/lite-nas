@@ -7,6 +7,8 @@ const (
 	ServiceSystemMetrics          = "system-metrics"
 	ServiceZFSMetrics             = "zfs-metrics"
 	ServiceResourcesMonitor       = "resources-monitor"
+	ServiceSystemEmailNotifier    = "system-email-notifier"
+	ServiceSecurityEmailNotifier  = "security-email-notifier"
 	ServiceSystemLoggingManager   = "system-logging-manager"
 	ServiceSecurityLoggingManager = "security-logging-manager"
 	ServiceWebGateway             = "web-gateway"
