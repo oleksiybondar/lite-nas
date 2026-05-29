@@ -3,11 +3,13 @@
 LiteNAS is a lightweight, security-oriented self-hosted platform for Linux that is being built as a
 set of small services, apps, and shared modules.
 
-The repository already contains the initial platform skeleton:
+The repository already contains an implemented platform slice:
 
 - shared Go modules for logging, configuration, messaging, and metrics support
-- backend service slices for system metrics and authentication
-- a system metrics CLI app and browser-facing admin panel
+- backend services for system metrics, ZFS metrics, auth, RBAC, stateful
+  alert management, and resource monitoring
+- CLI apps for system metrics, ZFS metrics, and logging-manager operations
+- a browser-facing admin panel and gateway
 - NATS-based internal communication between services and consumers
 - a web gateway that serves packaged frontend assets and adapts browser API
   calls to internal services
@@ -158,12 +160,23 @@ Current implemented focus:
 - **Shared runtime and messaging foundations**
   Reusable internal modules for logging, configuration, messaging, and metrics support.
 
-- **Monitoring seed slice**
-  An initial service/app slice used to establish service wiring, messaging flow, and packaging.
+- **Monitoring and alerting slice**
+  System metrics, ZFS metrics, resource-monitor rule evaluation, and
+  logging-manager state tracking now provide an implemented monitoring path.
 
 - **Authentication authority**
   `auth-service` owns PAM-backed host authentication, token issuance, and
   auth-state events behind the internal messaging boundary.
+
+- **Internal authorization and service authentication**
+  `rbac-service` resolves host-backed role and capability decisions, while
+  service-to-service token flows allow internal services to authenticate over
+  the messaging boundary.
+
+- **Stateful alert management**
+  `system-logging-manager` and `security-logging-manager` consume alert
+  lifecycle updates, persist current state and occurrences, and provide a
+  CLI-friendly state-based alert surface.
 
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
@@ -188,7 +201,8 @@ Planned expansion areas:
   use of resources.
 
 - **Monitoring and resource supervision**
-  Continuous insight into system state, including CPU, memory, storage, and service-level metrics.
+  Broader monitoring domains, richer alert sources, and deeper operator-facing
+  supervision beyond the current system and ZFS resource slice.
 
 - **Configuration validation**
   Policy-based validation of system configuration, allowing detection of misconfigurations and drift
@@ -594,6 +608,16 @@ Useful starting points:
 
 - [`requirements/auth-service.md`](requirements/auth-service.md)
   Requirements for the PAM-backed authentication authority.
+
+- [`requirements/rbac-service.md`](requirements/rbac-service.md)
+  Requirements for the internal authorization decision service.
+
+- [`requirements/resources-monitor.md`](requirements/resources-monitor.md)
+  Requirements for the rule-based alert source that consumes system and ZFS
+  metric events.
+
+- [`requirements/logging-managers.md`](requirements/logging-managers.md)
+  Requirements shared by the system and security logging-manager services.
 
 - [`services/web-gateway/README.md`](services/web-gateway/README.md)
   Architectural role and boundaries of the browser-facing gateway.

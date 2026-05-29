@@ -268,6 +268,28 @@ contract and data ownership.
 
 ---
 
+### SR-002 Validate authenticated caller context before applying state changes
+
+#### SR-002 Description
+
+Logging-manager messaging handlers MUST validate caller authentication at the
+service boundary and enforce subject-level role policy before accepting alert
+state mutations or alert-ingestion writes.
+
+#### SR-002 Acceptance Criteria
+
+- Subscription and RPC handlers validate access-token presence and structure
+  before business handling
+- Access tokens are verified against the configured LiteNAS token-verification
+  settings before manager logic executes
+- Subject-level role policy can differ between system and security managers
+- Unauthorized or insufficient-role callers cannot create alerts, add
+  occurrences, or apply lifecycle-state changes
+- Read/query contracts may use different role policy than mutation contracts as
+  defined by the manager-specific subject configuration
+
+---
+
 ## Testability Requirements
 
 ### TR-001 Keep core loggingmanager behavior verifiable with automated tests

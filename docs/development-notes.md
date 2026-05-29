@@ -74,6 +74,75 @@ continued build and deployment bootstrapping.
   enough of the skeleton that future branches can focus on actual NAS product
   development rather than platform bootstrapping.
 
+## Why the alerting slice is still CLI-first
+
+The current alerting work is intentionally centered on operational coverage
+first, not on a browser UI first.
+
+That branch added:
+
+- `zfs-metrics` as a second metrics producer beside `system-metrics`
+- `resources-monitor` as a rule-based alert source consuming system and ZFS
+  metric events
+- service-to-service authentication for internal callers
+- `rbac-service` role and capability lookup used by auth and target services
+- auth-token and role enforcement in logging-manager message handling
+
+This gives LiteNAS an end-to-end alerting path that is already useful in a
+home-lab deployment even without a richer UI layer:
+
+- metric-producing services publish snapshots
+- `resources-monitor` evaluates rules and emits alert lifecycle updates
+- logging managers consume those updates and keep a user-friendlier state-based
+  view of active alerts
+- raw stateless events still remain available in log files as a separate source
+  of operational detail
+
+For the current use case, CLI operation is sufficient. The important milestone
+is that resource and condition-change alerting now works through the real
+service boundaries that later UI and notification consumers can reuse.
+
+## Logging Manager Channel Split
+
+The split between `system-logging-manager` and `security-logging-manager` is
+intentional in the same way separate storage or service slices are intentional.
+
+At this stage, the system side has meaningful monitoring producers and alert
+sources. The security side does not yet have dedicated security-monitoring
+slices feeding equivalent alerts.
+
+That is acceptable for the current version line because the important platform
+work is already in place:
+
+- separate manager contracts and storage domains
+- distinct CLI surfaces
+- service authentication and role checks at manager boundaries
+- package/runtime wiring for both domains
+
+This keeps the architecture ready for future security-monitoring producers
+without forcing fake divergence before the behavior exists.
+
+## Why simple system tests still carry more value now
+
+The top-level system tests remain intentionally focused on simple, observable
+verification points.
+
+That simplicity no longer means the checks are shallow.
+
+For example, a logging-manager CLI mutation test now exercises a longer
+integration chain:
+
+- CLI/runtime credential and local permission access
+- service-to-service authentication
+- RBAC-backed role retrieval in auth flows
+- access-token validation in the logging manager
+- manager-side role authorization before accepting a state change
+
+So the tests still read as operationally small checks, but they now validate
+more of the real system integration stack as a side effect. That is a useful
+tradeoff for the current stage: one clear verification point can still prove a
+meaningful amount of runtime wiring.
+
 ## Boundary Validation Direction
 
 LiteNAS treats validation as a boundary concern. User-facing and

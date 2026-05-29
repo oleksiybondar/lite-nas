@@ -5,6 +5,54 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.2.0 - Authenticated monitoring and alerting
+
+### RL-0.2.0 Summary
+
+- Extends the platform skeleton into a fuller monitoring and alerting slice
+  with RBAC-backed roles, authenticated internal service calls, stateful alert
+  consumption, and end-to-end resource alert generation from system and ZFS
+  metrics.
+
+### RL-0.2.0 Added
+
+- Added `rbac-service` as the internal authorization decision point for role
+  lookup and capability checks.
+- Added service-to-service token login and refresh flows in `auth-service`.
+- Added `zfs-metrics` as a ZFS snapshot producer with event and RPC contracts.
+- Added `resources-monitor` as a rule-based alert source for system and ZFS
+  metric events.
+- Added `system-logging-manager`, `security-logging-manager`, and their CLI
+  surfaces to the packaged runtime path.
+
+### RL-0.2.0 Changed
+
+- Changed logging-manager runtime boundaries to validate access tokens and
+  enforce subject-level role policy before applying writes or state changes.
+- Changed auth token issuance to resolve role context through `rbac-service`
+  for both user and service principals.
+- Changed the effective monitoring path from isolated metrics reporting into a
+  complete alert lifecycle flow ending in stateful logging-manager consumers.
+- Clarified the split between system and security logging-manager domains as an
+  intentional architecture boundary rather than an accidental duplication.
+
+### RL-0.2.0 Platform
+
+- Expanded package build and runtime deployment to include the new RBAC,
+  logging-manager, and resources-monitor components.
+- Expanded managed transport-certificate coverage and deploy flows for the new
+  service and CLI identities.
+- Increased the value of existing system-level CLI checks because the same
+  simple assertions now transit deeper integration paths across permissions,
+  service authentication, RBAC, and manager authorization.
+
+### RL-0.2.0 Notes
+
+- The current operational priority is CLI-first resource monitoring and
+  condition-change alerting for a home-lab deployment.
+- Security-monitoring producers and richer UI alert consumers remain follow-up
+  work on top of the current infrastructure.
+
 ## 0.1.1 - Platform web skeleton
 
 ### RL-0.1.1 Summary

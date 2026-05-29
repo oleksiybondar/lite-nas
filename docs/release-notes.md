@@ -1,5 +1,63 @@
 # Release Notes
 
+## 0.2.0 - 2026-05-29
+
+### RL-0.2.0 Summary
+
+- Extended the platform skeleton into an authenticated monitoring and alerting
+  slice with RBAC-backed service roles, stateful logging-manager enforcement,
+  and rule-based alert generation from system and ZFS metrics. The release
+  stays operationally CLI-first, but it now exercises a much more complete
+  internal runtime path.
+
+### RL-0.2.0 Added
+
+- Added `rbac-service` as the internal authorization decision service for host
+  role/group resolution and capability checks.
+- Added service-to-service token login and refresh flows so internal LiteNAS
+  services can authenticate across the NATS boundary.
+- Added `zfs-metrics` as a ZFS snapshot producer with ZFS event/RPC contracts.
+- Added `resources-monitor` as a rule-based alert source consuming system and
+  ZFS metrics events and publishing alert lifecycle updates.
+- Added packaged and deployable system/security logging-manager CLI binaries and
+  the shared manager runtime wiring they exercise.
+
+### RL-0.2.0 Changed
+
+- Changed logging managers from unauthenticated internal message consumers to
+  authenticated boundaries that validate access tokens and enforce role policy
+  before applying writes or state mutations.
+- Changed auth-service token issuance so issued user and service access tokens
+  resolve role context through `rbac-service`.
+- Clarified the system/security logging-manager split as intentional
+  architecture, even though only the system side currently has richer alert
+  sources behind it.
+- Changed the monitoring path from a simple metrics seed slice into an
+  end-to-end alert flow: metrics producers -> resources-monitor ->
+  logging-manager state -> CLI consumers.
+
+### RL-0.2.0 Platform
+
+- Expanded the packaged LiteNAS runtime to include `rbac-service`,
+  `system-logging-manager`, `security-logging-manager`,
+  `system-logging-manager-cli`, `security-logging-manager-cli`, and
+  `resources-monitor` beside the previously packaged auth, metrics, and web
+  components.
+- Extended repository build/deploy flows and managed NATS certificate coverage
+  for the new service and CLI identities participating in authenticated
+  messaging.
+- Increased the integration value of existing system tests because simple CLI
+  checks now also transit permission boundaries, service authentication, RBAC
+  role retrieval, and manager-side authorization logic.
+
+### RL-0.2.0 Notes
+
+- The current monitoring focus is resource and condition-change alerting for a
+  CLI-oriented home-lab workflow.
+- Security and UI-facing alert consumers are intentionally prepared but not yet
+  expanded into full security-monitoring or browser-native alert-management
+  products.
+
 ## 0.1.1 - 2026-05-06
 
 ### RL-0.1.1 Summary

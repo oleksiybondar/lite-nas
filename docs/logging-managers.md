@@ -10,18 +10,31 @@ LiteNAS will include two logging-manager services:
 Both services use the same shared logging/loggingmanager core, but they serve
 different operational domains and own separate data flows.
 
-The security manager is responsible for security-oriented alert and metric
-tracking. The system manager is responsible for system health alerts and
-performance metric tracking.
+In the current implementation, logging managers are primarily alert consumers
+that keep a more user-friendly, state-based view of alert data.
+
+Dedicated monitoring services act as alert sources. Today, that means
+`resources-monitor` consumes metrics events and emits alert lifecycle updates.
+Traditional stateless operational events still exist in log files as a
+separate source of detail.
+
+The system manager already has meaningful monitoring producers behind it. The
+security manager keeps the same contract and storage split intentionally, even
+though there are not yet dedicated security-monitoring producers feeding it at
+the same depth.
 
 ## Shared Core and Service Separation
 
 The two managers are intentionally separated at the service level even when they
 reuse the same internal implementation patterns.
 
-At minimum, they differ by subscribed NATS subjects and the source streams they
-consume. Their external NATS contracts may evolve independently, but service
-isolation is a baseline design constraint.
+At minimum, they differ by subscribed NATS subjects, authorization policy, and
+the source streams they consume. Their external NATS contracts may evolve
+independently, but service isolation is a baseline design constraint.
+
+Both managers now validate access tokens at the messaging boundary before
+business handlers run. Role enforcement is then applied per subject so state
+changes are accepted only from appropriately authorized callers.
 
 ## Platform and Runtime Constraints
 
@@ -58,6 +71,9 @@ This decomposition is primarily an operational write-behavior decision, not a
 database-normalization goal.
 
 ## Boundaries of This Document
+
+Future UI layers may consume the same stateful alert data, but the current
+branch keeps the manager role operational and CLI-oriented first.
 
 This document captures architecture context and design rationale.
 

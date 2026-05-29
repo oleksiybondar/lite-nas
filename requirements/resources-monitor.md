@@ -51,12 +51,13 @@ invalid rule entries before they are used for runtime evaluation.
 
 #### FR-002 Description
 
-The service MUST subscribe to the system metrics snapshot event stream and
+The service MUST subscribe to supported metrics snapshot event streams and
 evaluate matching rules for each received snapshot.
 
 #### FR-002 Input
 
-- Messaging events on `system.metrics.events.stats`
+- Messaging events on supported metric subjects such as
+  `system.metrics.events.stats` and `zfs.metrics.events.snapshot`
 - Validated rule set from FR-001
 
 #### FR-002 Output
@@ -65,7 +66,8 @@ evaluate matching rules for each received snapshot.
 
 #### FR-002 Acceptance Criteria
 
-- The service subscribes to `system.metrics.events.stats`
+- The service subscribes to the supported snapshot subjects configured by the
+  current implementation
 - For each incoming snapshot, the service evaluates all rules where
   `rule.event` matches the incoming event identity
 - Rule evaluation reads monitored values from nested paths under `data`, where
@@ -166,12 +168,13 @@ CLI/event DTO expectations.
 
 #### IR-001 Description
 
-The service MUST consume snapshot events from the shared system metrics contract
-subject.
+The service MUST consume snapshot events from the supported shared metrics
+contract subjects.
 
 #### IR-001 Input
 
-- NATS events on `system.metrics.events.stats`
+- NATS events on supported snapshot subjects such as
+  `system.metrics.events.stats` and `zfs.metrics.events.snapshot`
 
 #### IR-001 Output
 
@@ -179,7 +182,8 @@ subject.
 
 #### IR-001 Acceptance Criteria
 
-- Subject name matches the system metrics contract constant for snapshot events
+- Subject names match the repository metrics contract constants for the
+  supported snapshot-event domains
 - Invalid payloads are rejected with structured logs and do not terminate the
   service loop
 
@@ -294,7 +298,8 @@ configuration.
 
 #### OR-002 Acceptance Criteria
 
-- Current behavior supports `system.metrics.events.stats`
+- Current behavior supports both `system.metrics.events.stats` and
+  `zfs.metrics.events.snapshot`
 - Rule schema includes explicit event matching (`event`) and event ID prefix
   (`event_prefix`)
 - Interface contracts permit additional subscription subjects in future without
@@ -345,7 +350,7 @@ MUST be testable with deterministic inputs and controlled dependencies.
 ## Notes
 
 - This requirement set defines the `resources-monitor` service behavior for the
-  initial system metrics scope
+  current system-metrics and ZFS-metrics monitoring scope
 - The exact logging-manager transport mechanics (subject publish vs RPC for
   create/occurrence/state update) are implementation-level integration details
   and must map to existing repository contracts
