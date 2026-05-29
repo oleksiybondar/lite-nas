@@ -8,10 +8,10 @@ profile /usr/libexec/lite-nas/security-logging-manager flags=(attach_disconnecte
 
   /usr/libexec/lite-nas/security-logging-manager mr,
   /etc/lite-nas/security-logging-manager.conf r,
+  /etc/lite-nas/certificates/auth/token-signing.crt r,
   /var/log/lite-nas/security-logging-manager.log rw,
   /var/lib/lite-nas/security-logging-manager/ rw,
   /var/lib/lite-nas/security-logging-manager/** rwk,
 
   include if exists <local/usr.libexec.lite-nas.security-logging-manager>
 }
-

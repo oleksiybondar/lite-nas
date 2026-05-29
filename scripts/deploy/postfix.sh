@@ -36,7 +36,7 @@ deploy.postfix.installConfig() {
 }
 
 deploy.postfix.validateConfig() {
-	postfix check
+	postconf -n >/dev/null
 	postconf inet_interfaces >/dev/null
 }
 

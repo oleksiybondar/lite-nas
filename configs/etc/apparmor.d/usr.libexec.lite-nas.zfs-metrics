@@ -8,6 +8,7 @@ profile /usr/libexec/lite-nas/zfs-metrics flags=(attach_disconnected,mediate_del
 
   /usr/libexec/lite-nas/zfs-metrics mr,
   /etc/lite-nas/zfs-metrics.conf r,
+  /etc/hostid r,
   /var/log/lite-nas/zfs-metrics.log rw,
 
   /sbin/zpool ix,
@@ -24,4 +25,3 @@ profile /usr/libexec/lite-nas/zfs-metrics flags=(attach_disconnected,mediate_del
 
   include if exists <local/usr.libexec.lite-nas.zfs-metrics>
 }
-

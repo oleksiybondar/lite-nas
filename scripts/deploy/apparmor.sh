@@ -36,7 +36,6 @@ deploy.apparmor.validateConfig() {
 	local parser_cache_dir
 
 	parser_cache_dir="$(mktemp -d)"
-	trap 'rm -rf "$parser_cache_dir"' RETURN
 
 	while IFS= read -r -d '' profile_path; do
 		apparmor_parser -Q -W -L "$parser_cache_dir" \
@@ -44,6 +43,8 @@ deploy.apparmor.validateConfig() {
 			-I /etc/apparmor.d \
 			"$profile_path"
 	done < <(deploy.apparmor.eachManagedProfile)
+
+	rm -rf "$parser_cache_dir"
 }
 
 deploy.apparmor.reloadConfig() {
