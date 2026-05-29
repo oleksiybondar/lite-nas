@@ -77,6 +77,51 @@ func (c runtimeClientStub) Request(_ context.Context, _ string, _ any, response 
 func (c runtimeClientStub) Drain() error { return nil }
 func (c runtimeClientStub) Close()       {}
 
+func assertIssuedServiceAccessToken(
+	t *testing.T,
+	runtimeDeps authRuntime,
+	accessToken string,
+	wantSubject string,
+	wantRoles []string,
+) {
+	t.Helper()
+
+	if accessToken == "" {
+		t.Fatal("AccessToken is empty, want issued token")
+	}
+
+	claims := mustVerifyAccessToken(t, runtimeDeps, accessToken)
+	if claims.Subject != wantSubject {
+		t.Fatalf("claims subject = %q, want %q", claims.Subject, wantSubject)
+	}
+	assertClaimRoles(t, claims.Roles, wantRoles)
+}
+
+func mustVerifyAccessToken(t *testing.T, runtimeDeps authRuntime, accessToken string) authtoken.AccessClaims {
+	t.Helper()
+
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(accessToken)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+
+	return claims
+}
+
+func assertClaimRoles(t *testing.T, got []string, want []string) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("len(claims roles) = %d, want %d; got=%#v", len(got), len(want), got)
+	}
+
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("claims roles[%d] = %q, want %q; got=%#v", index, got[index], want[index], got)
+		}
+	}
+}
+
 func TestHandleLoginRPCIssuesTokens(t *testing.T) {
 	t.Parallel()
 
@@ -219,20 +264,14 @@ func TestHandleServiceTokenLoginRPCUsesRBACRolesForServiceIdentity(t *testing.T)
 	if err != nil {
 		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
 	}
-	if response.AccessToken == "" {
-		t.Fatal("AccessToken is empty, want issued token")
-	}
 
-	claims, verifyErr := runtimeDeps.Tokens.Verifier.Verify(response.AccessToken)
-	if verifyErr != nil {
-		t.Fatalf("Verify() error = %v", verifyErr)
-	}
-	if claims.Subject != "lite-nas-sec-log-mgr-cli" {
-		t.Fatalf("claims subject = %q, want lite-nas-sec-log-mgr-cli", claims.Subject)
-	}
-	if len(claims.Roles) != 1 || claims.Roles[0] != "lite-nas-security" {
-		t.Fatalf("claims roles = %#v, want [lite-nas-security]", claims.Roles)
-	}
+	assertIssuedServiceAccessToken(
+		t,
+		runtimeDeps,
+		response.AccessToken,
+		"lite-nas-sec-log-mgr-cli",
+		[]string{"lite-nas-security"},
+	)
 }
 
 func TestHandleServiceTokenRefreshRPCRotatesServiceTokenPair(t *testing.T) {

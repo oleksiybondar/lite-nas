@@ -29,6 +29,107 @@ func TestExtractValueByPathReturnsNestedValue(t *testing.T) {
 	}
 }
 
+func TestExtractValuesByPathExpandsArrayTraversal(t *testing.T) {
+	t.Parallel()
+
+	values := mustExtractValuesByPath(t, buildPoolHealthPayload(), "snapshot.Pools[].Health")
+	assertExtractedValueCount(t, values, 2)
+	assertExtractedValue(t, values[0], "snapshot.Pools[0].Health", []int{0}, "ONLINE")
+	assertExtractedValue(t, values[1], "snapshot.Pools[1].Health", []int{1}, "DEGRADED")
+}
+
+func TestExtractValuesByPathExpandsNestedArrayTraversal(t *testing.T) {
+	t.Parallel()
+
+	values := mustExtractValuesByPath(t, buildNestedArrayPayload(), "a.b[].c[].x")
+	assertExtractedValueCount(t, values, 3)
+	assertExtractedValue(t, values[2], "a.b[1].c[0].x", []int{1, 0}, 20)
+}
+
+func buildPoolHealthPayload() map[string]any {
+	return map[string]any{
+		"snapshot": map[string]any{
+			"Pools": []any{
+				map[string]any{"Health": "ONLINE"},
+				map[string]any{"Health": "DEGRADED"},
+			},
+		},
+	}
+}
+
+func buildNestedArrayPayload() map[string]any {
+	return map[string]any{
+		"a": map[string]any{
+			"b": []any{
+				map[string]any{
+					"c": []any{
+						map[string]any{"x": 10},
+						map[string]any{"x": 11},
+					},
+				},
+				map[string]any{
+					"c": []any{
+						map[string]any{"x": 20},
+					},
+				},
+			},
+		},
+	}
+}
+
+func mustExtractValuesByPath(t *testing.T, payload map[string]any, fieldPath string) []ruleevaluator.ExtractedValue {
+	t.Helper()
+
+	values, found := ruleevaluator.ExtractValuesByPath(payload, fieldPath)
+	if !found {
+		t.Fatal("found = false, want true")
+	}
+
+	return values
+}
+
+func assertExtractedValueCount(t *testing.T, values []ruleevaluator.ExtractedValue, want int) {
+	t.Helper()
+
+	if len(values) != want {
+		t.Fatalf("len(values) = %d, want %d", len(values), want)
+	}
+}
+
+func assertExtractedValue(
+	t *testing.T,
+	value ruleevaluator.ExtractedValue,
+	wantFieldPath string,
+	wantIndexes []int,
+	wantValue any,
+) {
+	t.Helper()
+
+	if value.FieldPath != wantFieldPath {
+		t.Fatalf("value.FieldPath = %q, want %q", value.FieldPath, wantFieldPath)
+	}
+
+	if value.Value != wantValue {
+		t.Fatalf("value.Value = %v, want %v", value.Value, wantValue)
+	}
+
+	assertIndexes(t, value.Indexes, wantIndexes)
+}
+
+func assertIndexes(t *testing.T, got []int, want []int) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("len(indexes) = %d, want %d; got=%v", len(got), len(want), got)
+	}
+
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("indexes[%d] = %d, want %d; got=%v", index, got[index], want[index], got)
+		}
+	}
+}
+
 func TestExtractValueByPathReturnsFalseForUnknownPath(t *testing.T) {
 	t.Parallel()
 

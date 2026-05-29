@@ -30,8 +30,10 @@ type Processor struct {
 
 // ActiveEvent stores in-memory state for one active alert rule key.
 type ActiveEvent struct {
-	EventID string
-	Rule    servicerules.Rule
+	EventID    string
+	Rule       servicerules.Rule
+	FieldPath  string
+	Qualifiers []string
 }
 
 // New creates a Processor with rule set, event state manager, and messaging
@@ -71,19 +73,21 @@ func (p *Processor) HandleEnvelope(ctx context.Context, envelope messaging.Envel
 
 // processRule executes lifecycle transitions for one rule and one payload.
 func (p *Processor) processRule(ctx context.Context, rule servicerules.Rule, payload map[string]any) {
-	extractedValue, isMatch, ok := p.evaluateRule(rule, payload)
+	extractedValues, ok := p.evaluateRule(rule, payload)
 	if !ok {
 		return
 	}
 
-	activeEvent, isActive := p.findActiveEvent(rule)
-	p.logRuleEvaluation(rule, extractedValue, isMatch, isActive)
-	p.handleRuleTransition(ctx, rule, extractedValue, isMatch, activeEvent, isActive)
+	for _, extractedValue := range extractedValues {
+		activeEvent, isActive := p.findActiveEvent(rule, extractedValue.Qualifiers)
+		p.logRuleEvaluation(rule, extractedValue, isActive)
+		p.handleRuleTransition(ctx, rule, extractedValue, activeEvent, isActive)
+	}
 }
 
 // evaluateRule extracts and evaluates one rule against payload.
-func (p *Processor) evaluateRule(rule servicerules.Rule, payload map[string]any) (any, bool, bool) {
-	extractedValue, exists := ruleevaluator.ExtractValueByPath(payload, rule.Field)
+func (p *Processor) evaluateRule(rule servicerules.Rule, payload map[string]any) ([]evaluatedValue, bool) {
+	extractedValues, exists := ruleevaluator.ExtractValuesByPath(payload, rule.Field)
 	if !exists {
 		p.logger.Debug(
 			"rule field path not found in payload",
@@ -94,31 +98,44 @@ func (p *Processor) evaluateRule(rule servicerules.Rule, payload map[string]any)
 			"condition",
 			rule.Condition,
 		)
-		return nil, false, false
+		return nil, false
 	}
 
-	isMatch := ruleevaluator.EvaluateCondition(extractedValue, rule.Condition, rule.Values)
-	return extractedValue, isMatch, true
+	evaluatedValues := make([]evaluatedValue, 0, len(extractedValues))
+	for _, extractedValue := range extractedValues {
+		evaluatedValues = append(evaluatedValues, evaluatedValue{
+			FieldPath:  extractedValue.FieldPath,
+			Qualifiers: ruleevaluator.FormatIndexQualifiers(extractedValue.Indexes),
+			Value:      extractedValue.Value,
+			IsMatch:    ruleevaluator.EvaluateCondition(extractedValue.Value, rule.Condition, rule.Values),
+		})
+	}
+
+	return evaluatedValues, true
 }
 
 // logRuleEvaluation logs one completed rule evaluation.
-func (p *Processor) logRuleEvaluation(rule servicerules.Rule, extractedValue any, isMatch bool, isActive bool) {
+func (p *Processor) logRuleEvaluation(rule servicerules.Rule, extractedValue evaluatedValue, isActive bool) {
 	p.logger.Debug(
 		"rule evaluated",
 		"event",
 		rule.Event,
 		"field",
 		rule.Field,
+		"indexed_field",
+		extractedValue.FieldPath,
 		"condition",
 		rule.Condition,
 		"rule_value",
 		rule.Values,
 		"extracted_value",
-		extractedValue,
+		extractedValue.Value,
 		"match",
-		isMatch,
+		extractedValue.IsMatch,
 		"active",
 		isActive,
+		"qualifiers",
+		extractedValue.Qualifiers,
 	)
 }
 
@@ -126,20 +143,19 @@ func (p *Processor) logRuleEvaluation(rule servicerules.Rule, extractedValue any
 func (p *Processor) handleRuleTransition(
 	ctx context.Context,
 	rule servicerules.Rule,
-	extractedValue any,
-	isMatch bool,
+	extractedValue evaluatedValue,
 	activeEvent ActiveEvent,
 	isActive bool,
 ) {
 	if !isActive {
-		if isMatch {
-			p.handleNewToActive(ctx, rule)
+		if extractedValue.IsMatch {
+			p.handleNewToActive(ctx, rule, extractedValue)
 		}
 		return
 	}
 
-	if isMatch {
-		p.handleActiveToActive(ctx, activeEvent, extractedValue)
+	if extractedValue.IsMatch {
+		p.handleActiveToActive(ctx, activeEvent, extractedValue.Value)
 		return
 	}
 
@@ -147,8 +163,8 @@ func (p *Processor) handleRuleTransition(
 }
 
 // findActiveEvent looks up active event state for one rule key.
-func (p *Processor) findActiveEvent(rule servicerules.Rule) (ActiveEvent, bool) {
-	cached, exists := p.manager.FindEvent(rule.Event, rule.Field, rule.Condition)
+func (p *Processor) findActiveEvent(rule servicerules.Rule, qualifiers []string) (ActiveEvent, bool) {
+	cached, exists := p.manager.FindEvent(rule.Event, rule.Field, rule.Condition, qualifiers...)
 	if !exists {
 		return ActiveEvent{}, false
 	}
@@ -162,18 +178,9 @@ func (p *Processor) findActiveEvent(rule servicerules.Rule) (ActiveEvent, bool) 
 }
 
 // handleNewToActive publishes a new alert and caches active state.
-func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rule) {
+func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rule, extractedValue evaluatedValue) {
 	eventID := p.nextEventID(rule.EventPrefix)
-	now := p.clock().UTC().Format(time.RFC3339)
-	priority := rule.Priority
-	createInput := loggingmanagercontract.AlertPayload{
-		EventID:   eventID,
-		Category:  rule.Category,
-		Severity:  rule.Severity,
-		Priority:  &priority,
-		CreatedAt: now,
-		Source:    rule.Source,
-	}
+	createInput := p.buildAlertCreateInput(rule, eventID)
 
 	if err := p.client.Publish(ctx, systemloggingmanagercontract.AlertSubject, createInput); err != nil {
 		p.logger.Warn("failed to publish alert create", "subject", systemloggingmanagercontract.AlertSubject, "error", err)
@@ -190,6 +197,8 @@ func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rul
 		rule.Event,
 		"field",
 		rule.Field,
+		"indexed_field",
+		extractedValue.FieldPath,
 		"condition",
 		rule.Condition,
 	)
@@ -198,9 +207,44 @@ func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rul
 		rule.Event,
 		rule.Field,
 		rule.Condition,
-		ActiveEvent{EventID: eventID, Rule: rule},
+		buildActiveEvent(rule, eventID, extractedValue),
+		extractedValue.Qualifiers...,
 	); err != nil {
 		p.logger.Warn("failed to cache active event", "event_id", eventID, "error", err)
+	}
+}
+
+// buildAlertCreateInput constructs the logging-manager alert create payload for
+// one newly matched rule.
+func (p *Processor) buildAlertCreateInput(
+	rule servicerules.Rule,
+	eventID string,
+) loggingmanagercontract.AlertPayload {
+	now := p.clock().UTC().Format(time.RFC3339)
+	priority := rule.Priority
+
+	return loggingmanagercontract.AlertPayload{
+		EventID:   eventID,
+		Category:  rule.Category,
+		Severity:  rule.Severity,
+		Priority:  &priority,
+		CreatedAt: now,
+		Source:    rule.Source,
+	}
+}
+
+// buildActiveEvent constructs the in-memory active-event cache payload for one
+// matched rule key.
+func buildActiveEvent(
+	rule servicerules.Rule,
+	eventID string,
+	extractedValue evaluatedValue,
+) ActiveEvent {
+	return ActiveEvent{
+		EventID:    eventID,
+		Rule:       rule,
+		FieldPath:  extractedValue.FieldPath,
+		Qualifiers: append([]string(nil), extractedValue.Qualifiers...),
 	}
 }
 
@@ -228,6 +272,8 @@ func (p *Processor) handleActiveToActive(ctx context.Context, activeEvent Active
 		activeEvent.Rule.Event,
 		"field",
 		activeEvent.Rule.Field,
+		"indexed_field",
+		activeEvent.FieldPath,
 		"condition",
 		activeEvent.Rule.Condition,
 		"value_type",
@@ -261,7 +307,21 @@ func (p *Processor) handleActiveToNormal(ctx context.Context, activeEvent Active
 		return
 	}
 
-	p.manager.DeleteEvent(activeEvent.Rule.Event, activeEvent.Rule.Field, activeEvent.Rule.Condition)
+	p.manager.DeleteEvent(
+		activeEvent.Rule.Event,
+		activeEvent.Rule.Field,
+		activeEvent.Rule.Condition,
+		activeEvent.Qualifiers...,
+	)
+}
+
+// evaluatedValue stores one resolved rule field value together with its
+// indexed identity and condition result.
+type evaluatedValue struct {
+	FieldPath  string
+	Qualifiers []string
+	Value      any
+	IsMatch    bool
 }
 
 // nextEventID generates the next event ID from prefix and in-memory counter.

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -41,6 +42,21 @@ func TestRegisterSubscriptionsReturnsServerError(t *testing.T) {
 	err := registerSubscriptions(server, &processor.Processor{})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("registerSubscriptions() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestRegisterSubscriptionsSubscribesToSystemAndZFSSnapshots(t *testing.T) {
+	t.Parallel()
+
+	server := &stubServer{}
+
+	if err := registerSubscriptions(server, &processor.Processor{}); err != nil {
+		t.Fatalf("registerSubscriptions() error = %v", err)
+	}
+
+	want := []string{"system.metrics.events.stats", "zfs.metrics.events.snapshot"}
+	if !slices.Equal(server.subscribedSubjects, want) {
+		t.Fatalf("subscribedSubjects = %v, want %v", server.subscribedSubjects, want)
 	}
 }
 
@@ -164,10 +180,12 @@ func TestHandleAuthRefreshTickFallsBackToLoginOnRefreshError(t *testing.T) {
 }
 
 type stubServer struct {
-	subscribeErr error
+	subscribeErr       error
+	subscribedSubjects []string
 }
 
-func (server *stubServer) Subscribe(string, messaging.MessageHandler) error {
+func (server *stubServer) Subscribe(subject string, _ messaging.MessageHandler) error {
+	server.subscribedSubjects = append(server.subscribedSubjects, subject)
 	return server.subscribeErr
 }
 

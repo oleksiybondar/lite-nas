@@ -10,6 +10,7 @@ import (
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedcontracts "lite-nas/shared/contracts"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
+	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 	"lite-nas/shared/eventmanager"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/servicetoken"
@@ -101,7 +102,11 @@ func handleAuthRefreshTick(ctx context.Context, infra servicemodules.Infra) {
 
 // registerSubscriptions wires subject handlers required by resources-monitor.
 func registerSubscriptions(server messaging.Server, eventProcessor *processor.Processor) error {
-	return server.Subscribe(systemmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope)
+	if err := server.Subscribe(systemmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope); err != nil {
+		return err
+	}
+
+	return server.Subscribe(zfsmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope)
 }
 
 // initialEventCounter derives a non-negative startup seed from current time.

@@ -62,6 +62,7 @@ docker run --rm \
 		test -f /etc/lite-nas/system-metrics.conf
 		test -f /etc/lite-nas/resources-monitor.conf
 		test -f /etc/lite-nas/resources-monitor/rules/system-metrics.json
+		test -f /etc/lite-nas/resources-monitor/rules/zfs-metrics.json
 		id lite-nas-resources-monitor >/dev/null
 		test -f /etc/systemd/system/lite-nas-resources-monitor.service
 		test -f /etc/systemd/system/lite-nas-rbac.service

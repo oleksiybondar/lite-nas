@@ -2,6 +2,7 @@ package eventmanager
 
 import (
 	"errors"
+	"strings"
 	"sync"
 )
 
@@ -11,10 +12,11 @@ var ErrEventAlreadyExists = errors.New("event already exists")
 
 // Event stores cached event data associated with one monitor rule key.
 type Event struct {
-	Event     string
-	Field     string
-	Condition string
-	Payload   any
+	Event      string
+	Field      string
+	Condition  string
+	Qualifiers []string
+	Payload    any
 }
 
 // Manager provides thread-safe in-memory event cache and event ID counter
@@ -35,47 +37,53 @@ func NewManager(initialCounter uint64) *Manager {
 }
 
 // BuildKey constructs the canonical cache key for one monitored rule.
-func BuildKey(event, field, condition string) string {
-	return event + ":" + field + ":" + condition
+func BuildKey(event, field, condition string, qualifiers ...string) string {
+	key := event + ":" + field + ":" + condition
+	if len(qualifiers) == 0 {
+		return key
+	}
+
+	return key + ":" + strings.Join(qualifiers, ":")
 }
 
 // FindEvent returns a cached event for the provided rule key fields.
-func (manager *Manager) FindEvent(event, field, condition string) (Event, bool) {
+func (manager *Manager) FindEvent(event, field, condition string, qualifiers ...string) (Event, bool) {
 	manager.mu.RLock()
 	defer manager.mu.RUnlock()
 
-	cachedEvent, exists := manager.events[BuildKey(event, field, condition)]
+	cachedEvent, exists := manager.events[BuildKey(event, field, condition, qualifiers...)]
 	return cachedEvent, exists
 }
 
 // CreateEvent inserts a new cached event for the provided rule key fields.
 //
 // The function fails when an event with the same key already exists.
-func (manager *Manager) CreateEvent(event, field, condition string, payload any) error {
+func (manager *Manager) CreateEvent(event, field, condition string, payload any, qualifiers ...string) error {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 
-	key := BuildKey(event, field, condition)
+	key := BuildKey(event, field, condition, qualifiers...)
 	if _, exists := manager.events[key]; exists {
 		return ErrEventAlreadyExists
 	}
 
 	manager.events[key] = Event{
-		Event:     event,
-		Field:     field,
-		Condition: condition,
-		Payload:   payload,
+		Event:      event,
+		Field:      field,
+		Condition:  condition,
+		Qualifiers: append([]string(nil), qualifiers...),
+		Payload:    payload,
 	}
 
 	return nil
 }
 
 // DeleteEvent removes a cached event for the provided rule key fields.
-func (manager *Manager) DeleteEvent(event, field, condition string) {
+func (manager *Manager) DeleteEvent(event, field, condition string, qualifiers ...string) {
 	manager.mu.Lock()
 	defer manager.mu.Unlock()
 
-	delete(manager.events, BuildKey(event, field, condition))
+	delete(manager.events, BuildKey(event, field, condition, qualifiers...))
 }
 
 // GetCounter returns the current in-memory event ID counter value.

@@ -6,6 +6,7 @@ import (
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
+	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 )
 
 // SubscriptionContract describes one fire-and-forget messaging contract.
@@ -24,6 +25,10 @@ var SubscriptionsByService = map[string]map[string]SubscriptionContract{
 		"system_metrics_snapshot": {
 			Subject: systemmetricscontract.SnapshotEventSubject,
 			Payload: systemmetricscontract.SnapshotUpdatedEvent{},
+		},
+		"zfs_metrics_snapshot": {
+			Subject: zfsmetricscontract.SnapshotEventSubject,
+			Payload: zfsmetricscontract.SnapshotUpdatedEvent{},
 		},
 	},
 	ServiceSystemLoggingManager: {

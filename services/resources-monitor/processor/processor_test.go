@@ -77,6 +77,34 @@ func TestHandleNewToActiveSkipsCacheWhenPublishFails(t *testing.T) {
 	}
 }
 
+func TestHandleEnvelopeTracksArrayRulePerPoolIndex(t *testing.T) {
+	t.Parallel()
+
+	client := &recordingClient{requestResponse: loggingmanagercontract.OKResponse{OK: true}}
+	rule := buildPoolHealthRule()
+	manager := eventmanager.NewManager(0)
+	processor := New([]servicerules.Rule{rule}, manager, client, sharedlogger.NewNop())
+	ctx := context.Background()
+
+	degradedPayload := buildPoolEnvelopePayload(t, "ONLINE", "DEGRADED")
+	healthyPayload := buildPoolEnvelopePayload(t, "ONLINE", "ONLINE")
+
+	assertHandleEnvelopeNoError(t, processor, ctx, degradedPayload, "activate indexed pool")
+	assertPublishedSubjects(t, client.publishSubjects, []string{systemloggingmanagercontract.AlertSubject})
+	assertActiveEventExistsForQualifiers(t, manager, rule, "1")
+	assertActiveEventMissingForQualifiers(t, manager, rule, "0")
+
+	assertHandleEnvelopeNoError(t, processor, ctx, degradedPayload, "repeat indexed pool")
+	assertPublishedSubjects(t, client.publishSubjects, []string{
+		systemloggingmanagercontract.AlertSubject,
+		systemloggingmanagercontract.AlertOccurrenceSubject,
+	})
+
+	assertHandleEnvelopeNoError(t, processor, ctx, healthyPayload, "normalize indexed pool")
+	assertNormalizeRequestSubject(t, client.requestSubject)
+	assertActiveEventMissingForQualifiers(t, manager, rule, "1")
+}
+
 func TestHandleActiveToNormalKeepsCacheWhenNormalizationFails(t *testing.T) {
 	t.Parallel()
 
@@ -215,12 +243,47 @@ func buildMemoryThresholdRule() servicerules.Rule {
 	}
 }
 
+func buildPoolHealthRule() servicerules.Rule {
+	return servicerules.Rule{
+		Event:         "zfs.metrics.events.snapshot",
+		EventPrefix:   "zfspool",
+		Field:         "snapshot.Pools[].Health",
+		Condition:     "==",
+		Values:        "DEGRADED",
+		Message:       "Pool health is degraded",
+		NormalMessage: "Pool health returned to normal",
+		Category:      "zfs.metrics.pool.health",
+		Severity:      sharedloggingenum.SeverityWarning,
+		Priority:      2,
+		Source:        "zfs-metrics",
+	}
+}
+
 func buildEnvelopePayload(t *testing.T, usedPct float64) []byte {
 	t.Helper()
 
 	return mustMarshalEnvelopePayload(t, map[string]any{
 		"snapshot": map[string]any{
 			"mem": map[string]any{"usedPct": usedPct},
+		},
+	})
+}
+
+func buildPoolEnvelopePayload(t *testing.T, healthValues ...string) []byte {
+	t.Helper()
+
+	pools := make([]map[string]any, 0, len(healthValues))
+	for index, healthValue := range healthValues {
+		pools = append(pools, map[string]any{
+			"Name":   "pool",
+			"Health": healthValue,
+			"Index":  index,
+		})
+	}
+
+	return mustMarshalEnvelopePayload(t, map[string]any{
+		"snapshot": map[string]any{
+			"Pools": pools,
 		},
 	})
 }
@@ -235,7 +298,7 @@ func assertHandleEnvelopeNoError(
 	t.Helper()
 
 	if err := processor.HandleEnvelope(ctx, messaging.Envelope{
-		Subject: "system.metrics.events.stats",
+		Subject: processor.rules[0].Event,
 		Payload: payload,
 	}); err != nil {
 		t.Fatalf("HandleEnvelope() %s error = %v", stage, err)
@@ -277,5 +340,31 @@ func assertActiveEventMissing(t *testing.T, manager *eventmanager.Manager, rule 
 
 	if _, exists := manager.FindEvent(rule.Event, rule.Field, rule.Condition); exists {
 		t.Fatal("active event still exists")
+	}
+}
+
+func assertActiveEventExistsForQualifiers(
+	t *testing.T,
+	manager *eventmanager.Manager,
+	rule servicerules.Rule,
+	qualifiers ...string,
+) {
+	t.Helper()
+
+	if _, exists := manager.FindEvent(rule.Event, rule.Field, rule.Condition, qualifiers...); !exists {
+		t.Fatalf("active event missing for qualifiers %v", qualifiers)
+	}
+}
+
+func assertActiveEventMissingForQualifiers(
+	t *testing.T,
+	manager *eventmanager.Manager,
+	rule servicerules.Rule,
+	qualifiers ...string,
+) {
+	t.Helper()
+
+	if _, exists := manager.FindEvent(rule.Event, rule.Field, rule.Condition, qualifiers...); exists {
+		t.Fatalf("active event still exists for qualifiers %v", qualifiers)
 	}
 }

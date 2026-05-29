@@ -17,6 +17,16 @@ func TestBuildKeyReturnsEventFieldConditionKey(t *testing.T) {
 	}
 }
 
+func TestBuildKeyAppendsQualifiers(t *testing.T) {
+	t.Parallel()
+
+	got := eventmanager.BuildKey("zfs.metrics.events.snapshot", "snapshot.Pools[].Health", "==", "1", "0")
+	want := "zfs.metrics.events.snapshot:snapshot.Pools[].Health:==:1:0"
+	if got != want {
+		t.Fatalf("BuildKey() = %q, want %q", got, want)
+	}
+}
+
 func TestCreateEventAndFindEvent(t *testing.T) {
 	t.Parallel()
 
@@ -34,6 +44,26 @@ func TestCreateEventAndFindEvent(t *testing.T) {
 
 	assertFoundEventFields(t, got)
 	assertFoundEventPayload(t, got.Payload)
+}
+
+func TestCreateEventAndFindEventWithQualifiers(t *testing.T) {
+	t.Parallel()
+
+	manager := eventmanager.NewManager(0)
+	payload := map[string]any{"event_id": "zfspool00000001"}
+
+	if err := manager.CreateEvent("zfs.metrics.events.snapshot", "snapshot.Pools[].Health", "==", payload, "1"); err != nil {
+		t.Fatalf("CreateEvent() error = %v", err)
+	}
+
+	got, exists := manager.FindEvent("zfs.metrics.events.snapshot", "snapshot.Pools[].Health", "==", "1")
+	if !exists {
+		t.Fatal("FindEvent() exists = false, want true")
+	}
+
+	if len(got.Qualifiers) != 1 || got.Qualifiers[0] != "1" {
+		t.Fatalf("got.Qualifiers = %v, want [1]", got.Qualifiers)
+	}
 }
 
 func TestCreateEventRejectsDuplicateKey(t *testing.T) {
