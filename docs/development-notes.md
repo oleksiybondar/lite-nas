@@ -122,6 +122,45 @@ work is already in place:
 This keeps the architecture ready for future security-monitoring producers
 without forcing fake divergence before the behavior exists.
 
+## Why email notification still uses local Postfix
+
+The current notification slice intentionally keeps delivery split across two
+layers:
+
+- `system-email-notifier` and `security-email-notifier` own alert consumption,
+  template rendering, and local SMTP handoff
+- local Postfix owns outbound mail transport
+
+This is intentional.
+
+The notifier services should stay small and transport-focused:
+
+- subscribe to alert subjects
+- render email from packaged templates
+- deliver to `127.0.0.1:25`
+
+They should not also own:
+
+- third-party SMTP provider integration details
+- SASL credential storage
+- relay retry behavior
+- machine-local mail transport policy
+
+Keeping Postfix as the host mail boundary makes the deployment model more
+practical:
+
+- the same Go code works in local development and packaged installs
+- provider credentials stay machine-local under `/etc/postfix/...`
+- direct local rendering tests can switch to capture mode without changing the
+  notifier code path
+- production delivery can move to Mailgun, SES, or another authenticated relay
+  without changing the notifier service contract
+
+This is still infrastructure-first work in the same sense as earlier slices.
+The immediate user-facing value is modest, but it completes an important
+platform boundary: alert creation can now flow into real notification delivery
+through the packaged runtime.
+
 ## Why simple system tests still carry more value now
 
 The top-level system tests remain intentionally focused on simple, observable

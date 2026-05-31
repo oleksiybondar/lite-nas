@@ -7,7 +7,7 @@ The repository already contains an implemented platform slice:
 
 - shared Go modules for logging, configuration, messaging, and metrics support
 - backend services for system metrics, ZFS metrics, auth, RBAC, stateful
-  alert management, and resource monitoring
+  alert management, resource monitoring, and email notification delivery
 - CLI apps for system metrics, ZFS metrics, and logging-manager operations
 - a browser-facing admin panel and gateway
 - NATS-based internal communication between services and consumers
@@ -163,6 +163,8 @@ Current implemented focus:
 - **Monitoring and alerting slice**
   System metrics, ZFS metrics, resource-monitor rule evaluation, and
   logging-manager state tracking now provide an implemented monitoring path.
+  System and security email notifier services extend that path into operator
+  email delivery through local Postfix.
 
 - **Authentication authority**
   `auth-service` owns PAM-backed host authentication, token issuance, and
@@ -177,6 +179,11 @@ Current implemented focus:
   `system-logging-manager` and `security-logging-manager` consume alert
   lifecycle updates, persist current state and occurrences, and provide a
   CLI-friendly state-based alert surface.
+
+- **Email notification delivery**
+  `system-email-notifier` and `security-email-notifier` consume alert events,
+  render packaged HTML email templates, and deliver through local Postfix with
+  support for authenticated upstream SMTP relay configuration.
 
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
@@ -590,6 +597,10 @@ Useful starting points:
 
 - [`docs/development-notes.md`](docs/development-notes.md)
   Why early slices are intentionally infrastructure-heavy and low immediate business value.
+
+- [`docs/email-notifiers.md`](docs/email-notifiers.md)
+  Operator-facing setup, relay configuration, and CLI testing flow for the
+  system and security email notifier services.
 
 - [`RELEASE_NOTES.md`](RELEASE_NOTES.md)
   Release-level summary of what has already been established and what later slices add.

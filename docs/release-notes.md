@@ -1,5 +1,55 @@
 # Release Notes
 
+## 0.2.1 - 2026-05-31
+
+### RL-0.2.1 Summary
+
+- Extended the monitoring and alerting slice with packaged email notification
+  delivery, local Postfix integration, and relay-ready outbound mail
+  configuration. The release keeps the alert producers and logging-manager
+  consumers intact while adding email as a separate operational notification
+  surface.
+
+### RL-0.2.1 Added
+
+- Added `system-email-notifier` and `security-email-notifier` as dedicated
+  alert email consumers for the system and security domains.
+- Added shared Go notifier runtime support for alert subscription adaptation,
+  HTML template rendering, and local SMTP delivery.
+- Added packaged notifier templates and `[email]` / `[smtp]` config sections
+  for both notifier services.
+- Added operator documentation for notifier setup, relay configuration, and
+  CLI-based verification/testing.
+
+### RL-0.2.1 Changed
+
+- Extended the shared alert payload contract with optional `message` and
+  `trigger_value` fields needed by notifier rendering without changing
+  existing logging-manager state handling.
+- Changed `resources-monitor` alert publication to populate notifier-relevant
+  message and trigger-value context on new alert creation.
+- Changed the packaged email templates to use backend-provided severity colors,
+  inline email-safe styling, and dark-mode compatibility hints for broader
+  client compatibility.
+
+### RL-0.2.1 Platform
+
+- Expanded build, deploy, package, and runtime flows to include notifier
+  binaries, templates, configs, systemd units, NATS permissions, and AppArmor
+  profiles.
+- Added managed Postfix integration with local-only SMTP, capture-mode testing,
+  and relay authentication support through a preserved local
+  `/etc/postfix/postfix.d/authentication.conf`.
+- Extended runtime permission normalization for notifier template directories
+  and Postfix relay secret files.
+
+### RL-0.2.1 Notes
+
+- Real external delivery depends on an operator-configured authenticated SMTP
+  relay such as Mailgun, SES, or another provider.
+- Relay credentials remain machine-local secrets and are intentionally kept
+  out of the repository.
+
 ## 0.2.0 - 2026-05-29
 
 ### RL-0.2.0 Summary

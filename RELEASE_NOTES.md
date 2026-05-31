@@ -5,6 +5,56 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.2.1 - Email notification delivery
+
+### RL-0.2.1 Summary
+
+- Extends the monitoring and alerting slice with two packaged email notifier
+  services, local Postfix delivery, HTML email templates, and relay-ready
+  outbound mail configuration. The release keeps the notification model
+  infrastructure-first: alert producers and logging managers stay intact while
+  email delivery becomes an additional consumer path.
+
+### RL-0.2.1 Added
+
+- Added `system-email-notifier` and `security-email-notifier` services as
+  dedicated alert email consumers for the system and security domains.
+- Added shared Go email-notifier runtime support for alert subscription
+  handling, HTML template rendering, and SMTP delivery to local Postfix.
+- Added packaged HTML alert templates and notifier-specific config sections for
+  email recipients and local SMTP handoff.
+- Added operator documentation for notifier setup, relay configuration, CLI
+  testing, and Postfix capture-mode testing.
+
+### RL-0.2.1 Changed
+
+- Extended the alert payload contract with optional notifier-facing `message`
+  and `trigger_value` fields without changing existing logging-manager storage
+  behavior.
+- Changed `resources-monitor` alert creation so notifier-relevant message and
+  trigger-value context is included in published alert payloads.
+- Changed email templates to use backend-provided severity colors, inline
+  email-safe styling, and dark-mode compatibility hints for better mail-client
+  behavior.
+
+### RL-0.2.1 Platform
+
+- Expanded package and local deploy flows to include notifier binaries,
+  templates, configs, systemd units, NATS identities, and AppArmor coverage.
+- Added managed Postfix runtime wiring, including local-only SMTP, capture-mode
+  testing support, and relay authentication support through a preserved
+  machine-local `/etc/postfix/postfix.d/authentication.conf`.
+- Extended runtime permission normalization so notifier templates and Postfix
+  relay secret material are installed with stable ownership and restrictive
+  modes.
+
+### RL-0.2.1 Notes
+
+- Real external delivery depends on an operator-configured authenticated relay
+  such as Mailgun, SES, or another SMTP provider.
+- Relay credentials remain outside the repository and are intentionally not
+  shipped as package content.
+
 ## 0.2.0 - Authenticated monitoring and alerting
 
 ### RL-0.2.0 Summary
