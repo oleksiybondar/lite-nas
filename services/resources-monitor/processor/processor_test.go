@@ -30,6 +30,7 @@ func TestHandleEnvelopeRunsAlertLifecycle(t *testing.T) {
 
 	assertHandleEnvelopeNoError(t, processor, ctx, highPayload, "first")
 	assertPublishedSubjects(t, client.publishSubjects, []string{systemloggingmanagercontract.AlertSubject})
+	assertPublishedAlertCreatePayload(t, client, "RAM usage is above threshold", "93")
 	assertActiveEventExists(t, manager, rule)
 
 	assertHandleEnvelopeNoError(t, processor, ctx, highPayload, "second")
@@ -188,6 +189,7 @@ func TestAssignOccurrenceValueSetsTextValueForTextInput(t *testing.T) {
 // recordingClient captures publish and request calls for processor tests.
 type recordingClient struct {
 	publishSubjects []string
+	published       []any
 	requestSubject  string
 	requestResponse loggingmanagercontract.OKResponse
 	publishErr      error
@@ -195,8 +197,9 @@ type recordingClient struct {
 }
 
 // Publish records subject usage.
-func (client *recordingClient) Publish(_ context.Context, subject string, _ any) error {
+func (client *recordingClient) Publish(_ context.Context, subject string, payload any) error {
 	client.publishSubjects = append(client.publishSubjects, subject)
+	client.published = append(client.published, payload)
 	return client.publishErr
 }
 
@@ -316,6 +319,32 @@ func assertPublishedSubjects(t *testing.T, got []string, want []string) {
 		if got[index] != want[index] {
 			t.Fatalf("publishSubjects[%d] = %q, want %q", index, got[index], want[index])
 		}
+	}
+}
+
+func assertPublishedAlertCreatePayload(
+	t *testing.T,
+	client *recordingClient,
+	wantMessage string,
+	wantTriggerValue string,
+) {
+	t.Helper()
+
+	if len(client.published) == 0 {
+		t.Fatal("expected at least one published payload")
+	}
+
+	payload, ok := client.published[0].(loggingmanagercontract.AlertPayload)
+	if !ok {
+		t.Fatalf("published payload type = %T, want AlertPayload", client.published[0])
+	}
+
+	if payload.Message != wantMessage {
+		t.Fatalf("payload.Message = %q, want %q", payload.Message, wantMessage)
+	}
+
+	if payload.TriggerValue != wantTriggerValue {
+		t.Fatalf("payload.TriggerValue = %q, want %q", payload.TriggerValue, wantTriggerValue)
 	}
 }
 

@@ -2,14 +2,21 @@ package main
 
 import (
 	"context"
+	"os"
 
 	servicemodules "lite-nas/services/security-email-notifier/modules"
 	sharedcontracts "lite-nas/shared/contracts"
+	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	sharedemailnotifier "lite-nas/shared/emailnotifier"
+	sharedloggingmanager "lite-nas/shared/loggingmanager"
 )
 
 const (
-	packagedConfigPath = "/etc/lite-nas/security-email-notifier.conf"
-	serviceName        = sharedcontracts.ServiceSecurityEmailNotifier
+	packagedConfigPath    = "/etc/lite-nas/security-email-notifier.conf"
+	packagedTemplatesPath = "/etc/lite-nas/security-email-notifier"
+	inputBufferSize       = 16
+	serviceName           = sharedcontracts.ServiceSecurityEmailNotifier
 )
 
 // run assembles the security-email-notifier runtime and keeps the process alive
@@ -24,9 +31,45 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 
-	infra.Logger.Info("security email notifier service started", "config", packagedConfigPath)
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
 
-	<-ctx.Done()
-	infra.Logger.Info("security email notifier service stopping")
-	return ctx.Err()
+	validate, err := sharedloggingmanager.NewInputValidator()
+	if err != nil {
+		return err
+	}
+
+	input := make(chan loggingmanagercontract.AlertPayload, inputBufferSize)
+	worker, err := sharedemailnotifier.NewWorker(sharedemailnotifier.WorkerConfig{
+		Hostname:      hostname,
+		TemplatesPath: packagedTemplatesPath,
+		Email:         infra.Config.Email,
+		SMTP:          infra.Config.SMTP,
+	}, input)
+	if err != nil {
+		return err
+	}
+
+	if err = infra.Server.Subscribe(
+		securityloggingmanagercontract.AlertSubject,
+		sharedemailnotifier.NewAlertSubscriptionHandler(validate, input),
+	); err != nil {
+		return err
+	}
+
+	infra.Logger.Info(
+		"security email notifier service started",
+		"config", packagedConfigPath,
+		"subject", securityloggingmanagercontract.AlertSubject,
+		"templates_path", packagedTemplatesPath,
+	)
+
+	err = worker.Run(ctx)
+	if err == nil || err == context.Canceled {
+		infra.Logger.Info("security email notifier service stopping")
+	}
+
+	return err
 }

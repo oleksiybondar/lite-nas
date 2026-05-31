@@ -9,9 +9,13 @@ import (
 //
 // It groups shared infrastructure settings needed by the service bootstrap:
 //   - Messaging: external messaging system connectivity
+//   - Email: outbound recipient and sender policy
+//   - SMTP: local SMTP delivery settings
 //   - Logging: application logging behavior
 type Config struct {
 	Messaging sharedconfig.MessagingConfig
+	Email     sharedconfig.EmailConfig
+	SMTP      sharedconfig.SMTPConfig
 	Logging   sharedconfig.LoggingConfig
 }
 
@@ -23,13 +27,15 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
-	sharedCfg, err := sharedconfig.LoadSharedConfig(cfgFile)
+	sharedCfg, err := sharedconfig.LoadSharedEmailConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
 
 	return Config{
 		Messaging: sharedCfg.Messaging,
+		Email:     sharedCfg.Email,
+		SMTP:      sharedCfg.SMTP,
 		Logging:   sharedCfg.Logging,
 	}, nil
 }

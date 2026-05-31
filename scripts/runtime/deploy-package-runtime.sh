@@ -51,6 +51,21 @@ Options:
 MSG
 }
 
+deploy_runtime_files_without_start() {
+	deploy.authService.deploy "$PACKAGE_ROOT/auth-service" 0
+	deploy.rbacService.deploy "$PACKAGE_ROOT/rbac-service" 0
+	deploy.systemLoggingManager.deploy "$PACKAGE_ROOT/system-logging-manager" 0
+	deploy.securityLoggingManager.deploy "$PACKAGE_ROOT/security-logging-manager" 0
+	deploy.systemEmailNotifier.deploy "$PACKAGE_ROOT/system-email-notifier" 0
+	deploy.securityEmailNotifier.deploy "$PACKAGE_ROOT/security-email-notifier" 0
+	deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
+	deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
+	deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
+	deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
+	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
+	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
+}
+
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 	--mode)
@@ -109,18 +124,7 @@ if [ "$run_mode" = "validate" ]; then
 	export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
 	deploy.apparmor.deploy 1
 	deploy.postfix.deploy 0
-	deploy.authService.deploy "$PACKAGE_ROOT/auth-service" 0
-	deploy.rbacService.deploy "$PACKAGE_ROOT/rbac-service" 0
-	deploy.systemLoggingManager.deploy "$PACKAGE_ROOT/system-logging-manager" 0
-	deploy.securityLoggingManager.deploy "$PACKAGE_ROOT/security-logging-manager" 0
-	deploy.systemEmailNotifier.deploy "$PACKAGE_ROOT/system-email-notifier" 0
-	deploy.securityEmailNotifier.deploy "$PACKAGE_ROOT/security-email-notifier" 0
-	deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
-	deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
-	deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
-	deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
-	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
-	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
+	deploy_runtime_files_without_start
 	deploy.normalizeEtcPermissions /etc
 	log.popTask
 	log.info "LiteNAS package runtime validation deployment completed."
@@ -134,18 +138,7 @@ log.popTask
 export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
 
 log.pushTask "Deploying LiteNAS runtime files without service start"
-deploy.authService.deploy "$PACKAGE_ROOT/auth-service" 0
-deploy.rbacService.deploy "$PACKAGE_ROOT/rbac-service" 0
-deploy.systemLoggingManager.deploy "$PACKAGE_ROOT/system-logging-manager" 0
-deploy.securityLoggingManager.deploy "$PACKAGE_ROOT/security-logging-manager" 0
-deploy.systemEmailNotifier.deploy "$PACKAGE_ROOT/system-email-notifier" 0
-deploy.securityEmailNotifier.deploy "$PACKAGE_ROOT/security-email-notifier" 0
-deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
-deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
-deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
-deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
-deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
-deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
+deploy_runtime_files_without_start
 log.popTask
 
 log.pushTask "Normalizing deployed LiteNAS permissions"

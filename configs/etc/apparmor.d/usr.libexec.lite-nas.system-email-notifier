@@ -8,8 +8,8 @@ profile /usr/libexec/lite-nas/system-email-notifier flags=(attach_disconnected,m
 
   /usr/libexec/lite-nas/system-email-notifier mr,
   /etc/lite-nas/system-email-notifier.conf r,
+  /etc/lite-nas/system-email-notifier/** r,
   /var/log/lite-nas/system-email-notifier.log rw,
 
   include if exists <local/usr.libexec.lite-nas.system-email-notifier>
 }
-

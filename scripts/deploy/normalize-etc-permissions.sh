@@ -76,6 +76,20 @@ deploy.normalizeLiteNAS() {
 	deploy.normalizePath 0640 "$litenas_system_logging_manager_cli_config_file" "$(deploy.resolveUserGroupOwner "$litenas_system_logging_manager_cli_runtime_user" "$litenas_system_logging_manager_cli_access_group" "$litenas_config_owner")"
 	deploy.normalizePath 0640 "$litenas_security_logging_manager_cli_config_file" "$(deploy.resolveUserGroupOwner "$litenas_security_logging_manager_cli_runtime_user" "$litenas_security_logging_manager_cli_access_group" "$litenas_config_owner")"
 
+	if [ -d "$litenas_system_email_notifier_templates_dir" ]; then
+		deploy.normalizePath 0750 "$litenas_system_email_notifier_templates_dir" "$(deploy.resolveUserGroupOwner "$litenas_system_email_notifier_runtime_user" "$litenas_group" "$litenas_config_owner")"
+		while IFS= read -r -d '' template_file; do
+			deploy.normalizePath 0640 "$template_file" "$(deploy.resolveUserGroupOwner "$litenas_system_email_notifier_runtime_user" "$litenas_group" "$litenas_config_owner")"
+		done < <(find "$litenas_system_email_notifier_templates_dir" -maxdepth 1 -type f -name '*.html' -print0)
+	fi
+
+	if [ -d "$litenas_security_email_notifier_templates_dir" ]; then
+		deploy.normalizePath 0750 "$litenas_security_email_notifier_templates_dir" "$(deploy.resolveUserGroupOwner "$litenas_security_email_notifier_runtime_user" "$litenas_group" "$litenas_config_owner")"
+		while IFS= read -r -d '' template_file; do
+			deploy.normalizePath 0640 "$template_file" "$(deploy.resolveUserGroupOwner "$litenas_security_email_notifier_runtime_user" "$litenas_group" "$litenas_config_owner")"
+		done < <(find "$litenas_security_email_notifier_templates_dir" -maxdepth 1 -type f -name '*.html' -print0)
+	fi
+
 	if [ -d "$litenas_transport_certificates_dir" ]; then
 		deploy.normalizePath 0711 "$litenas_transport_certificates_dir" "$litenas_config_owner"
 		deploy.normalizePath 0644 "$litenas_transport_ca_cert" "$owner"
@@ -201,12 +215,17 @@ deploy.normalizeNginx() {
 deploy.normalizePostfix() {
 	log.pushTask "Normalizing Postfix config permissions"
 	deploy.normalizePath 0755 "$postfix_config_dir" "$owner"
+	deploy.normalizePath 0755 "$postfix_config_dir/postfix.d" "$owner"
 
 	if [ -d "$postfix_config_dir" ]; then
 		while IFS= read -r -d '' postfix_file; do
 			deploy.normalizePath 0644 "$postfix_file" "$owner"
 		done < <(find "$postfix_config_dir" -maxdepth 2 -type f -print0)
 	fi
+
+	deploy.normalizePath 0600 "$postfix_config_dir/postfix.d/authentication.conf" "$owner"
+	deploy.normalizePath 0600 "$postfix_config_dir/sasl_passwd" "$owner"
+	deploy.normalizePath 0600 "$postfix_config_dir/sasl_passwd.db" "$owner"
 
 	log.popTask
 }
@@ -294,6 +313,8 @@ deploy.normalizeEtcPermissions() {
 	local litenas_security_logging_manager_config_file="$litenas_config_dir/security-logging-manager.conf"
 	local litenas_system_email_notifier_config_file="$litenas_config_dir/system-email-notifier.conf"
 	local litenas_security_email_notifier_config_file="$litenas_config_dir/security-email-notifier.conf"
+	local litenas_system_email_notifier_templates_dir="$litenas_config_dir/system-email-notifier"
+	local litenas_security_email_notifier_templates_dir="$litenas_config_dir/security-email-notifier"
 	local litenas_web_gateway_config_file="$litenas_config_dir/web-gateway.conf"
 	local litenas_cli_config_file="$litenas_config_dir/system-metrics-cli.conf"
 	local litenas_zfs_cli_config_file="$litenas_config_dir/zfs-metrics-cli.conf"
@@ -323,6 +344,7 @@ deploy.normalizeEtcPermissions() {
 	local credential_owner
 	local credential_file
 	local identity_leaf_dir
+	local template_file
 
 	if [ ! -d "$target_dir" ]; then
 		log.error "Missing target etc directory: $target_dir"

@@ -14,6 +14,15 @@ type SharedConfig struct {
 	Auth      AuthConfig
 }
 
+// SharedEmailConfig groups the common runtime bootstrap sections reused by
+// email notifier services.
+type SharedEmailConfig struct {
+	Messaging MessagingConfig
+	Logging   LoggingConfig
+	Email     EmailConfig
+	SMTP      SMTPConfig
+}
+
 // SharedAuthTokenConfig groups shared bootstrap sections reused by services
 // that need local JWT verification policy.
 type SharedAuthTokenConfig struct {
@@ -54,6 +63,37 @@ func LoadSharedConfig(cfgFile *ini.File) (SharedConfig, error) {
 		Messaging: messagingConfig,
 		Logging:   loggingConfig,
 		Auth:      authConfig,
+	}, nil
+}
+
+// LoadSharedEmailConfig extracts shared bootstrap sections plus email delivery
+// configuration from a parsed INI document.
+func LoadSharedEmailConfig(cfgFile *ini.File) (SharedEmailConfig, error) {
+	messagingConfig, err := LoadMessagingConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	loggingConfig, err := LoadLoggingConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	emailConfig, err := LoadEmailConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	smtpConfig, err := LoadSMTPConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	return SharedEmailConfig{
+		Messaging: messagingConfig,
+		Logging:   loggingConfig,
+		Email:     emailConfig,
+		SMTP:      smtpConfig,
 	}, nil
 }
 

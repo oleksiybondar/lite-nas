@@ -2,7 +2,6 @@ package config
 
 import (
 	"errors"
-	"strings"
 
 	"gopkg.in/ini.v1"
 )
@@ -20,22 +19,7 @@ type RulesConfig struct {
 //   - files: comma-separated list of rule JSON file paths
 func LoadRulesConfig(cfgFile *ini.File) (RulesConfig, error) {
 	section := cfgFile.Section("rules")
-	rawFiles := strings.TrimSpace(section.Key("files").String())
-	if rawFiles == "" {
-		return RulesConfig{}, errMissingRulesFiles
-	}
-
-	files := strings.Split(rawFiles, ",")
-	normalizedFiles := make([]string, 0, len(files))
-	for _, file := range files {
-		trimmedFile := strings.TrimSpace(file)
-		if trimmedFile == "" {
-			continue
-		}
-
-		normalizedFiles = append(normalizedFiles, trimmedFile)
-	}
-
+	normalizedFiles := parseCommaSeparatedValues(section.Key("files").String())
 	if len(normalizedFiles) == 0 {
 		return RulesConfig{}, errMissingRulesFiles
 	}

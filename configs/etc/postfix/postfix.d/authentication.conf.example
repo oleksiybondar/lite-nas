@@ -1,0 +1,10 @@
+# Postfix relay authentication settings.
+# Leave every field empty to keep direct delivery disabled and avoid configuring
+# a relay. When configured, deploy scripts translate these values into
+# Postfix relayhost + sasl_passwd entries without storing credentials in git.
+
+postfix_relay_host=
+postfix_relay_port=
+postfix_relay_username=
+postfix_relay_password=
+postfix_relay_tls_level=encrypt

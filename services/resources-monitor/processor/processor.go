@@ -180,7 +180,7 @@ func (p *Processor) findActiveEvent(rule servicerules.Rule, qualifiers []string)
 // handleNewToActive publishes a new alert and caches active state.
 func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rule, extractedValue evaluatedValue) {
 	eventID := p.nextEventID(rule.EventPrefix)
-	createInput := p.buildAlertCreateInput(rule, eventID)
+	createInput := p.buildAlertCreateInput(rule, eventID, extractedValue)
 
 	if err := p.client.Publish(ctx, systemloggingmanagercontract.AlertSubject, createInput); err != nil {
 		p.logger.Warn("failed to publish alert create", "subject", systemloggingmanagercontract.AlertSubject, "error", err)
@@ -219,17 +219,20 @@ func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rul
 func (p *Processor) buildAlertCreateInput(
 	rule servicerules.Rule,
 	eventID string,
+	extractedValue evaluatedValue,
 ) loggingmanagercontract.AlertPayload {
 	now := p.clock().UTC().Format(time.RFC3339)
 	priority := rule.Priority
 
 	return loggingmanagercontract.AlertPayload{
-		EventID:   eventID,
-		Category:  rule.Category,
-		Severity:  rule.Severity,
-		Priority:  &priority,
-		CreatedAt: now,
-		Source:    rule.Source,
+		EventID:      eventID,
+		Category:     rule.Category,
+		Severity:     rule.Severity,
+		Priority:     &priority,
+		CreatedAt:    now,
+		Source:       rule.Source,
+		Message:      rule.Message,
+		TriggerValue: fmt.Sprintf("%v", extractedValue.Value),
 	}
 }
 

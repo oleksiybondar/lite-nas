@@ -13,6 +13,8 @@ readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_BINARY_TARGET="${LITE_NAS_SYSTEM_EMAIL_N
 readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_DIR="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_SOURCE="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/system-email-notifier.conf}"
 readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_TARGET="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_TARGET:-$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_DIR/system-email-notifier.conf}"
+readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_SOURCE_DIR="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_SOURCE_DIR:-$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/system-email-notifier}"
+readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_TARGET_DIR="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_TARGET_DIR:-$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_DIR/system-email-notifier}"
 readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_UNIT_TEMPLATE="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_UNIT_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-system-email-notifier.service}"
 readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_UNIT_TARGET="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_UNIT_TARGET:-/etc/systemd/system/lite-nas-system-email-notifier.service}"
 readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_LOG_DIR="${LITE_NAS_SYSTEM_EMAIL_NOTIFIER_LOG_DIR:-/var/log/lite-nas}"
@@ -20,7 +22,7 @@ readonly LITE_NAS_SYSTEM_EMAIL_NOTIFIER_LOG_FILE="${LITE_NAS_SYSTEM_EMAIL_NOTIFI
 
 deploy.systemEmailNotifier.requireTools() {
 	local tool
-	local tools=(getent groupadd install chmod chown realpath systemctl useradd usermod id)
+	local tools=(find getent groupadd install chmod chown realpath systemctl useradd usermod id)
 	for tool in "${tools[@]}"; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
@@ -80,6 +82,22 @@ deploy.systemEmailNotifier.installConfig() {
 		"$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_TARGET"
 }
 
+deploy.systemEmailNotifier.installTemplates() {
+	if [ ! -d "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_SOURCE_DIR" ]; then
+		log.error "Missing system-email-notifier templates source: $LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_SOURCE_DIR"
+		exit 1
+	fi
+
+	install -d -m 0750 -o "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_RUNTIME_USER" -g "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_GROUP" \
+		"$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_TARGET_DIR"
+
+	while IFS= read -r -d '' template_file; do
+		install -m 0640 -o "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_RUNTIME_USER" -g "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_GROUP" \
+			"$template_file" \
+			"$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_TARGET_DIR/$(basename "$template_file")"
+	done < <(find "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_TEMPLATES_SOURCE_DIR" -maxdepth 1 -type f -name '*.html' -print0)
+}
+
 deploy.systemEmailNotifier.installLogTarget() {
 	install -d -m 0751 -o root -g "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_CONFIG_GROUP" "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_LOG_DIR"
 	if [ ! -f "$LITE_NAS_SYSTEM_EMAIL_NOTIFIER_LOG_FILE" ]; then
@@ -112,6 +130,7 @@ deploy.systemEmailNotifier.deploy() {
 	deploy.systemEmailNotifier.ensureRuntimeUser
 	deploy.systemEmailNotifier.installBinary "$source_binary"
 	deploy.systemEmailNotifier.installConfig
+	deploy.systemEmailNotifier.installTemplates
 	deploy.systemEmailNotifier.installLogTarget
 	deploy.systemEmailNotifier.installUnitFile
 

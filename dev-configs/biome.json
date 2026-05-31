@@ -8,6 +8,7 @@
       "!**/.build",
       "!**/dist",
       "!**/build",
+      "!configs/etc/lite-nas/*-email-notifier/*.html",
       "!**/coverage",
       "!**/.claude",
       "!**/.venv",

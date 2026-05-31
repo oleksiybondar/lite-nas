@@ -12,8 +12,8 @@ profile /usr/libexec/lite-nas/web-gateway flags=(attach_disconnected,mediate_del
   /usr/share/lite-nas/web-gateway/** r,
   /etc/lite-nas/web-gateway.conf r,
   /etc/lite-nas/certificates/auth/token-signing.crt r,
+  /proc/sys/net/core/somaxconn r,
   /var/log/lite-nas/web-gateway.log rw,
 
   include if exists <local/usr.libexec.lite-nas.web-gateway>
 }
-
