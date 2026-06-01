@@ -8,8 +8,11 @@ profile /usr/libexec/lite-nas/zfs-metrics-cli flags=(attach_disconnected,mediate
 
   /usr/libexec/lite-nas/zfs-metrics-cli mr,
   /etc/lite-nas/zfs-metrics-cli.conf r,
+  /apparmor/.null rw,
+  /dev/tty rw,
+  /dev/ptmx rw,
+  /dev/pts/[0-9]* rw,
   /var/log/lite-nas/zfs-metrics-cli.log rw,
 
   include if exists <local/usr.libexec.lite-nas.zfs-metrics-cli>
 }
-

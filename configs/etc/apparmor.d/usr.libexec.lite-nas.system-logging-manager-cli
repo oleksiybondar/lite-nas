@@ -14,6 +14,7 @@ profile /usr/libexec/lite-nas/system-logging-manager-cli flags=(attach_disconnec
   /etc/lite-nas/system-logging-manager-cli.conf r,
   /apparmor/.null rw,
   /dev/tty rw,
+  /dev/ptmx rw,
   /dev/pts/[0-9]* rw,
   /var/log/lite-nas/system-logging-manager-cli.log rw,
 
