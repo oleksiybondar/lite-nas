@@ -2,6 +2,7 @@
 
 import json
 import shlex
+from typing import TypeGuard
 
 import pytest
 from hyperiontf import CLIClient, expect
@@ -83,6 +84,13 @@ class JSONPayloadNotFoundError(AssertionError):
         super().__init__(f"aa-status did not return parseable JSON output: {output!r}")
 
 
+class InvalidProfileStatesMappingError(AssertionError):
+    """Raised when aa-status JSON does not expose a string-to-string profile mapping."""
+
+    def __init__(self, value: object) -> None:
+        super().__init__(f"Expected string profile mapping, got {value!r}")
+
+
 def assert_profile_count(
     testsudo_cli_client: CLIClient,
     profile_name: str,
@@ -136,10 +144,22 @@ def extract_profile_states(payload: object) -> dict[str, str]:
     if isinstance(payload, dict) and "profiles" in payload:
         expect(payload).to_match_schema(APPARMOR_WRAPPED_STATUS_SCHEMA)
         profiles = payload["profiles"]
-        return dict(profiles)  # type: ignore[arg-type]
+        if is_profile_states_mapping(profiles):
+            return dict(profiles)
+        raise InvalidProfileStatesMappingError(profiles)
 
     expect(payload).to_match_schema(APPARMOR_BARE_STATUS_SCHEMA)
-    return dict(payload)  # type: ignore[arg-type]
+    if is_profile_states_mapping(payload):
+        return dict(payload)
+    raise InvalidProfileStatesMappingError(payload)
+
+
+def is_profile_states_mapping(value: object) -> TypeGuard[dict[str, str]]:
+    """Report whether a decoded JSON value is a profile-to-mode string mapping."""
+    if not isinstance(value, dict):
+        return False
+
+    return all(isinstance(key, str) and isinstance(item, str) for key, item in value.items())
 
 
 @pytest.mark.infra
