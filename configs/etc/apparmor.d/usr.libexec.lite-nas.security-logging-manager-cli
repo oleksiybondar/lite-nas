@@ -12,6 +12,10 @@ profile /usr/libexec/lite-nas/security-logging-manager-cli flags=(attach_disconn
 
   /usr/libexec/lite-nas/security-logging-manager-cli mr,
   /etc/lite-nas/security-logging-manager-cli.conf r,
+  /apparmor/.null rw,
+  /dev/tty rw,
+  /dev/ptmx rw,
+  /dev/pts/[0-9]* rw,
   /var/log/lite-nas/security-logging-manager-cli.log rw,
 
   include if exists <local/usr.libexec.lite-nas.security-logging-manager-cli>

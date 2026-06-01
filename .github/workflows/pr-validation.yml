@@ -501,6 +501,14 @@ jobs:
           LITENAS_TEST_PASSWORD: testpassword
         run: scripts/ci/prepare-system-test-users.sh
 
+      - name: Prepare restricted sudo system-test user
+        env:
+          LITENAS_TESTSUDO_LOGIN: testsudouser
+          LITENAS_TESTSUDO_PASSWORD: testpassword
+          LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY: /usr/bin/system-logging-manager-cli
+          LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY: /usr/bin/security-logging-manager-cli
+        run: scripts/ci/prepare-system-test-sudo-user.sh
+
       - name: Diagnose installed LiteNAS routing
         run: |
           systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway

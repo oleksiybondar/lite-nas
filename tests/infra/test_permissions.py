@@ -5,58 +5,106 @@ import os
 import pytest
 from hyperiontf import CLIClient
 
+LITE_NAS_GROUP = os.getenv("LITE_NAS_GROUP", "lite-nas")
+LITE_NAS_OPERATOR_GROUP = os.getenv("LITE_NAS_OPERATOR_GROUP", "lite-nas-operator")
+LITE_NAS_SECURITY_GROUP = os.getenv("LITE_NAS_SECURITY_GROUP", "lite-nas-security")
+
+SYSTEM_METRICS_USER = os.getenv("LITE_NAS_SYSTEM_METRICS_RUNTIME_USER", "lite-nas-system-metrics")
+SYSTEM_LOGGING_MANAGER_USER = os.getenv(
+    "LITE_NAS_SYSTEM_LOGGING_MANAGER_RUNTIME_USER",
+    "lite-nas-sys-log-mgr",
+)
+SECURITY_LOGGING_MANAGER_USER = os.getenv(
+    "LITE_NAS_SECURITY_LOGGING_MANAGER_RUNTIME_USER",
+    "lite-nas-sec-log-mgr",
+)
+WEB_GATEWAY_USER = os.getenv("LITE_NAS_WEB_GATEWAY_RUNTIME_USER", "lite-nas-web-gateway")
+SYSTEM_EMAIL_NOTIFIER_USER = os.getenv(
+    "LITE_NAS_SYSTEM_EMAIL_NOTIFIER_RUNTIME_USER",
+    "lite-nas-sys-email-notifier",
+)
+SECURITY_EMAIL_NOTIFIER_USER = os.getenv(
+    "LITE_NAS_SECURITY_EMAIL_NOTIFIER_RUNTIME_USER",
+    "lite-nas-sec-email-notifier",
+)
+SYSTEM_METRICS_CLI_USER = os.getenv(
+    "LITE_NAS_SYSTEM_METRICS_CLI_USER",
+    "lite-nas-system-metrics-cli",
+)
+SYSTEM_METRICS_CLI_GROUP = os.getenv("LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP", "users")
+SYSTEM_LOGGING_MANAGER_CLI_USER = os.getenv(
+    "LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER",
+    "lite-nas-sys-log-mgr-cli",
+)
+SECURITY_LOGGING_MANAGER_CLI_USER = os.getenv(
+    "LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_IDENTITY_USER",
+    "lite-nas-sec-log-mgr-cli",
+)
+
 ETC_PERMISSION_CASES = [
     pytest.param(
         "/etc/lite-nas",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "711",
         id="etc-lite-nas-dir",
     ),
     pytest.param(
         "/etc/lite-nas/auth.conf",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "640",
         id="auth-conf",
     ),
     pytest.param(
         "/etc/lite-nas/web-gateway.conf",
-        "root:lite-nas",
+        f"{WEB_GATEWAY_USER}:{LITE_NAS_GROUP}",
         "640",
         id="web-gateway-conf",
     ),
     pytest.param(
         "/etc/lite-nas/system-metrics.conf",
-        "root:lite-nas",
+        f"{SYSTEM_METRICS_USER}:{LITE_NAS_GROUP}",
         "640",
         id="system-metrics-conf",
     ),
     pytest.param(
         "/etc/lite-nas/system-logging-manager.conf",
-        "root:lite-nas",
+        f"{SYSTEM_LOGGING_MANAGER_USER}:{LITE_NAS_GROUP}",
         "640",
         id="system-logging-manager-conf",
     ),
     pytest.param(
+        "/etc/lite-nas/system-email-notifier.conf",
+        f"{SYSTEM_EMAIL_NOTIFIER_USER}:{LITE_NAS_GROUP}",
+        "640",
+        id="system-email-notifier-conf",
+    ),
+    pytest.param(
         "/etc/lite-nas/security-logging-manager.conf",
-        "root:lite-nas",
+        f"{SECURITY_LOGGING_MANAGER_USER}:{LITE_NAS_GROUP}",
         "640",
         id="security-logging-manager-conf",
     ),
     pytest.param(
+        "/etc/lite-nas/security-email-notifier.conf",
+        f"{SECURITY_EMAIL_NOTIFIER_USER}:{LITE_NAS_GROUP}",
+        "640",
+        id="security-email-notifier-conf",
+    ),
+    pytest.param(
         "/etc/lite-nas/system-metrics-cli.conf",
-        "root:root",
-        "644",
+        f"{SYSTEM_METRICS_CLI_USER}:{SYSTEM_METRICS_CLI_GROUP}",
+        "640",
         id="system-metrics-cli-conf",
     ),
     pytest.param(
         "/etc/lite-nas/system-logging-manager-cli.conf",
-        "root:lite-nas-operator",
+        f"{SYSTEM_LOGGING_MANAGER_CLI_USER}:{LITE_NAS_OPERATOR_GROUP}",
         "640",
         id="system-logging-manager-cli-conf",
     ),
     pytest.param(
         "/etc/lite-nas/security-logging-manager-cli.conf",
-        "root:lite-nas-security",
+        f"{SECURITY_LOGGING_MANAGER_CLI_USER}:{LITE_NAS_SECURITY_GROUP}",
         "640",
         id="security-logging-manager-cli-conf",
     ),
@@ -65,7 +113,7 @@ ETC_PERMISSION_CASES = [
 LOG_PERMISSION_CASES = [
     pytest.param(
         "/var/log/lite-nas",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "751",
         id="log-dir",
     ),
@@ -98,6 +146,18 @@ LOG_PERMISSION_CASES = [
         "lite-nas-sec-log-mgr:lite-nas-sec-log-mgr",
         "640",
         id="security-logging-manager-log",
+    ),
+    pytest.param(
+        "/var/log/lite-nas/system-email-notifier.log",
+        f"{SYSTEM_EMAIL_NOTIFIER_USER}:{SYSTEM_EMAIL_NOTIFIER_USER}",
+        "640",
+        id="system-email-notifier-log",
+    ),
+    pytest.param(
+        "/var/log/lite-nas/security-email-notifier.log",
+        f"{SECURITY_EMAIL_NOTIFIER_USER}:{SECURITY_EMAIL_NOTIFIER_USER}",
+        "640",
+        id="security-email-notifier-log",
     ),
     pytest.param(
         "/var/log/lite-nas/system-metrics-cli.log",

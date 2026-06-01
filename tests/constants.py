@@ -19,6 +19,8 @@ CREDENTIALS: dict[str, str] = {
 DEPENDENCY_PACKAGES: list[str] = [
     "acl",
     "aide",
+    "apparmor",
+    "postfix",
     "zfsutils-linux",
     "nginx",
     "nats-server",
@@ -52,6 +54,11 @@ SECURITY_LOGGING_MANAGER_PASSWORD: str = os.environ.get(
     "LITENAS_SECURITY_PASSWORD",
     os.environ.get("LITENAS_TEST_PASSWORD", "testpassword"),
 )
+TEST_SUDO_LOGIN: str = os.environ.get("LITENAS_TESTSUDO_LOGIN", "testsudouser")
+TEST_SUDO_PASSWORD: str = os.environ.get(
+    "LITENAS_TESTSUDO_PASSWORD",
+    os.environ.get("LITENAS_TEST_PASSWORD", "testpassword"),
+)
 
 SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",
@@ -59,6 +66,10 @@ SYSTEMD_SERVICES: list[str] = [
     "lite-nas-system-metrics",
     "lite-nas-system-logging-manager",
     "lite-nas-security-logging-manager",
+    "lite-nas-system-email-notifier",
+    "lite-nas-security-email-notifier",
+    "postfix",
+    "apparmor",
     "nginx",
     "nats-server",
 ]

@@ -1,19 +1,23 @@
 """System infrastructure test suite for deployed certificate path permissions."""
 
+import os
+
 import pytest
 from hyperiontf import CLIClient
+
+LITE_NAS_GROUP = os.getenv("LITE_NAS_GROUP", "lite-nas")
 
 CERT_PERMISSION_CASES = [
     pytest.param(
         "/etc/lite-nas/certificates",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "711",
         False,
         id="certificates-dir",
     ),
     pytest.param(
         "/etc/lite-nas/certificates/transport",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "711",
         False,
         id="transport-dir",
@@ -27,14 +31,14 @@ CERT_PERMISSION_CASES = [
     ),
     pytest.param(
         "/etc/lite-nas/certificates/auth",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "750",
         True,
         id="auth-cert-dir",
     ),
     pytest.param(
         "/etc/lite-nas/certificates/auth/token-signing.crt",
-        "root:lite-nas",
+        f"root:{LITE_NAS_GROUP}",
         "640",
         True,
         id="token-signing-cert",

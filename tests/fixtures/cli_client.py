@@ -6,6 +6,8 @@ from constants import (
     SECURITY_LOGGING_MANAGER_PASSWORD,
     SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
     SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
+    TEST_SUDO_LOGIN,
+    TEST_SUDO_PASSWORD,
 )
 from hyperiontf import CLIClient
 from hyperiontf.executors.pytest import (
@@ -13,7 +15,11 @@ from hyperiontf.executors.pytest import (
     hyperion_test_case_setup,  # noqa: F401
 )
 
-CLI_DEFAULT_PROMPT_ENV = {"PS1": "hyperion$", "PROMPT": "hyperion$", "COLUMNS": "1024"}
+CLI_DEFAULT_PROMPT_ENV = {
+    "PS1": "hyperion$",
+    "PROMPT": "hyperion$",
+    "COLUMNS": "1024",
+}
 CLI_DEFAULT_ARGS = ["--noprofile", "--norc"]
 CLI_DEFAULT_ENV = {
     "NO_COLOR": "1",
@@ -64,7 +70,7 @@ def replace_prompt(
 ) -> None:
     """Replace the current CLI prompt with the provided string."""
     for key, value in CLI_DEFAULT_PROMPT_ENV.items():
-        cli_client.exec_interactive(f"export {key}='{value}'")
+        cli_client.exec_interactive(f"export {key}={value!r}")
     cli_client.wait("$")
     cli_client.detect_action_prompt()
 
@@ -87,5 +93,16 @@ def security_cli_client(cli_client: CLIClient) -> Generator[CLIClient, None, Non
         cli_client,
         SECURITY_LOGGING_MANAGER_LOGIN,
         SECURITY_LOGGING_MANAGER_PASSWORD,
+    )
+    yield cli_client
+
+
+@fixture(log=False)  # type: ignore[untyped-decorator]
+def testsudo_cli_client(cli_client: CLIClient) -> Generator[CLIClient, None, None]:
+    """Create a CLI session authenticated as the restricted sudo system-test user."""
+    authenticate_cli_client_as_user(
+        cli_client,
+        TEST_SUDO_LOGIN,
+        TEST_SUDO_PASSWORD,
     )
     yield cli_client

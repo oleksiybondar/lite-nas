@@ -100,7 +100,8 @@ def execute_logging_manager_json(
     expect_success: bool = True,
 ) -> object:
     """Run get-command in JSON mode and parse JSON output."""
-    operator_cli_client.execute(f"{cli_binary} {command} --json", timeout=30)
+    # Print a separator newline first so command echo and JSON payload do not merge.
+    operator_cli_client.execute(f"{cli_binary} {command} --json")
     if expect_success:
         operator_cli_client.assert_exit_code(0)
         if not operator_cli_client.output.strip():
@@ -133,13 +134,25 @@ def output_to_json(operator_cli_client: CLIClient) -> object:
 
 
 def extract_json_fragment(output: str) -> str:
-    """Extract JSON payload from shell output that may include command echoes."""
-    start_array = output.find("[")
-    start_object = output.find("{")
-    starts = [idx for idx in (start_array, start_object) if idx >= 0]
-    if not starts:
-        return output
-    return output[min(starts) :]
+    """Extract the widest valid JSON payload from shell output with prompt noise."""
+    decoder = json.JSONDecoder()
+    best_fragment = ""
+    best_length = -1
+
+    for index, char in enumerate(output):
+        if char not in "[{":
+            continue
+        try:
+            _, end = decoder.raw_decode(output[index:])
+        except json.JSONDecodeError:
+            continue
+        if end > best_length:
+            best_fragment = output[index : index + end]
+            best_length = end
+
+    if best_fragment:
+        return best_fragment
+    return output
 
 
 def strip_terminal_control_sequences(output: str) -> str:

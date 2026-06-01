@@ -7,6 +7,8 @@ from hyperiontf import CLIClient
 DEPENDENCY_PACKAGE_MARKS = {
     "acl": pytest.mark.ACL,
     "aide": pytest.mark.AIDE,
+    "apparmor": pytest.mark.AppArmor,
+    "postfix": pytest.mark.Postfix,
     "zfsutils-linux": pytest.mark.ZFS,
     "nginx": pytest.mark.Nginx,
     "nats-server": pytest.mark.NATS,
