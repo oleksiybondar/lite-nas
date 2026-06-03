@@ -13,6 +13,7 @@ import (
 
 type (
 	accessTokenContextKey           struct{}
+	accessClaimsContextKey          struct{}
 	authenticationFailureContextKey struct{}
 )
 
@@ -31,6 +32,12 @@ type AuthenticationOptions struct {
 }
 
 type authenticationFailure string
+
+var (
+	operatorRoles      = []string{"lite-nas-operator"}
+	administratorRoles = []string{"admin", "sudo"}
+	securityRoles      = []string{"lite-nas-security"}
+)
 
 const authenticationFailureExpired authenticationFailure = "expired"
 
@@ -56,12 +63,13 @@ func ExtractAuthentication(options AuthenticationOptions) func(huma.Context, fun
 			return
 		}
 
-		if _, err := options.Verifier.Verify(token); err != nil {
+		claims, err := options.Verifier.Verify(token)
+		if err != nil {
 			next(withAuthenticationFailure(ctx, err))
 			return
 		}
 
-		next(huma.WithValue(ctx, accessTokenContextKey{}, token))
+		next(withAuthenticatedContext(ctx, token, claims))
 	}
 }
 
@@ -83,6 +91,61 @@ func RequireAuthentication(api huma.API, options AuthenticationOptions) func(hum
 		}
 
 		next(ctx)
+	}
+}
+
+// RequireOperator rejects authenticated callers that do not hold the operator
+// role or an administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+func RequireOperator(api huma.API) func(huma.Context, func(huma.Context)) {
+	return RequireAnyRole(api, operatorRoles, administratorRoles)
+}
+
+// RequireAdministrator rejects authenticated callers that do not hold an
+// administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+func RequireAdministrator(api huma.API) func(huma.Context, func(huma.Context)) {
+	return RequireAnyRole(api, nil, administratorRoles)
+}
+
+// RequireSecurity rejects authenticated callers that do not hold the security
+// role or an administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+func RequireSecurity(api huma.API) func(huma.Context, func(huma.Context)) {
+	return RequireAnyRole(api, securityRoles, administratorRoles)
+}
+
+// RequireAnyRole rejects authenticated callers unless they hold at least one
+// target role or one administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+//   - targetRoles: role names accepted for the target protected area
+//   - elevatedRoles: administrator-equivalent role names accepted globally
+func RequireAnyRole(
+	api huma.API,
+	targetRoles []string,
+	elevatedRoles []string,
+) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		claims, ok := accessClaimsFromContext(ctx.Context())
+		if !ok {
+			_ = huma.WriteErr(api, ctx, 401, "missing or invalid access token")
+			return
+		}
+
+		if hasAnyRole(claims.Roles, targetRoles) || hasAnyRole(claims.Roles, elevatedRoles) {
+			next(ctx)
+			return
+		}
+
+		_ = huma.WriteErr(api, ctx, 403, "insufficient role")
 	}
 }
 
@@ -124,6 +187,23 @@ func hasAccessToken(ctx context.Context) bool {
 	return isAcceptedAccessToken(token)
 }
 
+func accessClaimsFromContext(ctx context.Context) (authtoken.AccessClaims, bool) {
+	claims, ok := ctx.Value(accessClaimsContextKey{}).(authtoken.AccessClaims)
+	return claims, ok
+}
+
+func withAuthenticatedContext(
+	ctx huma.Context,
+	token string,
+	claims authtoken.AccessClaims,
+) huma.Context {
+	return huma.WithValue(
+		huma.WithValue(ctx, accessTokenContextKey{}, token),
+		accessClaimsContextKey{},
+		claims,
+	)
+}
+
 func withAuthenticationFailure(ctx huma.Context, err error) huma.Context {
 	if authtoken.IsExpiredError(err) {
 		return huma.WithValue(ctx, authenticationFailureContextKey{}, authenticationFailureExpired)
@@ -142,4 +222,39 @@ func clearAuthCookies(ctx huma.Context, options AuthenticationOptions, now time.
 	refreshCookie := httpcookie.Expired(options.RefreshCookieName, now)
 	ctx.AppendHeader("Set-Cookie", accessCookie.String())
 	ctx.AppendHeader("Set-Cookie", refreshCookie.String())
+}
+
+func hasAnyRole(subjectRoles []string, acceptedRoles []string) bool {
+	if len(acceptedRoles) == 0 {
+		return false
+	}
+
+	roleSet := buildNormalizedRoleSet(subjectRoles)
+	for _, role := range acceptedRoles {
+		key := normalizeRole(role)
+		if key == "" {
+			continue
+		}
+		if _, ok := roleSet[key]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func buildNormalizedRoleSet(roles []string) map[string]struct{} {
+	roleSet := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		key := normalizeRole(role)
+		if key == "" {
+			continue
+		}
+		roleSet[key] = struct{}{}
+	}
+	return roleSet
+}
+
+func normalizeRole(role string) string {
+	return strings.ToLower(strings.TrimSpace(role))
 }

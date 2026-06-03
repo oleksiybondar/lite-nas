@@ -3,7 +3,6 @@ package middlewares
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -66,21 +65,18 @@ func (c *stubHumaContext) BodyWriter() io.Writer           { return c.body }
 
 type stubAPI struct{}
 
-var errStubTransformUnsupported = errors.New("stub transform unsupported")
-
-func (stubAPI) Adapter() huma.Adapter            { return nil }
-func (stubAPI) OpenAPI() *huma.OpenAPI           { return &huma.OpenAPI{} }
-func (stubAPI) Negotiate(string) (string, error) { return "application/json", nil }
-func (stubAPI) Transform(huma.Context, string, any) (any, error) {
-	return nil, errStubTransformUnsupported
-}
+func (stubAPI) Adapter() huma.Adapter                                   { return nil }
+func (stubAPI) OpenAPI() *huma.OpenAPI                                  { return &huma.OpenAPI{} }
+func (stubAPI) Negotiate(string) (string, error)                        { return "application/json", nil }
+func (stubAPI) Transform(_ huma.Context, _ string, v any) (any, error)  { return v, nil }
 func (stubAPI) Marshal(io.Writer, string, any) error                    { return nil }
 func (stubAPI) Unmarshal(string, []byte, any) error                     { return nil }
 func (stubAPI) UseMiddleware(...func(huma.Context, func(huma.Context))) {}
 func (stubAPI) Middlewares() huma.Middlewares                           { return nil }
 
 type authenticationVerifierStub struct {
-	err error
+	err    error
+	claims authtoken.AccessClaims
 }
 
 func (v authenticationVerifierStub) Verify(string) (authtoken.AccessClaims, error) {
@@ -88,7 +84,7 @@ func (v authenticationVerifierStub) Verify(string) (authtoken.AccessClaims, erro
 		return authtoken.AccessClaims{}, v.err
 	}
 
-	return authtoken.AccessClaims{}, nil
+	return v.claims, nil
 }
 
 func TestExtractAuthenticationPrefersBearerHeader(t *testing.T) {
@@ -104,9 +100,7 @@ func TestExtractAuthenticationPrefersBearerHeader(t *testing.T) {
 	nextCalled := false
 	middleware(ctx, func(nextCtx huma.Context) {
 		nextCalled = true
-		if !hasAccessToken(nextCtx.Context()) {
-			t.Fatal("expected access token in context")
-		}
+		assertAuthenticatedContext(t, nextCtx, []string{"lite-nas-operator"})
 	})
 
 	if !nextCalled {
@@ -220,7 +214,9 @@ func authenticationOptionsFixture() AuthenticationOptions {
 	return AuthenticationOptions{
 		AccessCookieName:  "lite-nas-at",
 		RefreshCookieName: "lite-nas-rt",
-		Verifier:          authenticationVerifierStub{},
+		Verifier: authenticationVerifierStub{
+			claims: authtoken.AccessClaims{Roles: []string{"lite-nas-operator"}},
+		},
 	}
 }
 
@@ -256,5 +252,161 @@ func TestIsAcceptedAccessTokenRequiresNonEmptyValue(t *testing.T) {
 
 	if !isAcceptedAccessToken("AT-token") {
 		t.Fatal("expected token to be accepted")
+	}
+}
+
+func TestRequireOperatorAllowsOperatorRole(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareAllowed(t, RequireOperator(stubAPI{}), []string{"lite-nas-operator"})
+}
+
+func TestRequireOperatorAllowsAdministratorRole(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareAllowed(t, RequireOperator(stubAPI{}), []string{"sudo"})
+}
+
+func TestRequireOperatorRejectsAuthenticatedNonOperator(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareRejected(t, RequireOperator(stubAPI{}), []string{"lite-nas-security"}, http.StatusForbidden)
+}
+
+func TestRequireAdministratorAllowsAdministratorRole(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareAllowed(t, RequireAdministrator(stubAPI{}), []string{"admin"})
+}
+
+func TestRequireAdministratorRejectsOperatorRole(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareRejected(t, RequireAdministrator(stubAPI{}), []string{"lite-nas-operator"}, http.StatusForbidden)
+}
+
+func TestRequireSecurityAllowsSecurityRole(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareAllowed(t, RequireSecurity(stubAPI{}), []string{"lite-nas-security"})
+}
+
+func TestRequireSecurityAllowsAdministratorRole(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareAllowed(t, RequireSecurity(stubAPI{}), []string{"sudo"})
+}
+
+func TestRequireSecurityRejectsAuthenticatedNonSecurity(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareRejected(t, RequireSecurity(stubAPI{}), []string{"lite-nas-operator"}, http.StatusForbidden)
+}
+
+func TestRequireAnyRoleRejectsMissingClaims(t *testing.T) {
+	t.Parallel()
+
+	assertRoleMiddlewareRejected(t, RequireAnyRole(stubAPI{}, operatorRoles, administratorRoles), nil, http.StatusUnauthorized)
+}
+
+func TestHasAnyRoleMatchesCaseInsensitiveRole(t *testing.T) {
+	t.Parallel()
+
+	if !hasAnyRole([]string{" SUDO "}, administratorRoles) {
+		t.Fatal("expected normalized administrator role to match")
+	}
+}
+
+func assertRoleMiddlewareAllowed(
+	t *testing.T,
+	middleware func(huma.Context, func(huma.Context)),
+	roles []string,
+) {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	ctx := authenticatedContextFixture(request, roles)
+
+	nextCalled := false
+	middleware(ctx, func(huma.Context) {
+		nextCalled = true
+	})
+
+	if !nextCalled {
+		t.Fatal("expected request to continue")
+	}
+}
+
+func assertRoleMiddlewareRejected(
+	t *testing.T,
+	middleware func(huma.Context, func(huma.Context)),
+	roles []string,
+	wantStatus int,
+) {
+	t.Helper()
+
+	ctx, statusCtx := roleContextFixture(roles)
+
+	nextCalled := false
+	middleware(ctx, func(huma.Context) {
+		nextCalled = true
+	})
+
+	if nextCalled {
+		t.Fatal("expected request to be rejected")
+	}
+
+	assertResponseStatus(t, statusCtx, wantStatus)
+}
+
+func authenticatedContextFixture(request *http.Request, roles []string) huma.Context {
+	baseCtx := newStubHumaContext(request)
+	return withAuthenticatedContext(
+		baseCtx,
+		"AT-token",
+		authtoken.AccessClaims{Roles: roles},
+	)
+}
+
+func assertAuthenticatedContext(t *testing.T, ctx huma.Context, wantRoles []string) {
+	t.Helper()
+
+	if !hasAccessToken(ctx.Context()) {
+		t.Fatal("expected access token in context")
+	}
+
+	claims, ok := accessClaimsFromContext(ctx.Context())
+	if !ok {
+		t.Fatal("expected access claims in context")
+	}
+	if len(claims.Roles) != len(wantRoles) {
+		t.Fatalf("claims roles = %#v, want %#v", claims.Roles, wantRoles)
+	}
+	for index, wantRole := range wantRoles {
+		if claims.Roles[index] != wantRole {
+			t.Fatalf("claims roles = %#v, want %#v", claims.Roles, wantRoles)
+		}
+	}
+}
+
+func roleContextFixture(roles []string) (huma.Context, *stubHumaContext) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	baseCtx := newStubHumaContext(request)
+	if roles == nil {
+		return baseCtx, baseCtx
+	}
+
+	return withAuthenticatedContext(
+		baseCtx,
+		"AT-token",
+		authtoken.AccessClaims{Roles: roles},
+	), baseCtx
+}
+
+func assertResponseStatus(t *testing.T, ctx *stubHumaContext, wantStatus int) {
+	t.Helper()
+
+	if ctx.status != wantStatus {
+		t.Fatalf("status = %d, want %d", ctx.status, wantStatus)
 	}
 }
