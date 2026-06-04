@@ -7,6 +7,7 @@ import (
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	sharedloggingmanagernats "lite-nas/shared/loggingmanager/nats"
 	sharedloggingmanagerservice "lite-nas/shared/loggingmanagerservice"
+	"lite-nas/shared/roleauth"
 )
 
 const (
@@ -48,7 +49,7 @@ func buildNATSSubjects() sharedloggingmanagernats.Subjects {
 }
 
 func buildAuthorizationPolicy(subjects sharedloggingmanagernats.Subjects) sharedloggingmanagernats.AuthorizationPolicy {
-	writeRoles := []string{"admin", "sudo", "operator", "lite-nas-operator"}
+	writeRoles := roleauth.AllowedRoles(roleauth.RequirementOperator)
 
 	return sharedloggingmanagernats.AuthorizationPolicy{
 		RPCRolesBySubject: map[string][]string{

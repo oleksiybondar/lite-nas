@@ -7,6 +7,7 @@ import (
 
 	"lite-nas/shared/authtoken"
 	sharedmessaging "lite-nas/shared/messaging"
+	"lite-nas/shared/roleauth"
 )
 
 var errUnexpectedNextCall = errors.New("next should not be called")
@@ -135,11 +136,11 @@ func TestRoleAuthorizationRPCMiddlewareAllowsMatchingRole(t *testing.T) {
 
 	middleware := NewRoleAuthorizationRPCMiddleware(AuthorizationPolicy{
 		RPCRolesBySubject: map[string][]string{
-			"subject.protected": {"operator"},
+			"subject.protected": roleauth.AllowedRoles(roleauth.RequirementOperator),
 		},
 	})
 
-	claims := authtoken.AccessClaims{Roles: []string{"operator"}}
+	claims := authtoken.AccessClaims{Roles: []string{roleauth.RoleOperator}}
 	result, err := middleware(
 		context.WithValue(context.Background(), accessClaimsContextKey{}, claims),
 		sharedmessaging.Envelope{Subject: "subject.protected"},
@@ -160,7 +161,7 @@ func TestRoleAuthorizationRPCMiddlewareRejectsMissingRole(t *testing.T) {
 
 	middleware := NewRoleAuthorizationRPCMiddleware(AuthorizationPolicy{
 		RPCRolesBySubject: map[string][]string{
-			"subject.protected": {"operator"},
+			"subject.protected": roleauth.AllowedRoles(roleauth.RequirementOperator),
 		},
 	})
 

@@ -54,7 +54,7 @@ func TestNormalizeCoreDependenciesSetsDefaultPrefixAndValidator(t *testing.T) {
 	}
 }
 
-func TestNextEventIdentityWrapsRecIDAndSequence(t *testing.T) {
+func TestNextEventIdentityAdvancesRecIDAndWrapsSequence(t *testing.T) {
 	t.Parallel()
 
 	core := &Core{
@@ -68,8 +68,8 @@ func TestNextEventIdentityWrapsRecIDAndSequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nextEventIdentity() error = %v", err)
 	}
-	if recID != 1 {
-		t.Fatalf("recID = %d, want 1", recID)
+	if recID != 4 {
+		t.Fatalf("recID = %d, want 4", recID)
 	}
 	if seq != 0 {
 		t.Fatalf("seq = %d, want 0", seq)

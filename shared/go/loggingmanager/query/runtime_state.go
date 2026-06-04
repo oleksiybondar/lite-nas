@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// RuntimeStateCurrentEventRecIDKey stores the rotation-slot pointer.
+	// RuntimeStateCurrentEventRecIDKey stores the last assigned event rec_id.
 	RuntimeStateCurrentEventRecIDKey = "current_event_rec_id"
 	// RuntimeStateCurrentEventSeqKey stores the generated event-id sequence.
 	RuntimeStateCurrentEventSeqKey = "current_event_seq"
@@ -24,10 +24,10 @@ func UpsertRuntimeState(row dto.RuntimeStateRow) Query {
 }
 
 // BuildRuntimeStateSeedQueries returns idempotent seed queries for required
-// runtime-state keys used by rotation and event-id generation.
+// runtime-state keys used by monotonic rec_id and event-id generation.
 //
 // Seed behavior:
-//   - current_event_rec_id tracks the current rotation slot pointer.
+//   - current_event_rec_id tracks the last assigned event rec_id.
 //   - current_event_seq tracks the current generated event-id sequence.
 //   - event_id_prefix tracks the default event-id prefix.
 func BuildRuntimeStateSeedQueries(defaultCurrentEventRecID int64, defaultCurrentEventSeq uint32, defaultPrefix string) []Query {

@@ -214,6 +214,54 @@ func TestCleanupSucceeds(t *testing.T) {
 	}
 }
 
+func TestCleanupDeletesOldestEventsBeyondMaxEvents(t *testing.T) {
+	t.Parallel()
+
+	rig := newRunningCoreRigWithLimits(t, 2, 1000)
+
+	firstID := createEventAndWaitCount(t, rig, "system", 1)
+	secondID := createEventAndWaitCount(t, rig, "system", 2)
+	thirdID := createEventAndWaitCount(t, rig, "system", 3)
+
+	if err := rig.core.Cleanup(context.Background()); err != nil {
+		t.Fatalf("Cleanup() error = %v", err)
+	}
+	waitForListedEvents(t, rig.core, 2)
+
+	if _, found, err := rig.core.GetEvent(dto.GetEventHistoryInput{EventID: firstID}); err != nil {
+		t.Fatalf("GetEvent(%q) error = %v", firstID, err)
+	} else if found {
+		t.Fatalf("GetEvent(%q) found = true, want false", firstID)
+	}
+
+	assertEventStillPresent(t, rig.core, secondID)
+	assertEventStillPresent(t, rig.core, thirdID)
+}
+
+func TestCleanupKeepsLatestOccurrencesPerEvent(t *testing.T) {
+	t.Parallel()
+
+	rig := newRunningCoreRigWithLimits(t, 10, 2)
+	eventID := mustCreateEvent(t, rig, "system")
+
+	addOccurrenceWithValue(t, rig, eventID, 1)
+	addOccurrenceWithValue(t, rig, eventID, 2)
+	addOccurrenceWithValue(t, rig, eventID, 3)
+	addOccurrenceWithValue(t, rig, eventID, 4)
+
+	if got := countOccurrencesByEventID(t, rig.core.db, eventID); got != 4 {
+		t.Fatalf("occurrence count before cleanup = %d, want 4", got)
+	}
+
+	if err := rig.core.Cleanup(context.Background()); err != nil {
+		t.Fatalf("Cleanup() error = %v", err)
+	}
+
+	if got := countOccurrencesByEventID(t, rig.core.db, eventID); got != 2 {
+		t.Fatalf("occurrence count after cleanup = %d, want 2", got)
+	}
+}
+
 func TestCoreMethodsReturnNotFoundForUnknownEvent(t *testing.T) {
 	t.Parallel()
 
@@ -359,13 +407,17 @@ type runningCoreRig struct {
 }
 
 func newRunningCoreRig(t *testing.T) runningCoreRig {
+	return newRunningCoreRigWithLimits(t, 10, 1000)
+}
+
+func newRunningCoreRigWithLimits(t *testing.T, maxEvents int, maxOccurrences int) runningCoreRig {
 	t.Helper()
 
 	db := openTestSQLiteDB(t)
 	t.Cleanup(func() { _ = db.Close() })
 
 	writerInputCh, writerFlushCh, cancel, done := startRunningWriter(t, db)
-	core, err := newCoreForRig(writerInputCh, db)
+	core, err := newCoreForRigWithLimits(writerInputCh, db, maxEvents, maxOccurrences)
 	if err != nil {
 		t.Fatalf("NewCore() error = %v", err)
 	}
@@ -402,13 +454,18 @@ func startRunningWriter(t *testing.T, db *sql.DB) (chan WriteRequest, chan struc
 	return writerInputCh, writerFlushCh, cancel, done
 }
 
-func newCoreForRig(writerInputCh chan WriteRequest, db *sql.DB) (*Core, error) {
+func newCoreForRigWithLimits(
+	writerInputCh chan WriteRequest,
+	db *sql.DB,
+	maxEvents int,
+	maxOccurrences int,
+) (*Core, error) {
 	return NewCore(context.Background(), CoreDeps{
 		DB:             db,
 		WriterInputCh:  writerInputCh,
 		Clock:          fixedClock,
-		MaxEvents:      10,
-		MaxOccurrences: 1000,
+		MaxEvents:      maxEvents,
+		MaxOccurrences: maxOccurrences,
 		EventIDPrefix:  "alert",
 	})
 }
@@ -427,6 +484,55 @@ func mustCreateEvent(t *testing.T, rig runningCoreRig, category string) string {
 	rig.flush(t)
 	waitForListedEvents(t, rig.core, 1)
 	return eventID
+}
+
+func createEventAndWaitCount(t *testing.T, rig runningCoreRig, category string, wantCount int) string {
+	t.Helper()
+
+	eventID, err := rig.core.CreateEvent(dto.CreateEventInput{Category: category})
+	if err != nil {
+		t.Fatalf("CreateEvent() error = %v", err)
+	}
+	rig.flush(t)
+	waitForListedEvents(t, rig.core, wantCount)
+	return eventID
+}
+
+func addOccurrenceWithValue(t *testing.T, rig runningCoreRig, eventID string, value float64) {
+	t.Helper()
+
+	valueUnit := "%"
+	if err := rig.core.AddOccurrence(dto.OccurrenceRow{
+		EventID:    eventID,
+		EventRecID: 1,
+		Timestamp:  fixedClock().Format(time.RFC3339),
+		ValueType:  enum.ValueTypeFloat,
+		ValueNum:   &value,
+		ValueUnit:  &valueUnit,
+	}); err != nil {
+		t.Fatalf("AddOccurrence() error = %v", err)
+	}
+	rig.flush(t)
+}
+
+func assertEventStillPresent(t *testing.T, core *Core, eventID string) {
+	t.Helper()
+
+	if _, found, err := core.GetEvent(dto.GetEventHistoryInput{EventID: eventID}); err != nil {
+		t.Fatalf("GetEvent(%q) error = %v", eventID, err)
+	} else if !found {
+		t.Fatalf("GetEvent(%q) found = false, want true", eventID)
+	}
+}
+
+func countOccurrencesByEventID(t *testing.T, db *sql.DB, eventID string) int {
+	t.Helper()
+
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM occurrences WHERE event_id = ?", eventID).Scan(&count); err != nil {
+		t.Fatalf("count occurrences query error = %v", err)
+	}
+	return count
 }
 
 func openTestSQLiteDB(t *testing.T) *sql.DB {

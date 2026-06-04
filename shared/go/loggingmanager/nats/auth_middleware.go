@@ -3,10 +3,10 @@ package nats
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"lite-nas/shared/authtoken"
 	sharedmessaging "lite-nas/shared/messaging"
+	"lite-nas/shared/roleauth"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -84,7 +84,7 @@ func NewRoleAuthorizationSubscriptionMiddleware(
 		next sharedmessaging.MessageNext,
 	) error {
 		requiredRoles, protected := policy.SubscriptionRolesBySubject[envelope.Subject]
-		if protected && !hasAnyRole(claimsFromContext(ctx), requiredRoles) {
+		if protected && !roleauth.HasAnyRole(claimsFromContext(ctx).Roles, requiredRoles) {
 			return errInsufficientRole
 		}
 		return next(ctx, envelope)
@@ -102,7 +102,7 @@ func NewRoleAuthorizationRPCMiddleware(
 		next sharedmessaging.RPCNext,
 	) (any, error) {
 		requiredRoles, protected := policy.RPCRolesBySubject[envelope.Subject]
-		if protected && !hasAnyRole(claimsFromContext(ctx), requiredRoles) {
+		if protected && !roleauth.HasAnyRole(claimsFromContext(ctx).Roles, requiredRoles) {
 			return nil, errInsufficientRole
 		}
 		return next(ctx, envelope)
@@ -136,42 +136,4 @@ func validateAccessToken(
 func claimsFromContext(ctx context.Context) authtoken.AccessClaims {
 	claims, _ := ctx.Value(accessClaimsContextKey{}).(authtoken.AccessClaims)
 	return claims
-}
-
-func hasAnyRole(claims authtoken.AccessClaims, requiredRoles []string) bool {
-	if len(requiredRoles) == 0 {
-		return true
-	}
-
-	roleSet := buildNormalizedRoleSet(claims.Roles)
-	return hasRequiredRole(roleSet, requiredRoles)
-}
-
-func buildNormalizedRoleSet(roles []string) map[string]struct{} {
-	roleSet := make(map[string]struct{}, len(roles))
-	for _, role := range roles {
-		key := normalizeRole(role)
-		if key == "" {
-			continue
-		}
-		roleSet[key] = struct{}{}
-	}
-	return roleSet
-}
-
-func hasRequiredRole(roleSet map[string]struct{}, requiredRoles []string) bool {
-	for _, role := range requiredRoles {
-		key := normalizeRole(role)
-		if key == "" {
-			continue
-		}
-		if _, ok := roleSet[key]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizeRole(role string) string {
-	return strings.ToLower(strings.TrimSpace(role))
 }

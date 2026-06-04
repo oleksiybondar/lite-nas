@@ -14,6 +14,7 @@ import (
 	"lite-nas/services/web-gateway/services"
 	webtest "lite-nas/services/web-gateway/testutil"
 	"lite-nas/shared/authtoken"
+	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/metrics"
 )
@@ -132,13 +133,54 @@ func (routeZFSMetricsService) GetHistory(context.Context) ([]metrics.ZFSSnapshot
 	}, nil
 }
 
-type routeAuthVerifier struct{}
+type routeAlertsService struct{}
 
-func (routeAuthVerifier) Verify(string) (authtoken.AccessClaims, error) {
-	return authtoken.AccessClaims{}, nil
+func (routeAlertsService) List(context.Context, services.AlertListInput) (services.AlertListPage, error) {
+	return services.AlertListPage{
+		Items:      []loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
+		TotalCount: 1,
+	}, nil
+}
+
+func (routeAlertsService) ListUnacknowledged(context.Context, services.AlertListInput) (services.AlertListPage, error) {
+	return services.AlertListPage{
+		Items:      []loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
+		TotalCount: 1,
+	}, nil
+}
+
+func (routeAlertsService) Get(context.Context, services.AlertGetInput) (loggingmanagercontract.ListAlertItem, bool, error) {
+	return loggingmanagercontract.ListAlertItem{EventID: "evt-1"}, true, nil
+}
+
+func (routeAlertsService) Acknowledge(context.Context, services.AlertActionInput) error {
+	return nil
+}
+
+func (routeAlertsService) Mute(context.Context, services.AlertActionInput) error {
+	return nil
+}
+
+type routeAuthVerifier struct {
+	claims authtoken.AccessClaims
+}
+
+func (v routeAuthVerifier) Verify(string) (authtoken.AccessClaims, error) {
+	claims := v.claims
+	if claims.Login == "" {
+		claims.Login = "john.doe"
+	}
+	if len(claims.Roles) == 0 {
+		claims.Roles = []string{"admin"}
+	}
+	return claims, nil
 }
 
 func routerFixture(authService controllers.AuthService) http.Handler {
+	return routerFixtureWithVerifier(authService, routeAuthVerifier{})
+}
+
+func routerFixtureWithVerifier(authService controllers.AuthService, verifier routeAuthVerifier) http.Handler {
 	if authService == nil {
 		authService = routeAuthService{}
 	}
@@ -154,14 +196,16 @@ func routerFixture(authService controllers.AuthService) http.Handler {
 			},
 			sharedlogger.NewNop(),
 		),
-		SystemMetrics: controllers.NewSystemMetricsController(routeSystemMetricsService{}),
-		ZFSMetrics:    controllers.NewZFSMetricsController(routeZFSMetricsService{}),
+		SystemAlerts:   controllers.NewSystemAlertsController(routeAlertsService{}),
+		SecurityAlerts: controllers.NewSecurityAlertsController(routeAlertsService{}),
+		SystemMetrics:  controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		ZFSMetrics:     controllers.NewZFSMetricsController(routeZFSMetricsService{}),
 	}
 
 	return NewRouter("web-gateway", "0.1.0", controllerModule, middlewares.AuthenticationOptions{
 		AccessCookieName:  services.AccessTokenCookieName,
 		RefreshCookieName: services.RefreshTokenCookieName,
-		Verifier:          routeAuthVerifier{},
+		Verifier:          verifier,
 	})
 }
 
@@ -289,6 +333,37 @@ func TestRouterZFSMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/zfs-metrics/history", nil, http.StatusOK)
+}
+
+// Requirements: web-gateway/FR-005, web-gateway/TR-001
+func TestRouterSystemAlertsRequireAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/alerts/system", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+// Requirements: web-gateway/FR-005, web-gateway/TR-001
+func TestRouterSystemAlertsAcceptOperatorRole(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixtureWithVerifier(nil, routeAuthVerifier{
+		claims: authtoken.AccessClaims{Login: "john.doe", Roles: []string{"lite-nas-operator"}},
+	})
+	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(http.MethodGet, "/api/alerts/system/active", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
+
+// Requirements: web-gateway/FR-005, web-gateway/TR-001
+func TestRouterSecurityAlertsRejectOperatorRole(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixtureWithVerifier(nil, routeAuthVerifier{
+		claims: authtoken.AccessClaims{Login: "john.doe", Roles: []string{"lite-nas-operator"}},
+	})
+	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(http.MethodGet, "/api/alerts/security", nil))
+	webtest.AssertStatus(t, recorder, http.StatusForbidden)
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001

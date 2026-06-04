@@ -293,18 +293,15 @@ func (state *deferredTailState) reset() {
 	state.touchesOccurrences = false
 }
 
-// buildBatchWithDeferredTail appends deferred runtime-state and occurrence
-// cleanup tail queries to the current sealed batch.
+// buildBatchWithDeferredTail appends deferred runtime-state tail queries to the
+// current sealed batch.
 func (w *Writer) buildBatchWithDeferredTail(
 	batch []query.Query,
 	tailState *deferredTailState,
 ) []query.Query {
-	queries := make([]query.Query, 0, len(batch)+len(tailState.runtimeStateByKey)+1)
+	queries := make([]query.Query, 0, len(batch)+len(tailState.runtimeStateByKey))
 	queries = append(queries, batch...)
 	queries = append(queries, runtimeStateTailQueries(tailState.runtimeStateByKey)...)
-	if tailState.touchesOccurrences && w.maxOccurrences > 0 {
-		queries = append(queries, query.DeleteOccurrencesBeyondLimit(w.maxOccurrences))
-	}
 	return queries
 }
 

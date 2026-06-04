@@ -15,6 +15,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"lite-nas/shared/authtoken"
+	"lite-nas/shared/roleauth"
 )
 
 type stubHumaContext struct {
@@ -306,13 +307,13 @@ func TestRequireSecurityRejectsAuthenticatedNonSecurity(t *testing.T) {
 func TestRequireAnyRoleRejectsMissingClaims(t *testing.T) {
 	t.Parallel()
 
-	assertRoleMiddlewareRejected(t, RequireAnyRole(stubAPI{}, operatorRoles, administratorRoles), nil, http.StatusUnauthorized)
+	assertRoleMiddlewareRejected(t, RequireAnyRole(stubAPI{}, roleauth.AllowedRoles(roleauth.RequirementOperator)), nil, http.StatusUnauthorized)
 }
 
 func TestHasAnyRoleMatchesCaseInsensitiveRole(t *testing.T) {
 	t.Parallel()
 
-	if !hasAnyRole([]string{" SUDO "}, administratorRoles) {
+	if !roleauth.HasAnyRole([]string{" SUDO "}, roleauth.AdministratorRoles()) {
 		t.Fatal("expected normalized administrator role to match")
 	}
 }

@@ -156,16 +156,27 @@ func ensureCoreValidator(deps *CoreDeps) error {
 	return nil
 }
 
-// Cleanup removes orphan rows for rotated-out events.
+// Cleanup enforces event and occurrence retention limits and removes rows that
+// no longer belong to retained events.
 func (core *Core) Cleanup(ctx context.Context) error {
-	return executeQueryBatch(ctx, core.db, []query.Query{
+	queries := make([]query.Query, 0, 6)
+	if core.maxEvents > 0 {
+		queries = append(queries, query.DeleteOldestEventsBeyondLimit(core.maxEvents))
+	}
+	if core.maxOccurrences > 0 {
+		queries = append(queries, query.DeleteOccurrencesPerEventBeyondLimit(core.maxOccurrences))
+	}
+	queries = append(queries,
+		query.DeleteOrphanLifecycle(),
+		query.DeleteOrphanEventState(),
 		query.DeleteOrphanOccurrences(),
 		query.DeleteOrphanEventMeta(),
-	})
+	)
+	return executeQueryBatch(ctx, core.db, queries)
 }
 
-// CreateEvent creates or rotates one event slot and enqueues all writes
-// required to persist event/lifecycle/state rows. Runtime pointers are passed
+// CreateEvent creates one new retained event identity and enqueues all writes
+// required to persist event/lifecycle/state rows. Runtime counters are passed
 // as deferred transaction-tail updates for single-write persistence per flush.
 func (core *Core) CreateEvent(input dto.CreateEventInput) (string, error) {
 	if err := core.validator.Struct(input); err != nil {
@@ -320,16 +331,13 @@ func parseRuntimeStateUint32(value string) (uint32, error) {
 	return uint32(parsed), nil
 }
 
-// nextEventIdentity advances rec_id and sequence pointers with wrap semantics
-// and returns the resulting business event identifier.
+// nextEventIdentity advances rec_id and sequence counters and returns the
+// resulting business event identifier.
 func (core *Core) nextEventIdentity() (int64, uint32, string, error) {
 	core.stateMu.Lock()
 	defer core.stateMu.Unlock()
 
 	recID := core.currentEventRec + 1
-	if recID > int64(core.maxEvents) {
-		recID = 1
-	}
 
 	seq := core.currentEventSeq + 1
 	if core.currentEventSeq >= query.EventIDMaxSequence {

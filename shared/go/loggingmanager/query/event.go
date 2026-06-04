@@ -9,7 +9,7 @@ import (
 // Contract:
 //   - row.EventID must follow the configured generated-ID policy and stay
 //     within schema limits.
-//   - row.RecID is the rotation-slot identity used for overwrite semantics.
+//   - row.RecID is the retained event-row identity shared by related tables.
 //
 // Side effects:
 //   - None. The function only returns SQL + args data.
