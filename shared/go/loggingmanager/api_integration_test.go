@@ -39,6 +39,31 @@ func TestListEventsReturnsCreatedEvent(t *testing.T) {
 	}
 }
 
+func TestListEventsPageReturnsTotalCountIndependentOfPageSize(t *testing.T) {
+	t.Parallel()
+
+	rig := newRunningCoreRig(t)
+	if _, err := rig.core.CreateEvent(dto.CreateEventInput{Category: "system"}); err != nil {
+		t.Fatalf("CreateEvent() error = %v", err)
+	}
+	if _, err := rig.core.CreateEvent(dto.CreateEventInput{Category: "system"}); err != nil {
+		t.Fatalf("CreateEvent() error = %v", err)
+	}
+	rig.flush(t)
+	waitForListedEvents(t, rig.core, 2)
+
+	page, err := rig.core.ListEventsPage(dto.ListEventsInput{Page: 1, PageSize: 1})
+	if err != nil {
+		t.Fatalf("ListEventsPage() error = %v", err)
+	}
+	if page.TotalCount != 2 {
+		t.Fatalf("total_count = %d, want 2", page.TotalCount)
+	}
+	if len(page.Items) != 1 {
+		t.Fatalf("items len = %d, want 1", len(page.Items))
+	}
+}
+
 func TestGetEventReturnsCreatedEventByEventID(t *testing.T) {
 	t.Parallel()
 

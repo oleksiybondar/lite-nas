@@ -11,6 +11,7 @@ type unmarshalTestCase struct {
 	payload     []byte
 	wantEventID string
 	wantStatus  enum.Status
+	wantCount   int
 }
 
 func TestListAlertsResponseUnmarshalJSONSupportsLegacyAndFlatItems(t *testing.T) {
@@ -31,12 +32,14 @@ func listAlertsUnmarshalTestCases() []unmarshalTestCase {
 			payload:     legacyNestedItemsPayload(),
 			wantEventID: "event_1",
 			wantStatus:  enum.StatusActive,
+			wantCount:   0,
 		},
 		{
 			name:        "flat items",
 			payload:     flatItemsPayload(),
 			wantEventID: "event_1",
 			wantStatus:  enum.StatusActive,
+			wantCount:   7,
 		},
 	}
 }
@@ -81,6 +84,7 @@ func legacyNestedItemsPayload() []byte {
 
 func flatItemsPayload() []byte {
 	return []byte(`{
+  "total_count": 7,
   "items": [
     {
       "RecID": 1,
@@ -113,6 +117,14 @@ func assertUnmarshaledItem(t *testing.T, testCase unmarshalTestCase) {
 	}
 	if item.Status != testCase.wantStatus {
 		t.Fatalf("status = %q, want %q", item.Status, testCase.wantStatus)
+	}
+
+	var response ListAlertsResponse
+	if err := response.UnmarshalJSON(testCase.payload); err != nil {
+		t.Fatalf("UnmarshalJSON() error = %v", err)
+	}
+	if response.TotalCount != testCase.wantCount {
+		t.Fatalf("total_count = %d, want %d", response.TotalCount, testCase.wantCount)
 	}
 }
 

@@ -2,10 +2,9 @@ package controllers
 
 import (
 	"context"
-	"errors"
-	"reflect"
 	"testing"
 
+	systemmetricsdto "lite-nas/services/web-gateway/dto/system_metrics"
 	"lite-nas/shared/metrics"
 )
 
@@ -37,17 +36,14 @@ func TestSystemMetricsControllerGetSnapshotWrapsResponseInEnvelope(t *testing.T)
 
 	snapshot := systemSnapshotFixture(123, 12.5, []float64{10, 15}, 1024, 512, 50)
 	controller := NewSystemMetricsController(stubSystemMetricsService{snapshot: snapshot})
-
-	got, err := controller.GetSnapshot(context.Background(), &struct{}{})
-	if err != nil {
-		t.Fatalf("GetSnapshot() error = %v", err)
-	}
-
-	assertSuccessfulSystemMetricsEnvelope(t, got.Body.Success, got.Body.Timestamp.IsZero())
-
-	if !reflect.DeepEqual(got.Body.Data, snapshot) {
-		t.Fatalf("Data = %#v, want %#v", got.Body.Data, snapshot)
-	}
+	assertSnapshotWrapped(
+		t,
+		snapshot,
+		controller.GetSnapshot,
+		func(output *systemmetricsdto.SnapshotOutput) bool { return output.Body.Success },
+		func(output *systemmetricsdto.SnapshotOutput) bool { return output.Body.Timestamp.IsZero() },
+		func(output *systemmetricsdto.SnapshotOutput) metrics.SystemSnapshot { return output.Body.Data },
+	)
 }
 
 // Requirements: web-gateway/FR-002, web-gateway/FR-003, web-gateway/TR-001
@@ -59,37 +55,22 @@ func TestSystemMetricsControllerGetHistoryWrapsResponseInEnvelope(t *testing.T) 
 		systemSnapshotFixture(124, 20, []float64{18, 22}, 1024, 640, 62.5),
 	}
 	controller := NewSystemMetricsController(stubSystemMetricsService{history: history})
-
-	got, err := controller.GetHistory(context.Background(), &struct{}{})
-	if err != nil {
-		t.Fatalf("GetHistory() error = %v", err)
-	}
-
-	assertSuccessfulSystemMetricsEnvelope(t, got.Body.Success, got.Body.Timestamp.IsZero())
-
-	if len(got.Body.Data) != len(history) {
-		t.Fatalf("len(Data) = %d, want %d", len(got.Body.Data), len(history))
-	}
-
-	for i := range history {
-		if !reflect.DeepEqual(got.Body.Data[i], history[i]) {
-			t.Fatalf("Data[%d] = %#v, want %#v", i, got.Body.Data[i], history[i])
-		}
-	}
+	assertHistoryWrapped(
+		t,
+		history,
+		controller.GetHistory,
+		func(output *systemmetricsdto.HistoryOutput) bool { return output.Body.Success },
+		func(output *systemmetricsdto.HistoryOutput) bool { return output.Body.Timestamp.IsZero() },
+		func(output *systemmetricsdto.HistoryOutput) []metrics.SystemSnapshot { return output.Body.Data },
+	)
 }
 
 // Requirements: web-gateway/FR-003, web-gateway/TR-001
 func TestSystemMetricsControllerGetSnapshotMapsBackendFailure(t *testing.T) {
 	t.Parallel()
 
-	controller := NewSystemMetricsController(stubSystemMetricsService{err: errors.New("backend failed")})
+	controller := NewSystemMetricsController(stubSystemMetricsService{err: backendFailure()})
 
 	got, err := controller.GetSnapshot(context.Background(), &struct{}{})
-	if err == nil {
-		t.Fatal("GetSnapshot() error = nil, want error")
-	}
-
-	if got != nil {
-		t.Fatalf("GetSnapshot() result = %#v, want nil", got)
-	}
+	assertBackendFailureMapped(t, got, err, "GetSnapshot()")
 }

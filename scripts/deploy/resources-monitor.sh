@@ -120,9 +120,7 @@ deploy.resourcesMonitor.installUnitFile() {
 }
 
 deploy.resourcesMonitor.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable "$LITE_NAS_RESOURCES_MONITOR_SERVICE_NAME.service"
-	systemctl restart "$LITE_NAS_RESOURCES_MONITOR_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_RESOURCES_MONITOR_SERVICE_NAME.service"
 }
 
 deploy.resourcesMonitor.deploy() {

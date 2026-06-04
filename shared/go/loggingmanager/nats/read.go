@@ -14,12 +14,13 @@ func handleGetAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHand
 		if err != nil {
 			return nil, err
 		}
-		items, err := core.ListEvents(input.ToDTO())
+		page, err := core.ListEventsPage(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}
 		return loggingmanagercontract.ListAlertsResponse{
-			Items: loggingmanagercontract.BuildListAlertItems(items),
+			Items:      loggingmanagercontract.BuildListAlertItems(page.Items),
+			TotalCount: page.TotalCount,
 		}, nil
 	}
 }
@@ -50,12 +51,13 @@ func handleGetActiveAlertsRPC(core *sharedloggingmanager.Core) sharedmessaging.R
 		if err != nil {
 			return nil, err
 		}
-		items, err := core.ListActiveEvents(input.ToDTO())
+		page, err := core.ListActiveEventsPage(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}
 		return loggingmanagercontract.ListAlertsResponse{
-			Items: loggingmanagercontract.BuildListAlertItems(items),
+			Items:      loggingmanagercontract.BuildListAlertItems(page.Items),
+			TotalCount: page.TotalCount,
 		}, nil
 	}
 }
@@ -66,12 +68,13 @@ func handleGetUnacknowledgedActiveAlertsRPC(core *sharedloggingmanager.Core) sha
 		if err != nil {
 			return nil, err
 		}
-		items, err := core.ListActiveUnacknowledgedEvents(input.ToDTO())
+		page, err := core.ListActiveUnacknowledgedEventsPage(input.ToDTO())
 		if err != nil {
 			return nil, err
 		}
 		return loggingmanagercontract.ListAlertsResponse{
-			Items: loggingmanagercontract.BuildListAlertItems(items),
+			Items:      loggingmanagercontract.BuildListAlertItems(page.Items),
+			TotalCount: page.TotalCount,
 		}, nil
 	}
 }

@@ -88,6 +88,29 @@ func TestBuildListActiveUnacknowledgedEventsQueryForcesAcknowledgedFalse(t *test
 	}
 }
 
+func TestBuildCountEventsQueryBuildsFiltersWithoutPagination(t *testing.T) {
+	t.Parallel()
+
+	query, err := BuildCountEventsQuery(dto.ListEventsInput{
+		Page:     2,
+		PageSize: 10,
+		Filters: []dto.Filter{
+			{Key: dto.FilterKeyCategory, Condition: dto.FilterConditionEQ, Values: []string{"system"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildCountEventsQuery() error = %v", err)
+	}
+
+	if !strings.Contains(query.SQL, "SELECT COUNT(*)") {
+		t.Fatalf("count select missing, sql=%q", query.SQL)
+	}
+	if strings.Contains(query.SQL, "LIMIT ? OFFSET ?") {
+		t.Fatalf("count query should not paginate, sql=%q", query.SQL)
+	}
+	assertQueryArgs(t, query.Args, []any{"system"})
+}
+
 func TestBuildGetEventHistoryQuery(t *testing.T) {
 	t.Parallel()
 

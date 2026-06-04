@@ -131,8 +131,7 @@ deploy.authService.installPAMService() {
 }
 
 deploy.authService.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable --now "$LITE_NAS_AUTH_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_AUTH_SERVICE_NAME.service"
 }
 
 deploy.authService.deploy() {

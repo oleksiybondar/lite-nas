@@ -157,8 +157,7 @@ deploy.systemMetrics.installUnitFile() {
 }
 
 deploy.systemMetrics.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable --now "$LITE_NAS_SYSTEM_METRICS_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_SYSTEM_METRICS_SERVICE_NAME.service"
 }
 
 deploy.systemMetrics.deploy() {

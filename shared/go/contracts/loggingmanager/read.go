@@ -73,7 +73,8 @@ type ListAlertItem struct {
 }
 
 type ListAlertsResponse struct {
-	Items []ListAlertItem `json:"items"`
+	Items      []ListAlertItem `json:"items"`
+	TotalCount int             `json:"total_count"`
 }
 
 type GetAlertResponse struct {
@@ -81,7 +82,8 @@ type GetAlertResponse struct {
 }
 
 type itemsEnvelope struct {
-	Items []json.RawMessage `json:"items"`
+	Items      []json.RawMessage `json:"items"`
+	TotalCount int               `json:"total_count"`
 }
 
 // UnmarshalJSON supports both flattened and legacy nested items payloads.
@@ -93,6 +95,7 @@ func (response *ListAlertsResponse) UnmarshalJSON(data []byte) error {
 
 	if len(envelope.Items) == 0 {
 		response.Items = []ListAlertItem{}
+		response.TotalCount = envelope.TotalCount
 		return nil
 	}
 
@@ -102,10 +105,10 @@ func (response *ListAlertsResponse) UnmarshalJSON(data []byte) error {
 	}
 
 	if legacyPayload {
-		return response.unmarshalLegacyItems(data)
+		return response.unmarshalLegacyItems(data, envelope.TotalCount)
 	}
 
-	return response.unmarshalFlatItems(data)
+	return response.unmarshalFlatItems(data, envelope.TotalCount)
 }
 
 // BuildListAlertItems maps storage read rows into contract list items.
@@ -186,7 +189,7 @@ func isLegacyItemsPayload(item json.RawMessage) (bool, error) {
 	return isLegacy, nil
 }
 
-func (response *ListAlertsResponse) unmarshalLegacyItems(data []byte) error {
+func (response *ListAlertsResponse) unmarshalLegacyItems(data []byte, totalCount int) error {
 	var legacyEnvelope struct {
 		Items []model.Event `json:"items"`
 	}
@@ -194,10 +197,11 @@ func (response *ListAlertsResponse) unmarshalLegacyItems(data []byte) error {
 		return err
 	}
 	response.Items = BuildListAlertItems(legacyEnvelope.Items)
+	response.TotalCount = totalCount
 	return nil
 }
 
-func (response *ListAlertsResponse) unmarshalFlatItems(data []byte) error {
+func (response *ListAlertsResponse) unmarshalFlatItems(data []byte, totalCount int) error {
 	var flatEnvelope struct {
 		Items []ListAlertItem `json:"items"`
 	}
@@ -205,5 +209,6 @@ func (response *ListAlertsResponse) unmarshalFlatItems(data []byte) error {
 		return err
 	}
 	response.Items = flatEnvelope.Items
+	response.TotalCount = totalCount
 	return nil
 }

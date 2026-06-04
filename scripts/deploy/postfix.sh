@@ -104,9 +104,7 @@ deploy.postfix.validateConfig() {
 }
 
 deploy.postfix.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable "$LITE_NAS_POSTFIX_SERVICE_NAME.service"
-	systemctl restart "$LITE_NAS_POSTFIX_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_POSTFIX_SERVICE_NAME.service"
 }
 
 deploy.postfix.deploy() {

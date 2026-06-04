@@ -111,9 +111,7 @@ deploy.zfsMetrics.installUnitFile() {
 }
 
 deploy.zfsMetrics.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable "$LITE_NAS_ZFS_METRICS_SERVICE_NAME.service"
-	systemctl restart "$LITE_NAS_ZFS_METRICS_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_ZFS_METRICS_SERVICE_NAME.service"
 }
 
 deploy.zfsMetrics.deploy() {

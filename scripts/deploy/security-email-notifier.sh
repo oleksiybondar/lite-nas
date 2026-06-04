@@ -118,9 +118,7 @@ deploy.securityEmailNotifier.installUnitFile() {
 }
 
 deploy.securityEmailNotifier.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable "$LITE_NAS_SECURITY_EMAIL_NOTIFIER_SERVICE_NAME.service"
-	systemctl restart "$LITE_NAS_SECURITY_EMAIL_NOTIFIER_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_SECURITY_EMAIL_NOTIFIER_SERVICE_NAME.service"
 }
 
 deploy.securityEmailNotifier.deploy() {

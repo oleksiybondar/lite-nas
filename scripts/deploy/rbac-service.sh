@@ -164,8 +164,7 @@ deploy.rbacService.ensureCertificates() {
 }
 
 deploy.rbacService.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable --now "$LITE_NAS_RBAC_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_RBAC_SERVICE_NAME.service"
 }
 
 deploy.rbacService.deploy() {

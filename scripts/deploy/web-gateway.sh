@@ -172,8 +172,7 @@ deploy.webGateway.installUnitFile() {
 }
 
 deploy.webGateway.enableAndStart() {
-	systemctl daemon-reload
-	systemctl enable --now "$LITE_NAS_WEB_GATEWAY_SERVICE_NAME.service"
+	deploy.enableAndRefreshService "$LITE_NAS_WEB_GATEWAY_SERVICE_NAME.service"
 }
 
 deploy.webGateway.deploy() {

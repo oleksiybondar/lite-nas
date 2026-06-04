@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,6 +119,19 @@ func (routeSystemMetricsService) GetHistory(context.Context) ([]metrics.SystemSn
 	}, nil
 }
 
+type routeZFSMetricsService struct{}
+
+func (routeZFSMetricsService) GetSnapshot(context.Context) (metrics.ZFSSnapshot, error) {
+	return metrics.ZFSSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeZFSMetricsService) GetHistory(context.Context) ([]metrics.ZFSSnapshot, error) {
+	return []metrics.ZFSSnapshot{
+		{Timestamp: time.Unix(100, 0).UTC()},
+		{Timestamp: time.Unix(101, 0).UTC()},
+	}, nil
+}
+
 type routeAuthVerifier struct{}
 
 func (routeAuthVerifier) Verify(string) (authtoken.AccessClaims, error) {
@@ -141,6 +155,7 @@ func routerFixture(authService controllers.AuthService) http.Handler {
 			sharedlogger.NewNop(),
 		),
 		SystemMetrics: controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		ZFSMetrics:    controllers.NewZFSMetricsController(routeZFSMetricsService{}),
 	}
 
 	return NewRouter("web-gateway", "0.1.0", controllerModule, middlewares.AuthenticationOptions{
@@ -260,6 +275,22 @@ func TestRouterSystemMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/system-metrics/history", nil, http.StatusOK)
 }
 
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterZFSMetricsHistoryRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/zfs-metrics/history", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterZFSMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/zfs-metrics/history", nil, http.StatusOK)
+}
+
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
 func TestRouterMapsUnauthorizedAuthServiceError(t *testing.T) {
 	t.Parallel()
@@ -297,6 +328,19 @@ func TestRouterExposesOpenAPIDocs(t *testing.T) {
 	handler := routerFixture(nil)
 	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/openapi.json", nil))
 	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
+
+// Requirements: web-gateway/IR-001
+func TestRouterDocsPageReferencesMountedOpenAPIPath(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/docs", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+
+	if !strings.Contains(recorder.Body.String(), `apiDescriptionUrl="/api/openapi.yaml"`) {
+		t.Fatalf("docs html = %q, want mounted OpenAPI path", recorder.Body.String())
+	}
 }
 
 // Requirements: web-gateway/FR-001, web-gateway/FR-002

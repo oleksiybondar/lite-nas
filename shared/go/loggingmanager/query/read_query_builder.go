@@ -38,15 +38,7 @@ var (
 //   - Includes the most recent occurrence payload via correlated subquery.
 //   - Applies validated, allowlisted filters only.
 func BuildListEventsQuery(input dto.ListEventsInput) (Query, error) {
-	pageSize, err := resolvePageSize(input.PageSize)
-	if err != nil {
-		return Query{}, err
-	}
-	if input.Page <= 0 {
-		return Query{}, errInvalidPageNumber
-	}
-
-	whereSQL, whereArgs, err := buildWhereClause(input.Filters)
+	pageSize, whereSQL, whereArgs, err := buildListQueryParts(input)
 	if err != nil {
 		return Query{}, err
 	}
@@ -54,10 +46,27 @@ func BuildListEventsQuery(input dto.ListEventsInput) (Query, error) {
 	return buildPaginatedEventsQuery(input.Page, pageSize, whereSQL, whereArgs), nil
 }
 
+// BuildCountEventsQuery builds the count query for current events with the
+// same validated filters accepted by list reads.
+func BuildCountEventsQuery(input dto.ListEventsInput) (Query, error) {
+	_, whereSQL, whereArgs, err := buildListQueryParts(input)
+	if err != nil {
+		return Query{}, err
+	}
+
+	return buildCountEventsQuery(whereSQL, whereArgs), nil
+}
+
 // BuildListActiveEventsQuery builds the list query with an enforced
 // "state != normal" filter.
 func BuildListActiveEventsQuery(input dto.ListEventsInput) (Query, error) {
 	return BuildListEventsQuery(withPrependedFilter(input, buildActiveFilter()))
+}
+
+// BuildCountActiveEventsQuery builds the count query with an enforced
+// "state != normal" filter.
+func BuildCountActiveEventsQuery(input dto.ListEventsInput) (Query, error) {
+	return BuildCountEventsQuery(withPrependedFilter(input, buildActiveFilter()))
 }
 
 // BuildListActiveUnacknowledgedEventsQuery builds the list query with enforced
@@ -73,6 +82,21 @@ func BuildListActiveUnacknowledgedEventsQuery(input dto.ListEventsInput) (Query,
 		},
 	}, input.Filters...)
 	return BuildListEventsQuery(withDefaults)
+}
+
+// BuildCountActiveUnacknowledgedEventsQuery builds the count query with
+// enforced active-state and unacknowledged filters.
+func BuildCountActiveUnacknowledgedEventsQuery(input dto.ListEventsInput) (Query, error) {
+	withDefaults := input
+	withDefaults.Filters = append([]dto.Filter{
+		buildActiveFilter(),
+		{
+			Key:       dto.FilterKeyAcknowledged,
+			Condition: dto.FilterConditionEQ,
+			Values:    []string{"false"},
+		},
+	}, input.Filters...)
+	return BuildCountEventsQuery(withDefaults)
 }
 
 func buildActiveFilter() dto.Filter {
@@ -133,6 +157,36 @@ func buildPaginatedEventsQuery(page int, pageSize int, whereSQL string, whereArg
 	sql += " ORDER BY e.created_at DESC, e.event_id DESC LIMIT ? OFFSET ?"
 
 	return Query{SQL: sql, Args: args}
+}
+
+func buildCountEventsQuery(whereSQL string, whereArgs []any) Query {
+	sql := "SELECT COUNT(*) FROM events e " +
+		"JOIN lifecycle l ON l.event_rec_id = e.rec_id " +
+		"JOIN event_state s ON s.event_rec_id = e.rec_id "
+	if whereSQL != "" {
+		sql += " WHERE " + whereSQL
+	}
+
+	args := make([]any, len(whereArgs))
+	copy(args, whereArgs)
+	return Query{SQL: sql, Args: args}
+}
+
+func buildListQueryParts(input dto.ListEventsInput) (int, string, []any, error) {
+	pageSize, err := resolvePageSize(input.PageSize)
+	if err != nil {
+		return 0, "", nil, err
+	}
+	if input.Page <= 0 {
+		return 0, "", nil, errInvalidPageNumber
+	}
+
+	whereSQL, whereArgs, err := buildWhereClause(input.Filters)
+	if err != nil {
+		return 0, "", nil, err
+	}
+
+	return pageSize, whereSQL, whereArgs, nil
 }
 
 func buildBaseListEventsSQL() string {

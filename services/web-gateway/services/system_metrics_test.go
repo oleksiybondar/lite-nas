@@ -73,3 +73,7 @@ func mustGetHistory(t *testing.T, service SystemMetricsService) []metrics.System
 
 	return got
 }
+
+func unixFromSeconds(unixSeconds int64) time.Time {
+	return time.Unix(unixSeconds, 0)
+}

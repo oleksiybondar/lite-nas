@@ -12,6 +12,7 @@ import (
 type Services struct {
 	Auth          services.AuthService
 	SystemMetrics services.SystemMetricsService
+	ZFSMetrics    services.ZFSMetricsService
 }
 
 // NewServicesModule assembles the service-layer dependencies used by the
@@ -24,5 +25,6 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 	return Services{
 		Auth:          services.NewAuthService(client, authVerifier),
 		SystemMetrics: services.NewSystemMetricsService(client),
+		ZFSMetrics:    services.NewZFSMetricsService(client),
 	}
 }

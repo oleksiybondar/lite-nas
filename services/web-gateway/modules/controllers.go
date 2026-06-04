@@ -13,6 +13,7 @@ type Controllers struct {
 	Auth          controllers.AuthController
 	Static        controllers.StaticController
 	SystemMetrics controllers.SystemMetricsController
+	ZFSMetrics    controllers.ZFSMetricsController
 }
 
 // NewControllersModule assembles the HTTP controllers used by the route layer.
@@ -30,5 +31,6 @@ func NewControllersModule(
 		Auth:          controllers.NewAuthController(services.Auth),
 		Static:        controllers.NewStaticController(staticFiles, log),
 		SystemMetrics: controllers.NewSystemMetricsController(services.SystemMetrics),
+		ZFSMetrics:    controllers.NewZFSMetricsController(services.ZFSMetrics),
 	}
 }
