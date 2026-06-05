@@ -16,6 +16,7 @@ var ErrAlertActionFailed = errors.New("alert action failed")
 // AlertsService defines the backend-facing alert flows used by one gateway alert domain.
 type AlertsService interface {
 	List(context.Context, AlertListInput) (AlertListPage, error)
+	ListActive(context.Context, AlertListInput) (AlertListPage, error)
 	ListUnacknowledged(context.Context, AlertListInput) (AlertListPage, error)
 	Get(context.Context, AlertGetInput) (loggingmanagercontract.ListAlertItem, bool, error)
 	Acknowledge(context.Context, AlertActionInput) error
@@ -50,6 +51,7 @@ type AlertListPage struct {
 
 type alertSubjects struct {
 	getAll            string
+	getActive         string
 	getUnacknowledged string
 	getOne            string
 	acknowledge       string
@@ -67,6 +69,7 @@ func NewSystemAlertsService(client messaging.Client) AlertsService {
 		client: client,
 		subjects: alertSubjects{
 			getAll:            systemloggingmanagercontract.GetAlertsRPCSubject,
+			getActive:         systemloggingmanagercontract.GetActiveAlertsRPCSubject,
 			getUnacknowledged: systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 			getOne:            systemloggingmanagercontract.GetAlertRPCSubject,
 			acknowledge:       systemloggingmanagercontract.AcknowledgeAlertRPCSubject,
@@ -81,6 +84,7 @@ func NewSecurityAlertsService(client messaging.Client) AlertsService {
 		client: client,
 		subjects: alertSubjects{
 			getAll:            securityloggingmanagercontract.GetAlertsRPCSubject,
+			getActive:         securityloggingmanagercontract.GetActiveAlertsRPCSubject,
 			getUnacknowledged: securityloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 			getOne:            securityloggingmanagercontract.GetAlertRPCSubject,
 			acknowledge:       securityloggingmanagercontract.AcknowledgeAlertRPCSubject,
@@ -92,6 +96,11 @@ func NewSecurityAlertsService(client messaging.Client) AlertsService {
 // List requests one page of alerts from the configured logging-manager domain.
 func (s alertsService) List(ctx context.Context, input AlertListInput) (AlertListPage, error) {
 	return s.requestList(ctx, s.subjects.getAll, input)
+}
+
+// ListActive requests one page of active alerts from the configured logging-manager domain.
+func (s alertsService) ListActive(ctx context.Context, input AlertListInput) (AlertListPage, error) {
+	return s.requestList(ctx, s.subjects.getActive, input)
 }
 
 // ListUnacknowledged requests one page of unacknowledged alerts from the configured logging-manager domain.

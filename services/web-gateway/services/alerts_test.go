@@ -7,31 +7,53 @@ import (
 	"testing"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 )
 
-// Requirements: web-gateway/FR-005, web-gateway/IR-002
 func TestSystemAlertsServiceRequestsListSubject(t *testing.T) {
-	t.Parallel()
+	runAlertsServiceListTest(
+		t,
+		"List",
+		func(service AlertsService) (AlertListPage, error) {
+			return service.List(context.Background(), AlertListInput{AccessToken: "AT", Page: 2, Size: 5})
+		},
+		systemloggingmanagercontract.GetAlertsRPCSubject,
+		2,
+		5,
+		[]loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
+		7,
+	)
+}
 
-	wantItems := []loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}}
-	client := newAlertsListClientStub(t, wantItems, 7)
-	service := NewSystemAlertsService(client)
+func TestSystemAlertsServiceRequestsActiveSubject(t *testing.T) {
+	runAlertsServiceListTest(
+		t,
+		"ListActive",
+		func(service AlertsService) (AlertListPage, error) {
+			return service.ListActive(context.Background(), AlertListInput{AccessToken: "AT", Page: 1, Size: 10})
+		},
+		systemloggingmanagercontract.GetActiveAlertsRPCSubject,
+		1,
+		10,
+		[]loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
+		3,
+	)
+}
 
-	got, err := service.List(context.Background(), AlertListInput{AccessToken: "AT", Page: 2, Size: 5})
-	if err != nil {
-		t.Fatalf("List() error = %v", err)
-	}
-
-	if client.subject != systemloggingmanagercontract.GetAlertsRPCSubject {
-		t.Fatalf("subject = %q, want %q", client.subject, systemloggingmanagercontract.GetAlertsRPCSubject)
-	}
-
-	assertAlertsListRequest(t, client.request, "AT", 2, 5)
-
-	if !reflect.DeepEqual(got.Items, wantItems) || got.TotalCount != 7 {
-		t.Fatalf("List() = %#v, want items=%#v total_count=7", got, wantItems)
-	}
+func TestSystemAlertsServiceRequestsUnacknowledgedSubject(t *testing.T) {
+	runAlertsServiceListTest(
+		t,
+		"ListUnacknowledged",
+		func(service AlertsService) (AlertListPage, error) {
+			return service.ListUnacknowledged(context.Background(), AlertListInput{AccessToken: "AT", Page: 1, Size: 10})
+		},
+		systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
+		1,
+		10,
+		[]loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
+		4,
+	)
 }
 
 // Requirements: web-gateway/FR-005, web-gateway/TR-001
@@ -70,6 +92,22 @@ func TestSystemAlertsServiceAcknowledgeMapsNegativeBackendReply(t *testing.T) {
 	}
 
 	assertAcknowledgeRequest(t, client.request, "AT", "evt-1", "john.doe")
+}
+
+// Requirements: web-gateway/FR-005, web-gateway/IR-002
+func TestSecurityAlertsServiceRequestsActiveSubject(t *testing.T) {
+	t.Parallel()
+
+	client := newAlertsListClientStub(t, nil, 0)
+	service := NewSecurityAlertsService(client)
+
+	if _, err := service.ListActive(context.Background(), AlertListInput{AccessToken: "AT", Page: 1, Size: 10}); err != nil {
+		t.Fatalf("ListActive() error = %v", err)
+	}
+
+	if client.subject != securityloggingmanagercontract.GetActiveAlertsRPCSubject {
+		t.Fatalf("subject = %q, want %q", client.subject, securityloggingmanagercontract.GetActiveAlertsRPCSubject)
+	}
 }
 
 type alertsClientStub struct {

@@ -46,6 +46,24 @@ func (c AlertsController) List(ctx context.Context, input *alertsdto.ListInput) 
 	}, nil
 }
 
+// ListActive returns one browser-facing page of active alerts from the configured domain.
+func (c AlertsController) ListActive(ctx context.Context, input *alertsdto.ListInput) (*alertsdto.ListOutput, error) {
+	now := time.Now()
+	request, err := extractAlertListInput(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	page, err := c.service.ListActive(ctx, request)
+	if err != nil {
+		return nil, mapAlertBackendError(err, "failed to fetch active alerts")
+	}
+
+	return &alertsdto.ListOutput{
+		Body: alertsdto.NewListBody(now, page.Items, newListMetadata(request.Page, request.Size, page.TotalCount)),
+	}, nil
+}
+
 // ListUnacknowledged returns one browser-facing page of unacknowledged alerts from the configured domain.
 func (c AlertsController) ListUnacknowledged(ctx context.Context, input *alertsdto.ListInput) (*alertsdto.ListOutput, error) {
 	now := time.Now()
@@ -75,6 +93,22 @@ func (c AlertsController) Count(ctx context.Context, input *alertsdto.CountInput
 	page, err := c.service.List(ctx, request)
 	if err != nil {
 		return nil, mapAlertBackendError(err, "failed to fetch alerts count")
+	}
+
+	return &alertsdto.CountOutput{Body: alertsdto.NewCountBody(now, page.TotalCount)}, nil
+}
+
+// CountActive returns the simplified count of active alerts in the configured domain.
+func (c AlertsController) CountActive(ctx context.Context, input *alertsdto.CountInput) (*alertsdto.CountOutput, error) {
+	now := time.Now()
+	request, err := extractAlertCountInput(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	page, err := c.service.ListActive(ctx, request)
+	if err != nil {
+		return nil, mapAlertBackendError(err, "failed to fetch active alerts count")
 	}
 
 	return &alertsdto.CountOutput{Body: alertsdto.NewCountBody(now, page.TotalCount)}, nil
@@ -150,20 +184,12 @@ func extractAlertListInput(ctx context.Context, input *alertsdto.ListInput) (ser
 	if err != nil {
 		return services.AlertListInput{}, err
 	}
-
-	page := alertsdto.DefaultPage
-	size := alertsdto.DefaultSize
-	if input != nil && input.Page > 0 {
-		page = input.Page
-	}
-	if input != nil && input.Size > 0 {
-		size = input.Size
-	}
+	pagination := normalizeAlertPagination(input.Page, input.Size)
 
 	return services.AlertListInput{
 		AccessToken: accessToken,
-		Page:        page,
-		Size:        size,
+		Page:        pagination.Page,
+		Size:        pagination.Size,
 	}, nil
 }
 
@@ -172,17 +198,13 @@ func extractAlertCountInput(ctx context.Context, input *alertsdto.CountInput) (s
 	if err != nil {
 		return services.AlertListInput{}, err
 	}
+	pagination := normalizeAlertPagination(input.Page, input.Size)
 
-	page := alertsdto.DefaultPage
-	size := alertsdto.DefaultSize
-	if input != nil && input.Page > 0 {
-		page = input.Page
-	}
-	if input != nil && input.Size > 0 {
-		size = input.Size
-	}
-
-	return services.AlertListInput{AccessToken: accessToken, Page: page, Size: size}, nil
+	return services.AlertListInput{
+		AccessToken: accessToken,
+		Page:        pagination.Page,
+		Size:        pagination.Size,
+	}, nil
 }
 
 func extractAlertGetInput(ctx context.Context, input *alertsdto.GetInput) (services.AlertGetInput, error) {
@@ -222,6 +244,16 @@ func extractAuthenticatedAlertPrincipal(ctx context.Context) (string, authtoken.
 	}
 
 	return accessToken, claims, nil
+}
+
+func normalizeAlertPagination(page int, size int) services.AlertListInput {
+	if page <= 0 {
+		page = alertsdto.DefaultPage
+	}
+	if size <= 0 {
+		size = alertsdto.DefaultSize
+	}
+	return services.AlertListInput{Page: page, Size: size}
 }
 
 func newListMetadata(page int, size int, totalCount int) alertsdto.ListMetadata {

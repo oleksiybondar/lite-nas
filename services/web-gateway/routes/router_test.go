@@ -142,6 +142,13 @@ func (routeAlertsService) List(context.Context, services.AlertListInput) (servic
 	}, nil
 }
 
+func (routeAlertsService) ListActive(context.Context, services.AlertListInput) (services.AlertListPage, error) {
+	return services.AlertListPage{
+		Items:      []loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
+		TotalCount: 1,
+	}, nil
+}
+
 func (routeAlertsService) ListUnacknowledged(context.Context, services.AlertListInput) (services.AlertListPage, error) {
 	return services.AlertListPage{
 		Items:      []loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},

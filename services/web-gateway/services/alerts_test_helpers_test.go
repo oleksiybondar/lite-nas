@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
@@ -64,4 +65,55 @@ func assertAcknowledgeRequest(t *testing.T, request any, wantToken string, wantI
 	if typed.AccessToken != wantToken || typed.EventID != wantID || typed.AcknowledgedBy != wantActor {
 		t.Fatalf("request = %#v, want forwarded access token, id, and actor", typed)
 	}
+}
+
+func assertAlertsListSubject(t *testing.T, got string, want string) {
+	t.Helper()
+
+	if got != want {
+		t.Fatalf("subject = %q, want %q", got, want)
+	}
+}
+
+func assertAlertsListResult(
+	t *testing.T,
+	name string,
+	got AlertListPage,
+	wantItems []loggingmanagercontract.ListAlertItem,
+	wantTotalCount int,
+) {
+	t.Helper()
+
+	if !reflect.DeepEqual(got.Items, wantItems) || got.TotalCount != wantTotalCount {
+		t.Fatalf("%s = %#v, want items=%#v total_count=%d", name, got, wantItems, wantTotalCount)
+	}
+}
+
+func runAlertsServiceListTest(
+	t *testing.T,
+	name string,
+	invoke func(AlertsService) (AlertListPage, error),
+	wantSubject string,
+	wantPage int,
+	wantSize int,
+	wantItems []loggingmanagercontract.ListAlertItem,
+	wantTotalCount int,
+) {
+	t.Helper()
+
+	t.Run(name, func(t *testing.T) {
+		t.Parallel()
+
+		client := newAlertsListClientStub(t, wantItems, wantTotalCount)
+		service := NewSystemAlertsService(client)
+
+		got, err := invoke(service)
+		if err != nil {
+			t.Fatalf("%s error = %v", name, err)
+		}
+
+		assertAlertsListSubject(t, client.subject, wantSubject)
+		assertAlertsListRequest(t, client.request, "AT", wantPage, wantSize)
+		assertAlertsListResult(t, name, got, wantItems, wantTotalCount)
+	})
 }

@@ -49,10 +49,10 @@ func mountAlertsDomainRouter(
 
 	huma.Get(group, "", controller.List)
 	huma.Get(group, "/count", controller.Count)
+	huma.Get(group, "/active", controller.ListActive)
+	huma.Get(group, "/active/count", controller.CountActive)
 	huma.Get(group, "/unacknowledged", controller.ListUnacknowledged)
 	huma.Get(group, "/unacknowledged/count", controller.CountUnacknowledged)
-	huma.Get(group, "/active", controller.ListUnacknowledged)
-	huma.Get(group, "/active/count", controller.CountUnacknowledged)
 	huma.Get(group, "/{id}", controller.Get)
 	huma.Post(group, "/{id}/acknowledge", controller.Acknowledge)
 	huma.Post(group, "/{id}/mute", controller.Mute)

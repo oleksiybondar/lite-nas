@@ -46,6 +46,7 @@ security_logging_manager_cli_binary=""
 system_metrics_cli_binary=""
 zfs_metrics_cli_binary=""
 web_gateway_binary=""
+admin_panel_assets=""
 resources_monitor_binary=""
 should_bootstrap=1
 manage_nats_config=1
@@ -76,6 +77,7 @@ Options:
                                   Install an existing system-metrics-cli binary.
   --zfs-metrics-cli-binary PATH   Install an existing zfs-metrics-cli binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
+  --admin-panel-assets PATH       Install existing admin-panel Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
@@ -203,6 +205,15 @@ while [ "$#" -gt 0 ]; do
 		web_gateway_binary="$2"
 		shift 2
 		;;
+	--admin-panel-assets)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --admin-panel-assets"
+			usage >&2
+			exit 2
+		fi
+		admin_panel_assets="$2"
+		shift 2
+		;;
 	--resources-monitor-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --resources-monitor-binary"
@@ -254,7 +265,7 @@ deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -335,6 +346,11 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		web_gateway_binary="$tmp_dir/web-gateway"
 	fi
 
+	if [ -z "$admin_panel_assets" ]; then
+		"$ENTRYPOINT_DIR/build-admin-panel.sh" --output-dir="$tmp_dir/admin-panel-assets"
+		admin_panel_assets="$tmp_dir/admin-panel-assets"
+	fi
+
 	if [ -z "$resources_monitor_binary" ]; then
 		build_args=("--output=$tmp_dir/resources-monitor")
 		"$ENTRYPOINT_DIR/build-resources-monitor-binary.sh" "${build_args[@]}"
@@ -383,6 +399,7 @@ deploy.zfsMetrics.deploy "$zfs_metrics_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying web-gateway service"
+export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$admin_panel_assets"
 deploy.webGateway.deploy "$web_gateway_binary" "$should_start"
 log.popTask
 
