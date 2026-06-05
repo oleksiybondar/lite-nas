@@ -36,9 +36,12 @@ export const AppAlertsIndicator = ({
 
   return (
     <Box
+      alignItems="center"
       data-test-class="alerts-indicator"
       data-test-name={domain}
       data-test-position={position}
+      display="inline-flex"
+      justifyContent="center"
       position="absolute"
       right={-2}
       sx={{
@@ -49,11 +52,10 @@ export const AppAlertsIndicator = ({
         color: isSecurityDomain ? "error.contrastText" : "warning.contrastText",
         height: 23,
         minWidth: 23,
-        textAlign: "center",
         width: 23,
       }}
     >
-      <Typography component="span" fontSize="0.8rem">
+      <Typography component="span" fontSize="0.8rem" lineHeight={1}>
         {formatAlertCount(count)}
       </Typography>
     </Box>

@@ -3,7 +3,11 @@ import { useAlertsCount } from "@domain/alerts/hooks/useAlertsCount";
 import { useAuth } from "@hooks/useAuth";
 import { useRbac } from "@hooks/useRbac";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
+
+const navigateMock = vi.fn();
 
 vi.mock("@hooks/useAuth", () => ({
   useAuth: vi.fn(),
@@ -17,13 +21,22 @@ vi.mock("@domain/alerts/hooks/useAlertsCount", () => ({
   useAlertsCount: vi.fn(),
 }));
 
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+
+  return {
+    ...actual,
+    useNavigate: () => navigateMock,
+  };
+});
+
 describe("AppAlertsControl visibility", () => {
   test("hides the control for anonymous sessions", () => {
     mockAuth({ isAuthenticated: false });
     mockRbac({ requireOperator: () => false, requireSecurity: () => false });
     mockAlertsCount();
 
-    render(<AppAlertsControl />);
+    renderWithRouter(<AppAlertsControl />);
 
     expect(screen.queryByTestId("alerts-control")).not.toBeInTheDocument();
   });
@@ -35,7 +48,7 @@ describe("AppAlertsControl visibility", () => {
       system: 4,
     });
 
-    render(<AppAlertsControl />);
+    renderWithRouter(<AppAlertsControl />);
 
     expect(screen.queryByTestId("alerts-control")).not.toBeInTheDocument();
   });
@@ -49,7 +62,7 @@ describe("AppAlertsControl rendering", () => {
       system: 4,
     });
 
-    render(<AppAlertsControl />);
+    renderWithRouter(<AppAlertsControl />);
 
     expect(screen.getByTestId("alerts-control")).toBeInTheDocument();
     expect(findIndicator("system")).toHaveTextContent("4");
@@ -65,7 +78,7 @@ describe("AppAlertsControl rendering", () => {
       system: 2,
     });
 
-    render(<AppAlertsControl />);
+    renderWithRouter(<AppAlertsControl />);
 
     expect(findIndicator("security")).toHaveTextContent("9");
     expect(findIndicator("system")).toHaveTextContent("2");
@@ -81,10 +94,72 @@ describe("AppAlertsControl rendering", () => {
       system: 34,
     });
 
-    render(<AppAlertsControl />);
+    renderWithRouter(<AppAlertsControl />);
 
     expect(findIndicator("security")).toHaveTextContent("20+");
     expect(findIndicator("system")).toHaveTextContent("20+");
+  });
+});
+
+describe("AppAlertsControl menu", () => {
+  test("opens a dropdown with the system alerts action for operator access", () => {
+    mockAuth({ isAuthenticated: true });
+    mockRbac({ requireOperator: () => true, requireSecurity: () => false });
+    mockAlertsCount({
+      system: 4,
+    });
+
+    renderWithRouter(<AppAlertsControl />);
+    fireEvent.click(screen.getByRole("button", { name: "Alerts menu" }));
+
+    expect(screen.getByRole("menuitem", { name: "4 system alerts" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "0 security alerts" })).not.toBeInTheDocument();
+  });
+
+  test("opens a dropdown with both domain actions when both guards pass", () => {
+    mockAuth({ isAuthenticated: true });
+    mockRbac({ requireOperator: () => true, requireSecurity: () => true });
+    mockAlertsCount({
+      security: 9,
+      system: 2,
+    });
+
+    renderWithRouter(<AppAlertsControl />);
+    fireEvent.click(screen.getByRole("button", { name: "Alerts menu" }));
+
+    expect(screen.getByRole("menuitem", { name: "2 system alerts" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "9 security alerts" })).toBeInTheDocument();
+  });
+});
+
+describe("AppAlertsControl navigation", () => {
+  test("navigates to the system unacknowledged alerts page from the dropdown", () => {
+    mockAuth({ isAuthenticated: true });
+    mockRbac({ requireOperator: () => true, requireSecurity: () => false });
+    mockAlertsCount({
+      system: 4,
+    });
+
+    renderWithRouter(<AppAlertsControl />);
+    fireEvent.click(screen.getByRole("button", { name: "Alerts menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "4 system alerts" }));
+
+    expect(navigateMock).toHaveBeenCalledWith("/alerts/system/unacknowledged");
+  });
+
+  test("navigates to the security unacknowledged alerts page from the dropdown", () => {
+    mockAuth({ isAuthenticated: true });
+    mockRbac({ requireOperator: () => true, requireSecurity: () => true });
+    mockAlertsCount({
+      security: 9,
+      system: 2,
+    });
+
+    renderWithRouter(<AppAlertsControl />);
+    fireEvent.click(screen.getByRole("button", { name: "Alerts menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "9 security alerts" }));
+
+    expect(navigateMock).toHaveBeenCalledWith("/alerts/security/unacknowledged");
   });
 });
 
@@ -93,6 +168,15 @@ describe("AppAlertsControl rendering", () => {
  */
 const findIndicator = (domain: "security" | "system"): HTMLElement | null => {
   return document.querySelector(`[data-test-class="alerts-indicator"][data-test-name="${domain}"]`);
+};
+
+/**
+ * Renders a component under a memory router for navigation-aware tests.
+ */
+const renderWithRouter = (component: ReactNode) => {
+  navigateMock.mockReset();
+
+  return render(<MemoryRouter>{component}</MemoryRouter>);
 };
 
 /**
