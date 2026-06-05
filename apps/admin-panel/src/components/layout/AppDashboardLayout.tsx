@@ -1,4 +1,5 @@
 import { AppChromeLayout } from "@components/layout/AppChromeLayout";
+import { AppAlertsControl } from "@components/navigation/AppAlertsControl";
 import { AppFooter } from "@components/navigation/AppFooter";
 import { AppSidebar } from "@components/navigation/AppSidebar";
 import { AppSidebarDrawer, AppSidebarDrawerButton } from "@components/navigation/AppSidebarDrawer";
@@ -81,7 +82,12 @@ const renderDashboardHeader = ({
           <AppSidebarModeToggle isCollapsed={isSidebarCollapsed} onToggle={onToggleSidebarMode} />
         </Box>
       }
-      trailingAction={<AppUserMenu />}
+      trailingAction={
+        <Box alignItems="center" display="flex" gap={1}>
+          <AppAlertsControl />
+          <AppUserMenu />
+        </Box>
+      }
     />
   );
 };

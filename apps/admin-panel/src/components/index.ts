@@ -3,6 +3,7 @@ export { AppChromeLayout } from "@components/layout/AppChromeLayout";
 export { AppDashboardLayout } from "@components/layout/AppDashboardLayout";
 export { AppPageLayout } from "@components/layout/AppPageLayout";
 export { PublicAppLayout } from "@components/layout/PublicAppLayout";
+export { AppAlertsControl } from "@components/navigation/AppAlertsControl";
 export { AppFooter } from "@components/navigation/AppFooter";
 export { AppSidebar } from "@components/navigation/AppSidebar";
 export { AppSidebarDrawer, AppSidebarDrawerButton } from "@components/navigation/AppSidebarDrawer";
