@@ -1,5 +1,6 @@
 import {
   appNavigationItems,
+  buildAppNavigationItems,
   preferencesNavigationItems,
   resolveNavigationItems,
   resolveSelectedNavigationPath,
@@ -43,5 +44,33 @@ describe("appNavigationItems", () => {
     expect(routePaths).toContain("/system/sensors/clock");
     expect(routePaths).toContain("/system/sensors/throttling");
     expect(routePaths).toContain("/system/sensors/fan");
+  });
+});
+
+describe("buildAppNavigationItems", () => {
+  test("adds only the operator alerts branch for operator visibility", () => {
+    const routePaths = JSON.stringify(
+      buildAppNavigationItems({
+        requireOperator: () => true,
+        requireSecurity: () => false,
+      }),
+    );
+
+    expect(routePaths).toContain("/alerts/system/unacknowledged");
+    expect(routePaths).not.toContain("/alerts/security/unacknowledged");
+  });
+
+  test("adds both alerts branches when both guards pass", () => {
+    const routePaths = JSON.stringify(
+      buildAppNavigationItems({
+        requireOperator: () => true,
+        requireSecurity: () => true,
+      }),
+    );
+
+    expect(routePaths).toContain("/alerts/system/active");
+    expect(routePaths).toContain("/alerts/security/active");
+    expect(routePaths).toContain("/alerts/system/all");
+    expect(routePaths).toContain("/alerts/security/all");
   });
 });

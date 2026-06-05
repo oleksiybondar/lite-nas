@@ -7,6 +7,7 @@ import { AppSidebarFlyout } from "@components/navigation/AppSidebarFlyout";
 import { AppSidebarModeToggle } from "@components/navigation/AppSidebarModeToggle";
 import { AppTopBar } from "@components/navigation/AppTopBar";
 import { AppUserMenu } from "@components/navigation/AppUserMenu";
+import { useRbac } from "@hooks/useRbac";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import {
@@ -27,7 +28,11 @@ import { Outlet, useLocation } from "react-router-dom";
  */
 export const AppDashboardLayout = (): ReactElement => {
   const { pathname } = useLocation();
-  const navigationItems = resolveNavigationItems(pathname);
+  const { requireOperator, requireSecurity } = useRbac();
+  const navigationItems = resolveNavigationItems(pathname, {
+    requireOperator,
+    requireSecurity,
+  });
   const selectedPath = resolveSelectedNavigationPath(pathname, navigationItems);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
