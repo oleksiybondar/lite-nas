@@ -18,8 +18,9 @@ const (
 
 // ListInput defines the shared list query accepted by alert collection routes.
 type ListInput struct {
-	Page int `query:"page" default:"1" minimum:"1" doc:"Page number. Defaults to 1 when omitted."`
-	Size int `query:"size" default:"20" minimum:"1" maximum:"500" doc:"Page size. Defaults to 20 when omitted."`
+	Page    int      `query:"page" default:"1" minimum:"1" doc:"Page number. Defaults to 1 when omitted."`
+	Size    int      `query:"size" default:"20" minimum:"1" maximum:"500" doc:"Page size. Defaults to 20 when omitted."`
+	Filters []string `query:"filters,explode" doc:"Optional repeated JSON-encoded alert filter objects. Each value must match the logging-manager filter contract, for example {\"key\":\"category\",\"condition\":\"eq\",\"values\":[\"system.metrics.mem.used\"]} or {\"key\":\"created_at\",\"condition\":\"between\",\"values\":[\"2026-05-12T10:00:00Z\",\"2026-05-12T11:00:00Z\"]}."`
 }
 
 // ListOutput returns one browser-facing alert page with wrapped pagination metadata.

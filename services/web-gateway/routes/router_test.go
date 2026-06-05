@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -413,6 +414,24 @@ func TestRouterExposesOpenAPIDocs(t *testing.T) {
 }
 
 // Requirements: web-gateway/IR-001
+func TestRouterDocumentsAlertFiltersQueryParameter(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/openapi.json", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+
+	var spec map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &spec); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	assertDocumentedQueryParameter(t, spec, "/alerts/system", "get", "filters")
+	assertDocumentedQueryParameter(t, spec, "/alerts/system/active", "get", "filters")
+	assertDocumentedQueryParameter(t, spec, "/alerts/system/unacknowledged", "get", "filters")
+}
+
+// Requirements: web-gateway/IR-001
 func TestRouterDocsPageReferencesMountedOpenAPIPath(t *testing.T) {
 	t.Parallel()
 
@@ -446,4 +465,70 @@ func assertAuthenticatedRouteStatus(
 
 	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(method, path, body))
 	webtest.AssertStatus(t, recorder, wantStatus)
+}
+
+func assertDocumentedQueryParameter(
+	t *testing.T,
+	spec map[string]any,
+	path string,
+	method string,
+	parameterName string,
+) {
+	t.Helper()
+
+	operation := mustOpenAPIOperation(t, spec, path, method)
+	parameter := mustFindOpenAPIParameter(t, operation, path, method, parameterName)
+	if parameter["description"] == "" {
+		t.Fatalf("parameter %q description is empty for %s %s", parameterName, strings.ToUpper(method), path)
+	}
+}
+
+func mustOpenAPIOperation(t *testing.T, spec map[string]any, path string, method string) map[string]any {
+	t.Helper()
+
+	paths := mustMapField(t, spec, "paths")
+	pathItem, ok := paths[path].(map[string]any)
+	if !ok {
+		t.Fatalf("openapi path %q missing", path)
+	}
+	operation, ok := pathItem[method].(map[string]any)
+	if !ok {
+		t.Fatalf("openapi operation %s %s missing", strings.ToUpper(method), path)
+	}
+	return operation
+}
+
+func mustFindOpenAPIParameter(
+	t *testing.T,
+	operation map[string]any,
+	path string,
+	method string,
+	parameterName string,
+) map[string]any {
+	t.Helper()
+
+	parameters, ok := operation["parameters"].([]any)
+	if !ok {
+		t.Fatalf("openapi parameters for %s %s = %T, want []any", strings.ToUpper(method), path, operation["parameters"])
+	}
+
+	for _, parameter := range parameters {
+		typed, ok := parameter.(map[string]any)
+		if ok && typed["name"] == parameterName {
+			return typed
+		}
+	}
+
+	t.Fatalf("parameter %q not documented for %s %s", parameterName, strings.ToUpper(method), path)
+	return nil
+}
+
+func mustMapField(t *testing.T, source map[string]any, field string) map[string]any {
+	t.Helper()
+
+	value, ok := source[field].(map[string]any)
+	if !ok {
+		t.Fatalf("openapi %s = %T, want map[string]any", field, source[field])
+	}
+	return value
 }

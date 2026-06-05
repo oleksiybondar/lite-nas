@@ -2,13 +2,17 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	alertsdto "lite-nas/services/web-gateway/dto/alerts"
 	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/services"
 	"lite-nas/shared/authtoken"
+	sharedloggingmanager "lite-nas/shared/loggingmanager"
+	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -185,11 +189,16 @@ func extractAlertListInput(ctx context.Context, input *alertsdto.ListInput) (ser
 		return services.AlertListInput{}, err
 	}
 	pagination := normalizeAlertPagination(input.Page, input.Size)
+	filters, err := parseAlertFilters(input.Filters)
+	if err != nil {
+		return services.AlertListInput{}, err
+	}
 
 	return services.AlertListInput{
 		AccessToken: accessToken,
 		Page:        pagination.Page,
 		Size:        pagination.Size,
+		Filters:     filters,
 	}, nil
 }
 
@@ -254,6 +263,31 @@ func normalizeAlertPagination(page int, size int) services.AlertListInput {
 		size = alertsdto.DefaultSize
 	}
 	return services.AlertListInput{Page: page, Size: size}
+}
+
+func parseAlertFilters(rawFilters []string) ([]loggingmanagerdto.Filter, error) {
+	if len(rawFilters) == 0 {
+		return nil, nil
+	}
+
+	filters := make([]loggingmanagerdto.Filter, 0, len(rawFilters))
+	for _, rawFilter := range rawFilters {
+		var filter loggingmanagerdto.Filter
+		if err := json.Unmarshal([]byte(rawFilter), &filter); err != nil {
+			return nil, huma.Error422UnprocessableEntity(fmt.Sprintf("invalid filters query parameter: %q must be a JSON object", rawFilter))
+		}
+		filters = append(filters, filter)
+	}
+
+	validate, err := sharedloggingmanager.NewInputValidator()
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to initialize alert filter validation")
+	}
+	if err := validate.Struct(loggingmanagerdto.ListEventsInput{Page: alertsdto.DefaultPage, Filters: filters}); err != nil {
+		return nil, huma.Error422UnprocessableEntity("invalid filters query parameter")
+	}
+
+	return filters, nil
 }
 
 func newListMetadata(page int, size int, totalCount int) alertsdto.ListMetadata {

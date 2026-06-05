@@ -7,6 +7,7 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
+	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 	"lite-nas/shared/messaging"
 )
 
@@ -28,6 +29,7 @@ type AlertListInput struct {
 	AccessToken string
 	Page        int
 	Size        int
+	Filters     []loggingmanagerdto.Filter
 }
 
 // AlertGetInput defines one browser-facing alert-detail request after controller extraction.
@@ -150,6 +152,7 @@ func (s alertsService) requestList(ctx context.Context, subject string, input Al
 		AccessToken: input.AccessToken,
 		Page:        input.Page,
 		PageSize:    input.Size,
+		Filters:     input.Filters,
 	}
 	if err := s.client.Request(ctx, subject, request, &response); err != nil {
 		return AlertListPage{}, err

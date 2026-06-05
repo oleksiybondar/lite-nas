@@ -7,6 +7,7 @@ import (
 	alertsdto "lite-nas/services/web-gateway/dto/alerts"
 	"lite-nas/services/web-gateway/services"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 )
 
 type stubAlertsService struct {
@@ -89,6 +90,54 @@ func TestAlertsControllerListUnacknowledgedWrapsMetadataAndDefaultsPagination(t 
 			assertUnacknowledgedListInput(t, service.unacknowledgedInput)
 		},
 	)
+}
+
+func TestAlertsControllerListForwardsParsedFilters(t *testing.T) {
+	t.Parallel()
+
+	service, controller, ctx := newAlertsControllerTestContext(services.AlertListPage{})
+	output, err := controller.List(ctx, &alertsdto.ListInput{
+		Filters: []string{
+			`{"key":"category","condition":"eq","values":["system.metrics.mem.used"]}`,
+			`{"key":"created_at","condition":"between","values":["2026-05-12T10:00:00Z","2026-05-12T11:00:00Z"]}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if output == nil {
+		t.Fatal("List() output = nil, want response")
+	}
+
+	assertListFilters(t, service.listInput, []loggingmanagerdto.Filter{
+		{
+			Key:       loggingmanagerdto.FilterKeyCategory,
+			Condition: loggingmanagerdto.FilterConditionEQ,
+			Values:    []string{"system.metrics.mem.used"},
+		},
+		{
+			Key:       loggingmanagerdto.FilterKeyCreatedAt,
+			Condition: loggingmanagerdto.FilterConditionBetween,
+			Values:    []string{"2026-05-12T10:00:00Z", "2026-05-12T11:00:00Z"},
+		},
+	})
+}
+
+func TestAlertsControllerListRejectsInvalidFilters(t *testing.T) {
+	t.Parallel()
+
+	controller := NewSystemAlertsController(&stubAlertsService{})
+	ctx := authenticatedAlertsContext()
+
+	output, err := controller.List(ctx, &alertsdto.ListInput{
+		Filters: []string{`{"key":"created_at","condition":"between","values":["2026-05-12T10:00:00Z"]}`},
+	})
+	if output != nil {
+		t.Fatalf("List() output = %#v, want nil", output)
+	}
+	if err == nil || humaStatus(err) != 422 {
+		t.Fatalf("List() error = %v, want status 422", err)
+	}
 }
 
 // Requirements: web-gateway/FR-005, web-gateway/TR-001

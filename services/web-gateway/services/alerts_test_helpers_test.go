@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 )
 
 func newAlertsListClientStub(
@@ -43,7 +44,14 @@ func newAlertsActionClientStub(t *testing.T, okResponse bool) *alertsClientStub 
 	}
 }
 
-func assertAlertsListRequest(t *testing.T, request any, wantToken string, wantPage int, wantPageSize int) {
+func assertAlertsListRequest(
+	t *testing.T,
+	request any,
+	wantToken string,
+	wantPage int,
+	wantPageSize int,
+	wantFilters []loggingmanagerdto.Filter,
+) {
 	t.Helper()
 
 	typed, ok := request.(loggingmanagercontract.ListAlertsInput)
@@ -52,6 +60,9 @@ func assertAlertsListRequest(t *testing.T, request any, wantToken string, wantPa
 	}
 	if typed.AccessToken != wantToken || typed.Page != wantPage || typed.PageSize != wantPageSize {
 		t.Fatalf("request = %#v, want access token/page/page_size forwarded", typed)
+	}
+	if !reflect.DeepEqual(typed.Filters, wantFilters) {
+		t.Fatalf("filters = %#v, want %#v", typed.Filters, wantFilters)
 	}
 }
 
@@ -96,6 +107,7 @@ func runAlertsServiceListTest(
 	wantSubject string,
 	wantPage int,
 	wantSize int,
+	wantFilters []loggingmanagerdto.Filter,
 	wantItems []loggingmanagercontract.ListAlertItem,
 	wantTotalCount int,
 ) {
@@ -113,7 +125,7 @@ func runAlertsServiceListTest(
 		}
 
 		assertAlertsListSubject(t, client.subject, wantSubject)
-		assertAlertsListRequest(t, client.request, "AT", wantPage, wantSize)
+		assertAlertsListRequest(t, client.request, "AT", wantPage, wantSize, wantFilters)
 		assertAlertsListResult(t, name, got, wantItems, wantTotalCount)
 	})
 }

@@ -9,6 +9,7 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
+	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 )
 
 func TestSystemAlertsServiceRequestsListSubject(t *testing.T) {
@@ -21,6 +22,7 @@ func TestSystemAlertsServiceRequestsListSubject(t *testing.T) {
 		systemloggingmanagercontract.GetAlertsRPCSubject,
 		2,
 		5,
+		nil,
 		[]loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
 		7,
 	)
@@ -36,6 +38,7 @@ func TestSystemAlertsServiceRequestsActiveSubject(t *testing.T) {
 		systemloggingmanagercontract.GetActiveAlertsRPCSubject,
 		1,
 		10,
+		nil,
 		[]loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
 		3,
 	)
@@ -51,8 +54,38 @@ func TestSystemAlertsServiceRequestsUnacknowledgedSubject(t *testing.T) {
 		systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		1,
 		10,
+		nil,
 		[]loggingmanagercontract.ListAlertItem{{EventID: "evt-1"}},
 		4,
+	)
+}
+
+func TestSystemAlertsServiceForwardsFilters(t *testing.T) {
+	runAlertsServiceListTest(
+		t,
+		"ListWithFilters",
+		func(service AlertsService) (AlertListPage, error) {
+			return service.List(context.Background(), AlertListInput{
+				AccessToken: "AT",
+				Page:        2,
+				Size:        5,
+				Filters: []loggingmanagerdto.Filter{{
+					Key:       loggingmanagerdto.FilterKeyCategory,
+					Condition: loggingmanagerdto.FilterConditionEQ,
+					Values:    []string{"system.metrics.mem.used"},
+				}},
+			})
+		},
+		systemloggingmanagercontract.GetAlertsRPCSubject,
+		2,
+		5,
+		[]loggingmanagerdto.Filter{{
+			Key:       loggingmanagerdto.FilterKeyCategory,
+			Condition: loggingmanagerdto.FilterConditionEQ,
+			Values:    []string{"system.metrics.mem.used"},
+		}},
+		nil,
+		0,
 	)
 }
 

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	alertsdto "lite-nas/services/web-gateway/dto/alerts"
@@ -10,6 +11,7 @@ import (
 	"lite-nas/services/web-gateway/services"
 	"lite-nas/shared/authtoken"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	loggingmanagerdto "lite-nas/shared/loggingmanager/dto"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -39,6 +41,9 @@ func assertUnacknowledgedListInput(t *testing.T, input services.AlertListInput) 
 	if input.AccessToken != "AT" || input.Page != alertsdto.DefaultPage || input.Size != alertsdto.DefaultSize {
 		t.Fatalf("list input = %#v, want normalized auth and pagination", input)
 	}
+	if len(input.Filters) != 0 {
+		t.Fatalf("filters = %#v, want none", input.Filters)
+	}
 }
 
 func assertActiveListInput(t *testing.T, input services.AlertListInput) {
@@ -46,6 +51,22 @@ func assertActiveListInput(t *testing.T, input services.AlertListInput) {
 
 	if input.AccessToken != "AT" || input.Page != alertsdto.DefaultPage || input.Size != alertsdto.DefaultSize {
 		t.Fatalf("active input = %#v, want normalized auth and pagination", input)
+	}
+	if len(input.Filters) != 0 {
+		t.Fatalf("filters = %#v, want none", input.Filters)
+	}
+}
+
+func assertListFilters(t *testing.T, input services.AlertListInput, want []loggingmanagerdto.Filter) {
+	t.Helper()
+
+	if len(input.Filters) != len(want) {
+		t.Fatalf("filters len = %d, want %d", len(input.Filters), len(want))
+	}
+	for index := range want {
+		if !reflect.DeepEqual(input.Filters[index], want[index]) {
+			t.Fatalf("filters[%d] = %#v, want %#v", index, input.Filters[index], want[index])
+		}
 	}
 }
 
