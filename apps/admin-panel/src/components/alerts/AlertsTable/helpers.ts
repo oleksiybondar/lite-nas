@@ -1,16 +1,20 @@
 import type { AlertDomain, AlertListItemDTO } from "@dto/alerts/alerts";
+import type { SxProps, Theme } from "@mui/material/styles";
 
 type AlertsTableColumn = {
   key: string;
   label: string;
 };
 
+const severityColumnWidth = 56;
+const priorityColumnWidth = 56;
+
 const baseAlertsTableColumns: AlertsTableColumn[] = [
+  { key: "severity", label: "S" },
+  { key: "priority", label: "P" },
   { key: "event-id", label: "Event ID" },
   { key: "source", label: "Source" },
   { key: "category", label: "Category" },
-  { key: "severity", label: "Severity" },
-  { key: "priority", label: "Priority" },
   { key: "status", label: "Status" },
   { key: "created-at", label: "Created at" },
   { key: "acknowledged-at", label: "Acknowledged at" },
@@ -40,6 +44,33 @@ export const formatAlertsTimestamp = (value: string | null): string => {
   }
 
   return value;
+};
+
+/**
+ * Returns sticky column styling for supported alerts table columns.
+ */
+export const buildAlertsStickyColumnSx = (columnKey: string, isHeader = false): SxProps<Theme> => {
+  const stickyConfig = resolveStickyColumnConfig(columnKey);
+
+  if (stickyConfig === null) {
+    return {};
+  }
+
+  return {
+    backgroundColor: "background.paper",
+    left: stickyConfig.left,
+    minWidth: stickyConfig.width,
+    position: "sticky",
+    width: stickyConfig.width,
+    zIndex: isHeader ? 4 : 2,
+  };
+};
+
+/**
+ * Formats one severity value for display in typed severity cells.
+ */
+export const formatAlertSeverityLabel = (severity: string): string => {
+  return severity.slice(0, 1).toUpperCase() + severity.slice(1);
 };
 
 /**
@@ -73,6 +104,22 @@ export const formatMitigateValue = (item: AlertListItemDTO): string => {
   return item.Meta?.mitigate ?? "-";
 };
 
+type StickyColumnConfig = {
+  left: number;
+  width: number;
+};
+
+const stickyColumnConfigByKey: Partial<Record<string, StickyColumnConfig>> = {
+  priority: {
+    left: severityColumnWidth,
+    width: priorityColumnWidth,
+  },
+  severity: {
+    left: 0,
+    width: severityColumnWidth,
+  },
+};
+
 const resolveAlertLastValue = (item: AlertListItemDTO): boolean | number | string | null => {
   const lastTextValue = resolveAlertTextValue(item);
 
@@ -87,6 +134,13 @@ const resolveAlertLastValue = (item: AlertListItemDTO): boolean | number | strin
   }
 
   return resolveAlertBooleanValue(item);
+};
+
+/**
+ * Resolves sticky column layout data for supported alerts table columns.
+ */
+const resolveStickyColumnConfig = (columnKey: string): StickyColumnConfig | null => {
+  return stickyColumnConfigByKey[columnKey] ?? null;
 };
 
 /**

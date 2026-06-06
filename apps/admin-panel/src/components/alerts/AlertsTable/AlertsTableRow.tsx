@@ -36,11 +36,11 @@ export const AlertsTableRow = ({ domain, item }: AlertsTableRowProps): ReactElem
       data-test-name={`${item.EventID}:${item.EventRecID}`}
       hover
     >
+      <AlertsTableSeverityCell item={item} />
+      <AlertsTablePriorityCell item={item} />
       <AlertsTableEventIdCell item={item} />
       <AlertsTableSourceCell item={item} />
       <AlertsTableCategoryCell item={item} />
-      <AlertsTableSeverityCell item={item} />
-      <AlertsTablePriorityCell item={item} />
       <AlertsTableStatusCell item={item} />
       <AlertsTableCreatedAtCell item={item} />
       <AlertsTableAcknowledgedAtCell item={item} />

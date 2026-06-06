@@ -1,11 +1,15 @@
 import { AlertsTableRow } from "@components/alerts/AlertsTable/AlertsTableRow";
-import { buildAlertsTableColumns } from "@components/alerts/AlertsTable/helpers";
+import {
+  buildAlertsStickyColumnSx,
+  buildAlertsTableColumns,
+} from "@components/alerts/AlertsTable/helpers";
 import { useAlerts } from "@hooks/useAlerts";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
+import TableFooter from "@mui/material/TableFooter";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
@@ -19,8 +23,12 @@ export const AlertsTable = (): ReactElement => {
   const columns = buildAlertsTableColumns(domain);
 
   return (
-    <TableContainer component={Paper} data-testid="alerts-table">
-      <Table size="small">
+    <TableContainer
+      component={Paper}
+      data-testid="alerts-table"
+      sx={{ maxWidth: "100%", minWidth: 0, overflowX: "auto", width: "100%" }}
+    >
+      <Table size="small" stickyHeader sx={{ minWidth: 1560 }}>
         <TableHead>
           <TableRow>
             {columns.map((column) => {
@@ -29,6 +37,7 @@ export const AlertsTable = (): ReactElement => {
                   data-test-class="alerts-table-header-cell"
                   data-test-name={column.key}
                   key={column.key}
+                  sx={buildAlertsStickyColumnSx(column.key, true)}
                 >
                   {column.label}
                 </TableCell>
@@ -57,6 +66,22 @@ export const AlertsTable = (): ReactElement => {
             })
           )}
         </TableBody>
+        <TableFooter>
+          <TableRow data-testid="alerts-table-footer-row">
+            {columns.map((column) => {
+              return (
+                <TableCell
+                  data-test-class="alerts-table-footer-cell"
+                  data-test-name={column.key}
+                  key={`footer-${column.key}`}
+                  sx={buildAlertsStickyColumnSx(column.key, true)}
+                >
+                  {column.label}
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        </TableFooter>
       </Table>
     </TableContainer>
   );

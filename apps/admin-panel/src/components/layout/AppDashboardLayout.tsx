@@ -119,7 +119,7 @@ const renderDashboardMain = ({
   selectedPath,
 }: DashboardMainRenderOptions): ReactElement => {
   return (
-    <Box data-testid="dashboard-layout" display="flex" minHeight="calc(100vh - 113px)">
+    <Box data-testid="dashboard-layout" display="flex" flex={1} minHeight={0} overflow="hidden">
       <AppSidebarDrawer
         items={navigationItems}
         onClose={onCloseMobileSidebar}
@@ -140,7 +140,7 @@ const renderDashboardMain = ({
         component="section"
         data-testid="dashboard-content"
         maxWidth={false}
-        sx={{ py: 4 }}
+        sx={{ minHeight: 0, minWidth: 0, overflowY: "auto", py: 4 }}
       >
         <Outlet />
       </Container>

@@ -8,21 +8,24 @@ import {
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 describe("AlertsTable", () => {
-  test("renders the starter table headers", () => {
+  test("renders the reordered starter table headers with compact severity and priority labels first", () => {
     renderAlertsTable(createAlertsContextValue("system", "all"));
 
-    expect(screen.getByRole("columnheader", { name: "Event ID" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Source" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Category" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Severity" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Priority" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Created at" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Acknowledged at" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Acknowledged" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Value" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Message" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Acknowledge" })).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
+      "S",
+      "P",
+      "Event ID",
+      "Source",
+      "Category",
+      "Status",
+      "Created at",
+      "Acknowledged at",
+      "Acknowledged",
+      "Value",
+      "Message",
+      "Acknowledge",
+    ]);
+    expect(screen.getByTestId("alerts-table-footer-row")).toBeInTheDocument();
   });
 
   test("renders the empty-state row when there are no items", () => {
@@ -34,7 +37,7 @@ describe("AlertsTable", () => {
 });
 
 describe("AlertsTable rows", () => {
-  test("renders starter text rows from alert items", () => {
+  test("renders iconized severity plus starter row values from alert items", () => {
     const value = createAlertsContextValue("system", "all");
     value.items = [
       createAlertListItem({
@@ -56,10 +59,10 @@ describe("AlertsTable rows", () => {
 
     renderAlertsTable(value);
 
+    expect(screen.getByTestId("alerts-severity-cell-evt-42")).toBeInTheDocument();
     expect(screen.getByText("evt-42")).toBeInTheDocument();
     expect(screen.getByText("resource-monitor")).toBeInTheDocument();
     expect(screen.getByText("Power")).toBeInTheDocument();
-    expect(screen.getByText("critical")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("open")).toBeInTheDocument();
     expect(screen.getByText("2026-06-06T08:00:00Z")).toBeInTheDocument();
@@ -130,6 +133,26 @@ describe("AlertsTable security columns", () => {
 
     expect(screen.getByRole("columnheader", { name: "Mitigate" })).toBeInTheDocument();
     expect(screen.getByText("Rotate credentials")).toBeInTheDocument();
+  });
+
+  test("renders the security header set with mitigate at the end", () => {
+    renderAlertsTable(createAlertsContextValue("security", "all"));
+
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
+      "S",
+      "P",
+      "Event ID",
+      "Source",
+      "Category",
+      "Status",
+      "Created at",
+      "Acknowledged at",
+      "Acknowledged",
+      "Value",
+      "Message",
+      "Acknowledge",
+      "Mitigate",
+    ]);
   });
 });
 

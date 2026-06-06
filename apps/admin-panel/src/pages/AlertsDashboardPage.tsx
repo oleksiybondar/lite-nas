@@ -16,7 +16,7 @@ export const AlertsDashboardPage = (): ReactElement => {
   const groupTitle = formatAlertsLabel(domain);
 
   return (
-    <Stack data-testid="alerts-dashboard-page" spacing={1} width="100%">
+    <Stack data-testid="alerts-dashboard-page" minWidth={0} spacing={1} width="100%">
       <Typography color="primary" data-testid="alerts-dashboard-overline" variant="overline">
         {groupTitle}
       </Typography>
