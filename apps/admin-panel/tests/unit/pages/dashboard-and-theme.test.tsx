@@ -12,13 +12,13 @@ import { AppThemeProvider } from "@providers/AppThemeProvider";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
+import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
 import { createAppTheme, type ThemeSettings, themeRegistry } from "@theme/index";
 import { loadThemeSettings } from "@theme/manager/storage";
 import { getComponentOverrides } from "@theme/mui/components";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useState } from "react";
-import { MemoryRouter } from "react-router-dom";
 
 describe("dashboard page", () => {
   test("renders the initial dashboard sections", () => {
@@ -86,16 +86,16 @@ describe("category landing pages", () => {
       page: <PreferencesLandingPage />,
     },
   ])("renders $cardName category card", ({ cardName, page }) => {
-    render(<MemoryRouter>{page}</MemoryRouter>);
+    render(<TestMemoryRouter>{page}</TestMemoryRouter>);
 
     expect(screen.getByRole("heading", { name: cardName })).toBeInTheDocument();
   });
 
   test("renders category cards as full-card links", () => {
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <SystemLandingPage />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole("link", { name: /Performance/ })).toHaveAttribute(

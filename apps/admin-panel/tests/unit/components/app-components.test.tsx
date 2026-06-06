@@ -8,15 +8,15 @@ import {
 } from "@components/index";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
+import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
-import { MemoryRouter } from "react-router-dom";
 
 describe("app shell components", () => {
   test("renders the application logo", () => {
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AppLogo />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByText("LiteNAS")).toBeInTheDocument();
@@ -24,11 +24,11 @@ describe("app shell components", () => {
 
   test("renders page content inside the application layout", () => {
     renderWithThemeManager(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AppPageLayout>
           <h1>Storage overview</h1>
         </AppPageLayout>
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByText("LiteNAS")).toBeInTheDocument();
@@ -37,12 +37,12 @@ describe("app shell components", () => {
 
   test("renders supplied top bar action slots", () => {
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AppTopBar
           leadingAction={<button type="button">Open nav</button>}
           trailingAction={<span>User</span>}
         />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole("button", { name: "Open nav" })).toBeInTheDocument();

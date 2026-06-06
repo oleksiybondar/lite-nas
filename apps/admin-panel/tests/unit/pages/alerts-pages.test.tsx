@@ -1,10 +1,12 @@
-import { useRbac } from "@hooks/useRbac";
+import { AlertsContext } from "@contexts/alerts-context";
+import type { AlertsContextValue } from "@dto/alerts/alerts";
 import { AlertsDashboardPage } from "@pages/AlertsDashboardPage";
 import { AlertsLandingPage } from "@pages/AlertsLandingPage";
 import { AlertsSecurityLandingPage } from "@pages/AlertsSecurityLandingPage";
 import { AlertsSystemLandingPage } from "@pages/AlertsSystemLandingPage";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { mockRbacAccess } from "@tests/unit/test-utils/rbac";
+import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 vi.mock("@hooks/useRbac", () => ({
   useRbac: vi.fn(),
@@ -12,12 +14,12 @@ vi.mock("@hooks/useRbac", () => ({
 
 describe("AlertsLandingPage", () => {
   test("renders only the system card for operator-only access", () => {
-    mockRbac({ requireOperator: () => true, requireSecurity: () => false });
+    mockRbacAccess({ requireOperator: true, requireSecurity: false });
 
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AlertsLandingPage />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole("heading", { name: "System" })).toBeInTheDocument();
@@ -26,12 +28,12 @@ describe("AlertsLandingPage", () => {
   });
 
   test("renders only the security card for security-only access", () => {
-    mockRbac({ requireOperator: () => false, requireSecurity: () => true });
+    mockRbacAccess({ requireOperator: false, requireSecurity: true });
 
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AlertsLandingPage />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.queryByRole("heading", { name: "System" })).not.toBeInTheDocument();
@@ -43,12 +45,12 @@ describe("AlertsLandingPage", () => {
   });
 
   test("renders both domain cards when both guards pass", () => {
-    mockRbac({ requireOperator: () => true, requireSecurity: () => true });
+    mockRbacAccess({ requireOperator: true, requireSecurity: true });
 
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AlertsLandingPage />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole("heading", { name: "System" })).toBeInTheDocument();
@@ -69,7 +71,7 @@ describe("alerts domain landing pages", () => {
       title: "Security",
     },
   ])("renders $title alert cards", ({ cardNames, page }) => {
-    render(<MemoryRouter>{page}</MemoryRouter>);
+    render(<TestMemoryRouter>{page}</TestMemoryRouter>);
 
     for (const cardName of cardNames) {
       expect(screen.getByRole("heading", { name: cardName })).toBeInTheDocument();
@@ -78,9 +80,9 @@ describe("alerts domain landing pages", () => {
 
   test("renders system alert cards as full-card links", () => {
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AlertsSystemLandingPage />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole("link", { name: /Unacknowledged alerts/ })).toHaveAttribute(
@@ -91,9 +93,9 @@ describe("alerts domain landing pages", () => {
 
   test("renders security alert cards as full-card links", () => {
     render(
-      <MemoryRouter>
+      <TestMemoryRouter>
         <AlertsSecurityLandingPage />
-      </MemoryRouter>,
+      </TestMemoryRouter>,
     );
 
     expect(screen.getByRole("link", { name: /All alerts/ })).toHaveAttribute(
@@ -104,49 +106,80 @@ describe("alerts domain landing pages", () => {
 });
 
 describe("AlertsDashboardPage", () => {
-  test("renders system route labels from params", () => {
-    renderAlertsDashboardRoute("/alerts/system/unacknowledged");
+  test.each([
+    {
+      category: "unacknowledged" as const,
+      domain: "system" as const,
+      heading: "Unacknowledged alerts",
+      label: "System",
+    },
+    {
+      category: "all" as const,
+      domain: "security" as const,
+      heading: "All alerts",
+      label: "Security",
+    },
+  ])("renders $domain route labels from params", ({ category, domain, heading, label }) => {
+    renderAlertsDashboardPage(createAlertsContextValue(domain, category));
 
-    expect(screen.getByRole("heading", { name: "Unacknowledged alerts" })).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
-  });
-
-  test("renders security route labels from params", () => {
-    renderAlertsDashboardRoute("/alerts/security/all");
-
-    expect(screen.getByRole("heading", { name: "All alerts" })).toBeInTheDocument();
-    expect(screen.getByText("Security")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.getByText(label)).toBeInTheDocument();
   });
 });
 
 /**
- * Mocks the RBAC hook contract used by the alerts landing page.
+ * Renders the alerts dashboard page under a minimal alerts context.
  */
-const mockRbac = ({
-  requireOperator,
-  requireSecurity,
-}: {
-  requireOperator: () => boolean;
-  requireSecurity: () => boolean;
-}): void => {
-  vi.mocked(useRbac).mockReturnValue({
-    requireAdmin: () => false,
-    requireOperator,
-    requireSecurity,
-    roles: [],
-    scopes: [],
-  });
+const renderAlertsDashboardPage = (value: AlertsContextValue): void => {
+  render(
+    <TestMemoryRouter>
+      <AlertsContext.Provider value={value}>
+        <AlertsDashboardPage />
+      </AlertsContext.Provider>
+    </TestMemoryRouter>,
+  );
 };
 
 /**
- * Renders the alerts dashboard page under the route shape it expects.
+ * Creates one minimal alerts context value for page rendering tests.
  */
-const renderAlertsDashboardRoute = (initialEntry: string): void => {
-  render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route element={<AlertsDashboardPage />} path="/alerts/:group/:category" />
-      </Routes>
-    </MemoryRouter>,
-  );
+const createAlertsContextValue = (
+  domain: AlertsContextValue["domain"],
+  category: AlertsContextValue["category"],
+): AlertsContextValue => {
+  return {
+    acknowledge: vi.fn(),
+    acknowledgeMany: vi.fn(),
+    apiPath: `/api/alerts/${domain}/${category}`,
+    category,
+    categoryFilter: [],
+    clearFilters: vi.fn(),
+    domain,
+    error: null,
+    isAcknowledging: false,
+    isError: false,
+    isFetching: false,
+    isLoading: false,
+    items: [],
+    nextPage: vi.fn(),
+    page: 1,
+    pageSize: 20,
+    previousPage: vi.fn(),
+    priorityFilter: [],
+    queryKey: ["alerts", domain, category],
+    refetch: vi.fn(),
+    routePath: `/alerts/${domain}/${category}`,
+    search: "",
+    setCategoryFilter: vi.fn(),
+    setPage: vi.fn(),
+    setPageSize: vi.fn(),
+    setPriorityFilter: vi.fn(),
+    setSearch: vi.fn(),
+    setSeverityFilter: vi.fn(),
+    setSourceFilter: vi.fn(),
+    severityFilter: [],
+    sourceFilter: [],
+    totalCount: 0,
+    totalPages: 0,
+  };
 };

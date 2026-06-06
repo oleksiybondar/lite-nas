@@ -1,4 +1,4 @@
-import { AlertsDashboardPage } from "@pages/AlertsDashboardPage";
+import { AlertsDashboardRoute } from "@pages/AlertsDashboardRoute";
 import { AlertsSecurityLandingPage } from "@pages/AlertsSecurityLandingPage";
 import type { RouteObject } from "react-router-dom";
 
@@ -11,7 +11,15 @@ export const securityAlertsRoutes: RouteObject[] = [
     path: "/alerts/security",
   },
   {
-    element: <AlertsDashboardPage />,
-    path: "/alerts/security/:category",
+    element: <AlertsDashboardRoute category="unacknowledged" domain="security" />,
+    path: "/alerts/security/unacknowledged",
+  },
+  {
+    element: <AlertsDashboardRoute category="active" domain="security" />,
+    path: "/alerts/security/active",
+  },
+  {
+    element: <AlertsDashboardRoute category="all" domain="security" />,
+    path: "/alerts/security/all",
   },
 ];

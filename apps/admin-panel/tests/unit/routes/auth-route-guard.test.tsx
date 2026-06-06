@@ -3,8 +3,9 @@ import type { AuthContextValue } from "@dto/auth/auth";
 import { LoginPage } from "@pages/LoginPage";
 import { AuthRouteGuard } from "@routes/AuthRouteGuard";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import type { ReactElement } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 
 describe("AuthRouteGuard", () => {
   test("renders loading state before auth initialization completes", () => {
@@ -72,11 +73,11 @@ const renderGuard = (overrides: Partial<AuthContextValue> = {}) => {
  */
 const renderWithAuth = (component: ReactElement, overrides: Partial<AuthContextValue> = {}) => {
   return render(
-    <MemoryRouter>
+    <TestMemoryRouter>
       <AuthContext.Provider value={createAuthContextValue(overrides)}>
         {component}
       </AuthContext.Provider>
-    </MemoryRouter>,
+    </TestMemoryRouter>,
   );
 };
 
