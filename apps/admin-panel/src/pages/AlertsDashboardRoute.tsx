@@ -1,21 +1,25 @@
 import type { AlertCategory, AlertDomain } from "@dto/alerts/alerts";
+import { AlertsDashboardPage } from "@pages/AlertsDashboardPage";
+import { AlertsControlPanelProvider } from "@providers/AlertsControlPanelProvider";
 import { AlertsProvider } from "@providers/AlertsProvider";
 import type { ReactElement } from "react";
-import { AlertsDashboardPage } from "./AlertsDashboardPage";
 
+/**
+ * Static props required to bind one alerts dashboard route slice.
+ */
 type AlertsDashboardRouteProps = {
   /**
-   * Current alerts route category.
+   * Route category resolved statically by the alerts route module.
    */
   category: AlertCategory;
   /**
-   * Current alerts route domain.
+   * Route domain resolved statically by the alerts route module.
    */
   domain: AlertDomain;
 };
 
 /**
- * Route adapter that binds one dashboard page to a concrete alerts provider slice.
+ * Wires one concrete alerts route slice to shared data and control-panel providers.
  */
 export const AlertsDashboardRoute = ({
   category,
@@ -23,7 +27,9 @@ export const AlertsDashboardRoute = ({
 }: AlertsDashboardRouteProps): ReactElement => {
   return (
     <AlertsProvider category={category} domain={domain}>
-      <AlertsDashboardPage />
+      <AlertsControlPanelProvider>
+        <AlertsDashboardPage />
+      </AlertsControlPanelProvider>
     </AlertsProvider>
   );
 };

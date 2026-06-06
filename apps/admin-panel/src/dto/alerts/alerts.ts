@@ -197,3 +197,32 @@ export type AlertsContextValue = AlertsFilterState & {
   totalCount: number;
   totalPages: number;
 };
+
+/**
+ * One selectable option rendered by alerts control-panel filter inputs.
+ */
+export type AlertsControlPanelOption<T extends string | number> = {
+  label: string;
+  value: T;
+};
+
+/**
+ * Focused UI contract exposed by the alerts control-panel provider.
+ */
+export type AlertsControlPanelContextValue = AlertsFilterState & {
+  availableCategoryOptions: AlertsControlPanelOption<string>[];
+  availablePriorityOptions: AlertsControlPanelOption<number>[];
+  availableSeverityOptions: AlertsControlPanelOption<AlertSeverity>[];
+  availableSourceOptions: AlertsControlPanelOption<string>[];
+  clearFilters: () => void;
+  page: number;
+  search: string;
+  setCategoryFilter: (value: string[]) => void;
+  setPage: (page: number) => void;
+  setPriorityFilter: (value: number[]) => void;
+  setSearch: (value: string) => void;
+  setSeverityFilter: (value: AlertSeverity[]) => void;
+  setSourceFilter: (value: string[]) => void;
+  totalCount: number;
+  totalPages: number;
+};

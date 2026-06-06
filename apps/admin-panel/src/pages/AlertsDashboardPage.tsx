@@ -1,3 +1,6 @@
+import { AlertsControlPanel } from "@components/alerts/AlertsControlPanel";
+import { AlertsControlPanelPagination } from "@components/alerts/AlertsControlPanel/AlertsControlPanelPagination";
+import { AlertsTablePlaceholder } from "@components/alerts/AlertsTablePlaceholder";
 import { buildAlertsPageSummary, buildAlertsPageTitle, formatAlertsLabel } from "@helpers/alerts";
 import { useAlerts } from "@hooks/useAlerts";
 import Stack from "@mui/material/Stack";
@@ -13,7 +16,7 @@ export const AlertsDashboardPage = (): ReactElement => {
   const groupTitle = formatAlertsLabel(domain);
 
   return (
-    <Stack data-testid="alerts-dashboard-page" maxWidth="860px" spacing={1}>
+    <Stack data-testid="alerts-dashboard-page" spacing={1} width="100%">
       <Typography color="primary" data-testid="alerts-dashboard-overline" variant="overline">
         {groupTitle}
       </Typography>
@@ -23,6 +26,10 @@ export const AlertsDashboardPage = (): ReactElement => {
       <Typography color="text.secondary" data-testid="alerts-dashboard-summary" variant="body1">
         {buildAlertsPageSummary(domain, category)}
       </Typography>
+      <AlertsControlPanel />
+      <AlertsControlPanelPagination />
+      <AlertsTablePlaceholder />
+      <AlertsControlPanelPagination />
     </Stack>
   );
 };

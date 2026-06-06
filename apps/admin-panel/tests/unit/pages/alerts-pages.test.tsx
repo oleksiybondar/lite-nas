@@ -4,7 +4,9 @@ import { AlertsDashboardPage } from "@pages/AlertsDashboardPage";
 import { AlertsLandingPage } from "@pages/AlertsLandingPage";
 import { AlertsSecurityLandingPage } from "@pages/AlertsSecurityLandingPage";
 import { AlertsSystemLandingPage } from "@pages/AlertsSystemLandingPage";
+import { AlertsControlPanelProvider } from "@providers/AlertsControlPanelProvider";
 import { render, screen } from "@testing-library/react";
+import { createAlertsContextValue } from "@tests/unit/test-utils/alerts";
 import { mockRbacAccess } from "@tests/unit/test-utils/rbac";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
@@ -124,6 +126,9 @@ describe("AlertsDashboardPage", () => {
 
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByTestId("alerts-control-panel")).toBeInTheDocument();
+    expect(screen.getAllByTestId("alerts-pagination-control")).toHaveLength(2);
+    expect(screen.getByTestId("alerts-table-placeholder")).toBeInTheDocument();
   });
 });
 
@@ -134,52 +139,10 @@ const renderAlertsDashboardPage = (value: AlertsContextValue): void => {
   render(
     <TestMemoryRouter>
       <AlertsContext.Provider value={value}>
-        <AlertsDashboardPage />
+        <AlertsControlPanelProvider>
+          <AlertsDashboardPage />
+        </AlertsControlPanelProvider>
       </AlertsContext.Provider>
     </TestMemoryRouter>,
   );
-};
-
-/**
- * Creates one minimal alerts context value for page rendering tests.
- */
-const createAlertsContextValue = (
-  domain: AlertsContextValue["domain"],
-  category: AlertsContextValue["category"],
-): AlertsContextValue => {
-  return {
-    acknowledge: vi.fn(),
-    acknowledgeMany: vi.fn(),
-    apiPath: `/api/alerts/${domain}/${category}`,
-    category,
-    categoryFilter: [],
-    clearFilters: vi.fn(),
-    domain,
-    error: null,
-    isAcknowledging: false,
-    isError: false,
-    isFetching: false,
-    isLoading: false,
-    items: [],
-    nextPage: vi.fn(),
-    page: 1,
-    pageSize: 20,
-    previousPage: vi.fn(),
-    priorityFilter: [],
-    queryKey: ["alerts", domain, category],
-    refetch: vi.fn(),
-    routePath: `/alerts/${domain}/${category}`,
-    search: "",
-    setCategoryFilter: vi.fn(),
-    setPage: vi.fn(),
-    setPageSize: vi.fn(),
-    setPriorityFilter: vi.fn(),
-    setSearch: vi.fn(),
-    setSeverityFilter: vi.fn(),
-    setSourceFilter: vi.fn(),
-    severityFilter: [],
-    sourceFilter: [],
-    totalCount: 0,
-    totalPages: 0,
-  };
 };
