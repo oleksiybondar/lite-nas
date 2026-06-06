@@ -1,5 +1,5 @@
 import { AlertsContext } from "@contexts/alerts-context";
-import type { AlertsContextValue } from "@dto/alerts/alerts";
+import type { AlertListItemDTO, AlertsContextValue } from "@dto/alerts/alerts";
 import { AlertsControlPanelProvider } from "@providers/AlertsControlPanelProvider";
 import type { PropsWithChildren, ReactElement } from "react";
 
@@ -63,4 +63,41 @@ export const AlertsProvidersTestHarness = ({
       <AlertsControlPanelProvider>{children}</AlertsControlPanelProvider>
     </AlertsContext.Provider>
   );
+};
+
+/**
+ * Creates one minimal alert row used by starter table tests.
+ */
+export const createAlertListItem = (
+  overrides: Partial<AlertListItemDTO> = {},
+): AlertListItemDTO => {
+  return {
+    Acknowledged: false,
+    AcknowledgedAt: "",
+    AcknowledgedBy: "",
+    Category: "System",
+    CreatedAt: "2026-06-06T08:00:00Z",
+    EventID: "evt-1",
+    EventRecID: 1,
+    LastEventID: null,
+    LastEventRecID: null,
+    LastRecID: null,
+    LastTimestamp: null,
+    LastValueBool: null,
+    LastValueNum: null,
+    LastValueText: null,
+    LastValueType: null,
+    LastValueUnit: null,
+    Message: "Starter alert message",
+    Meta: undefined,
+    Muted: false,
+    MutedAt: "",
+    MutedBy: "",
+    Priority: 2,
+    RecID: 1,
+    Severity: "warning",
+    Source: "resource-monitor",
+    Status: "active",
+    ...overrides,
+  };
 };

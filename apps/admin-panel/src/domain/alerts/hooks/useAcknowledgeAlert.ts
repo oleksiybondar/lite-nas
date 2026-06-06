@@ -22,7 +22,7 @@ export const useAcknowledgeAlert = (
 
   return useMutation({
     mutationFn: async ({ id }: AcknowledgeAlertInput): Promise<void> => {
-      const response = await post(`/api/alerts/${domain}/${id}/acknowledge`).execute();
+      const response = await post(`/api/alerts/${domain}/${id}/acknowledge`, {}).execute();
 
       if (!response.ok) {
         throw new Error(`Failed to acknowledge ${domain} alert.`);

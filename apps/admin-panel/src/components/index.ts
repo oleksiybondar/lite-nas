@@ -1,5 +1,5 @@
 export { AlertsControlPanel } from "@components/alerts/AlertsControlPanel";
-export { AlertsTablePlaceholder } from "@components/alerts/AlertsTablePlaceholder";
+export { AlertsTable } from "@components/alerts/AlertsTable";
 export { AppLogo } from "@components/branding/AppLogo";
 export { AppChromeLayout } from "@components/layout/AppChromeLayout";
 export { AppDashboardLayout } from "@components/layout/AppDashboardLayout";

@@ -128,7 +128,7 @@ describe("AlertsDashboardPage", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
     expect(screen.getByTestId("alerts-control-panel")).toBeInTheDocument();
     expect(screen.getAllByTestId("alerts-pagination-control")).toHaveLength(2);
-    expect(screen.getByTestId("alerts-table-placeholder")).toBeInTheDocument();
+    expect(screen.getByTestId("alerts-table")).toBeInTheDocument();
   });
 });
 

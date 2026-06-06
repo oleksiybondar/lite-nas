@@ -1,6 +1,6 @@
 import { AlertsControlPanel } from "@components/alerts/AlertsControlPanel";
 import { AlertsControlPanelPagination } from "@components/alerts/AlertsControlPanel/AlertsControlPanelPagination";
-import { AlertsTablePlaceholder } from "@components/alerts/AlertsTablePlaceholder";
+import { AlertsTable } from "@components/alerts/AlertsTable";
 import { buildAlertsPageSummary, buildAlertsPageTitle, formatAlertsLabel } from "@helpers/alerts";
 import { useAlerts } from "@hooks/useAlerts";
 import Stack from "@mui/material/Stack";
@@ -28,7 +28,7 @@ export const AlertsDashboardPage = (): ReactElement => {
       </Typography>
       <AlertsControlPanel />
       <AlertsControlPanelPagination />
-      <AlertsTablePlaceholder />
+      <AlertsTable />
       <AlertsControlPanelPagination />
     </Stack>
   );
