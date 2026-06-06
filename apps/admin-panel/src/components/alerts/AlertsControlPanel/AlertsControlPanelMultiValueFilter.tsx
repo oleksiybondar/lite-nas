@@ -38,7 +38,7 @@ export const AlertsControlPanelMultiValueFilter = ({
   const labelId = `${name}-label`;
 
   return (
-    <FormControl fullWidth>
+    <FormControl sx={{ width: 220, maxWidth: "100%" }}>
       <InputLabel id={labelId}>{label}</InputLabel>
       <Select
         data-testid={`${name}-select`}

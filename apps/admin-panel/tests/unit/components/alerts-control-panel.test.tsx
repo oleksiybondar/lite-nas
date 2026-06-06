@@ -8,11 +8,14 @@ import {
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 describe("AlertsControlPanel", () => {
-  test("renders filters and search controls", () => {
+  test("renders separate filters and search panels", () => {
     const value = createAlertsContextValue("system", "unacknowledged");
 
     renderAlertsControlPanel(value);
 
+    expect(screen.getByTestId("alerts-control-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("alerts-filters-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("alerts-search-panel")).toBeInTheDocument();
     expect(screen.getByTestId("alerts-filters-control")).toBeInTheDocument();
     expect(screen.getByTestId("alerts-search-control")).toBeInTheDocument();
   });

@@ -11,12 +11,12 @@ export const AlertsControlPanelSearch = (): ReactElement => {
   return (
     <TextField
       data-testid="alerts-search-control"
-      fullWidth
       label="Search current page"
       name="alertsSearch"
       onChange={(event) => {
         setSearch(event.target.value);
       }}
+      sx={{ width: 220, maxWidth: "100%" }}
       value={search}
     />
   );

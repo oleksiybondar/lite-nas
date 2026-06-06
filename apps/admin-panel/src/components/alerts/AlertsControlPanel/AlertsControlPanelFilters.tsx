@@ -27,20 +27,31 @@ export const AlertsControlPanelFilters = (): ReactElement => {
   } = useAlertsControlPanel();
 
   return (
-    <Stack data-testid="alerts-filters-control" spacing={2}>
-      {renderStringFilterRow({
+    <Stack
+      alignItems={{ md: "flex-end", xs: "stretch" }}
+      data-testid="alerts-filters-control"
+      direction="row"
+      flexWrap="wrap"
+      gap={2}
+      useFlexGap
+    >
+      {renderCategoryFilter({
         availableCategoryOptions,
-        availableSourceOptions,
         categoryFilter,
         setCategoryFilter,
+      })}
+      {renderSourceFilter({
+        availableSourceOptions,
         setSourceFilter,
         sourceFilter,
       })}
-      {renderPrioritySeverityFilterRow({
+      {renderPriorityFilter({
         availablePriorityOptions,
-        availableSeverityOptions,
         priorityFilter,
         setPriorityFilter,
+      })}
+      {renderSeverityFilter({
+        availableSeverityOptions,
         setSeverityFilter,
         severityFilter,
       })}
@@ -54,99 +65,117 @@ export const AlertsControlPanelFilters = (): ReactElement => {
 };
 
 /**
- * Inputs required to render the category/source autocomplete filter row.
+ * Inputs required to render the category autocomplete filter.
  */
-type StringFilterRowOptions = {
+type CategoryFilterOptions = {
   availableCategoryOptions: AlertsControlPanelOption<string>[];
-  availableSourceOptions: AlertsControlPanelOption<string>[];
   categoryFilter: string[];
   setCategoryFilter: (value: string[]) => void;
+};
+
+/**
+ * Builds the category filter with custom-entry autocomplete support.
+ */
+const renderCategoryFilter = ({
+  availableCategoryOptions,
+  categoryFilter,
+  setCategoryFilter,
+}: CategoryFilterOptions): ReactElement => {
+  return (
+    <AlertsControlPanelAutocompleteFilter
+      label="Category"
+      name="alertsCategoryFilter"
+      onChange={setCategoryFilter}
+      options={availableCategoryOptions}
+      value={categoryFilter}
+    />
+  );
+};
+
+/**
+ * Inputs required to render the source autocomplete filter.
+ */
+type SourceFilterOptions = {
+  availableSourceOptions: AlertsControlPanelOption<string>[];
   setSourceFilter: (value: string[]) => void;
   sourceFilter: string[];
 };
 
 /**
- * Builds the category/source filter row with custom-entry autocomplete inputs.
+ * Builds the source filter with custom-entry autocomplete support.
  */
-const renderStringFilterRow = ({
-  availableCategoryOptions,
+const renderSourceFilter = ({
   availableSourceOptions,
-  categoryFilter,
-  setCategoryFilter,
   setSourceFilter,
   sourceFilter,
-}: StringFilterRowOptions): ReactElement => {
+}: SourceFilterOptions): ReactElement => {
   return (
-    <Stack
-      alignItems={{ md: "center", xs: "stretch" }}
-      direction={{ md: "row", xs: "column" }}
-      spacing={2}
-    >
-      <AlertsControlPanelAutocompleteFilter
-        label="Category"
-        name="alertsCategoryFilter"
-        onChange={setCategoryFilter}
-        options={availableCategoryOptions}
-        value={categoryFilter}
-      />
-      <AlertsControlPanelAutocompleteFilter
-        label="Source"
-        name="alertsSourceFilter"
-        onChange={setSourceFilter}
-        options={availableSourceOptions}
-        value={sourceFilter}
-      />
-    </Stack>
+    <AlertsControlPanelAutocompleteFilter
+      label="Source"
+      name="alertsSourceFilter"
+      onChange={setSourceFilter}
+      options={availableSourceOptions}
+      value={sourceFilter}
+    />
   );
 };
 
 /**
- * Inputs required to render the fixed priority/severity multiselect row.
+ * Inputs required to render the fixed priority multiselect filter.
  */
-type PrioritySeverityFilterRowOptions = {
+type PriorityFilterOptions = {
   availablePriorityOptions: AlertsControlPanelOption<number>[];
-  availableSeverityOptions: AlertsControlPanelOption<AlertSeverity>[];
   priorityFilter: number[];
   setPriorityFilter: (value: number[]) => void;
+};
+
+/**
+ * Builds the priority filter backed by the fixed priority option set.
+ */
+const renderPriorityFilter = ({
+  availablePriorityOptions,
+  priorityFilter,
+  setPriorityFilter,
+}: PriorityFilterOptions): ReactElement => {
+  return (
+    <AlertsControlPanelMultiValueFilter
+      label="Priority"
+      name="alertsPriorityFilter"
+      onChange={(value) => {
+        setPriorityFilter(value.map(Number));
+      }}
+      options={availablePriorityOptions}
+      value={priorityFilter.map(String)}
+    />
+  );
+};
+
+/**
+ * Inputs required to render the fixed severity multiselect filter.
+ */
+type SeverityFilterOptions = {
+  availableSeverityOptions: AlertsControlPanelOption<AlertSeverity>[];
   setSeverityFilter: (value: AlertSeverity[]) => void;
   severityFilter: AlertSeverity[];
 };
 
 /**
- * Builds the priority/severity filter row backed by fixed option sets.
+ * Builds the severity filter backed by the fixed severity option set.
  */
-const renderPrioritySeverityFilterRow = ({
-  availablePriorityOptions,
+const renderSeverityFilter = ({
   availableSeverityOptions,
-  priorityFilter,
-  setPriorityFilter,
   setSeverityFilter,
   severityFilter,
-}: PrioritySeverityFilterRowOptions): ReactElement => {
+}: SeverityFilterOptions): ReactElement => {
   return (
-    <Stack
-      alignItems={{ md: "center", xs: "stretch" }}
-      direction={{ md: "row", xs: "column" }}
-      spacing={2}
-    >
-      <AlertsControlPanelMultiValueFilter
-        label="Priority"
-        name="alertsPriorityFilter"
-        onChange={(value) => {
-          setPriorityFilter(value.map(Number));
-        }}
-        options={availablePriorityOptions}
-        value={priorityFilter.map(String)}
-      />
-      <AlertsControlPanelMultiValueFilter
-        label="Severity"
-        name="alertsSeverityFilter"
-        onChange={(value) => {
-          setSeverityFilter(value as AlertSeverity[]);
-        }}
-        options={availableSeverityOptions}
-        value={severityFilter}
-      />
-    </Stack>
+    <AlertsControlPanelMultiValueFilter
+      label="Severity"
+      name="alertsSeverityFilter"
+      onChange={(value) => {
+        setSeverityFilter(value as AlertSeverity[]);
+      }}
+      options={availableSeverityOptions}
+      value={severityFilter}
+    />
   );
 };

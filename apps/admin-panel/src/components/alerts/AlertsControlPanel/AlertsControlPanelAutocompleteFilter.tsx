@@ -28,12 +28,12 @@ export const AlertsControlPanelAutocompleteFilter = ({
     <Autocomplete
       data-testid={`${name}-autocomplete`}
       freeSolo
-      fullWidth
       multiple
       onChange={(_, nextValue) => {
         onChange(nextValue);
       }}
       options={options.map((option) => option.value)}
+      sx={{ width: 220, maxWidth: "100%" }}
       renderInput={(params) => {
         return <TextField {...params} label={label} name={name} />;
       }}
