@@ -10,8 +10,8 @@ type AlertsTableCategoryCellProps = {
 };
 
 /**
- * Renders the plain-text category cell.
+ * Renders the category cell with warning emphasis to surface alert grouping.
  */
 export const AlertsTableCategoryCell = ({ item }: AlertsTableCategoryCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="category" value={item.Category} />;
+  return <AlertsTableTextCell cellName="category" tone="warning" value={item.Category} />;
 };

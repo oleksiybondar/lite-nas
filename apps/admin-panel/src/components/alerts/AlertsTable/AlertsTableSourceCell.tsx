@@ -10,8 +10,8 @@ type AlertsTableSourceCellProps = {
 };
 
 /**
- * Renders the plain-text source cell.
+ * Renders the source cell with warning emphasis to surface alert provenance.
  */
 export const AlertsTableSourceCell = ({ item }: AlertsTableSourceCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="source" value={item.Source} />;
+  return <AlertsTableTextCell cellName="source" tone="warning" value={item.Source} />;
 };

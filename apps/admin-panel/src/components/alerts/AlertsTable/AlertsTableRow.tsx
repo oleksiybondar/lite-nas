@@ -1,6 +1,5 @@
 import { AlertsTableAcknowledgeCell } from "@components/alerts/AlertsTable/AlertsTableAcknowledgeCell";
 import { AlertsTableAcknowledgedAtCell } from "@components/alerts/AlertsTable/AlertsTableAcknowledgedAtCell";
-import { AlertsTableAcknowledgedCell } from "@components/alerts/AlertsTable/AlertsTableAcknowledgedCell";
 import { AlertsTableCategoryCell } from "@components/alerts/AlertsTable/AlertsTableCategoryCell";
 import { AlertsTableCreatedAtCell } from "@components/alerts/AlertsTable/AlertsTableCreatedAtCell";
 import { AlertsTableEventIdCell } from "@components/alerts/AlertsTable/AlertsTableEventIdCell";
@@ -21,7 +20,7 @@ type AlertsTableRowProps = {
    */
   domain: AlertDomain;
   /**
-   * One alert item rendered in the starter table row.
+   * One alert item rendered in the table row.
    */
   item: AlertListItemDTO;
 };
@@ -39,16 +38,15 @@ export const AlertsTableRow = ({ domain, item }: AlertsTableRowProps): ReactElem
       <AlertsTableSeverityCell item={item} />
       <AlertsTablePriorityCell item={item} />
       <AlertsTableEventIdCell item={item} />
+      <AlertsTableMessageCell item={item} />
+      <AlertsTableValueCell item={item} />
       <AlertsTableSourceCell item={item} />
-      <AlertsTableCategoryCell item={item} />
       <AlertsTableStatusCell item={item} />
+      {domain === "security" ? <AlertsTableMitigateCell item={item} /> : null}
+      <AlertsTableAcknowledgeCell eventId={item.EventID} />
+      <AlertsTableCategoryCell item={item} />
       <AlertsTableCreatedAtCell item={item} />
       <AlertsTableAcknowledgedAtCell item={item} />
-      <AlertsTableAcknowledgedCell item={item} />
-      <AlertsTableValueCell item={item} />
-      <AlertsTableMessageCell item={item} />
-      <AlertsTableAcknowledgeCell eventId={item.EventID} />
-      {domain === "security" ? <AlertsTableMitigateCell item={item} /> : null}
     </TableRow>
   );
 };

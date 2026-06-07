@@ -6,37 +6,40 @@ type AlertsTableColumn = {
   label: string;
 };
 
-const severityColumnWidth = 56;
-const priorityColumnWidth = 56;
+const severityColumnWidth = 44;
+const priorityColumnWidth = 44;
 
 const baseAlertsTableColumns: AlertsTableColumn[] = [
   { key: "severity", label: "S" },
   { key: "priority", label: "P" },
   { key: "event-id", label: "Event ID" },
+  { key: "message", label: "Message" },
+  { key: "value", label: "Value" },
   { key: "source", label: "Source" },
-  { key: "category", label: "Category" },
   { key: "status", label: "Status" },
+  { key: "acknowledgement", label: "Acknowledged" },
+  { key: "category", label: "Category" },
   { key: "created-at", label: "Created at" },
   { key: "acknowledged-at", label: "Acknowledged at" },
-  { key: "acknowledged", label: "Acknowledged" },
-  { key: "value", label: "Value" },
-  { key: "message", label: "Message" },
-  { key: "acknowledge", label: "Acknowledge" },
 ];
 
 /**
- * Returns the starter alerts table columns for one concrete alert domain.
+ * Returns the alerts table columns for one concrete alert domain.
  */
 export const buildAlertsTableColumns = (domain: AlertDomain): AlertsTableColumn[] => {
   if (domain === "security") {
-    return [...baseAlertsTableColumns, { key: "mitigate", label: "Mitigate" }];
+    return [
+      ...baseAlertsTableColumns.slice(0, 7),
+      { key: "mitigate", label: "Mitigate" },
+      ...baseAlertsTableColumns.slice(7),
+    ];
   }
 
   return baseAlertsTableColumns;
 };
 
 /**
- * Formats one optional timestamp field for starter table text rendering.
+ * Formats one optional timestamp field for table text rendering.
  */
 export const formatAlertsTimestamp = (value: string | null): string => {
   if (value === null || value === "") {
@@ -74,10 +77,14 @@ export const formatAlertSeverityLabel = (severity: string): string => {
 };
 
 /**
- * Formats the starter acknowledged flag for table display.
+ * Formats the acknowledged-by label shown once an alert has already been acknowledged.
  */
-export const formatAcknowledgedValue = (acknowledged: boolean): string => {
-  return acknowledged ? "Yes" : "No";
+export const formatAcknowledgedByValue = (value: string | null): string => {
+  if (value === null || value === "") {
+    return "-";
+  }
+
+  return value;
 };
 
 /**
@@ -144,7 +151,7 @@ const resolveStickyColumnConfig = (columnKey: string): StickyColumnConfig | null
 };
 
 /**
- * Resolves the starter text representation for the last text value field.
+ * Resolves the text representation for the last text value field.
  */
 const resolveAlertTextValue = (item: AlertListItemDTO): string | null => {
   if (item.LastValueText === null || item.LastValueText === "") {
@@ -155,14 +162,14 @@ const resolveAlertTextValue = (item: AlertListItemDTO): string | null => {
 };
 
 /**
- * Resolves the starter numeric representation for the last numeric value field.
+ * Resolves the numeric representation for the last numeric value field.
  */
 const resolveAlertNumericValue = (item: AlertListItemDTO): number | null => {
   return item.LastValueNum;
 };
 
 /**
- * Resolves the starter boolean representation for the last boolean value field.
+ * Resolves the boolean representation for the last boolean value field.
  */
 const resolveAlertBooleanValue = (item: AlertListItemDTO): string | null => {
   if (item.LastValueBool === null) {

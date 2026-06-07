@@ -11,8 +11,8 @@ type AlertsTableValueCellProps = {
 };
 
 /**
- * Renders the starter last-value cell.
+ * Renders the last-value cell with primary emphasis for current measurements.
  */
 export const AlertsTableValueCell = ({ item }: AlertsTableValueCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="value" value={formatAlertLastValue(item)} />;
+  return <AlertsTableTextCell cellName="value" tone="primary" value={formatAlertLastValue(item)} />;
 };

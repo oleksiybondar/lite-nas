@@ -1,3 +1,4 @@
+import { formatAcknowledgedByValue } from "@components/alerts/AlertsTable/helpers";
 import { useAlerts } from "@hooks/useAlerts";
 import Button from "@mui/material/Button";
 import TableCell from "@mui/material/TableCell";
@@ -11,20 +12,35 @@ type AlertsTableAcknowledgeCellProps = {
 };
 
 /**
- * Renders the acknowledge action cell for one alert event.
+ * Renders the acknowledgement state cell for one alert event.
+ *
+ * Non-acknowledged rows expose the acknowledge action. Acknowledged rows render
+ * the actor name instead of an inactive action button.
  */
 export const AlertsTableAcknowledgeCell = ({
   eventId,
 }: AlertsTableAcknowledgeCellProps): ReactElement => {
   const { acknowledge, isAcknowledging, items } = useAlerts();
   const item = items.find((currentItem) => currentItem.EventID === eventId);
-  const isDisabled = isAcknowledging || item === undefined || item.Acknowledged;
+
+  if (item?.Acknowledged) {
+    return (
+      <TableCell
+        data-test-class="alerts-table-cell"
+        data-test-name="acknowledgement"
+        data-test-tone="primary"
+        sx={{ color: "primary.main", fontWeight: 600 }}
+      >
+        {formatAcknowledgedByValue(item.AcknowledgedBy)}
+      </TableCell>
+    );
+  }
 
   return (
-    <TableCell data-test-class="alerts-table-cell" data-test-name="acknowledge">
+    <TableCell data-test-class="alerts-table-cell" data-test-name="acknowledgement">
       <Button
         data-testid={`alerts-acknowledge-button-${eventId}`}
-        disabled={isDisabled}
+        disabled={isAcknowledging || item === undefined}
         onClick={() => {
           void acknowledge(eventId);
         }}

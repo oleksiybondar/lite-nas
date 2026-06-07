@@ -11,8 +11,16 @@ type AlertsTableMitigateCellProps = {
 };
 
 /**
- * Renders the security-only mitigate placeholder cell.
+ * Renders the security-only mitigation hint cell.
  */
 export const AlertsTableMitigateCell = ({ item }: AlertsTableMitigateCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="mitigate" value={formatMitigateValue(item)} />;
+  const value = formatMitigateValue(item);
+
+  return (
+    <AlertsTableTextCell
+      cellName="mitigate"
+      tone={value === "-" ? "default" : "primary"}
+      value={value}
+    />
+  );
 };

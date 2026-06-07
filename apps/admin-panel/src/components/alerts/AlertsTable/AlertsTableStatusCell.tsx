@@ -10,8 +10,29 @@ type AlertsTableStatusCellProps = {
 };
 
 /**
- * Renders the plain-text status cell.
+ * Renders the status cell with severity-like emphasis for user scanning.
  */
 export const AlertsTableStatusCell = ({ item }: AlertsTableStatusCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="status" value={item.Status} />;
+  return (
+    <AlertsTableTextCell
+      cellName="status"
+      tone={resolveStatusTone(item.Status)}
+      value={item.Status}
+    />
+  );
+};
+
+/**
+ * Maps alert status values onto the agreed semantic cell tones.
+ */
+const resolveStatusTone = (status: string): "error" | "success" | "warning" => {
+  if (status === "normal") {
+    return "success";
+  }
+
+  if (status === "active" || status === "failure") {
+    return "error";
+  }
+
+  return "warning";
 };

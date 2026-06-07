@@ -8,22 +8,21 @@ import {
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 describe("AlertsTable", () => {
-  test("renders the reordered starter table headers with compact severity and priority labels first", () => {
+  test("renders the reordered table headers with compact severity and priority labels first", () => {
     renderAlertsTable(createAlertsContextValue("system", "all"));
 
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
       "S",
       "P",
       "Event ID",
+      "Message",
+      "Value",
       "Source",
-      "Category",
       "Status",
+      "Acknowledged",
+      "Category",
       "Created at",
       "Acknowledged at",
-      "Acknowledged",
-      "Value",
-      "Message",
-      "Acknowledge",
     ]);
     expect(screen.getByTestId("alerts-table-footer-row")).toBeInTheDocument();
   });
@@ -37,55 +36,43 @@ describe("AlertsTable", () => {
 });
 
 describe("AlertsTable rows", () => {
-  test("renders iconized severity plus starter row values from alert items", () => {
+  test("renders iconized severity plus row values from alert items", () => {
     const value = createAlertsContextValue("system", "all");
-    value.items = [
-      createAlertListItem({
-        Acknowledged: true,
-        AcknowledgedAt: "2026-06-06T09:00:00Z",
-        Category: "Power",
-        CreatedAt: "2026-06-06T08:00:00Z",
-        EventID: "evt-42",
-        EventRecID: 42,
-        LastValueNum: 82,
-        LastValueUnit: "C",
-        Message: "Fan threshold exceeded",
-        Priority: 5,
-        Severity: "critical",
-        Source: "resource-monitor",
-        Status: "open",
-      }),
-    ];
+    value.items = [createSystemAlertRow()];
 
     renderAlertsTable(value);
 
     expect(screen.getByTestId("alerts-severity-cell-evt-42")).toBeInTheDocument();
     expect(screen.getByText("evt-42")).toBeInTheDocument();
-    expect(screen.getByText("resource-monitor")).toBeInTheDocument();
-    expect(screen.getByText("Power")).toBeInTheDocument();
+    expect(screen.getByText("Fan threshold exceeded")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText("open")).toBeInTheDocument();
     expect(screen.getByText("2026-06-06T08:00:00Z")).toBeInTheDocument();
     expect(screen.getByText("2026-06-06T09:00:00Z")).toBeInTheDocument();
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    expect(screen.getByText("82 C")).toBeInTheDocument();
-    expect(screen.getByText("Fan threshold exceeded")).toBeInTheDocument();
+    expectCellTone("82 C", "primary");
+    expectCellTone("resource-monitor", "warning");
+    expectCellTone("Power", "warning");
+    expectCellTone("open", "warning");
+    expectCellTone("testoperator", "primary");
   });
 });
 
 describe("AlertsTable acknowledge", () => {
-  test("disables the acknowledge action when the alert is already acknowledged", () => {
+  test("renders acknowledged by instead of an action button when the alert is already acknowledged", () => {
     const value = createAlertsContextValue("system", "all");
     value.items = [
       createAlertListItem({
         Acknowledged: true,
+        AcknowledgedBy: "testoperator",
         EventID: "evt-acknowledged",
       }),
     ];
 
     renderAlertsTable(value);
 
-    expect(screen.getByTestId("alerts-acknowledge-button-evt-acknowledged")).toBeDisabled();
+    expect(
+      screen.queryByTestId("alerts-acknowledge-button-evt-acknowledged"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("testoperator")).toBeInTheDocument();
   });
 
   test("disables the acknowledge action while another acknowledge request is pending", () => {
@@ -132,32 +119,31 @@ describe("AlertsTable security columns", () => {
     renderAlertsTable(value);
 
     expect(screen.getByRole("columnheader", { name: "Mitigate" })).toBeInTheDocument();
-    expect(screen.getByText("Rotate credentials")).toBeInTheDocument();
+    expectCellTone("Rotate credentials", "primary");
   });
 
-  test("renders the security header set with mitigate at the end", () => {
+  test("renders the security header set with mitigate before category and dates", () => {
     renderAlertsTable(createAlertsContextValue("security", "all"));
 
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
       "S",
       "P",
       "Event ID",
+      "Message",
+      "Value",
       "Source",
-      "Category",
       "Status",
+      "Mitigate",
+      "Acknowledged",
+      "Category",
       "Created at",
       "Acknowledged at",
-      "Acknowledged",
-      "Value",
-      "Message",
-      "Acknowledge",
-      "Mitigate",
     ]);
   });
 });
 
 /**
- * Renders the starter alerts table under the shared route and control-panel providers.
+ * Renders the alerts table under the shared route and control-panel providers.
  */
 const renderAlertsTable = (value: ReturnType<typeof createAlertsContextValue>): void => {
   render(
@@ -167,4 +153,34 @@ const renderAlertsTable = (value: ReturnType<typeof createAlertsContextValue>): 
       </AlertsProvidersTestHarness>
     </TestMemoryRouter>,
   );
+};
+
+/**
+ * Creates one representative system alert row used by row rendering assertions.
+ */
+const createSystemAlertRow = () => {
+  return createAlertListItem({
+    Acknowledged: true,
+    AcknowledgedAt: "2026-06-06T09:00:00Z",
+    AcknowledgedBy: "testoperator",
+    Category: "Power",
+    CreatedAt: "2026-06-06T08:00:00Z",
+    EventID: "evt-42",
+    EventRecID: 42,
+    LastValueNum: 82,
+    LastValueUnit: "C",
+    Message: "Fan threshold exceeded",
+    Priority: 5,
+    Severity: "critical",
+    Source: "resource-monitor",
+    Status: "open",
+  });
+};
+
+/**
+ * Asserts that one rendered text cell uses the expected semantic emphasis tone.
+ */
+const expectCellTone = (text: string, tone: string): void => {
+  expect(screen.getByText(text)).toBeInTheDocument();
+  expect(screen.getByText(text).closest("td")).toHaveAttribute("data-test-tone", tone);
 };
