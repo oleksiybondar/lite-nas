@@ -3,6 +3,7 @@ import type {
   AlertSeverity,
   AlertsControlPanelContextValue,
   AlertsControlPanelOption,
+  BuildAlertsControlPanelValueInput,
 } from "@dto/alerts/alerts";
 
 const supportedSeverities: AlertSeverity[] = ["critical", "error", "info", "warning"];
@@ -81,24 +82,7 @@ export const buildAlertsControlPanelValue = ({
   sourceFilter,
   totalCount,
   totalPages,
-}: {
-  categoryFilter: string[];
-  clearFilters: () => void;
-  domain: AlertDomain;
-  page: number;
-  priorityFilter: number[];
-  search: string;
-  setCategoryFilter: (value: string[]) => void;
-  setPage: (page: number) => void;
-  setPriorityFilter: (value: number[]) => void;
-  setSearch: (value: string) => void;
-  setSeverityFilter: (value: AlertSeverity[]) => void;
-  setSourceFilter: (value: string[]) => void;
-  severityFilter: AlertSeverity[];
-  sourceFilter: string[];
-  totalCount: number;
-  totalPages: number;
-}): AlertsControlPanelContextValue => {
+}: BuildAlertsControlPanelValueInput): AlertsControlPanelContextValue => {
   return {
     availableCategoryOptions: buildCategoryOptions(domain),
     availablePriorityOptions: buildPriorityOptions(),

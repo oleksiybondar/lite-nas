@@ -1,6 +1,6 @@
-import { PreferencesApplicationSettingsPage } from "@pages/PreferencesApplicationSettingsPage";
 import { PreferencesLandingPage } from "@pages/PreferencesLandingPage";
 import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
+import { applicationPreferencesRoutes } from "@routes/preferences/application-routes";
 import type { RouteObject } from "react-router-dom";
 
 /**
@@ -15,8 +15,5 @@ export const preferencesRoutes: RouteObject[] = [
     element: <PreferencesProfilePage />,
     path: "/preferences/profile",
   },
-  {
-    element: <PreferencesApplicationSettingsPage />,
-    path: "/preferences/application",
-  },
+  ...applicationPreferencesRoutes,
 ];

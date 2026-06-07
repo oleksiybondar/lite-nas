@@ -6,8 +6,10 @@ import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MemoryIcon from "@mui/icons-material/Memory";
 import MemoryRoundedIcon from "@mui/icons-material/MemoryRounded";
+import MonitorHeartRoundedIcon from "@mui/icons-material/MonitorHeartRounded";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
+import PaletteRoundedIcon from "@mui/icons-material/PaletteRounded";
 import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
@@ -276,6 +278,18 @@ export const preferencesNavigationItems: AppNavigationItem[] = [
     title: "User profile",
   },
   {
+    children: [
+      {
+        icon: <PaletteRoundedIcon />,
+        path: "/preferences/application/theme",
+        title: "Theme",
+      },
+      {
+        icon: <MonitorHeartRoundedIcon />,
+        path: "/preferences/application/monitoring",
+        title: "Monitoring",
+      },
+    ],
     icon: <SettingsRoundedIcon />,
     path: "/preferences/application",
     title: "Application settings",

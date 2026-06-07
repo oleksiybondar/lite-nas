@@ -18,16 +18,33 @@ describe("resolveSelectedNavigationPath", () => {
       pathname: "/system/sensors/temperature/history",
       selectedPath: "/system/sensors/temperature",
     },
+    {
+      pathname: "/preferences/application/theme",
+      selectedPath: "/preferences/application/theme",
+      items: preferencesNavigationItems,
+    },
+    {
+      pathname: "/preferences/application/monitoring",
+      selectedPath: "/preferences/application/monitoring",
+      items: preferencesNavigationItems,
+    },
     { pathname: "/preferences", selectedPath: null },
     { pathname: "/missing", selectedPath: null },
-  ])("maps $pathname to $selectedPath", ({ pathname, selectedPath }) => {
-    expect(resolveSelectedNavigationPath(pathname)).toBe(selectedPath);
+  ])("maps $pathname to $selectedPath", ({ items, pathname, selectedPath }) => {
+    expect(resolveSelectedNavigationPath(pathname, items)).toBe(selectedPath);
   });
 });
 
 describe("resolveNavigationItems", () => {
   test("uses preferences navigation for preferences routes", () => {
     expect(resolveNavigationItems("/preferences/profile")).toBe(preferencesNavigationItems);
+  });
+
+  test("keeps application settings children in preferences navigation", () => {
+    const routePaths = JSON.stringify(resolveNavigationItems("/preferences/application/theme"));
+
+    expect(routePaths).toContain("/preferences/application/theme");
+    expect(routePaths).toContain("/preferences/application/monitoring");
   });
 
   test("uses admin navigation for dashboard routes", () => {

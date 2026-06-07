@@ -1,15 +1,21 @@
 import { App } from "@app/App";
 import { ThemeManagerContext } from "@contexts/theme-manager-context";
+import {
+  buildMonitoringPollingSettingsStorageKey,
+  loadMonitoringPollingSettings,
+} from "@helpers/monitoring-polling-settings-storage";
 import { DashboardPage } from "@pages/DashboardPage";
 import { PreferencesApplicationSettingsPage } from "@pages/PreferencesApplicationSettingsPage";
 import { PreferencesLandingPage } from "@pages/PreferencesLandingPage";
+import { PreferencesMonitoringSettingsPage } from "@pages/PreferencesMonitoringSettingsPage";
 import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
+import { PreferencesThemeSettingsPage } from "@pages/PreferencesThemeSettingsPage";
 import { SystemLandingPage } from "@pages/SystemLandingPage";
 import { SystemPerformanceLandingPage } from "@pages/SystemPerformanceLandingPage";
 import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
@@ -19,6 +25,69 @@ import { loadThemeSettings } from "@theme/manager/storage";
 import { getComponentOverrides } from "@theme/mui/components";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useState } from "react";
+
+const categoryLandingPageCases = [
+  {
+    cardName: "Performance",
+    page: <SystemLandingPage />,
+  },
+  {
+    cardName: "Sensors",
+    page: <SystemLandingPage />,
+  },
+  {
+    cardName: "System",
+    page: <SystemPerformanceLandingPage />,
+  },
+  {
+    cardName: "Network",
+    page: <SystemPerformanceLandingPage />,
+  },
+  {
+    cardName: "Disk",
+    page: <SystemPerformanceLandingPage />,
+  },
+  {
+    cardName: "ZFS",
+    page: <SystemPerformanceLandingPage />,
+  },
+  {
+    cardName: "Temperature",
+    page: <SystemSensorsLandingPage />,
+  },
+  {
+    cardName: "Voltage",
+    page: <SystemSensorsLandingPage />,
+  },
+  {
+    cardName: "Clock",
+    page: <SystemSensorsLandingPage />,
+  },
+  {
+    cardName: "Throttling",
+    page: <SystemSensorsLandingPage />,
+  },
+  {
+    cardName: "Fan",
+    page: <SystemSensorsLandingPage />,
+  },
+  {
+    cardName: "User profile",
+    page: <PreferencesLandingPage />,
+  },
+  {
+    cardName: "Application settings",
+    page: <PreferencesLandingPage />,
+  },
+  {
+    cardName: "Theme",
+    page: <PreferencesApplicationSettingsPage />,
+  },
+  {
+    cardName: "Monitoring",
+    page: <PreferencesApplicationSettingsPage />,
+  },
+];
 
 describe("dashboard page", () => {
   test("renders the initial dashboard sections", () => {
@@ -32,60 +101,7 @@ describe("dashboard page", () => {
 });
 
 describe("category landing pages", () => {
-  test.each([
-    {
-      cardName: "Performance",
-      page: <SystemLandingPage />,
-    },
-    {
-      cardName: "Sensors",
-      page: <SystemLandingPage />,
-    },
-    {
-      cardName: "System",
-      page: <SystemPerformanceLandingPage />,
-    },
-    {
-      cardName: "Network",
-      page: <SystemPerformanceLandingPage />,
-    },
-    {
-      cardName: "Disk",
-      page: <SystemPerformanceLandingPage />,
-    },
-    {
-      cardName: "ZFS",
-      page: <SystemPerformanceLandingPage />,
-    },
-    {
-      cardName: "Temperature",
-      page: <SystemSensorsLandingPage />,
-    },
-    {
-      cardName: "Voltage",
-      page: <SystemSensorsLandingPage />,
-    },
-    {
-      cardName: "Clock",
-      page: <SystemSensorsLandingPage />,
-    },
-    {
-      cardName: "Throttling",
-      page: <SystemSensorsLandingPage />,
-    },
-    {
-      cardName: "Fan",
-      page: <SystemSensorsLandingPage />,
-    },
-    {
-      cardName: "User profile",
-      page: <PreferencesLandingPage />,
-    },
-    {
-      cardName: "Application settings",
-      page: <PreferencesLandingPage />,
-    },
-  ])("renders $cardName category card", ({ cardName, page }) => {
+  test.each(categoryLandingPageCases)("renders $cardName category card", ({ cardName, page }) => {
     render(<TestMemoryRouter>{page}</TestMemoryRouter>);
 
     expect(screen.getByRole("heading", { name: cardName })).toBeInTheDocument();
@@ -113,16 +129,26 @@ describe("preferences pages", () => {
   });
 
   test("renders the application settings preferences page", () => {
-    renderWithThemeManager(<PreferencesApplicationSettingsPage />);
+    renderWithThemeManager(
+      <TestMemoryRouter>
+        <PreferencesApplicationSettingsPage />
+      </TestMemoryRouter>,
+    );
 
     expect(screen.getByRole("heading", { name: "Application settings" })).toBeInTheDocument();
   });
 
-  test("persists changed application settings on apply", () => {
+  test("renders the dedicated theme settings page", () => {
+    renderWithThemeManager(<PreferencesThemeSettingsPage />);
+
+    expect(screen.getByRole("heading", { name: "Theme" })).toBeInTheDocument();
+  });
+
+  test("persists changed theme settings on apply", () => {
     window.localStorage.clear();
     render(
       <StatefulThemeManagerProvider>
-        <PreferencesApplicationSettingsPage />
+        <PreferencesThemeSettingsPage />
       </StatefulThemeManagerProvider>,
     );
 
@@ -130,6 +156,32 @@ describe("preferences pages", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(loadThemeSettings().source).toBe("os");
+  });
+
+  test("persists changed monitoring settings for one resource scope on apply", () => {
+    window.localStorage.clear();
+
+    render(<PreferencesMonitoringSettingsPage />);
+
+    const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
+
+    fireEvent.mouseDown(within(systemMetricsCard).getByRole("combobox", { name: "Polling mode" }));
+    fireEvent.click(screen.getByRole("option", { name: "Snapshot" }));
+    fireEvent.change(within(systemMetricsCard).getByRole("spinbutton", { name: "Max records" }), {
+      target: { value: "180" },
+    });
+    fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-system-metrics"));
+
+    expect(loadMonitoringPollingSettings("system-metrics")).toEqual({
+      historyIntervalMs: 15000,
+      historyResetGapMs: 10000,
+      maxRecords: 180,
+      mode: "snapshot",
+      snapshotIntervalMs: 1000,
+    });
+    expect(
+      window.localStorage.getItem(buildMonitoringPollingSettingsStorageKey("zfs-metrics")),
+    ).toBeNull();
   });
 });
 

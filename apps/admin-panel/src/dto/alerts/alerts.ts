@@ -226,3 +226,24 @@ export type AlertsControlPanelContextValue = AlertsFilterState & {
   totalCount: number;
   totalPages: number;
 };
+
+/**
+ * Input contract used to derive one alerts control-panel context value.
+ *
+ * This keeps the provider/helper boundary explicit without repeating the same
+ * state and setter signatures inline at the call site.
+ */
+export type BuildAlertsControlPanelValueInput = AlertsFilterState & {
+  clearFilters: () => void;
+  domain: AlertDomain;
+  page: number;
+  search: string;
+  setCategoryFilter: (value: string[]) => void;
+  setPage: (page: number) => void;
+  setPriorityFilter: (value: number[]) => void;
+  setSearch: (value: string) => void;
+  setSeverityFilter: (value: AlertSeverity[]) => void;
+  setSourceFilter: (value: string[]) => void;
+  totalCount: number;
+  totalPages: number;
+};
