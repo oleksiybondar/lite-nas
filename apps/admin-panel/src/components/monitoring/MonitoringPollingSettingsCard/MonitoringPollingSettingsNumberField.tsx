@@ -51,12 +51,12 @@ export const MonitoringPollingSettingsNumberField = ({
       error={errorMessage !== undefined}
       fullWidth
       helperText={errorMessage ?? helperText}
-      inputProps={{ min: 1 }}
       label={label}
       name={name}
       onChange={(event) => {
         onChange(event.target.value);
       }}
+      slotProps={{ htmlInput: { min: 1 } }}
       type="number"
       value={value}
     />

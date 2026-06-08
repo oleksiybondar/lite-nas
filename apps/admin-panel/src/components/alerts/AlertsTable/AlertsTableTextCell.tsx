@@ -48,7 +48,15 @@ export const AlertsTableTextCell = ({
  * Applies semantic text emphasis while preserving caller-provided table cell styling.
  */
 const buildTextCellSx = (tone: AlertsTableTextCellTone, sx?: SxProps<Theme>): SxProps<Theme> => {
-  return [resolveTextCellToneSx(tone), sx];
+  if (sx === undefined) {
+    return resolveTextCellToneSx(tone);
+  }
+
+  const mergedSx = Array.isArray(sx)
+    ? [resolveTextCellToneSx(tone), ...sx]
+    : [resolveTextCellToneSx(tone), sx];
+
+  return mergedSx as SxProps<Theme>;
 };
 
 /**
