@@ -20,7 +20,16 @@ export const AppPageLayout = ({ children }: PropsWithChildren): ReactElement => 
         component="main"
         data-testid="app-page-content"
         maxWidth={false}
-        sx={{ flex: 1, minHeight: 0, overflowY: "auto", py: 4 }}
+        sx={{
+          "& > *": {
+            minWidth: 0,
+            width: "100%",
+          },
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          py: 4,
+        }}
       >
         {children}
       </Container>

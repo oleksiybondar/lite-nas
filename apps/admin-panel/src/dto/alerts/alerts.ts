@@ -164,6 +164,23 @@ export type AlertsFilterState = {
 };
 
 /**
+ * Shared filter setters and page controls used by alerts list views and control-panel state.
+ */
+export type AlertsFilterControls = {
+  clearFilters: () => void;
+  page: number;
+  search: string;
+  setCategoryFilter: (value: string[]) => void;
+  setPage: (page: number) => void;
+  setPriorityFilter: (value: number[]) => void;
+  setSearch: (value: string) => void;
+  setSeverityFilter: (value: AlertSeverity[]) => void;
+  setSourceFilter: (value: string[]) => void;
+  totalCount: number;
+  totalPages: number;
+};
+
+/**
  * Browser-facing alerts page state and commands shared across one route slice.
  */
 export type AlertsContextValue = AlertsFilterState & {
@@ -209,23 +226,13 @@ export type AlertsControlPanelOption<T extends string | number> = {
 /**
  * Focused UI contract exposed by the alerts control-panel provider.
  */
-export type AlertsControlPanelContextValue = AlertsFilterState & {
-  availableCategoryOptions: AlertsControlPanelOption<string>[];
-  availablePriorityOptions: AlertsControlPanelOption<number>[];
-  availableSeverityOptions: AlertsControlPanelOption<AlertSeverity>[];
-  availableSourceOptions: AlertsControlPanelOption<string>[];
-  clearFilters: () => void;
-  page: number;
-  search: string;
-  setCategoryFilter: (value: string[]) => void;
-  setPage: (page: number) => void;
-  setPriorityFilter: (value: number[]) => void;
-  setSearch: (value: string) => void;
-  setSeverityFilter: (value: AlertSeverity[]) => void;
-  setSourceFilter: (value: string[]) => void;
-  totalCount: number;
-  totalPages: number;
-};
+export type AlertsControlPanelContextValue = AlertsFilterState &
+  AlertsFilterControls & {
+    availableCategoryOptions: AlertsControlPanelOption<string>[];
+    availablePriorityOptions: AlertsControlPanelOption<number>[];
+    availableSeverityOptions: AlertsControlPanelOption<AlertSeverity>[];
+    availableSourceOptions: AlertsControlPanelOption<string>[];
+  };
 
 /**
  * Input contract used to derive one alerts control-panel context value.
@@ -233,17 +240,7 @@ export type AlertsControlPanelContextValue = AlertsFilterState & {
  * This keeps the provider/helper boundary explicit without repeating the same
  * state and setter signatures inline at the call site.
  */
-export type BuildAlertsControlPanelValueInput = AlertsFilterState & {
-  clearFilters: () => void;
-  domain: AlertDomain;
-  page: number;
-  search: string;
-  setCategoryFilter: (value: string[]) => void;
-  setPage: (page: number) => void;
-  setPriorityFilter: (value: number[]) => void;
-  setSearch: (value: string) => void;
-  setSeverityFilter: (value: AlertSeverity[]) => void;
-  setSourceFilter: (value: string[]) => void;
-  totalCount: number;
-  totalPages: number;
-};
+export type BuildAlertsControlPanelValueInput = AlertsFilterState &
+  AlertsFilterControls & {
+    domain: AlertDomain;
+  };

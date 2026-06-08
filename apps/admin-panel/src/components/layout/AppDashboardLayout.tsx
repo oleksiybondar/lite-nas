@@ -140,7 +140,16 @@ const renderDashboardMain = ({
         component="section"
         data-testid="dashboard-content"
         maxWidth={false}
-        sx={{ minHeight: 0, minWidth: 0, overflowY: "auto", py: 4 }}
+        sx={{
+          "& > *": {
+            minWidth: 0,
+            width: "100%",
+          },
+          minHeight: 0,
+          minWidth: 0,
+          overflowY: "auto",
+          py: 4,
+        }}
       >
         <Outlet />
       </Container>
