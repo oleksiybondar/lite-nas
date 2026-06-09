@@ -1,21 +1,10 @@
 """System UI test suite for browser-facing authentication flows."""
 
-from collections.abc import Generator
-
 import pytest
-from constants import CREDENTIALS, UI_BASE_URL, UI_BROWSER_CAPS
-from hyperiontf.executors.pytest import fixture, hyperion_test_case_setup  # noqa: F401
+from constants import CREDENTIALS
+from hyperiontf.executors.pytest import hyperion_test_case_setup  # noqa: F401
 from ui.page_objects.dashboard_page import DashboardPage
 from ui.page_objects.login_page import LoginPage
-
-
-@fixture(scope="function", log=False)  # type: ignore[untyped-decorator]
-def login_page() -> Generator[LoginPage, None, None]:
-    """Open the admin-panel root route in a fresh anonymous browser session."""
-    page = LoginPage.start_browser(UI_BROWSER_CAPS)
-    page.open(UI_BASE_URL)
-    yield page
-    page.quit()
 
 
 @pytest.mark.Auth

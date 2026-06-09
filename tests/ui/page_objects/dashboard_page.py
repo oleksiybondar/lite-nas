@@ -1,7 +1,7 @@
 """Authenticated admin dashboard shell page objects."""
 
 from hyperiontf import By, WebPage, widget
-from ui.page_objects.widgets.sidebar import AppSidebarWidget
+from ui.page_objects.widgets.sidebar.app_sidebar import AppSidebarWidget
 from ui.page_objects.widgets.top_bar import AppTopBarWidget
 
 
