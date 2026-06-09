@@ -6,11 +6,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../helpers/common.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/admin-panel-assets.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/version.conf"
 
 cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas"
-package_version="${LITE_NAS_PACKAGE_VERSION:-0.2.0}"
+package_version="${LITE_NAS_PACKAGE_VERSION:-$LITE_NAS_BASE_VERSION}"
 auth_service_binary_path=""
 rbac_service_binary_path=""
 system_logging_manager_binary_path=""
@@ -33,7 +35,7 @@ usage() {
 Usage: scripts/package/build-lite-nas-deb.sh [options]
 
 Options:
-  --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or 0.1.0.
+  --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or LITE_NAS_BASE_VERSION from scripts/config/version.conf.
   --auth-service-binary=PATH         Use an existing auth-service binary.
   --rbac-service-binary=PATH         Use an existing rbac-service binary.
   --system-logging-manager-binary=PATH

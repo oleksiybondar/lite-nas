@@ -611,7 +611,9 @@ jobs:
       - name: Compute package version
         id: package-version
         run: |
-          echo "value=0.1.0+pr.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          # shellcheck disable=SC1091
+          source scripts/config/version.conf
+          echo "value=${LITE_NAS_BASE_VERSION}+pr.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
       - name: Download auth service build artifact
         uses: actions/download-artifact@v4

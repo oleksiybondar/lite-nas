@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/go-playground/validator/v10 v10.30.2
-	lite-nas/shared v0.1.0
+	lite-nas/shared v0.2.0
 )
 
 require (
