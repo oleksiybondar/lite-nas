@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ -n "${LITE_NAS_DEPLOY_POSTFIX_LOADED:-}" ]; then
+	return 0
+fi
+readonly LITE_NAS_DEPLOY_POSTFIX_LOADED=1
+
 DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
