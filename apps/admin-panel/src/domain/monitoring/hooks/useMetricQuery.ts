@@ -26,11 +26,9 @@ export const useMetricQuery = <TResult>({
   refetchIntervalMs,
 }: UseMetricQueryInput<TResult>): UseQueryResult<TResult, Error> => {
   const { get } = useApi();
-
-  return useQuery<TResult, Error>({
+  const queryOptions = {
     enabled,
-    placeholderData: (previousData) => previousData,
-    queryFn: async () => {
+    queryFn: async (): Promise<TResult> => {
       const response = await get(path).execute();
 
       if (!response.ok) {
@@ -41,6 +39,8 @@ export const useMetricQuery = <TResult>({
       return parser(responseJson);
     },
     queryKey,
-    refetchInterval: refetchIntervalMs,
-  });
+    ...(refetchIntervalMs === undefined ? {} : { refetchInterval: refetchIntervalMs }),
+  };
+
+  return useQuery<TResult, Error, TResult>(queryOptions);
 };

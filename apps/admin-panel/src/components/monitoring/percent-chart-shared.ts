@@ -294,7 +294,7 @@ export const buildChartLegendItems = (
   valuesByKey: Record<string, number[]>,
 ): { color: string; key: string; latestValue: number }[] => {
   return Object.entries(valuesByKey).flatMap(([key, values], index) => {
-    const color = chartSeriesPalette[index % chartSeriesPalette.length];
+    const color = chartSeriesPalette[index % chartSeriesPalette.length] ?? chartSeriesPalette[0];
     const latestValue = values.at(-1);
 
     if (latestValue === undefined) {

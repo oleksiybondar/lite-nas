@@ -45,14 +45,14 @@ export const toSystemPerCoreCpuChartSeries = (
 ): MetricMultiChartSeries => {
   const stamps = items.map((item) => item.Timestamp);
   const coreCount = items.reduce((maxCoreCount, item) => {
-    return Math.max(maxCoreCount, item.CPU.PerCoreUsage.length);
+    return Math.max(maxCoreCount, item.CPU.PerCoreUsage?.length ?? 0);
   }, 0);
   const valuesByKey = Object.fromEntries(
     Array.from({ length: coreCount }, (_, index) => {
       return [
         `CPU${index + 1}`,
         items.map((item) => {
-          return item.CPU.PerCoreUsage[index] ?? 0;
+          return item.CPU.PerCoreUsage?.[index] ?? 0;
         }),
       ];
     }),

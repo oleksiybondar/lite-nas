@@ -1,6 +1,7 @@
+import type { ZFSMetricSnapshotDTO } from "@dto/monitoring/zfs-metric";
 import { buildZFSPoolCardData } from "@helpers/zfs-metric-chart";
 
-const zfsMetricItems = [
+const zfsMetricItems: ZFSMetricSnapshotDTO[] = [
   {
     Pools: [
       {

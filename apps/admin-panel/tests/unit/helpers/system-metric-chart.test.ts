@@ -1,10 +1,11 @@
+import type { SystemMetricSnapshotDTO } from "@dto/monitoring/system-metric";
 import {
   buildSystemMetricsCardData,
   toSystemPerCoreCpuChartSeries,
   toSystemTotalCpuChartSeries,
 } from "@helpers/system-metric-chart";
 
-const systemMetricItems = [
+const systemMetricItems: SystemMetricSnapshotDTO[] = [
   {
     CPU: { PerCoreUsage: [10, 20], TotalUsagePct: 15 },
     Mem: { TotalBytes: 1000, UsedBytes: 400, UsedPct: 40 },

@@ -32,17 +32,19 @@ export const mergeHistoryIntoMetricSeries = <TItem>({
   const normalizedCurrentItems = normalizeMetricSeriesItems(currentItems, getTimestamp);
   const normalizedIncomingItems = normalizeMetricSeriesItems(incomingItems, getTimestamp);
 
-  if (normalizedCurrentItems.length === 0) {
-    return trimMetricSeries(normalizedIncomingItems, maxRecords);
+  if (shouldUseHistorySeed(normalizedCurrentItems, normalizedIncomingItems)) {
+    return trimMetricSeries(
+      resolvePreferredHistorySeed(normalizedCurrentItems, normalizedIncomingItems),
+      maxRecords,
+    );
   }
 
-  if (normalizedIncomingItems.length === 0) {
+  const latestCurrentTimestampMs = resolveLatestTimestampMs(normalizedCurrentItems, getTimestamp);
+
+  if (latestCurrentTimestampMs === null) {
     return trimMetricSeries(normalizedCurrentItems, maxRecords);
   }
 
-  const latestCurrentTimestampMs = toTimestampMs(
-    getTimestamp(normalizedCurrentItems[normalizedCurrentItems.length - 1]),
-  );
   const newIncomingItems = normalizedIncomingItems.filter((item) => {
     return toTimestampMs(getTimestamp(item)) > latestCurrentTimestampMs;
   });
@@ -51,7 +53,11 @@ export const mergeHistoryIntoMetricSeries = <TItem>({
     return trimMetricSeries(normalizedCurrentItems, maxRecords);
   }
 
-  const firstNewTimestampMs = toTimestampMs(getTimestamp(newIncomingItems[0]));
+  const firstNewTimestampMs = resolveLatestTimestampMs(newIncomingItems, getTimestamp);
+
+  if (firstNewTimestampMs === null) {
+    return trimMetricSeries(normalizedCurrentItems, maxRecords);
+  }
 
   if (firstNewTimestampMs - latestCurrentTimestampMs > historyResetGapMs) {
     return trimMetricSeries(normalizedIncomingItems, maxRecords);
@@ -75,9 +81,13 @@ export const appendSnapshotToMetricSeries = <TItem>({
     return trimMetricSeries([snapshotItem], maxRecords);
   }
 
-  const latestCurrentTimestampMs = toTimestampMs(
-    getTimestamp(normalizedCurrentItems[normalizedCurrentItems.length - 1]),
-  );
+  const latestCurrentItem = normalizedCurrentItems.at(-1);
+
+  if (latestCurrentItem === undefined) {
+    return trimMetricSeries([snapshotItem], maxRecords);
+  }
+
+  const latestCurrentTimestampMs = toTimestampMs(getTimestamp(latestCurrentItem));
   const snapshotTimestampMs = toTimestampMs(getTimestamp(snapshotItem));
 
   if (snapshotTimestampMs <= latestCurrentTimestampMs) {
@@ -103,7 +113,13 @@ export const normalizeMetricSeriesItems = <TItem>(
       return true;
     }
 
-    return getTimestamp(item) !== getTimestamp(sortedItems[index - 1]);
+    const previousItem = sortedItems[index - 1];
+
+    if (previousItem === undefined) {
+      return true;
+    }
+
+    return getTimestamp(item) !== getTimestamp(previousItem);
   });
 };
 
@@ -120,4 +136,31 @@ export const trimMetricSeries = <TItem>(items: TItem[], maxRecords: number): TIt
 
 const toTimestampMs = (value: string): number => {
   return Date.parse(value);
+};
+
+const resolvePreferredHistorySeed = <TItem>(
+  normalizedCurrentItems: TItem[],
+  normalizedIncomingItems: TItem[],
+): TItem[] => {
+  return normalizedCurrentItems.length === 0 ? normalizedIncomingItems : normalizedCurrentItems;
+};
+
+const shouldUseHistorySeed = <TItem>(
+  normalizedCurrentItems: TItem[],
+  normalizedIncomingItems: TItem[],
+): boolean => {
+  return normalizedCurrentItems.length === 0 || normalizedIncomingItems.length === 0;
+};
+
+const resolveLatestTimestampMs = <TItem>(
+  items: TItem[],
+  getTimestamp: (item: TItem) => string,
+): number | null => {
+  const latestItem = items.at(-1);
+
+  if (latestItem === undefined) {
+    return null;
+  }
+
+  return toTimestampMs(getTimestamp(latestItem));
 };

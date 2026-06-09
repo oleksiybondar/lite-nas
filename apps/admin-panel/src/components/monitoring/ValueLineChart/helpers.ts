@@ -50,7 +50,7 @@ export const buildValueLineChartLines = (
   const maxValue = resolveValueLineChartMax(valuesByKey);
 
   return Object.entries(valuesByKey).map(([key, values], index) => {
-    const color = chartSeriesPalette[index % chartSeriesPalette.length];
+    const color = chartSeriesPalette[index % chartSeriesPalette.length] ?? chartSeriesPalette[0];
 
     return {
       color,

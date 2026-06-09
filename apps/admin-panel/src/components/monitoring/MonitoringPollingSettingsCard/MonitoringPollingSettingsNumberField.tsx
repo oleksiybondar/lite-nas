@@ -5,7 +5,7 @@ type MonitoringPollingSettingsNumberFieldProps = {
   /**
    * Field-level validation message resolved for the current draft input.
    */
-  errorMessage?: string;
+  errorMessage: string | undefined;
   /**
    * Helper summary shown when the field has no validation error.
    */

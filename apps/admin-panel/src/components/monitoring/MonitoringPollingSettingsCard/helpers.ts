@@ -1,5 +1,4 @@
 import type { MonitoringPollingSettings } from "@dto/monitoring/monitoring-polling-settings";
-import type { FieldErrors } from "zod";
 
 /**
  * Editable string-backed form state for one monitoring polling settings card.
@@ -33,7 +32,9 @@ export type MonitoringPollingSettingsCardProps = {
 /**
  * Runtime validation errors exposed to monitoring polling form fields.
  */
-export type MonitoringPollingSettingsFieldErrors = FieldErrors<MonitoringPollingSettings>;
+export type MonitoringPollingSettingsFieldErrors = Partial<
+  Record<keyof MonitoringPollingSettings, string[]>
+>;
 
 /**
  * Converts persisted monitoring polling settings into editable string-backed form state.

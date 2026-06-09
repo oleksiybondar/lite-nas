@@ -187,7 +187,7 @@ const buildMetricContextValue = <TItem,>({
     isFetching: activeQuery.isFetching || bootstrapQuery.isFetching,
     isLoading: bootstrapQuery.isLoading,
     items,
-    latestItem: items.length === 0 ? null : items[items.length - 1],
+    latestItem: items.at(-1) ?? null,
     mode,
     refetch: async (): Promise<unknown> => {
       if (!bootstrapQuery.isSuccess) {
