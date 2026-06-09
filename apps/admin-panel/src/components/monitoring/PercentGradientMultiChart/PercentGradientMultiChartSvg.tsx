@@ -1,6 +1,9 @@
-import Box from "@mui/material/Box";
+import { ChartSvgContainer } from "@components/monitoring/ChartSvgContainer";
+import { MonitoringChartTooltip } from "@components/monitoring/MonitoringChartTooltip";
+import { formatChartStamp } from "@components/monitoring/percent-chart-shared";
 import type { ReactElement } from "react";
 import {
+  formatPercentGradientMultiChartValue,
   mapPercentGradientMultiChartGuideY,
   percentGradientMultiChartFrame,
   percentGradientMultiChartGridValues,
@@ -13,9 +16,21 @@ type PercentGradientMultiChartSvgProps = {
    */
   axisLabels: PercentGradientMultiChartAxisLabel[];
   /**
+   * Maximum number of values represented by the fixed X scale.
+   */
+  capacity: number;
+  /**
    * Precomputed line paths and colors for each rendered series.
    */
   lines: PercentGradientMultiChartLine[];
+  /**
+   * Ordered timestamps associated with each plotted point.
+   */
+  stamps: string[];
+  /**
+   * Ordered percent series plotted on a fixed 0-100 vertical scale.
+   */
+  valuesByKey: Record<string, number[]>;
 };
 
 /**
@@ -88,20 +103,44 @@ const renderPercentGradientMultiChartLines = (
  */
 export const PercentGradientMultiChartSvg = ({
   axisLabels,
+  capacity,
   lines,
+  stamps,
+  valuesByKey,
 }: PercentGradientMultiChartSvgProps): ReactElement => {
   return (
-    <Box data-testid="percent-gradient-multi-chart" sx={{ overflow: "visible", width: "100%" }}>
-      <svg
-        aria-label="Percent gradient multi chart"
-        preserveAspectRatio="none"
-        viewBox={`0 0 ${percentGradientMultiChartFrame.chartWidth} ${percentGradientMultiChartFrame.chartHeight}`}
-        width="100%"
-      >
-        {renderPercentGradientMultiChartGrid()}
-        {renderPercentGradientMultiChartAxisLabels(axisLabels)}
-        {renderPercentGradientMultiChartLines(lines)}
-      </svg>
-    </Box>
+    <ChartSvgContainer
+      ariaLabel="Percent gradient multi chart"
+      capacity={capacity}
+      frame={percentGradientMultiChartFrame}
+      length={stamps.length}
+      testId="percent-gradient-multi-chart"
+      tooltip={(hoveredPoint) => {
+        if (hoveredPoint === null) {
+          return null;
+        }
+
+        return (
+          <MonitoringChartTooltip
+            chartWidth={percentGradientMultiChartFrame.chartWidth}
+            items={lines.map((line) => {
+              return {
+                color: line.color,
+                label: line.key,
+                value: formatPercentGradientMultiChartValue(
+                  valuesByKey[line.key]?.[hoveredPoint.index] ?? 0,
+                ),
+              };
+            })}
+            label={formatChartStamp(stamps[hoveredPoint.index] ?? "")}
+            x={hoveredPoint.x}
+          />
+        );
+      }}
+    >
+      {renderPercentGradientMultiChartGrid()}
+      {renderPercentGradientMultiChartAxisLabels(axisLabels)}
+      {renderPercentGradientMultiChartLines(lines)}
+    </ChartSvgContainer>
   );
 };

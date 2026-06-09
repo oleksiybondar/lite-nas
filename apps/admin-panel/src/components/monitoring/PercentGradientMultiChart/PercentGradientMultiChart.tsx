@@ -38,7 +38,10 @@ export const PercentGradientMultiChart = ({
       />
       <PercentGradientMultiChartSvg
         axisLabels={buildPercentGradientMultiChartAxisLabels(stamps, capacity)}
+        capacity={capacity}
         lines={buildPercentGradientMultiChartLines(valuesByKey, capacity)}
+        stamps={stamps}
+        valuesByKey={valuesByKey}
       />
     </>
   );

@@ -1,10 +1,12 @@
 import {
-  buildEvenlyDistributedIndexes,
+  buildChartLegendItems,
+  buildPercentChartAxisLabels,
+  chartSeriesPalette,
   clampPercentChartValue,
   createPercentChartFrame,
+  hasMultiSeriesChartData,
   mapPercentChartSeriesX,
   mapPercentChartY,
-  resolvePercentChartLabelCount,
 } from "@components/monitoring/percent-chart-shared";
 import type {
   PercentGradientMultiChartAxisLabel,
@@ -14,16 +16,6 @@ import type {
 
 const maxPercent = 100;
 const minPercent = 0;
-const seriesPalette = [
-  "#2563eb",
-  "#16a34a",
-  "#ea580c",
-  "#dc2626",
-  "#7c3aed",
-  "#0891b2",
-  "#ca8a04",
-  "#db2777",
-] as const;
 const gridStepPercent = 10;
 
 /**
@@ -53,13 +45,7 @@ export const hasPercentGradientMultiChartData = (
   valuesByKey: Record<string, number[]>,
   stamps: string[],
 ): boolean => {
-  const seriesEntries = Object.entries(valuesByKey);
-
-  return (
-    stamps.length > 0 &&
-    seriesEntries.length > 0 &&
-    seriesEntries.every(([, values]) => values.length === stamps.length && values.length > 0)
-  );
+  return hasMultiSeriesChartData(valuesByKey, stamps);
 };
 
 /**
@@ -78,7 +64,7 @@ export const buildPercentGradientMultiChartLines = (
 ): PercentGradientMultiChartLine[] => {
   return Object.entries(valuesByKey).map(([key, values], index) => {
     return {
-      color: seriesPalette[index % seriesPalette.length],
+      color: chartSeriesPalette[index % chartSeriesPalette.length] ?? "#000",
       key,
       path: buildPercentGradientMultiChartLinePath(values, capacity),
     };
@@ -91,13 +77,7 @@ export const buildPercentGradientMultiChartLines = (
 export const buildPercentGradientMultiChartLegendItems = (
   valuesByKey: Record<string, number[]>,
 ): PercentGradientMultiChartLegendItem[] => {
-  return Object.entries(valuesByKey).map(([key, values], index) => {
-    return {
-      color: seriesPalette[index % seriesPalette.length],
-      key,
-      latestValue: values[values.length - 1],
-    };
-  });
+  return buildChartLegendItems(valuesByKey);
 };
 
 /**
@@ -114,36 +94,16 @@ export const buildPercentGradientMultiChartAxisLabels = (
   stamps: string[],
   capacity: number,
 ): PercentGradientMultiChartAxisLabel[] => {
-  if (stamps.length === 0) {
-    return [];
-  }
-
-  const preferredLabelCount = resolvePercentChartLabelCount(stamps.length);
-  const labelIndexes = buildEvenlyDistributedIndexes(stamps.length, preferredLabelCount);
-
-  return labelIndexes.map((index) => {
-    return {
-      label: formatPercentGradientMultiChartStamp(stamps[index]),
-      x: mapPercentChartSeriesX(percentGradientMultiChartFrame, index, stamps.length, capacity),
-    };
-  });
+  return buildPercentChartAxisLabels(percentGradientMultiChartFrame, stamps, capacity);
 };
 
 /**
- * Formats one timestamp for compact chart footer labels.
+ * Formats one fixed-scale percent value for multi-series legends and hover tooltips.
  */
-export const formatPercentGradientMultiChartStamp = (value: string): string => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+export const formatPercentGradientMultiChartValue = (value: number): string => {
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: value >= 10 ? 0 : 1,
+  }).format(clampPercentGradientMultiChartValue(value))}%`;
 };
 
 /**

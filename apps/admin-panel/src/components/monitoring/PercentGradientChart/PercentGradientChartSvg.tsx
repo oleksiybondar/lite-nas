@@ -1,6 +1,9 @@
-import Box from "@mui/material/Box";
+import { ChartSvgContainer } from "@components/monitoring/ChartSvgContainer";
+import { MonitoringChartTooltip } from "@components/monitoring/MonitoringChartTooltip";
+import { formatChartStamp } from "@components/monitoring/percent-chart-shared";
 import type { ReactElement } from "react";
 import {
+  formatPercentGradientChartValue,
   mapPercentGradientChartGuideY,
   type PercentGradientChartAxisLabel,
   percentGradientChartFrame,
@@ -16,9 +19,13 @@ type PercentGradientChartSvgProps = {
    */
   axisLabels: PercentGradientChartAxisLabel[];
   /**
+   * Maximum number of values represented by the fixed X scale.
+   */
+  capacity: number;
+  /**
    * Optional rendered chart height in pixels.
    */
-  heightPx?: number;
+  heightPx?: number | undefined;
   /**
    * Y coordinate of the latest-value guide rendered across the chart body.
    */
@@ -27,6 +34,14 @@ type PercentGradientChartSvgProps = {
    * Open line path rendered above the gradient fill.
    */
   linePath: string;
+  /**
+   * Ordered timestamps associated with each plotted value.
+   */
+  stamps: string[];
+  /**
+   * Ordered percent values plotted on the chart.
+   */
+  values: number[];
 };
 
 const gradientStops = [
@@ -96,45 +111,63 @@ const renderPercentGradientChartAxisLabels = (
 export const PercentGradientChartSvg = ({
   areaPath,
   axisLabels,
+  capacity,
   heightPx,
   latestGuideY,
   linePath,
+  stamps,
+  values,
 }: PercentGradientChartSvgProps): ReactElement => {
   return (
-    <Box
-      data-testid="percent-gradient-chart"
-      sx={{ height: heightPx, overflow: "visible", width: "100%" }}
-    >
-      <svg
-        aria-label="Percent gradient chart"
-        height={heightPx}
-        preserveAspectRatio="none"
-        viewBox={`0 0 ${percentGradientChartFrame.chartWidth} ${percentGradientChartFrame.chartHeight}`}
-        width="100%"
-      >
-        <defs>
-          <linearGradient id="percent-gradient-chart-fill" x1="0" x2="0" y1="1" y2="0">
-            {gradientStops.map((stop) => {
-              return <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />;
-            })}
-          </linearGradient>
-        </defs>
-        {renderPercentGradientChartGrid()}
-        {renderPercentGradientChartAxisLabels(axisLabels)}
-        {latestGuideY !== null ? (
-          <line
-            stroke="rgba(15, 23, 42, 0.45)"
-            strokeDasharray="6 6"
-            strokeWidth="1.5"
-            x1={percentGradientChartFrame.leftPadding}
-            x2={percentGradientChartFrame.chartWidth - percentGradientChartFrame.rightPadding}
-            y1={latestGuideY}
-            y2={latestGuideY}
+    <ChartSvgContainer
+      ariaLabel="Percent gradient chart"
+      capacity={capacity}
+      frame={percentGradientChartFrame}
+      heightPx={heightPx}
+      length={values.length}
+      testId="percent-gradient-chart"
+      tooltip={(hoveredPoint) => {
+        if (hoveredPoint === null) {
+          return null;
+        }
+
+        return (
+          <MonitoringChartTooltip
+            chartWidth={percentGradientChartFrame.chartWidth}
+            items={[
+              {
+                label: "Value",
+                value: formatPercentGradientChartValue(values[hoveredPoint.index] ?? 0),
+              },
+            ]}
+            label={formatChartStamp(stamps[hoveredPoint.index] ?? "")}
+            x={hoveredPoint.x}
           />
-        ) : null}
-        <path d={areaPath} fill="url(#percent-gradient-chart-fill)" fillOpacity="0.26" />
-        <path d={linePath} fill="none" stroke="rgba(15, 23, 42, 0.88)" strokeWidth="2.5" />
-      </svg>
-    </Box>
+        );
+      }}
+    >
+      <defs>
+        <linearGradient id="percent-gradient-chart-fill" x1="0" x2="0" y1="1" y2="0">
+          {gradientStops.map((stop) => {
+            return <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />;
+          })}
+        </linearGradient>
+      </defs>
+      {renderPercentGradientChartGrid()}
+      {renderPercentGradientChartAxisLabels(axisLabels)}
+      {latestGuideY !== null ? (
+        <line
+          stroke="rgba(15, 23, 42, 0.45)"
+          strokeDasharray="6 6"
+          strokeWidth="1.5"
+          x1={percentGradientChartFrame.leftPadding}
+          x2={percentGradientChartFrame.chartWidth - percentGradientChartFrame.rightPadding}
+          y1={latestGuideY}
+          y2={latestGuideY}
+        />
+      ) : null}
+      <path d={areaPath} fill="url(#percent-gradient-chart-fill)" fillOpacity="0.36" />
+      <path d={linePath} fill="none" stroke="rgba(15, 23, 42, 0.88)" strokeWidth="2.5" />
+    </ChartSvgContainer>
   );
 };

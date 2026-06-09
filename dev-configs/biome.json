@@ -14,7 +14,8 @@
       "!**/.venv",
       "!**/log.html",
       "!logs",
-      "!tests/logs"
+      "!tests/logs",
+      "!**/.junie"
     ]
   },
   "formatter": {

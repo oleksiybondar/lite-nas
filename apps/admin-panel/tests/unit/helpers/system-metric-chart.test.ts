@@ -1,5 +1,5 @@
 import {
-  toSystemMemoryUsageChartCardData,
+  buildSystemMetricsCardData,
   toSystemPerCoreCpuChartSeries,
   toSystemTotalCpuChartSeries,
 } from "@helpers/system-metric-chart";
@@ -35,16 +35,33 @@ describe("system metric chart helpers", () => {
     });
   });
 
-  test("builds RAM chart data and latest summary labels", () => {
-    expect(toSystemMemoryUsageChartCardData([...systemMetricItems])).toEqual({
-      labels: [
-        { key: "Total", value: "1000 B" },
-        { key: "Used", value: "500 B" },
-      ],
-      series: {
+  test("builds unified system metrics card data", () => {
+    expect(buildSystemMetricsCardData([...systemMetricItems])).toEqual({
+      availableRam: "500 B",
+      cpuUsageColor: "success.main",
+      cpuUsageLabel: "35.0%",
+      cpuUsagePct: 35,
+      perCoreCpuSeries: {
+        stamps: ["2026-06-07T12:00:00Z", "2026-06-07T12:00:01Z"],
+        valuesByKey: {
+          CPU1: [10, 30],
+          CPU2: [20, 40],
+        },
+      },
+      ramSeries: {
         stamps: ["2026-06-07T12:00:00Z", "2026-06-07T12:00:01Z"],
         values: [40, 50],
       },
+      ramUsageColor: "warning.main",
+      ramUsageLabel: "50.0%",
+      ramUsagePct: 50,
+      totalCores: 2,
+      totalCpuSeries: {
+        stamps: ["2026-06-07T12:00:00Z", "2026-06-07T12:00:01Z"],
+        values: [15, 35],
+      },
+      totalRam: "1000 B",
+      usedRam: "500 B",
     });
   });
 });

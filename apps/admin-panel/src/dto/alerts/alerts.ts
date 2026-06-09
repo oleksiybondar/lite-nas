@@ -183,37 +183,27 @@ export type AlertsFilterControls = {
 /**
  * Browser-facing alerts page state and commands shared across one route slice.
  */
-export type AlertsContextValue = AlertsFilterState & {
-  acknowledge: (id: string) => Promise<void>;
-  acknowledgeMany: (ids: string[]) => Promise<void>;
-  apiPath: string;
-  category: AlertCategory;
-  clearFilters: () => void;
-  domain: AlertDomain;
-  error: Error | null;
-  isAcknowledging: boolean;
-  isError: boolean;
-  isFetching: boolean;
-  isLoading: boolean;
-  items: AlertListItemDTO[];
-  nextPage: () => void;
-  page: number;
-  pageSize: number;
-  previousPage: () => void;
-  queryKey: readonly unknown[];
-  refetch: () => Promise<unknown>;
-  routePath: string;
-  search: string;
-  setCategoryFilter: (value: string[]) => void;
-  setPage: (page: number) => void;
-  setPageSize: (size: number) => void;
-  setPriorityFilter: (value: number[]) => void;
-  setSearch: (value: string) => void;
-  setSeverityFilter: (value: AlertSeverity[]) => void;
-  setSourceFilter: (value: string[]) => void;
-  totalCount: number;
-  totalPages: number;
-};
+export type AlertsContextValue = AlertsFilterState &
+  AlertsFilterControls & {
+    acknowledge: (id: string) => Promise<void>;
+    acknowledgeMany: (ids: string[]) => Promise<void>;
+    apiPath: string;
+    category: AlertCategory;
+    domain: AlertDomain;
+    error: Error | null;
+    isAcknowledging: boolean;
+    isError: boolean;
+    isFetching: boolean;
+    isLoading: boolean;
+    items: AlertListItemDTO[];
+    nextPage: () => void;
+    pageSize: number;
+    previousPage: () => void;
+    queryKey: readonly unknown[];
+    refetch: () => Promise<unknown>;
+    routePath: string;
+    setPageSize: (size: number) => void;
+  };
 
 /**
  * One selectable option rendered by alerts control-panel filter inputs.

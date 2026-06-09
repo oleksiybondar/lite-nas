@@ -10,7 +10,7 @@ export type PercentGradientChartProps = {
   /**
    * Optional rendered chart height in pixels.
    */
-  heightPx?: number;
+  heightPx?: number | undefined;
   /**
    * Ordered timestamps associated with each plotted value.
    */

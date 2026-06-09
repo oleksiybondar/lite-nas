@@ -1,4 +1,5 @@
 import type { SystemMetricSnapshotDTO } from "@dto/monitoring/system-metric";
+import { formatMetricBytes, resolveMetricPercentColor } from "@helpers/metric-display";
 
 /**
  * Browser-facing chart arrays consumed by simple SVG metric visualizations.
@@ -22,14 +23,6 @@ export type MetricMultiChartSeries = {
 export type MetricChartLabel = {
   key: string;
   value: string;
-};
-
-/**
- * Browser-facing chart data and summary labels consumed by the RAM card.
- */
-export type MetricChartCardData = {
-  labels: MetricChartLabel[];
-  series: MetricChartSeries;
 };
 
 /**
@@ -72,46 +65,90 @@ export const toSystemPerCoreCpuChartSeries = (
 };
 
 /**
- * Converts system metrics snapshots into the RAM usage percent chart and summary labels.
+ * Converts system metrics snapshots into the RAM percent chart series.
  */
-export const toSystemMemoryUsageChartCardData = (
+export const toSystemRamChartSeries = (items: SystemMetricSnapshotDTO[]): MetricChartSeries => ({
+  stamps: items.map((item) => item.Timestamp),
+  values: items.map((item) => item.Mem.UsedPct),
+});
+
+/**
+ * Browser-facing summary and series data consumed by the system metrics card.
+ */
+export type SystemMetricsCardData = {
+  cpuUsageColor: string;
+  cpuUsageLabel: string;
+  cpuUsagePct: number;
+  ramUsageColor: string;
+  ramUsageLabel: string;
+  ramUsagePct: number;
+  totalCores: number;
+  totalRam: string;
+  usedRam: string;
+  availableRam: string;
+  totalCpuSeries: MetricChartSeries;
+  ramSeries: MetricChartSeries;
+  perCoreCpuSeries: MetricMultiChartSeries;
+};
+
+/**
+ * Calculates the maximum core count seen across all provided metric snapshots.
+ */
+const calculateMaxCoreCount = (items: SystemMetricSnapshotDTO[]): number => {
+  return items.reduce((maxCoreCount, item) => {
+    return Math.max(maxCoreCount, item.CPU.PerCoreUsage?.length ?? 0);
+  }, 0);
+};
+
+/**
+ * Converts system metrics snapshots into the unified data structure used by the system metrics card.
+ */
+export const buildSystemMetricsCardData = (
   items: SystemMetricSnapshotDTO[],
-): MetricChartCardData => {
-  const latestItem = items.length === 0 ? null : items[items.length - 1];
+): SystemMetricsCardData => {
+  const latestItem = items[items.length - 1] ?? null;
+
+  if (latestItem === null) {
+    return buildEmptySystemMetricsCardData(items);
+  }
+
+  const cpuUsagePct = latestItem.CPU.TotalUsagePct;
+  const ramUsagePct = latestItem.Mem.UsedPct;
 
   return {
-    labels: [
-      {
-        key: "Total",
-        value: latestItem === null ? "N/A" : formatMetricBytes(latestItem.Mem.TotalBytes),
-      },
-      {
-        key: "Used",
-        value: latestItem === null ? "N/A" : formatMetricBytes(latestItem.Mem.UsedBytes),
-      },
-    ],
-    series: {
-      stamps: items.map((item) => item.Timestamp),
-      values: items.map((item) => item.Mem.UsedPct),
-    },
+    cpuUsageColor: resolveMetricPercentColor(cpuUsagePct),
+    cpuUsageLabel: `${cpuUsagePct.toFixed(1)}%`,
+    cpuUsagePct,
+    ramUsageColor: resolveMetricPercentColor(ramUsagePct),
+    ramUsageLabel: `${ramUsagePct.toFixed(1)}%`,
+    ramUsagePct,
+    totalCores: calculateMaxCoreCount(items),
+    totalRam: formatMetricBytes(latestItem.Mem.TotalBytes),
+    usedRam: formatMetricBytes(latestItem.Mem.UsedBytes),
+    availableRam: formatMetricBytes(latestItem.Mem.TotalBytes - latestItem.Mem.UsedBytes),
+    totalCpuSeries: toSystemTotalCpuChartSeries(items),
+    ramSeries: toSystemRamChartSeries(items),
+    perCoreCpuSeries: toSystemPerCoreCpuChartSeries(items),
   };
 };
 
 /**
- * Formats one byte count into the compact binary unit labels used on telemetry cards.
+ * Provides a default empty state for the system metrics card data.
  */
-const formatMetricBytes = (value: number): string => {
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"] as const;
-  let currentValue = value;
-  let unitIndex = 0;
-
-  while (currentValue >= 1024 && unitIndex < units.length - 1) {
-    currentValue /= 1024;
-    unitIndex += 1;
-  }
-
-  const roundedValue =
-    currentValue >= 10 || unitIndex === 0 ? currentValue.toFixed(0) : currentValue.toFixed(1);
-
-  return `${roundedValue} ${units[unitIndex]}`;
-};
+const buildEmptySystemMetricsCardData = (
+  items: SystemMetricSnapshotDTO[],
+): SystemMetricsCardData => ({
+  cpuUsageColor: resolveMetricPercentColor(0),
+  cpuUsageLabel: "0.0%",
+  cpuUsagePct: 0,
+  ramUsageColor: resolveMetricPercentColor(0),
+  ramUsageLabel: "0.0%",
+  ramUsagePct: 0,
+  totalCores: calculateMaxCoreCount(items),
+  totalRam: "N/A",
+  usedRam: "N/A",
+  availableRam: "N/A",
+  totalCpuSeries: toSystemTotalCpuChartSeries(items),
+  ramSeries: toSystemRamChartSeries(items),
+  perCoreCpuSeries: toSystemPerCoreCpuChartSeries(items),
+});

@@ -1,5 +1,7 @@
+import { ZFSPoolCard } from "@components/monitoring/ZFSPoolCard";
+import { buildZFSPoolCardData } from "@helpers/zfs-metric-chart";
+import { useMonitoringPollingSettings } from "@hooks/useMonitoringPollingSettings";
 import { useZFSMetric } from "@hooks/useZFSMetric";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { SupportedTelemetryRoute } from "@pages/SystemTelemetryPage/helpers";
@@ -18,40 +20,23 @@ type SystemTelemetryZFSMetricStateProps = {
 export const SystemTelemetryZFSMetricState = ({
   route,
 }: SystemTelemetryZFSMetricStateProps): ReactElement => {
-  const { error, isError, isFetching, isLoading, items, latestItem, mode } = useZFSMetric();
+  const { items } = useZFSMetric();
+  const { maxRecords } = useMonitoringPollingSettings();
+  const poolCards = buildZFSPoolCardData(items);
+
+  if (poolCards.length === 0) {
+    return (
+      <Typography data-testid="system-telemetry-zfs-empty" variant="body2">
+        {route.summary}
+      </Typography>
+    );
+  }
 
   return (
-    <Paper data-testid="system-telemetry-metric-card" sx={{ p: 3 }}>
-      <Stack spacing={1.5}>
-        <Typography data-testid="system-telemetry-metric-title" variant="h2">
-          ZFS metrics
-        </Typography>
-        <Typography
-          color="text.secondary"
-          data-testid="system-telemetry-metric-summary"
-          variant="body2"
-        >
-          {route.summary}
-        </Typography>
-        <Typography data-testid="system-telemetry-metric-mode" variant="body2">
-          Polling mode: {mode}
-        </Typography>
-        <Typography data-testid="system-telemetry-metric-points" variant="body2">
-          Cached points: {items.length}
-        </Typography>
-        <Typography data-testid="system-telemetry-metric-latest" variant="body2">
-          Latest timestamp: {latestItem?.Timestamp ?? "None yet"}
-        </Typography>
-        <Typography data-testid="system-telemetry-metric-loading" variant="body2">
-          Loading: {String(isLoading)}
-        </Typography>
-        <Typography data-testid="system-telemetry-metric-fetching" variant="body2">
-          Fetching: {String(isFetching)}
-        </Typography>
-        <Typography data-testid="system-telemetry-metric-error" variant="body2">
-          Error: {isError ? (error?.message ?? "Unknown error") : "None"}
-        </Typography>
-      </Stack>
-    </Paper>
+    <Stack spacing={3}>
+      {poolCards.map((pool) => {
+        return <ZFSPoolCard capacity={maxRecords} key={pool.name} pool={pool} />;
+      })}
+    </Stack>
   );
 };

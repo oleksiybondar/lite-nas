@@ -16,7 +16,7 @@ const monitoringPollingSettingsStorageKeyPrefix =
 export const defaultMonitoringPollingSettings: MonitoringPollingSettings = {
   historyIntervalMs: 15000,
   historyResetGapMs: 10000,
-  maxRecords: 300,
+  maxRecords: 180,
   mode: "history",
   snapshotIntervalMs: 1000,
 };

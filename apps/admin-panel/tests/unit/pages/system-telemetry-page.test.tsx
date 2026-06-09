@@ -50,7 +50,7 @@ vi.mock("@hooks/useMonitoringPollingSettings", () => ({
   useMonitoringPollingSettings: vi.fn(() => ({
     historyIntervalMs: 15000,
     historyResetGapMs: 10000,
-    maxRecords: 300,
+    maxRecords: 180,
     mode: "history",
     resetSettings: vi.fn(),
     setHistoryIntervalMs: vi.fn(),
@@ -69,8 +69,37 @@ vi.mock("@hooks/useZFSMetric", () => ({
     isError: false,
     isFetching: true,
     isLoading: false,
-    items: [{ Timestamp: "2026-06-07T13:00:00Z" }],
-    latestItem: { Timestamp: "2026-06-07T13:00:00Z" },
+    items: [
+      {
+        Pools: [
+          {
+            Errors: "none",
+            Health: "ONLINE",
+            IOStat: {
+              Bandwidth: { Read: 10, Write: 20 },
+              Operations: { Read: 3, Write: 4 },
+            },
+            Name: "tank",
+            Root: {
+              Children: null,
+              Errors: { Checksum: 1, Read: 2, Write: 3 },
+              Name: "root",
+              Path: "/dev/root",
+              Type: "disk",
+            },
+            Scan: "scrub repaired 0B",
+            Usage: {
+              AllocatedBytes: 300,
+              CapacityPct: 60,
+              FreeBytes: 200,
+              SizeBytes: 500,
+            },
+          },
+        ],
+        Timestamp: "2026-06-07T13:00:00Z",
+      },
+    ],
+    latestItem: { Pools: [{ Name: "tank" }], Timestamp: "2026-06-07T13:00:00Z" },
     mode: "snapshot",
     refetch: vi.fn(),
   })),
@@ -82,14 +111,14 @@ describe("SystemTelemetryPage", () => {
 
     expect(screen.getByTestId("system-telemetry-overline")).toHaveTextContent("Performance");
     expect(screen.getByTestId("system-telemetry-title")).toHaveTextContent("System (CPU & RAM)");
-    expect(screen.getByTestId("system-telemetry-total-cpu-title")).toHaveTextContent("Total CPU");
+    expect(screen.getByTestId("system-metrics-card")).toBeInTheDocument();
+    expect(screen.getByTestId("system-metrics-cpu-percent")).toHaveTextContent("CPU 33.5%");
+    expect(screen.getByTestId("system-metrics-ram-percent")).toHaveTextContent("RAM 42.0%");
+    expect(screen.getByTestId("system-metrics-total-cores")).toHaveTextContent("Total cores: 2");
+    expect(screen.getByText("Total RAM: 1000 B")).toBeInTheDocument();
+    expect(screen.getByText("Used RAM: 420 B")).toBeInTheDocument();
+    expect(screen.getByText("Available RAM: 580 B")).toBeInTheDocument();
     expect(screen.getAllByTestId("percent-gradient-chart")).toHaveLength(2);
-    expect(screen.getByTestId("system-telemetry-ram-title")).toHaveTextContent("RAM");
-    expect(screen.getByText("Total: 1000 B")).toBeInTheDocument();
-    expect(screen.getByText("Used: 420 B")).toBeInTheDocument();
-    expect(screen.getByTestId("system-telemetry-per-core-cpu-title")).toHaveTextContent(
-      "Per-core CPU",
-    );
     expect(screen.getByTestId("percent-gradient-multi-chart")).toBeInTheDocument();
   });
 
@@ -98,9 +127,11 @@ describe("SystemTelemetryPage", () => {
 
     expect(screen.getByTestId("system-telemetry-overline")).toHaveTextContent("Performance");
     expect(screen.getByTestId("system-telemetry-title")).toHaveTextContent("Zfs");
-    expect(screen.getByTestId("system-telemetry-metric-title")).toHaveTextContent("ZFS metrics");
-    expect(screen.getByTestId("system-telemetry-metric-mode")).toHaveTextContent("snapshot");
-    expect(screen.getByTestId("system-telemetry-metric-fetching")).toHaveTextContent("true");
+    expect(screen.getByText("tank")).toBeInTheDocument();
+    expect(screen.getByText("Online")).toBeInTheDocument();
+    expect(screen.getByText("Used 60%")).toBeInTheDocument();
+    expect(screen.getAllByTestId("value-line-chart")).toHaveLength(3);
+    expect(screen.getByText("Errors: No known data errors")).toBeInTheDocument();
   });
 
   test("renders a placeholder state for unsupported telemetry routes", () => {

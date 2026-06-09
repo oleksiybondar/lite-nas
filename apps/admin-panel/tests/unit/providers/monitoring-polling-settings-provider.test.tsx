@@ -70,7 +70,7 @@ const expectDefaultMonitoringPollingSettings = (): void => {
   expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("history");
   expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("15000");
   expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("1000");
-  expect(screen.getByTestId("monitoring-max-records")).toHaveTextContent("300");
+  expect(screen.getByTestId("monitoring-max-records")).toHaveTextContent("180");
   expect(screen.getByTestId("monitoring-history-reset-gap")).toHaveTextContent("10000");
 };
 

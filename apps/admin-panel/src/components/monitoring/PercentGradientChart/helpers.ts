@@ -1,10 +1,9 @@
 import {
-  buildEvenlyDistributedIndexes,
+  buildPercentChartAxisLabels,
   clampPercentChartValue,
   createPercentChartFrame,
   mapPercentChartSeriesX,
   mapPercentChartY,
-  resolvePercentChartLabelCount,
 } from "@components/monitoring/percent-chart-shared";
 
 const maxPercent = 100;
@@ -94,19 +93,7 @@ export const buildPercentGradientChartAxisLabels = (
   stamps: string[],
   capacity: number,
 ): PercentGradientChartAxisLabel[] => {
-  if (stamps.length === 0) {
-    return [];
-  }
-
-  const preferredLabelCount = resolvePercentChartLabelCount(stamps.length);
-  const labelIndexes = buildEvenlyDistributedIndexes(stamps.length, preferredLabelCount);
-
-  return labelIndexes.map((index) => {
-    return {
-      label: formatPercentGradientChartStamp(stamps[index]),
-      x: mapPercentChartSeriesX(percentGradientChartFrame, index, stamps.length, capacity),
-    };
-  });
+  return buildPercentChartAxisLabels(percentGradientChartFrame, stamps, capacity);
 };
 
 /**
@@ -117,24 +104,16 @@ export const buildPercentGradientChartLatestGuideY = (values: number[]): number 
     return null;
   }
 
-  return mapPercentGradientChartY(values[values.length - 1]);
+  return mapPercentGradientChartY(values[values.length - 1] ?? 0);
 };
 
 /**
- * Formats one timestamp for compact chart footer labels.
+ * Formats one fixed-scale percent value for legends and hover tooltips.
  */
-export const formatPercentGradientChartStamp = (value: string): string => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+export const formatPercentGradientChartValue = (value: number): string => {
+  return `${new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: value >= 10 ? 0 : 1,
+  }).format(clampPercentGradientChartValue(value))}%`;
 };
 
 /**

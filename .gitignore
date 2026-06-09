@@ -48,6 +48,8 @@ package-lock.json
 .codex/
 .claude/
 .cursor/
+.junie/
 .codex
 .claude
 .cursor
+.junie

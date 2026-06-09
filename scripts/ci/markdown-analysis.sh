@@ -13,6 +13,7 @@ mapfile -t files < <(find . -type f -name '*.md' \
 	-not -path './logs/*' \
 	-not -path './tests/logs/*' \
 	-not -path './dist/*' \
+	-not -path './.junie/*' \
 	-not -path './build/*')
 
 if [ "${#files[@]}" -eq 0 ]; then

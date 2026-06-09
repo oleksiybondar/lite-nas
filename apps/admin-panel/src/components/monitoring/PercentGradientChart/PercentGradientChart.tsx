@@ -32,9 +32,12 @@ export const PercentGradientChart = ({
     <PercentGradientChartSvg
       areaPath={buildPercentGradientChartAreaPath(values, capacity)}
       axisLabels={buildPercentGradientChartAxisLabels(stamps, capacity)}
+      capacity={capacity}
       heightPx={heightPx}
       latestGuideY={buildPercentGradientChartLatestGuideY(values)}
       linePath={buildPercentGradientChartLinePath(values, capacity)}
+      stamps={stamps}
+      values={values}
     />
   );
 };
