@@ -249,7 +249,7 @@ func TestCleanupKeepsLatestOccurrencesPerEvent(t *testing.T) {
 	addOccurrenceWithValue(t, rig, eventID, 3)
 	addOccurrenceWithValue(t, rig, eventID, 4)
 
-	if got := countOccurrencesByEventID(t, rig.core.db, eventID); got != 4 {
+	if got := waitForOccurrenceCountByEventID(t, rig.core.db, eventID, 4); got != 4 {
 		t.Fatalf("occurrence count before cleanup = %d, want 4", got)
 	}
 
@@ -257,7 +257,7 @@ func TestCleanupKeepsLatestOccurrencesPerEvent(t *testing.T) {
 		t.Fatalf("Cleanup() error = %v", err)
 	}
 
-	if got := countOccurrencesByEventID(t, rig.core.db, eventID); got != 2 {
+	if got := waitForOccurrenceCountByEventID(t, rig.core.db, eventID, 2); got != 2 {
 		t.Fatalf("occurrence count after cleanup = %d, want 2", got)
 	}
 }
@@ -533,6 +533,20 @@ func countOccurrencesByEventID(t *testing.T, db *sql.DB, eventID string) int {
 		t.Fatalf("count occurrences query error = %v", err)
 	}
 	return count
+}
+
+func waitForOccurrenceCountByEventID(t *testing.T, db *sql.DB, eventID string, want int) int {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if got := countOccurrencesByEventID(t, db, eventID); got == want {
+			return got
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return countOccurrencesByEventID(t, db, eventID)
 }
 
 func openTestSQLiteDB(t *testing.T) *sql.DB {
