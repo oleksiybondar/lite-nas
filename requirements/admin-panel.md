@@ -2,7 +2,8 @@
 
 ## Overview
 
-The Admin Panel is the browser application for LiteNAS.
+The Admin Panel is the browser application for LiteNAS, including alert and
+telemetry surfaces for the current platform slice.
 
 It is served as packaged static assets by `web-gateway` and uses the gateway's
 browser-facing HTTP API. It does not own authentication token storage,
@@ -85,8 +86,8 @@ internal services directly.
 #### IR-001 Acceptance Criteria
 
 - The app does not call NATS-backed services directly
-- Auth, system metrics, and future NAS features go through gateway-owned
-  `/api` HTTP endpoints
+- Auth, system and security alert management, and system/ZFS metrics go through
+  gateway-owned `/api` HTTP endpoints
 - API client code remains testable without a deployed backend
 
 ---

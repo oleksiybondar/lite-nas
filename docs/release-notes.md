@@ -1,5 +1,9 @@
 # Release Notes
 
+Current platform state: the admin panel now surfaces system and security
+alert management plus system and ZFS metrics in the browser. The release
+entries below remain historical snapshots of when the platform slices landed.
+
 ## 0.2.1 - 2026-05-31
 
 ### RL-0.2.1 Summary
@@ -57,7 +61,7 @@
 - Extended the platform skeleton into an authenticated monitoring and alerting
   slice with RBAC-backed service roles, stateful logging-manager enforcement,
   and rule-based alert generation from system and ZFS metrics. The release
-  stays operationally CLI-first, but it now exercises a much more complete
+  remained operationally CLI-oriented, but it now exercises a much more complete
   internal runtime path.
 
 ### RL-0.2.0 Added

@@ -35,15 +35,16 @@ than a statement of final product priority.
 
 ## Why the web skeleton is still infrastructure-first
 
-The current web skeleton adds:
+The current web implementation adds:
 
 - `web-gateway` as the browser-facing Go HTTP boundary
 - `auth-service` as a dedicated PAM-backed auth authority
-- `admin-panel` as a Vite + React browser app
+- `admin-panel` as a Vite + React browser app with alerts and telemetry pages
 - packaging and assembly wiring so web assets are consumed by backend packaging
 - CI/CD updates so JS/TS build artifacts are part of the reproducible build flow
 
-This is also intentionally low immediate business value.
+This is still intentionally lower immediate business value than the later NAS
+feature set, but it is no longer just a shell.
 
 The purpose is not to ship a feature-rich user-facing product yet. The purpose
 is to complete the next missing infrastructure boundary:
@@ -65,7 +66,7 @@ continued build and deployment bootstrapping.
 - Internal service communication is wired over NATS rather than direct browser
   access to backend internals.
 - The browser gateway serves packaged admin-panel assets and exposes documented
-  browser-facing auth and system metrics surfaces.
+  browser-facing auth, alert, and telemetry surfaces.
 - The frontend build output is produced under `.build/admin-panel`, normalized
   for gateway serving, and included in Debian package assembly.
 - CI/CD scripts cover frontend dependencies, frontend build, JS/TS analysis,
@@ -74,10 +75,11 @@ continued build and deployment bootstrapping.
   enough of the skeleton that future branches can focus on actual NAS product
   development rather than platform bootstrapping.
 
-## Why the alerting slice is still CLI-first
+## Why the alerting slice now has a browser surface
 
-The current alerting work is intentionally centered on operational coverage
-first, not on a browser UI first.
+The alerting work now spans both CLI and browser access patterns. The browser
+app can show and manage both system and security alerts, while the existing CLI
+paths still matter for headless operation and administrative verification.
 
 That branch added:
 
@@ -88,28 +90,31 @@ That branch added:
 - `rbac-service` role and capability lookup used by auth and target services
 - auth-token and role enforcement in logging-manager message handling
 
-This gives LiteNAS an end-to-end alerting path that is already useful in a
-home-lab deployment even without a richer UI layer:
+This gives LiteNAS an end-to-end alerting path that is useful in a home-lab
+deployment and now has a browser-facing control surface:
 
 - metric-producing services publish snapshots
 - `resources-monitor` evaluates rules and emits alert lifecycle updates
 - logging managers consume those updates and keep a user-friendlier state-based
   view of active alerts
+- the admin panel exposes system and security alert dashboards for review and
+  management
 - raw stateless events still remain available in log files as a separate source
   of operational detail
 
-For the current use case, CLI operation is sufficient. The important milestone
-is that resource and condition-change alerting now works through the real
-service boundaries that later UI and notification consumers can reuse.
+For the current use case, the important milestone is that resource and
+condition-change alerting now works through the real service boundaries that
+both CLI and UI consumers can reuse.
 
 ## Logging Manager Channel Split
 
 The split between `system-logging-manager` and `security-logging-manager` is
 intentional in the same way separate storage or service slices are intentional.
 
-At this stage, the system side has meaningful monitoring producers and alert
-sources. The security side does not yet have dedicated security-monitoring
-slices feeding equivalent alerts.
+At this stage, the system side still has the richer set of monitoring producers
+and alert sources. The security side now has browser and CLI management surfaces
+for its alert state, even though its upstream monitoring producers remain more
+limited than the system path.
 
 That is acceptable for the current version line because the important platform
 work is already in place:

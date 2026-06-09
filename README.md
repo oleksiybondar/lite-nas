@@ -9,7 +9,7 @@ The repository already contains an implemented platform slice:
 - backend services for system metrics, ZFS metrics, auth, RBAC, stateful
   alert management, resource monitoring, and email notification delivery
 - CLI apps for system metrics, ZFS metrics, and logging-manager operations
-- a browser-facing admin panel and gateway
+- a browser-facing admin panel and gateway for alerts and telemetry
 - NATS-based internal communication between services and consumers
 - a web gateway that serves packaged frontend assets and adapts browser API
   calls to internal services
@@ -47,7 +47,7 @@ The project now has an implemented first slice that seeds the platform architect
 - a shared internal module layer
 - multiple backend services
 - a CLI consumer app
-- a browser-facing web app and gateway
+- a browser-facing web app and gateway for alerts and telemetry
 - messaging-based service interaction over NATS
 - frontend build output consumed by deploy and package assembly
 - reproducible packaging, deployment, and install validation
@@ -190,8 +190,10 @@ Current implemented focus:
 
 - **Browser-facing gateway and admin shell**
   `web-gateway` serves packaged `admin-panel` assets and adapts browser-facing
-  `/api` auth and system metrics endpoints to internal service calls while
-  serving the SPA entrypoint for non-API browser navigation paths.
+  `/api` auth, alert, and metrics endpoints to internal service calls while
+  serving the SPA entrypoint for non-API browser navigation paths. The current
+  browser app exposes system and security alert management as well as system
+  and ZFS metrics views.
 
 - **Reproducible packaging and deployment**
   Debian packaging, deployment scripts, frontend asset handoff, and install validation for the
@@ -224,7 +226,9 @@ Planned expansion areas:
   coupling and extensibility.
 
 - **Web-based administration**
-  Richer browser-facing administration built on top of the gateway and admin-panel skeleton.
+  Richer browser-facing administration built on top of the gateway and
+  admin-panel implementation, with more domain coverage still planned beyond
+  the current alerts and telemetry surfaces.
 
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
