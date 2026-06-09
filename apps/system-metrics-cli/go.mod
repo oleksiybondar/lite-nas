@@ -3,7 +3,7 @@ module lite-nas/apps/system-metrics-cli
 go 1.25.0
 
 // lite-nas/shared is a local module dependency used by this application.
-require lite-nas/shared v0.1.0
+require lite-nas/shared v0.2.0
 
 // These indirect dependencies are pulled in through shared packages and other
 // direct dependencies of this application.

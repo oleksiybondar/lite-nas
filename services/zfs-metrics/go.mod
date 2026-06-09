@@ -2,7 +2,7 @@ module lite-nas/services/zfs-metrics
 
 go 1.25.0
 
-require lite-nas/shared v0.1.0
+require lite-nas/shared v0.2.0
 
 require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
