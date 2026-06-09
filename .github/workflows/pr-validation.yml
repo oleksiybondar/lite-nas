@@ -101,12 +101,32 @@ jobs:
             dir: ./shared/go
           - name: Auth service
             dir: ./services/auth
+          - name: RBAC service
+            dir: ./services/rbac
+          - name: Resources monitor service
+            dir: ./services/resources-monitor
+          - name: Security email notifier service
+            dir: ./services/security-email-notifier
+          - name: Security logging manager service
+            dir: ./services/security-logging-manager
+          - name: System email notifier service
+            dir: ./services/system-email-notifier
+          - name: System logging manager service
+            dir: ./services/system-logging-manager
           - name: System metrics service
             dir: ./services/system-metrics
           - name: Web gateway service
             dir: ./services/web-gateway
+          - name: ZFS metrics service
+            dir: ./services/zfs-metrics
+          - name: Security logging manager CLI app
+            dir: ./apps/security-logging-manager-cli
+          - name: System logging manager CLI app
+            dir: ./apps/system-logging-manager-cli
           - name: System metrics CLI app
             dir: ./apps/system-metrics-cli
+          - name: ZFS metrics CLI app
+            dir: ./apps/zfs-metrics-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -279,6 +299,60 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: RBAC service
+              artifact_name: rbac-service-linux
+              build_script: scripts/build-rbac-service-binary.sh
+              output_path: .build/rbac-service/linux-amd64/rbac-service
+              test_script: scripts/ci/go-test-module.sh ./services/rbac
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Resources monitor
+              artifact_name: resources-monitor-linux
+              build_script: scripts/build-resources-monitor-binary.sh
+              output_path: .build/resources-monitor/linux-amd64/resources-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/resources-monitor
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Security email notifier
+              artifact_name: security-email-notifier-linux
+              build_script: scripts/build-security-email-notifier-binary.sh
+              output_path: .build/security-email-notifier/linux-amd64/security-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/security-email-notifier
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Security logging manager
+              artifact_name: security-logging-manager-linux
+              build_script: scripts/build-security-logging-manager-binary.sh
+              output_path: .build/security-logging-manager/linux-amd64/security-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/security-logging-manager
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: System email notifier
+              artifact_name: system-email-notifier-linux
+              build_script: scripts/build-system-email-notifier-binary.sh
+              output_path: .build/system-email-notifier/linux-amd64/system-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/system-email-notifier
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: System logging manager
+              artifact_name: system-logging-manager-linux
+              build_script: scripts/build-system-logging-manager-binary.sh
+              output_path: .build/system-logging-manager/linux-amd64/system-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/system-logging-manager
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: System metrics
               artifact_name: system-metrics-linux
               build_script: scripts/build-system-metrics-binary.sh
@@ -294,6 +368,15 @@ jobs:
               output_path: .build/web-gateway/linux-amd64/web-gateway
               test_script: scripts/test-web-gateway.sh
               apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: ZFS metrics
+              artifact_name: zfs-metrics-linux
+              build_script: scripts/build-zfs-metrics-binary.sh
+              output_path: .build/zfs-metrics/linux-amd64/zfs-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/zfs-metrics
+              apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
             component:
@@ -303,6 +386,60 @@ jobs:
               output_path: .build/auth-service/linux-arm64/auth-service
               test_script: scripts/test-auth-service.sh
               apt_packages: gcc libc6-dev libpam0g-dev
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: RBAC service
+              artifact_name: rbac-service-linux
+              build_script: scripts/build-rbac-service-binary.sh
+              output_path: .build/rbac-service/linux-arm64/rbac-service
+              test_script: scripts/ci/go-test-module.sh ./services/rbac
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Resources monitor
+              artifact_name: resources-monitor-linux
+              build_script: scripts/build-resources-monitor-binary.sh
+              output_path: .build/resources-monitor/linux-arm64/resources-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/resources-monitor
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Security email notifier
+              artifact_name: security-email-notifier-linux
+              build_script: scripts/build-security-email-notifier-binary.sh
+              output_path: .build/security-email-notifier/linux-arm64/security-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/security-email-notifier
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Security logging manager
+              artifact_name: security-logging-manager-linux
+              build_script: scripts/build-security-logging-manager-binary.sh
+              output_path: .build/security-logging-manager/linux-arm64/security-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/security-logging-manager
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: System email notifier
+              artifact_name: system-email-notifier-linux
+              build_script: scripts/build-system-email-notifier-binary.sh
+              output_path: .build/system-email-notifier/linux-arm64/system-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/system-email-notifier
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: System logging manager
+              artifact_name: system-logging-manager-linux
+              build_script: scripts/build-system-logging-manager-binary.sh
+              output_path: .build/system-logging-manager/linux-arm64/system-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/system-logging-manager
+              apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
             component:
@@ -320,6 +457,15 @@ jobs:
               build_script: scripts/build-web-gateway-binary.sh
               output_path: .build/web-gateway/linux-arm64/web-gateway
               test_script: scripts/test-web-gateway.sh
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: ZFS metrics
+              artifact_name: zfs-metrics-linux
+              build_script: scripts/build-zfs-metrics-binary.sh
+              output_path: .build/zfs-metrics/linux-arm64/zfs-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/zfs-metrics
               apt_packages: ""
     steps:
       - name: Checkout
@@ -357,11 +503,51 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             app:
+              name: Security logging manager CLI
+              artifact_name: security-logging-manager-cli-linux
+              build_script: scripts/build-security-logging-manager-cli-binary.sh
+              output_path: .build/security-logging-manager-cli/linux-amd64/security-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/security-logging-manager-cli
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: System logging manager CLI
+              artifact_name: system-logging-manager-cli-linux
+              build_script: scripts/build-system-logging-manager-cli-binary.sh
+              output_path: .build/system-logging-manager-cli/linux-amd64/system-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/system-logging-manager-cli
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
               name: System metrics CLI
               artifact_name: system-metrics-cli-linux
               build_script: scripts/build-system-metrics-cli-binary.sh
               output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
               test_script: scripts/test-system-metrics-cli.sh
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: ZFS metrics CLI
+              artifact_name: zfs-metrics-cli-linux
+              build_script: scripts/build-zfs-metrics-cli-binary.sh
+              output_path: .build/zfs-metrics-cli/linux-amd64/zfs-metrics-cli
+              test_script: scripts/test-zfs-metrics-cli.sh
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: Security logging manager CLI
+              artifact_name: security-logging-manager-cli-linux
+              build_script: scripts/build-security-logging-manager-cli-binary.sh
+              output_path: .build/security-logging-manager-cli/linux-arm64/security-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/security-logging-manager-cli
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: System logging manager CLI
+              artifact_name: system-logging-manager-cli-linux
+              build_script: scripts/build-system-logging-manager-cli-binary.sh
+              output_path: .build/system-logging-manager-cli/linux-arm64/system-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/system-logging-manager-cli
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -370,6 +556,14 @@ jobs:
               build_script: scripts/build-system-metrics-cli-binary.sh
               output_path: .build/system-metrics-cli/linux-arm64/system-metrics-cli
               test_script: scripts/test-system-metrics-cli.sh
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: ZFS metrics CLI
+              artifact_name: zfs-metrics-cli-linux
+              build_script: scripts/build-zfs-metrics-cli-binary.sh
+              output_path: .build/zfs-metrics-cli/linux-arm64/zfs-metrics-cli
+              test_script: scripts/test-zfs-metrics-cli.sh
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -425,11 +619,59 @@ jobs:
           name: auth-service-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/auth-service
 
+      - name: Download RBAC service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rbac-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/rbac-service
+
+      - name: Download resources monitor build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: resources-monitor-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/resources-monitor
+
+      - name: Download security email notifier build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-email-notifier-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-email-notifier
+
+      - name: Download security logging manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-logging-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-logging-manager
+
+      - name: Download system email notifier build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-email-notifier-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-email-notifier
+
+      - name: Download system logging manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-logging-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-logging-manager
+
       - name: Download system metrics build artifact
         uses: actions/download-artifact@v4
         with:
           name: system-metrics-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/system-metrics
+
+      - name: Download security logging manager CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-logging-manager-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-logging-manager-cli
+
+      - name: Download system logging manager CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-logging-manager-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-logging-manager-cli
 
       - name: Download system metrics CLI build artifact
         uses: actions/download-artifact@v4
@@ -459,9 +701,17 @@ jobs:
           package_args=(
             --version=${{ steps.package-version.outputs.value }} \
             --auth-service-binary=.artifacts/${{ matrix.arch }}/auth-service/auth-service \
+            --rbac-service-binary=.artifacts/${{ matrix.arch }}/rbac-service/rbac-service \
+            --system-logging-manager-binary=.artifacts/${{ matrix.arch }}/system-logging-manager/system-logging-manager \
+            --security-logging-manager-binary=.artifacts/${{ matrix.arch }}/security-logging-manager/security-logging-manager \
+            --system-email-notifier-binary=.artifacts/${{ matrix.arch }}/system-email-notifier/system-email-notifier \
+            --security-email-notifier-binary=.artifacts/${{ matrix.arch }}/security-email-notifier/security-email-notifier \
             --system-metrics-binary=.artifacts/${{ matrix.arch }}/system-metrics/system-metrics \
+            --system-logging-manager-cli-binary=.artifacts/${{ matrix.arch }}/system-logging-manager-cli/system-logging-manager-cli \
+            --security-logging-manager-cli-binary=.artifacts/${{ matrix.arch }}/security-logging-manager-cli/security-logging-manager-cli \
             --system-metrics-cli-binary=.artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli \
             --web-gateway-binary=.artifacts/${{ matrix.arch }}/web-gateway/web-gateway \
+            --resources-monitor-binary=.artifacts/${{ matrix.arch }}/resources-monitor/resources-monitor \
             --output-dir=.build/packages/${{ matrix.arch }}
           )
 
@@ -497,7 +747,7 @@ jobs:
           LITENAS_API_LOGIN: testuser
           LITENAS_API_PASSWORD: testpassword
           LITENAS_OPERATOR_LOGIN: testoperator
-          LITENAS_SECURITY_LOGIN: testsecurityuser
+          LITENAS_SECURITY_LOGIN: testsecurity
           LITENAS_TEST_PASSWORD: testpassword
         run: scripts/ci/prepare-system-test-users.sh
 
@@ -508,6 +758,13 @@ jobs:
           LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY: /usr/bin/system-logging-manager-cli
           LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY: /usr/bin/security-logging-manager-cli
         run: scripts/ci/prepare-system-test-sudo-user.sh
+
+      - name: Verify CI system-test users
+        run: |
+          id testuser
+          id testoperator
+          id testsecurity
+          id testsudouser
 
       - name: Diagnose installed LiteNAS routing
         run: |

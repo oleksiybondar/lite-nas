@@ -11,12 +11,44 @@ inputs:
   system_metrics_binary:
     description: Path to the system-metrics binary.
     required: true
+  rbac_service_binary:
+    description: Path to the rbac-service binary.
+    required: false
+    default: ""
+  system_logging_manager_binary:
+    description: Path to the system-logging-manager binary.
+    required: false
+    default: ""
+  security_logging_manager_binary:
+    description: Path to the security-logging-manager binary.
+    required: false
+    default: ""
+  system_email_notifier_binary:
+    description: Path to the system-email-notifier binary.
+    required: false
+    default: ""
+  security_email_notifier_binary:
+    description: Path to the security-email-notifier binary.
+    required: false
+    default: ""
   system_metrics_cli_binary:
     description: Path to the system-metrics-cli binary.
     required: true
+  system_logging_manager_cli_binary:
+    description: Path to the system-logging-manager-cli binary.
+    required: false
+    default: ""
+  security_logging_manager_cli_binary:
+    description: Path to the security-logging-manager-cli binary.
+    required: false
+    default: ""
   web_gateway_binary:
     description: Path to the web-gateway binary.
     required: true
+  resources_monitor_binary:
+    description: Path to the resources-monitor binary.
+    required: false
+    default: ""
   admin_panel_assets:
     description: Path to an existing admin-panel Vite build output directory.
     required: false
@@ -61,6 +93,30 @@ runs:
           --output-dir=.build/packages/${{ inputs.package_arch }}
         )
 
+        if [ -n "${{ inputs.rbac_service_binary }}" ]; then
+          package_args+=(--rbac-service-binary=${{ inputs.rbac_service_binary }})
+        fi
+        if [ -n "${{ inputs.system_logging_manager_binary }}" ]; then
+          package_args+=(--system-logging-manager-binary=${{ inputs.system_logging_manager_binary }})
+        fi
+        if [ -n "${{ inputs.security_logging_manager_binary }}" ]; then
+          package_args+=(--security-logging-manager-binary=${{ inputs.security_logging_manager_binary }})
+        fi
+        if [ -n "${{ inputs.system_email_notifier_binary }}" ]; then
+          package_args+=(--system-email-notifier-binary=${{ inputs.system_email_notifier_binary }})
+        fi
+        if [ -n "${{ inputs.security_email_notifier_binary }}" ]; then
+          package_args+=(--security-email-notifier-binary=${{ inputs.security_email_notifier_binary }})
+        fi
+        if [ -n "${{ inputs.system_logging_manager_cli_binary }}" ]; then
+          package_args+=(--system-logging-manager-cli-binary=${{ inputs.system_logging_manager_cli_binary }})
+        fi
+        if [ -n "${{ inputs.security_logging_manager_cli_binary }}" ]; then
+          package_args+=(--security-logging-manager-cli-binary=${{ inputs.security_logging_manager_cli_binary }})
+        fi
+        if [ -n "${{ inputs.resources_monitor_binary }}" ]; then
+          package_args+=(--resources-monitor-binary=${{ inputs.resources_monitor_binary }})
+        fi
         if [ -n "$ADMIN_PANEL_ASSETS" ]; then
           package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
         fi
@@ -102,7 +158,29 @@ runs:
       env:
         LITENAS_API_LOGIN: testuser
         LITENAS_API_PASSWORD: testpassword
-      run: scripts/ci/prepare-system-test-user.sh
+        LITENAS_OPERATOR_LOGIN: testoperator
+        LITENAS_SECURITY_LOGIN: testsecurity
+        LITENAS_TEST_PASSWORD: testpassword
+      run: scripts/ci/prepare-system-test-users.sh
+
+    - name: "Test prep: prepare restricted sudo system-test user"
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      env:
+        LITENAS_TESTSUDO_LOGIN: testsudouser
+        LITENAS_TESTSUDO_PASSWORD: testpassword
+        LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY: /usr/bin/system-logging-manager-cli
+        LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY: /usr/bin/security-logging-manager-cli
+      run: scripts/ci/prepare-system-test-sudo-user.sh
+
+    - name: "Test prep: verify CI system-test users"
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      run: |
+        id testuser
+        id testoperator
+        id testsecurity
+        id testsudouser
 
     - name: "Test: installed LiteNAS package"
       if: ${{ inputs.run_installed_package_tests == 'true' }}

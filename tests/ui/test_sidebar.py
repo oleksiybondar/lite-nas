@@ -41,7 +41,7 @@ from ui.page_objects.widgets.sidebar.item import SidebarNavigationItemWidget
                 SECURITY_LOGGING_MANAGER_PASSWORD,
                 (True, False, True),
             ),
-            id="testsecurityuser",
+            id="testsecurity",
         ),
     ],
 )

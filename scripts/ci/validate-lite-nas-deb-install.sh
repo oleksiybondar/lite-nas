@@ -51,31 +51,46 @@ docker run --rm \
 		dpkg -s aide >/dev/null
 		test -x /usr/libexec/lite-nas/auth-service
 		test -x /usr/libexec/lite-nas/rbac-service
-		test -x /usr/libexec/lite-nas/system-metrics
+		test -x /usr/libexec/lite-nas/system-logging-manager
+		test -x /usr/libexec/lite-nas/security-logging-manager
 		test -x /usr/libexec/lite-nas/system-email-notifier
 		test -x /usr/libexec/lite-nas/security-email-notifier
+		test -x /usr/libexec/lite-nas/system-metrics
 		test -x /usr/libexec/lite-nas/resources-monitor
+		test -x /usr/libexec/lite-nas/system-logging-manager-cli
+		test -x /usr/libexec/lite-nas/security-logging-manager-cli
 		test -x /usr/libexec/lite-nas/system-metrics-cli
+		test -L /usr/bin/system-logging-manager-cli
+		test -x /usr/bin/system-logging-manager-cli
+		test -L /usr/bin/security-logging-manager-cli
+		test -x /usr/bin/security-logging-manager-cli
 		test -L /usr/bin/system-metrics-cli
 		test -x /usr/bin/system-metrics-cli
 		test -x /usr/libexec/lite-nas/web-gateway
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas)\" = 'root:lite-nas 711'
 		test -f /etc/lite-nas/auth.conf
 		test -f /etc/lite-nas/rbac-service.conf
+		test -f /etc/lite-nas/system-logging-manager.conf
+		test -f /etc/lite-nas/security-logging-manager.conf
 		test -f /etc/lite-nas/system-metrics.conf
+		test -f /etc/lite-nas/system-logging-manager-cli.conf
+		test -f /etc/lite-nas/security-logging-manager-cli.conf
 		test -f /etc/lite-nas/system-email-notifier.conf
 		test -f /etc/lite-nas/security-email-notifier.conf
 		test -f /etc/lite-nas/resources-monitor.conf
 		test -f /etc/lite-nas/resources-monitor/rules/system-metrics.json
 		test -f /etc/lite-nas/resources-monitor/rules/zfs-metrics.json
 		id lite-nas-resources-monitor >/dev/null
+		id lite-nas-sys-log-mgr >/dev/null
+		id lite-nas-sec-log-mgr >/dev/null
 		id lite-nas-sys-email-notifier >/dev/null
 		id lite-nas-sec-email-notifier >/dev/null
 		test -f /etc/systemd/system/lite-nas-resources-monitor.service
+		test -f /etc/systemd/system/lite-nas-system-logging-manager.service
+		test -f /etc/systemd/system/lite-nas-security-logging-manager.service
 		test -f /etc/systemd/system/lite-nas-system-email-notifier.service
 		test -f /etc/systemd/system/lite-nas-security-email-notifier.service
 		test -f /etc/systemd/system/lite-nas-rbac.service
-		test -f /etc/lite-nas/system-metrics-cli.conf
 		test \"\$(stat -c '%U:%G %a' /etc/lite-nas/system-metrics-cli.conf)\" = 'lite-nas-system-metrics-cli:users 640'
 		test -f /etc/lite-nas/web-gateway.conf
 		test -f /etc/postfix/main.cf

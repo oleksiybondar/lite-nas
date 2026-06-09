@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/../helpers/logger.sh"
 
 test_login="${LITENAS_API_LOGIN:-testuser}"
 operator_login="${LITENAS_OPERATOR_LOGIN:-testoperator}"
-security_login="${LITENAS_SECURITY_LOGIN:-testsecurityuser}"
+security_login="${LITENAS_SECURITY_LOGIN:-testsecurity}"
 
 default_password="${LITENAS_TEST_PASSWORD:-testpassword}"
 test_password="${LITENAS_API_PASSWORD:-$default_password}"

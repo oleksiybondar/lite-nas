@@ -48,7 +48,7 @@ SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD: str = os.environ.get(
 )
 SECURITY_LOGGING_MANAGER_LOGIN: str = os.environ.get(
     "LITENAS_SECURITY_LOGIN",
-    "testsecurityuser",
+    "testsecurity",
 )
 SECURITY_LOGGING_MANAGER_PASSWORD: str = os.environ.get(
     "LITENAS_SECURITY_PASSWORD",
