@@ -48,6 +48,7 @@ docker run --rm \
 		apt-get install --no-install-recommends -y /packages/${package_name}
 		dpkg -s lite-nas >/dev/null
 		dpkg -s postfix >/dev/null
+		dpkg -s sudo >/dev/null
 		dpkg -s aide >/dev/null
 		test -x /usr/libexec/lite-nas/auth-service
 		test -x /usr/libexec/lite-nas/rbac-service

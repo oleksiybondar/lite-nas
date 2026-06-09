@@ -21,6 +21,7 @@ DEPENDENCY_PACKAGES: list[str] = [
     "aide",
     "apparmor",
     "postfix",
+    "sudo",
     "zfsutils-linux",
     "nginx",
     "nats-server",

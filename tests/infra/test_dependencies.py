@@ -9,6 +9,7 @@ DEPENDENCY_PACKAGE_MARKS = {
     "aide": pytest.mark.AIDE,
     "apparmor": pytest.mark.AppArmor,
     "postfix": pytest.mark.Postfix,
+    "sudo": pytest.mark.Dependency,
     "zfsutils-linux": pytest.mark.ZFS,
     "nginx": pytest.mark.Nginx,
     "nats-server": pytest.mark.NATS,
