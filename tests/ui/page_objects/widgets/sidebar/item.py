@@ -36,9 +36,11 @@ class SidebarNavigationItemWidget(Widget):  # type: ignore[misc]
         """Navigate to the route represented by this sidebar row."""
         self.click()
 
-    def expand(self) -> None:
-        """Expand this sidebar row when it owns nested child routes."""
+    def expand(self) -> Elements:
+        """Expand this sidebar row and wait until its nested child routes are rendered."""
         self.expand_control.click()
+        self.children.wait_until_found()
+        return self.children
 
     def collapse(self) -> None:
         """Collapse this sidebar row when its child route list is expanded."""

@@ -11,6 +11,7 @@ from constants import (
 from hyperiontf.executors.pytest import hyperion_test_case_setup  # noqa: F401
 from ui.page_objects.dashboard_page import DashboardPage
 from ui.page_objects.login_page import LoginPage
+from ui.page_objects.widgets.sidebar.item import SidebarNavigationItemWidget
 
 
 @pytest.mark.Auth
@@ -67,22 +68,25 @@ def test_sidebar_alerts_rbac_visibility(
     dashboard_page = DashboardPage(login_page.automation_adapter)
     sidebar = dashboard_page.sidebar
     sidebar.wait_until_found()
-    if not has_alerts:
-        assert sidebar.items['text == "Alerts"'] is None
-        return
 
     alerts_item = sidebar.items['text == "Alerts"']
-    alerts_item.assert_visible()
-    alerts_item.expand()
-    children = alerts_item.children
-    children.wait_until_found()
+    _assert_item_visibility(alerts_item, has_alerts)
+    if not has_alerts:
+        return
 
-    if has_system:
-        children['text == "System"'].assert_visible()
-    else:
-        assert children['text == "System"'] is None
+    children = alerts_item.expand()
+    _assert_item_visibility(children['text == "System"'], has_system)
+    _assert_item_visibility(children['text == "Security"'], has_security)
 
-    if has_security:
-        children['text == "Security"'].assert_visible()
-    else:
-        assert children['text == "Security"'] is None
+
+def _assert_item_visibility(
+    item: SidebarNavigationItemWidget | None,
+    is_present: bool,
+) -> None:
+    """Assert that one sidebar row is either rendered and visible or absent."""
+    if is_present:
+        assert item is not None
+        item.assert_visible()
+        return
+
+    assert item is None

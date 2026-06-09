@@ -46,27 +46,48 @@ type ZFSMetricsController = metricsController[
 	zfsmetricsdto.ZFSHistoryOutput,
 ]
 
+// newMetricsController wires the shared controller behavior for snapshot and
+// history endpoints while letting callers provide DTO mappers and endpoint-
+// specific error messages.
+func newMetricsController[T any, SnapshotOutput any, HistoryOutput any](
+	getSnapshot func(context.Context) (T, error),
+	getHistory func(context.Context) ([]T, error),
+	buildSnapshotOutput func(time.Time, T) SnapshotOutput,
+	buildHistoryOutput func(time.Time, []T) HistoryOutput,
+	snapshotErrorMessage string,
+	historyErrorMessage string,
+) metricsController[T, SnapshotOutput, HistoryOutput] {
+	return metricsController[T, SnapshotOutput, HistoryOutput]{
+		getSnapshot:          getSnapshot,
+		getHistory:           getHistory,
+		buildSnapshotOutput:  buildSnapshotOutput,
+		buildHistoryOutput:   buildHistoryOutput,
+		snapshotErrorMessage: snapshotErrorMessage,
+		historyErrorMessage:  historyErrorMessage,
+	}
+}
+
 // NewSystemMetricsController creates a SystemMetricsController.
 //
 // Parameters:
 //   - service: backend-facing system metrics service used by the controller
 func NewSystemMetricsController(service SystemMetricsService) SystemMetricsController {
-	return metricsController[
+	return newMetricsController[
 		metrics.SystemSnapshot,
 		systemmetricsdto.SnapshotOutput,
 		systemmetricsdto.HistoryOutput,
-	]{
-		getSnapshot: service.GetSnapshot,
-		getHistory:  service.GetHistory,
-		buildSnapshotOutput: func(now time.Time, snapshot metrics.SystemSnapshot) systemmetricsdto.SnapshotOutput {
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.SystemSnapshot) systemmetricsdto.SnapshotOutput {
 			return systemmetricsdto.SnapshotOutput{Body: systemmetricsdto.NewSnapshotBody(now, snapshot)}
 		},
-		buildHistoryOutput: func(now time.Time, history []metrics.SystemSnapshot) systemmetricsdto.HistoryOutput {
+		func(now time.Time, history []metrics.SystemSnapshot) systemmetricsdto.HistoryOutput {
 			return systemmetricsdto.HistoryOutput{Body: systemmetricsdto.NewHistoryBody(now, history)}
 		},
-		snapshotErrorMessage: "failed to fetch latest system metrics snapshot",
-		historyErrorMessage:  "failed to fetch system metrics history",
-	}
+		"failed to fetch latest system metrics snapshot",
+		"failed to fetch system metrics history",
+	)
 }
 
 // NewZFSMetricsController creates a ZFSMetricsController.
@@ -74,22 +95,22 @@ func NewSystemMetricsController(service SystemMetricsService) SystemMetricsContr
 // Parameters:
 //   - service: backend-facing ZFS metrics service used by the controller
 func NewZFSMetricsController(service ZFSMetricsService) ZFSMetricsController {
-	return metricsController[
+	return newMetricsController[
 		metrics.ZFSSnapshot,
 		zfsmetricsdto.ZFSSnapshotOutput,
 		zfsmetricsdto.ZFSHistoryOutput,
-	]{
-		getSnapshot: service.GetSnapshot,
-		getHistory:  service.GetHistory,
-		buildSnapshotOutput: func(now time.Time, snapshot metrics.ZFSSnapshot) zfsmetricsdto.ZFSSnapshotOutput {
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.ZFSSnapshot) zfsmetricsdto.ZFSSnapshotOutput {
 			return zfsmetricsdto.ZFSSnapshotOutput{Body: zfsmetricsdto.NewSnapshotBody(now, snapshot)}
 		},
-		buildHistoryOutput: func(now time.Time, history []metrics.ZFSSnapshot) zfsmetricsdto.ZFSHistoryOutput {
+		func(now time.Time, history []metrics.ZFSSnapshot) zfsmetricsdto.ZFSHistoryOutput {
 			return zfsmetricsdto.ZFSHistoryOutput{Body: zfsmetricsdto.NewHistoryBody(now, history)}
 		},
-		snapshotErrorMessage: "failed to fetch latest ZFS metrics snapshot",
-		historyErrorMessage:  "failed to fetch ZFS metrics history",
-	}
+		"failed to fetch latest ZFS metrics snapshot",
+		"failed to fetch ZFS metrics history",
+	)
 }
 
 // GetSnapshot returns the latest metrics snapshot as a browser-facing DTO
