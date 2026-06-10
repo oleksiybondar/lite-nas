@@ -402,7 +402,7 @@ package install validation, post-install validation, or top-level system tests.
 Run the local CI build checks:
 
 ```bash
-./scripts/run-ci-build.sh
+./scripts/run-ci-component-build-checks.sh
 ```
 
 Run the local CI test and coverage checks:

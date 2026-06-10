@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/../config/version.conf"
 package_arch=""
 package_version=""
 install_recommends=1
+run_as_user=()
 
 usage() {
 	cat <<'MSG'
@@ -78,6 +79,10 @@ fi
 log.requireCommand "apt-get" "Install apt-get and retry."
 log.requireCommand "dpkg" "Install dpkg and retry."
 
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+	run_as_user=(sudo -u "$SUDO_USER" env "HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)")
+fi
+
 stop_background_package_managers() {
 	log.pushTask "Stopping background package manager services"
 	sudo systemctl stop packagekit unattended-upgrades >/dev/null 2>&1 || true
@@ -111,7 +116,7 @@ main() {
 	purge_existing_lite_nas_package
 
 	log.pushTask "Building local LiteNAS package ${package_version} (${package_arch})"
-	"$LITE_NAS_REPO_ROOT/scripts/build-lite-nas-package.sh" \
+	"${run_as_user[@]}" "$LITE_NAS_REPO_ROOT/scripts/build-lite-nas-package.sh" \
 		--version="$package_version" \
 		--output-dir="$LITE_NAS_REPO_ROOT/.build/packages"
 	log.popTask
@@ -122,7 +127,7 @@ main() {
 		exit 1
 	fi
 
-	"$LITE_NAS_REPO_ROOT/scripts/ci/validate-lite-nas-deb-contents.sh" "$package_path" "$package_arch"
+	"${run_as_user[@]}" "$LITE_NAS_REPO_ROOT/scripts/ci/validate-lite-nas-deb-contents.sh" "$package_path" "$package_arch"
 
 	log.pushTask "Installing rebuilt LiteNAS package"
 	if [ "$install_recommends" -eq 0 ]; then
