@@ -109,11 +109,25 @@ purge_existing_lite_nas_package() {
 	log.popTask
 }
 
+repair_local_artifact_ownership() {
+	if [ "${#run_as_user[@]}" -eq 0 ]; then
+		return 0
+	fi
+
+	log.pushTask "Repairing local artifact ownership for ${SUDO_USER}"
+	sudo chown -R "$SUDO_USER:$SUDO_USER" \
+		"$LITE_NAS_REPO_ROOT/.build" \
+		"$LITE_NAS_REPO_ROOT/.cache" \
+		>/dev/null 2>&1 || true
+	log.popTask
+}
+
 main() {
 	local package_path=""
 
 	stop_background_package_managers
 	purge_existing_lite_nas_package
+	repair_local_artifact_ownership
 
 	log.pushTask "Building local LiteNAS package ${package_version} (${package_arch})"
 	"${run_as_user[@]}" "$LITE_NAS_REPO_ROOT/scripts/build-lite-nas-package.sh" \
