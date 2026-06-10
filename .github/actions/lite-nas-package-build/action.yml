@@ -130,7 +130,7 @@ runs:
         scripts/package/lint-lite-nas-deb.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
 
-    - name: "Build: validate Debian package installability"
+    - name: "Build: validate Debian package contents"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
@@ -138,7 +138,7 @@ runs:
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
           ${{ inputs.package_arch }}
 
-    - name: "Install: LiteNAS package on runner"
+    - name: "Install: LiteNAS package on runner for system tests"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: |
