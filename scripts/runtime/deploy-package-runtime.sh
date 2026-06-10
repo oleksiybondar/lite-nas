@@ -122,7 +122,7 @@ deploy.resourcesMonitor.requireTools
 if [ "$run_mode" = "validate" ]; then
 	log.pushTask "Deploying LiteNAS package runtime in validate mode"
 	export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
-	deploy.apparmor.deploy 1
+	deploy.apparmor.deploy 0
 	deploy.postfix.deploy 0
 	deploy_runtime_files_without_start
 	deploy.normalizeEtcPermissions /etc
