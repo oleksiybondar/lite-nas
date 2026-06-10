@@ -138,24 +138,9 @@ runs:
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
           ${{ inputs.package_arch }}
 
-    - name: "Install: detect installed-package test capability"
-      if: ${{ inputs.run_installed_package_tests == 'true' }}
-      id: installed-package-mode
-      shell: bash
-      run: |
-        if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ] && systemctl daemon-reload >/dev/null 2>&1; then
-          echo "package_install_mode=full" >> "$GITHUB_OUTPUT"
-          echo "can_run_system_tests=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "package_install_mode=validate" >> "$GITHUB_OUTPUT"
-          echo "can_run_system_tests=false" >> "$GITHUB_OUTPUT"
-        fi
-
     - name: "Install: LiteNAS package on runner"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
-      env:
-        LITE_NAS_PACKAGE_INSTALL_MODE: ${{ steps.installed-package-mode.outputs.package_install_mode }}
       run: |
         sudo env DEBIAN_FRONTEND=noninteractive \
           scripts/package/install-lite-nas-deb.sh \
@@ -163,12 +148,12 @@ runs:
             --no-install-recommends
 
     - name: "Test prep: install Python and Playwright dependencies"
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' }}
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: scripts/ci/install-python-dependencies.sh
 
     - name: "Test prep: prepare Python test user"
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' }}
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       env:
         LITENAS_API_LOGIN: testuser
@@ -179,7 +164,7 @@ runs:
       run: scripts/ci/prepare-system-test-users.sh
 
     - name: "Test prep: prepare restricted sudo system-test user"
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' }}
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       env:
         LITENAS_TESTSUDO_LOGIN: testsudouser
@@ -189,7 +174,7 @@ runs:
       run: scripts/ci/prepare-system-test-sudo-user.sh
 
     - name: "Test prep: verify CI system-test users"
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' }}
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: |
         id testuser
@@ -197,14 +182,8 @@ runs:
         id testsecurity
         id testsudouser
 
-    - name: "Test prep: report skipped installed-package system tests"
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests != 'true' }}
-      shell: bash
-      run: |
-        echo "Skipping installed-package system tests on this runner because systemd is not available."
-
     - name: "Test: installed LiteNAS package"
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' }}
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       env:
         LITENAS_API_LOGIN: testuser
@@ -212,7 +191,7 @@ runs:
       run: scripts/test-python.sh
 
     - name: Archive system test logs
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' && always() }}
+      if: ${{ inputs.run_installed_package_tests == 'true' && always() }}
       shell: bash
       run: |
         python3 - <<'PY'
@@ -231,7 +210,7 @@ runs:
         PY
 
     - name: Upload system test logs
-      if: ${{ inputs.run_installed_package_tests == 'true' && steps.installed-package-mode.outputs.can_run_system_tests == 'true' && always() }}
+      if: ${{ inputs.run_installed_package_tests == 'true' && always() }}
       uses: actions/upload-artifact@v4
       with:
         name: system-test-logs-${{ inputs.package_arch }}

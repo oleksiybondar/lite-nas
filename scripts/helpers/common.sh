@@ -28,11 +28,20 @@ source "$COMMON_DIR/build.sh"
 # shellcheck disable=SC1091
 source "$COMMON_DIR/packaging.sh"
 
+deploy.hasUsableSystemd() {
+	command -v systemctl >/dev/null 2>&1 &&
+		[ -d /run/systemd/system ] &&
+		systemctl daemon-reload >/dev/null 2>&1
+}
+
+deploy.hasServiceCommand() {
+	command -v service >/dev/null 2>&1
+}
+
 deploy.enableAndRefreshService() {
 	local service="$1"
 
-	if command -v systemctl >/dev/null 2>&1; then
-		systemctl daemon-reload
+	if deploy.hasUsableSystemd; then
 		systemctl enable "$service"
 
 		if systemctl is-active --quiet "$service"; then
@@ -44,11 +53,14 @@ deploy.enableAndRefreshService() {
 		return 0
 	fi
 
-	if command -v service >/dev/null 2>&1; then
-		service "$service" restart
+	if deploy.hasServiceCommand; then
+		if service "$service" restart >/dev/null 2>&1; then
+			return 0
+		fi
+
+		log.warn "Service manager is present but cannot restart $service in this environment; skipping."
 		return 0
 	fi
 
-	log.error "Missing service manager; cannot enable/start $service."
-	exit 1
+	log.warn "No usable service manager is available for $service; skipping enable/start."
 }

@@ -33,7 +33,6 @@ deploy.liteNAS.requireTools() {
 		getent
 		groupadd
 		install
-		systemctl
 	)
 
 	for tool in "${tools[@]}"; do
@@ -80,7 +79,13 @@ deploy.liteNAS.bootstrap() {
 	if [ "$manage_nats_config" = "1" ]; then
 		"$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" --no-restart
 		"$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" --if-missing
-		systemctl restart nats-server.service
+		if deploy.hasUsableSystemd; then
+			systemctl restart nats-server.service
+		elif deploy.hasServiceCommand && service nats-server restart >/dev/null 2>&1; then
+			:
+		else
+			log.warn "No usable service manager is available for nats-server.service; skipping restart."
+		fi
 	else
 		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
 	fi

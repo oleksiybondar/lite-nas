@@ -24,7 +24,6 @@ deploy.nginx.requireTools() {
 		ln
 		readlink
 		rm
-		systemctl
 	)
 
 	for tool in "${tools[@]}"; do
@@ -76,14 +75,25 @@ deploy.nginx.validateConfig() {
 }
 
 deploy.nginx.enableAndStart() {
-	systemctl enable "$LITE_NAS_NGINX_SERVICE_NAME.service"
+	if deploy.hasUsableSystemd; then
+		systemctl enable "$LITE_NAS_NGINX_SERVICE_NAME.service"
 
-	if systemctl is-active --quiet "$LITE_NAS_NGINX_SERVICE_NAME.service"; then
-		systemctl reload "$LITE_NAS_NGINX_SERVICE_NAME.service"
+		if systemctl is-active --quiet "$LITE_NAS_NGINX_SERVICE_NAME.service"; then
+			systemctl reload "$LITE_NAS_NGINX_SERVICE_NAME.service"
+			return 0
+		fi
+
+		systemctl start "$LITE_NAS_NGINX_SERVICE_NAME.service"
 		return 0
 	fi
 
-	systemctl start "$LITE_NAS_NGINX_SERVICE_NAME.service"
+	if deploy.hasServiceCommand; then
+		if service "$LITE_NAS_NGINX_SERVICE_NAME" restart >/dev/null 2>&1; then
+			return 0
+		fi
+	fi
+
+	log.warn "No usable service manager is available for ${LITE_NAS_NGINX_SERVICE_NAME}.service; skipping enable/start."
 }
 
 deploy.nginx.deploy() {
