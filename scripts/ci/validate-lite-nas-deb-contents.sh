@@ -38,6 +38,7 @@ trap 'rm -rf "$temp_dir"' EXIT
 package_root="$temp_dir/package-root"
 package_control="$temp_dir/package-control"
 checks_passed=0
+packaged_config_root="usr/libexec/lite-nas/configs/etc"
 
 assert_cmd() {
 	local description="$1"
@@ -119,76 +120,54 @@ assert_cmd "security-logging-manager-cli symlink packaged" assert_symlink_target
 assert_cmd "system-metrics-cli symlink packaged" assert_symlink_target usr/bin/system-metrics-cli /usr/libexec/lite-nas/system-metrics-cli
 assert_cmd "zfs-metrics-cli symlink packaged" assert_symlink_target usr/bin/zfs-metrics-cli /usr/libexec/lite-nas/zfs-metrics-cli
 
-assert_cmd "lite-nas etc directory packaged" assert_dir etc/lite-nas
-assert_cmd "auth.conf packaged" assert_file etc/lite-nas/auth.conf
-assert_cmd "rbac-service.conf packaged" assert_file etc/lite-nas/rbac-service.conf
-assert_cmd "system-logging-manager.conf packaged" assert_file etc/lite-nas/system-logging-manager.conf
-assert_cmd "security-logging-manager.conf packaged" assert_file etc/lite-nas/security-logging-manager.conf
-assert_cmd "system-metrics.conf packaged" assert_file etc/lite-nas/system-metrics.conf
-assert_cmd "zfs-metrics.conf packaged" assert_file etc/lite-nas/zfs-metrics.conf
-assert_cmd "system-logging-manager-cli.conf packaged" assert_file etc/lite-nas/system-logging-manager-cli.conf
-assert_cmd "security-logging-manager-cli.conf packaged" assert_file etc/lite-nas/security-logging-manager-cli.conf
-assert_cmd "system-email-notifier.conf packaged" assert_file etc/lite-nas/system-email-notifier.conf
-assert_cmd "security-email-notifier.conf packaged" assert_file etc/lite-nas/security-email-notifier.conf
-assert_cmd "resources-monitor.conf packaged" assert_file etc/lite-nas/resources-monitor.conf
-assert_cmd "zfs-metrics-cli.conf packaged" assert_file etc/lite-nas/zfs-metrics-cli.conf
-assert_cmd "system metrics rule packaged" assert_file etc/lite-nas/resources-monitor/rules/system-metrics.json
-assert_cmd "zfs metrics rule packaged" assert_file etc/lite-nas/resources-monitor/rules/zfs-metrics.json
-assert_cmd "web-gateway.conf packaged" assert_file etc/lite-nas/web-gateway.conf
+assert_cmd "packaged lite-nas config directory exists" assert_dir "$packaged_config_root/lite-nas"
+assert_cmd "auth.conf packaged" assert_file "$packaged_config_root/lite-nas/auth.conf"
+assert_cmd "rbac-service.conf packaged" assert_file "$packaged_config_root/lite-nas/rbac-service.conf"
+assert_cmd "system-logging-manager.conf packaged" assert_file "$packaged_config_root/lite-nas/system-logging-manager.conf"
+assert_cmd "security-logging-manager.conf packaged" assert_file "$packaged_config_root/lite-nas/security-logging-manager.conf"
+assert_cmd "system-metrics.conf packaged" assert_file "$packaged_config_root/lite-nas/system-metrics.conf"
+assert_cmd "zfs-metrics.conf packaged" assert_file "$packaged_config_root/lite-nas/zfs-metrics.conf"
+assert_cmd "system-logging-manager-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/system-logging-manager-cli.conf"
+assert_cmd "security-logging-manager-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/security-logging-manager-cli.conf"
+assert_cmd "system-email-notifier.conf packaged" assert_file "$packaged_config_root/lite-nas/system-email-notifier.conf"
+assert_cmd "security-email-notifier.conf packaged" assert_file "$packaged_config_root/lite-nas/security-email-notifier.conf"
+assert_cmd "resources-monitor.conf packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor.conf"
+assert_cmd "zfs-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/zfs-metrics-cli.conf"
+assert_cmd "system metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/system-metrics.json"
+assert_cmd "zfs metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/zfs-metrics.json"
+assert_cmd "web-gateway.conf packaged" assert_file "$packaged_config_root/lite-nas/web-gateway.conf"
 
-assert_cmd "resources-monitor unit packaged" assert_file etc/systemd/system/lite-nas-resources-monitor.service
-assert_cmd "system logging manager unit packaged" assert_file etc/systemd/system/lite-nas-system-logging-manager.service
-assert_cmd "security logging manager unit packaged" assert_file etc/systemd/system/lite-nas-security-logging-manager.service
-assert_cmd "system email notifier unit packaged" assert_file etc/systemd/system/lite-nas-system-email-notifier.service
-assert_cmd "security email notifier unit packaged" assert_file etc/systemd/system/lite-nas-security-email-notifier.service
-assert_cmd "rbac unit packaged" assert_file etc/systemd/system/lite-nas-rbac.service
-assert_cmd "zfs-metrics unit packaged" assert_file etc/systemd/system/lite-nas-zfs-metrics.service
+assert_cmd "resources-monitor unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-resources-monitor.service"
+assert_cmd "system logging manager unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-system-logging-manager.service"
+assert_cmd "security logging manager unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-security-logging-manager.service"
+assert_cmd "system email notifier unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-system-email-notifier.service"
+assert_cmd "security email notifier unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-security-email-notifier.service"
+assert_cmd "rbac unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-rbac.service"
+assert_cmd "zfs-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-zfs-metrics.service"
 
-assert_cmd "postfix main.cf packaged" assert_file etc/postfix/main.cf
-assert_cmd "postfix master.cf packaged" assert_file etc/postfix/master.cf
-assert_cmd "postfix AppArmor profile packaged" assert_file etc/apparmor.d/usr.lib.postfix.sbin
-assert_cmd "auth AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.auth-service
-assert_cmd "rbac AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.rbac-service
-assert_cmd "system-metrics AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.system-metrics
-assert_cmd "zfs-metrics AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.zfs-metrics
-assert_cmd "resources-monitor AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.resources-monitor
-assert_cmd "system-logging-manager AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.system-logging-manager
-assert_cmd "security-logging-manager AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.security-logging-manager
-assert_cmd "system-email-notifier AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.system-email-notifier
-assert_cmd "security-email-notifier AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.security-email-notifier
-assert_cmd "web-gateway AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.web-gateway
-assert_cmd "system-metrics-cli AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.system-metrics-cli
-assert_cmd "zfs-metrics-cli AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.zfs-metrics-cli
-assert_cmd "system-logging-manager-cli AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.system-logging-manager-cli
-assert_cmd "security-logging-manager-cli AppArmor profile packaged" assert_file etc/apparmor.d/usr.libexec.lite-nas.security-logging-manager-cli
-assert_cmd "nginx AppArmor profile packaged" assert_file etc/apparmor.d/usr.sbin.nginx
+assert_cmd "postfix main.cf template packaged" assert_file "$packaged_config_root/postfix/main.cf"
+assert_cmd "postfix master.cf template packaged" assert_file "$packaged_config_root/postfix/master.cf"
+assert_cmd "postfix AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.lib.postfix.sbin"
+assert_cmd "auth AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.auth-service"
+assert_cmd "rbac AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.rbac-service"
+assert_cmd "system-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-metrics"
+assert_cmd "zfs-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.zfs-metrics"
+assert_cmd "resources-monitor AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.resources-monitor"
+assert_cmd "system-logging-manager AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-logging-manager"
+assert_cmd "security-logging-manager AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.security-logging-manager"
+assert_cmd "system-email-notifier AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-email-notifier"
+assert_cmd "security-email-notifier AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.security-email-notifier"
+assert_cmd "web-gateway AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.web-gateway"
+assert_cmd "system-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-metrics-cli"
+assert_cmd "zfs-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.zfs-metrics-cli"
+assert_cmd "system-logging-manager-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-logging-manager-cli"
+assert_cmd "security-logging-manager-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.security-logging-manager-cli"
+assert_cmd "nginx AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.sbin.nginx"
 
-assert_cmd "PAM config packaged" assert_file etc/pam.d/litenas-auth
-assert_cmd "nginx site config packaged" assert_file etc/nginx/sites-available/lite-nas-web-gateway.conf
-assert_cmd "ufw default config packaged" assert_file etc/default/ufw
-assert_cmd "ufw config packaged" assert_file etc/ufw/ufw.conf
-
-assert_cmd "auth token signing key packaged" assert_file etc/lite-nas/certificates/auth/token-signing.key
-assert_cmd "auth token signing certificate packaged" assert_file etc/lite-nas/certificates/auth/token-signing.crt
-assert_cmd "identity root CA key packaged" assert_file etc/lite-nas/certificates/identities/root-ca.key
-assert_cmd "identity root CA certificate packaged" assert_file etc/lite-nas/certificates/identities/root-ca.crt
-assert_cmd "auth identity certificate packaged" assert_file etc/lite-nas/certificates/identities/lite-nas-auth-service/client.crt
-assert_cmd "resources-monitor identity certificate packaged" assert_file etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.crt
-assert_cmd "system logging manager CLI identity certificate packaged" assert_file etc/lite-nas/certificates/identities/lite-nas-sys-log-mgr-cli/client.crt
-assert_cmd "security logging manager CLI identity certificate packaged" assert_file etc/lite-nas/certificates/identities/lite-nas-sec-log-mgr-cli/client.crt
-assert_cmd "auth transport certificate packaged" assert_file etc/lite-nas/certificates/transport/lite-nas-auth-service/client.crt
-assert_cmd "system email notifier transport certificate packaged" assert_file etc/lite-nas/certificates/transport/lite-nas-sys-email-notifier/client.crt
-assert_cmd "security email notifier transport certificate packaged" assert_file etc/lite-nas/certificates/transport/lite-nas-sec-email-notifier/client.crt
-assert_cmd "rbac transport certificate packaged" assert_file etc/lite-nas/certificates/transport/lite-nas-rbac-service/client.crt
-assert_cmd "rbac transport key packaged" assert_file etc/lite-nas/certificates/transport/lite-nas-rbac-service/client.key
-
-assert_cmd "lite-nas log directory packaged" assert_dir var/log/lite-nas
-assert_cmd "auth-service log file packaged" assert_file var/log/lite-nas/auth-service.log
-assert_cmd "system-metrics log file packaged" assert_file var/log/lite-nas/system-metrics.log
-assert_cmd "system-metrics-cli log file packaged" assert_file var/log/lite-nas/system-metrics-cli.log
-assert_cmd "web-gateway log file packaged" assert_file var/log/lite-nas/web-gateway.log
-assert_cmd "zfs-metrics log file packaged" assert_file var/log/lite-nas/zfs-metrics.log
-assert_cmd "zfs-metrics-cli log file packaged" assert_file var/log/lite-nas/zfs-metrics-cli.log
+assert_cmd "PAM config template packaged" assert_file "$packaged_config_root/pam.d/litenas-auth"
+assert_cmd "nginx site config template packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf"
+assert_cmd "ufw default config template packaged" assert_file "$packaged_config_root/default/ufw"
+assert_cmd "ufw config template packaged" assert_file "$packaged_config_root/ufw/ufw.conf"
 
 assert_cmd "web-gateway index.html packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.html
 assert_cmd "web-gateway index.css packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.css

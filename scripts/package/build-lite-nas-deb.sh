@@ -409,6 +409,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
+	"$package_root/usr/libexec/lite-nas/resources-monitor" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \

@@ -89,53 +89,68 @@ runs:
 
     - name: "Build: LiteNAS Debian package"
       shell: bash
-      env:
-        ADMIN_PANEL_ASSETS: ${{ inputs.admin_panel_assets }}
       run: |
-        package_args=(
-          --version=${{ inputs.version }} \
-          --auth-service-binary=${{ inputs.auth_service_binary }} \
-          --system-metrics-binary=${{ inputs.system_metrics_binary }} \
-          --system-metrics-cli-binary=${{ inputs.system_metrics_cli_binary }} \
-          --web-gateway-binary=${{ inputs.web_gateway_binary }} \
-          --output-dir=.build/packages/${{ inputs.package_arch }}
-        )
+        mkdir -p .artifacts/${{ inputs.package_arch }}/auth-service
+        mkdir -p .artifacts/${{ inputs.package_arch }}/rbac-service
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-logging-manager
+        mkdir -p .artifacts/${{ inputs.package_arch }}/security-logging-manager
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-email-notifier
+        mkdir -p .artifacts/${{ inputs.package_arch }}/security-email-notifier
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-metrics
+        mkdir -p .artifacts/${{ inputs.package_arch }}/zfs-metrics
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-logging-manager-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/security-logging-manager-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-metrics-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/zfs-metrics-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/web-gateway
+        mkdir -p .artifacts/${{ inputs.package_arch }}/resources-monitor
+
+        cp "${{ inputs.auth_service_binary }}" .artifacts/${{ inputs.package_arch }}/auth-service/auth-service
+        cp "${{ inputs.system_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics/system-metrics
+        cp "${{ inputs.system_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics-cli/system-metrics-cli
+        cp "${{ inputs.web_gateway_binary }}" .artifacts/${{ inputs.package_arch }}/web-gateway/web-gateway
 
         if [ -n "${{ inputs.rbac_service_binary }}" ]; then
-          package_args+=(--rbac-service-binary=${{ inputs.rbac_service_binary }})
+          cp "${{ inputs.rbac_service_binary }}" .artifacts/${{ inputs.package_arch }}/rbac-service/rbac-service
         fi
         if [ -n "${{ inputs.system_logging_manager_binary }}" ]; then
-          package_args+=(--system-logging-manager-binary=${{ inputs.system_logging_manager_binary }})
+          cp "${{ inputs.system_logging_manager_binary }}" .artifacts/${{ inputs.package_arch }}/system-logging-manager/system-logging-manager
         fi
         if [ -n "${{ inputs.security_logging_manager_binary }}" ]; then
-          package_args+=(--security-logging-manager-binary=${{ inputs.security_logging_manager_binary }})
+          cp "${{ inputs.security_logging_manager_binary }}" .artifacts/${{ inputs.package_arch }}/security-logging-manager/security-logging-manager
         fi
         if [ -n "${{ inputs.system_email_notifier_binary }}" ]; then
-          package_args+=(--system-email-notifier-binary=${{ inputs.system_email_notifier_binary }})
+          cp "${{ inputs.system_email_notifier_binary }}" .artifacts/${{ inputs.package_arch }}/system-email-notifier/system-email-notifier
         fi
         if [ -n "${{ inputs.security_email_notifier_binary }}" ]; then
-          package_args+=(--security-email-notifier-binary=${{ inputs.security_email_notifier_binary }})
+          cp "${{ inputs.security_email_notifier_binary }}" .artifacts/${{ inputs.package_arch }}/security-email-notifier/security-email-notifier
         fi
         if [ -n "${{ inputs.zfs_metrics_binary }}" ]; then
-          package_args+=(--zfs-metrics-binary=${{ inputs.zfs_metrics_binary }})
+          cp "${{ inputs.zfs_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/zfs-metrics/zfs-metrics
         fi
         if [ -n "${{ inputs.system_logging_manager_cli_binary }}" ]; then
-          package_args+=(--system-logging-manager-cli-binary=${{ inputs.system_logging_manager_cli_binary }})
+          cp "${{ inputs.system_logging_manager_cli_binary }}" .artifacts/${{ inputs.package_arch }}/system-logging-manager-cli/system-logging-manager-cli
         fi
         if [ -n "${{ inputs.security_logging_manager_cli_binary }}" ]; then
-          package_args+=(--security-logging-manager-cli-binary=${{ inputs.security_logging_manager_cli_binary }})
+          cp "${{ inputs.security_logging_manager_cli_binary }}" .artifacts/${{ inputs.package_arch }}/security-logging-manager-cli/security-logging-manager-cli
         fi
         if [ -n "${{ inputs.resources_monitor_binary }}" ]; then
-          package_args+=(--resources-monitor-binary=${{ inputs.resources_monitor_binary }})
+          cp "${{ inputs.resources_monitor_binary }}" .artifacts/${{ inputs.package_arch }}/resources-monitor/resources-monitor
         fi
         if [ -n "${{ inputs.zfs_metrics_cli_binary }}" ]; then
-          package_args+=(--zfs-metrics-cli-binary=${{ inputs.zfs_metrics_cli_binary }})
+          cp "${{ inputs.zfs_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/zfs-metrics-cli/zfs-metrics-cli
         fi
-        if [ -n "$ADMIN_PANEL_ASSETS" ]; then
-          package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
+        if [ -n "${{ inputs.admin_panel_assets }}" ]; then
+          rm -rf .artifacts/admin-panel
+          cp -R "${{ inputs.admin_panel_assets }}" .artifacts/admin-panel
         fi
 
-        scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
+        scripts/package/build-lite-nas-deb-from-source.sh \
+          --source-layout=ci-artifacts \
+          --source-root=.artifacts \
+          --package-arch=${{ inputs.package_arch }} \
+          --version=${{ inputs.version }} \
+          --output-dir=.build/packages/${{ inputs.package_arch }}
 
     - name: "Build: lint Debian package"
       if: ${{ inputs.run_package_validation == 'true' }}

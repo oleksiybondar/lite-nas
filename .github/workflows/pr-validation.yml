@@ -709,33 +709,13 @@ jobs:
         run: scripts/ci/install-debian-packaging-dependencies.sh
 
       - name: Build LiteNAS Debian package
-        env:
-          ADMIN_PANEL_ASSETS: .artifacts/admin-panel
         run: |
-          package_args=(
+          scripts/package/build-lite-nas-deb-from-source.sh \
+            --source-layout=ci-artifacts \
+            --source-root=.artifacts \
+            --package-arch=${{ matrix.arch }} \
             --version=${{ steps.package-version.outputs.value }} \
-            --auth-service-binary=.artifacts/${{ matrix.arch }}/auth-service/auth-service \
-            --rbac-service-binary=.artifacts/${{ matrix.arch }}/rbac-service/rbac-service \
-            --system-logging-manager-binary=.artifacts/${{ matrix.arch }}/system-logging-manager/system-logging-manager \
-            --security-logging-manager-binary=.artifacts/${{ matrix.arch }}/security-logging-manager/security-logging-manager \
-            --system-email-notifier-binary=.artifacts/${{ matrix.arch }}/system-email-notifier/system-email-notifier \
-            --security-email-notifier-binary=.artifacts/${{ matrix.arch }}/security-email-notifier/security-email-notifier \
-            --system-metrics-binary=.artifacts/${{ matrix.arch }}/system-metrics/system-metrics \
-            --zfs-metrics-binary=.artifacts/${{ matrix.arch }}/zfs-metrics/zfs-metrics \
-            --system-logging-manager-cli-binary=.artifacts/${{ matrix.arch }}/system-logging-manager-cli/system-logging-manager-cli \
-            --security-logging-manager-cli-binary=.artifacts/${{ matrix.arch }}/security-logging-manager-cli/security-logging-manager-cli \
-            --system-metrics-cli-binary=.artifacts/${{ matrix.arch }}/system-metrics-cli/system-metrics-cli \
-            --zfs-metrics-cli-binary=.artifacts/${{ matrix.arch }}/zfs-metrics-cli/zfs-metrics-cli \
-            --web-gateway-binary=.artifacts/${{ matrix.arch }}/web-gateway/web-gateway \
-            --resources-monitor-binary=.artifacts/${{ matrix.arch }}/resources-monitor/resources-monitor \
             --output-dir=.build/packages/${{ matrix.arch }}
-          )
-
-          if [ -n "$ADMIN_PANEL_ASSETS" ]; then
-            package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
-          fi
-
-          scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
 
       - name: Lint LiteNAS Debian package
         run: |

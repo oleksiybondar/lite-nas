@@ -33,7 +33,15 @@ build.prepareOutputPath() {
 }
 
 build.prepareGoCache() {
-	export GOCACHE="${GOCACHE:-${TMPDIR:-/tmp}/lite-nas-go-build}"
+	local default_cache_root=""
+
+	if [ -n "${XDG_CACHE_HOME:-}" ]; then
+		default_cache_root="$XDG_CACHE_HOME/lite-nas"
+	else
+		default_cache_root="$LITE_NAS_REPO_ROOT/.cache"
+	fi
+
+	export GOCACHE="${GOCACHE:-$default_cache_root/go-build}"
 	mkdir -p "$GOCACHE"
 }
 

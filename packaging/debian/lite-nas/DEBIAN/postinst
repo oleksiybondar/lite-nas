@@ -10,16 +10,22 @@ configure_package_validation_mode() {
 }
 
 configure_package() {
+	REPLACE_NATS_CONFIG="true"
+
 	if [ "$INSTALL_MODE" = "validate" ]; then
 		configure_package_validation_mode
 		return 0
 	fi
 
-	# shellcheck disable=SC1091
-	. /usr/share/debconf/confmodule
-	db_get lite-nas/replace-nats-config || true
-	REPLACE_NATS_CONFIG="$RET"
-	db_stop || true
+	if [ -x /usr/share/debconf/confmodule ]; then
+		# shellcheck disable=SC1091
+		if . /usr/share/debconf/confmodule 2>/dev/null; then
+			if db_get lite-nas/replace-nats-config 2>/dev/null; then
+				REPLACE_NATS_CONFIG="$RET"
+			fi
+			db_stop || true
+		fi
+	fi
 
 	if [ "$REPLACE_NATS_CONFIG" = "true" ]; then
 		"$DEPLOY_RUNTIME_SCRIPT" --mode full

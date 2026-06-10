@@ -383,7 +383,7 @@ markdownlint can safely autofix; remaining findings still require manual edits.
 Run the full local CI static analysis suite:
 
 ```bash
-./scripts/run-ci-analysis.sh
+./scripts/run-ci-checks.sh
 ```
 
 This calls the same analysis scripts used by GitHub Actions. It expects local
@@ -397,7 +397,7 @@ as `/usr/libexec/lite-nas/*`, `/etc/lite-nas/*`, or running services belong in
 package install validation, post-install validation, or top-level system tests.
 
 `./scripts/run-ci.sh` remains as a compatibility wrapper around
-`./scripts/run-ci-analysis.sh`.
+`./scripts/run-ci-checks.sh`.
 
 Run the local CI build checks:
 
