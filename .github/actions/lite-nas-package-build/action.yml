@@ -11,6 +11,10 @@ inputs:
   system_metrics_binary:
     description: Path to the system-metrics binary.
     required: true
+  zfs_metrics_binary:
+    description: Path to the zfs-metrics binary.
+    required: false
+    default: ""
   rbac_service_binary:
     description: Path to the rbac-service binary.
     required: false
@@ -34,6 +38,10 @@ inputs:
   system_metrics_cli_binary:
     description: Path to the system-metrics-cli binary.
     required: true
+  zfs_metrics_cli_binary:
+    description: Path to the zfs-metrics-cli binary.
+    required: false
+    default: ""
   system_logging_manager_cli_binary:
     description: Path to the system-logging-manager-cli binary.
     required: false
@@ -108,6 +116,9 @@ runs:
         if [ -n "${{ inputs.security_email_notifier_binary }}" ]; then
           package_args+=(--security-email-notifier-binary=${{ inputs.security_email_notifier_binary }})
         fi
+        if [ -n "${{ inputs.zfs_metrics_binary }}" ]; then
+          package_args+=(--zfs-metrics-binary=${{ inputs.zfs_metrics_binary }})
+        fi
         if [ -n "${{ inputs.system_logging_manager_cli_binary }}" ]; then
           package_args+=(--system-logging-manager-cli-binary=${{ inputs.system_logging_manager_cli_binary }})
         fi
@@ -116,6 +127,9 @@ runs:
         fi
         if [ -n "${{ inputs.resources_monitor_binary }}" ]; then
           package_args+=(--resources-monitor-binary=${{ inputs.resources_monitor_binary }})
+        fi
+        if [ -n "${{ inputs.zfs_metrics_cli_binary }}" ]; then
+          package_args+=(--zfs-metrics-cli-binary=${{ inputs.zfs_metrics_cli_binary }})
         fi
         if [ -n "$ADMIN_PANEL_ASSETS" ]; then
           package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
