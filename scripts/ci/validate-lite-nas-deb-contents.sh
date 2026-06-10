@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/../helpers/logger.sh"
 cd "$(git rev-parse --show-toplevel)"
 
 if [ "$#" -ne 2 ]; then
-	log.error "Usage: scripts/ci/validate-lite-nas-deb-install.sh <package.deb> <amd64|arm64>"
+	log.error "Usage: scripts/ci/validate-lite-nas-deb-contents.sh <package.deb> <amd64|arm64>"
 	exit 64
 fi
 
@@ -37,14 +37,22 @@ trap 'rm -rf "$temp_dir"' EXIT
 
 package_root="$temp_dir/package-root"
 package_control="$temp_dir/package-control"
+checks_passed=0
 
 assert_cmd() {
 	local description="$1"
 	shift
 
-	log.pushTask "$description"
-	"$@"
-	log.popTask
+	log.info "CHECK: $description"
+	if "$@"; then
+		log.info "PASS: $description"
+		checks_passed=$((checks_passed + 1))
+		return 0
+	fi
+
+	log.error "FAIL: $description"
+	log.error "Command: $*"
+	exit 1
 }
 
 assert_file() {
@@ -187,4 +195,5 @@ assert_cmd "web-gateway index.css packaged" assert_file usr/share/lite-nas/web-g
 assert_cmd "web-gateway index.js packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.js
 log.popTask
 
+log.info "Package content checks passed: $checks_passed"
 log.info "Validated static package contents: $package_path"

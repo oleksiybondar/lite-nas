@@ -148,7 +148,7 @@ runs:
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
-        scripts/ci/validate-lite-nas-deb-install.sh \
+        scripts/ci/validate-lite-nas-deb-contents.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
           ${{ inputs.package_arch }}
 
