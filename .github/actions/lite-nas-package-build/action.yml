@@ -87,6 +87,10 @@ runs:
       shell: bash
       run: scripts/ci/install-node-dependencies.sh
 
+    - name: "Prepare: package diagnostic log directory"
+      shell: bash
+      run: mkdir -p .build/package-ci-logs/${{ inputs.package_arch }}
+
     - name: "Build: LiteNAS Debian package"
       shell: bash
       run: |
@@ -145,36 +149,60 @@ runs:
           cp -R "${{ inputs.admin_panel_assets }}" .artifacts/admin-panel
         fi
 
+        set -o pipefail
         scripts/package/build-lite-nas-deb-from-source.sh \
           --source-layout=ci-artifacts \
           --source-root=.artifacts \
           --package-arch=${{ inputs.package_arch }} \
           --version=${{ inputs.version }} \
-          --output-dir=.build/packages/${{ inputs.package_arch }}
+          --output-dir=.build/packages/${{ inputs.package_arch }} \
+          2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/build-package.log
 
     - name: "Build: lint Debian package"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
+        set -o pipefail
         scripts/package/lint-lite-nas-deb.sh \
-          .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
+          .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
+          2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/lint-package.log
 
     - name: "Build: validate Debian package contents"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
+        set -o pipefail
         scripts/ci/validate-lite-nas-deb-contents.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
-          ${{ inputs.package_arch }}
+          ${{ inputs.package_arch }} \
+          2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/validate-package-contents.log
 
     - name: "Install: LiteNAS package on runner for system tests"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: |
+        set -o pipefail
         sudo env DEBIAN_FRONTEND=noninteractive \
           scripts/package/install-lite-nas-deb.sh \
             --package .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
-            --no-install-recommends
+            --no-install-recommends \
+            2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/install-package.log
+
+    - name: "Archive: collect package diagnostics on failure"
+      if: ${{ failure() }}
+      shell: bash
+      run: |
+        sudo bash scripts/ci/collect-package-diagnostics.sh \
+          --output-dir .build/package-ci-logs/${{ inputs.package_arch }}/diagnostics
+
+    - name: "Archive: upload package diagnostics on failure"
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-diagnostics-${{ inputs.package_arch }}
+        path: .build/package-ci-logs/${{ inputs.package_arch }}
+        if-no-files-found: warn
+        retention-days: 15
 
     - name: "Test prep: install Python and Playwright dependencies"
       if: ${{ inputs.run_installed_package_tests == 'true' }}

@@ -708,32 +708,58 @@ jobs:
       - name: Prepare package job dependencies
         run: scripts/ci/install-debian-packaging-dependencies.sh
 
+      - name: Prepare package diagnostic log directory
+        run: mkdir -p .build/package-ci-logs/${{ matrix.arch }}
+
       - name: Build LiteNAS Debian package
         run: |
+          set -o pipefail
           scripts/package/build-lite-nas-deb-from-source.sh \
             --source-layout=ci-artifacts \
             --source-root=.artifacts \
             --package-arch=${{ matrix.arch }} \
             --version=${{ steps.package-version.outputs.value }} \
-            --output-dir=.build/packages/${{ matrix.arch }}
+            --output-dir=.build/packages/${{ matrix.arch }} \
+            2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/build-package.log
 
       - name: Lint LiteNAS Debian package
         run: |
+          set -o pipefail
           scripts/package/lint-lite-nas-deb.sh \
-            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb
+            .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+            2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/lint-package.log
 
       - name: Validate LiteNAS Debian package contents
         run: |
+          set -o pipefail
           scripts/ci/validate-lite-nas-deb-contents.sh \
             .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
-            ${{ matrix.arch }}
+            ${{ matrix.arch }} \
+            2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/validate-package-contents.log
 
       - name: Install LiteNAS package on runner for system tests
         run: |
+          set -o pipefail
           sudo env DEBIAN_FRONTEND=noninteractive \
             scripts/package/install-lite-nas-deb.sh \
               --package .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
-              --no-install-recommends
+              --no-install-recommends \
+              2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/install-package.log
+
+      - name: Collect package diagnostics on failure
+        if: ${{ failure() }}
+        run: |
+          sudo bash scripts/ci/collect-package-diagnostics.sh \
+            --output-dir .build/package-ci-logs/${{ matrix.arch }}/diagnostics
+
+      - name: Upload package diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-diagnostics-${{ matrix.arch }}
+          path: .build/package-ci-logs/${{ matrix.arch }}
+          if-no-files-found: warn
+          retention-days: 15
 
       - name: Install Python and Playwright dependencies
         if: ${{ matrix.arch == 'amd64' }}

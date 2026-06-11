@@ -5,8 +5,22 @@ PACKAGE_ROOT="/usr/libexec/lite-nas"
 DEPLOY_RUNTIME_SCRIPT="$PACKAGE_ROOT/scripts/runtime/deploy-package-runtime.sh"
 INSTALL_MODE="${LITE_NAS_PACKAGE_INSTALL_MODE:-}"
 
+run_deploy_runtime() {
+	mode="$1"
+	shift
+
+	echo "[TASK] LiteNAS postinst deploy: mode=$mode args=$*" >&2
+	if "$DEPLOY_RUNTIME_SCRIPT" --mode "$mode" "$@"; then
+		return 0
+	else
+		status="$?"
+		echo "[ERROR] LiteNAS postinst deploy failed: mode=$mode status=$status" >&2
+		exit "$status"
+	fi
+}
+
 configure_package_validation_mode() {
-	"$DEPLOY_RUNTIME_SCRIPT" --mode validate
+	run_deploy_runtime validate
 }
 
 configure_package() {
@@ -31,9 +45,11 @@ configure_package() {
 	fi
 
 	if [ "$REPLACE_NATS_CONFIG" = "true" ]; then
-		"$DEPLOY_RUNTIME_SCRIPT" --mode full
+		echo "[INFO] LiteNAS postinst will replace NATS configuration." >&2
+		run_deploy_runtime full
 	else
-		"$DEPLOY_RUNTIME_SCRIPT" --mode full --no-nats-config
+		echo "[WARN] LiteNAS postinst will keep existing NATS configuration." >&2
+		run_deploy_runtime full --no-nats-config
 	fi
 }
 
