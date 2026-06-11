@@ -3,6 +3,7 @@ package contracts
 import (
 	authcontract "lite-nas/shared/contracts/auth"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
@@ -31,6 +32,18 @@ type loggingManagerRPCSubjects struct {
 
 // RPCByService defines known RPC endpoints per service identity.
 var RPCByService = map[string]map[string]RPCContract{
+	ServiceNetworkMetrics: {
+		"get_snapshot": {
+			Subject:  networkmetricscontract.SnapshotRPCSubject,
+			Request:  networkmetricscontract.GetSnapshotRequest{},
+			Response: networkmetricscontract.GetSnapshotResponse{},
+		},
+		"get_history": {
+			Subject:  networkmetricscontract.HistoryRPCSubject,
+			Request:  networkmetricscontract.GetHistoryRequest{},
+			Response: networkmetricscontract.GetHistoryResponse{},
+		},
+	},
 	ServiceSystemMetrics: {
 		"get_snapshot": {
 			Subject:  systemmetricscontract.SnapshotRPCSubject,
