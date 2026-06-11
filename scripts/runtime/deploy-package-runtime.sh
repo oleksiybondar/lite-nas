@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -40,6 +40,10 @@ source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/restart-affected-services.sh"
+
+# Package maintainer execution should not inherit pipefail from sourced helpers.
+# Some platform tools intentionally close pipes early, which is benign during install.
+set +o pipefail
 
 run_mode="full"
 manage_nats_config=1

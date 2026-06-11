@@ -99,6 +99,7 @@ EOF
 	openssl req \
 		-x509 \
 		-newkey rsa:4096 \
+		-quiet \
 		-sha256 \
 		-days "$certificate_days" \
 		-nodes \

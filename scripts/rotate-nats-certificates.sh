@@ -198,6 +198,7 @@ create_root_ca_if_missing() {
 	openssl req \
 		-x509 \
 		-newkey rsa:4096 \
+		-quiet \
 		-sha256 \
 		-days "$root_ca_days" \
 		-nodes \
@@ -226,6 +227,7 @@ create_signed_certificate() {
 
 	openssl req \
 		-newkey rsa:4096 \
+		-quiet \
 		-nodes \
 		-keyout "$key_file" \
 		-out "$csr_file" \

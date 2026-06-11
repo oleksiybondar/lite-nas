@@ -161,6 +161,7 @@ create_identity_root_ca_if_missing() {
 	openssl req \
 		-x509 \
 		-newkey rsa:4096 \
+		-quiet \
 		-sha256 \
 		-days "$identity_root_ca_days" \
 		-nodes \
@@ -188,6 +189,7 @@ EOF
 	log.info "Rotating auth identity certificate: $identity_user"
 	openssl req \
 		-newkey rsa:4096 \
+		-quiet \
 		-nodes \
 		-keyout "$key_file" \
 		-out "$csr_file" \
