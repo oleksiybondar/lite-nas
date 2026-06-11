@@ -8,6 +8,12 @@ SERVICE_DOMAIN_MARKS = {
     "lite-nas-auth": pytest.mark.Auth,
     "lite-nas-web-gateway": pytest.mark.WebGateway,
     "lite-nas-system-metrics": pytest.mark.SystemMetrics,
+    "lite-nas-system-logging-manager": pytest.mark.SystemLoggingManager,
+    "lite-nas-security-logging-manager": pytest.mark.SecurityLoggingManager,
+    "lite-nas-system-email-notifier": pytest.mark.SystemEmailNotifier,
+    "lite-nas-security-email-notifier": pytest.mark.SecurityEmailNotifier,
+    "postfix": pytest.mark.Postfix,
+    "apparmor": pytest.mark.AppArmor,
     "nginx": pytest.mark.Nginx,
     "nats-server": pytest.mark.NATS,
 }

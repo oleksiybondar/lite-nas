@@ -45,5 +45,9 @@ repository-level `AGENTS.md`.
   to temporarily disable static-analysis type checks. Keep each ignore narrow,
   local to the decorated page-object member, and explain the reason when the
   tool supports it.
+- Do not add custom wrapper entities that behave like widgets while hiding
+  collection lookup, deferred resolution, or stale-selection semantics. Keep
+  those concerns explicit by using framework `Element` / `Elements` /
+  `Widget` / `Widgets` types directly at the page-object boundary.
 - Do not use the page-object type-check exception for test logic, fixtures,
   API clients, CLI clients, or helper code.

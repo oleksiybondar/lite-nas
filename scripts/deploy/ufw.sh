@@ -47,14 +47,15 @@ deploy.ufw.deleteNumberedRule() {
 	yes | ufw delete "$rule_number" >/dev/null
 }
 
-deploy.ufw.removeHTTPAllowRules() {
+deploy.ufw.removeAllowRulesForPort() {
+	local port="$1"
 	local status_output
 	local rule_numbers
 	local rule_number
 
 	status_output="$(ufw status numbered || true)"
 	rule_numbers="$(printf '%s\n' "$status_output" |
-		awk '/80\/tcp/ && /ALLOW IN/ {
+		awk -v port="$port" '$0 ~ (port "/tcp") && /ALLOW IN/ {
 			if (match($0, /^\[[[:space:]]*[0-9]+]/)) {
 				rule = substr($0, RSTART + 1, RLENGTH - 2)
 				gsub(/[[:space:]]/, "", rule)
@@ -67,7 +68,7 @@ deploy.ufw.removeHTTPAllowRules() {
 		return 0
 	fi
 
-	log.pushTask "Removing UFW allow rules for 80/tcp"
+	log.pushTask "Removing UFW allow rules for ${port}/tcp"
 	while IFS= read -r rule_number; do
 		if [ -z "$rule_number" ]; then
 			continue
@@ -82,8 +83,14 @@ deploy.ufw.applyPolicy() {
 	log.pushTask "Applying LiteNAS UFW policy"
 	ufw default deny incoming
 	ufw default allow outgoing
-	deploy.ufw.removeHTTPAllowRules
+	deploy.ufw.removeAllowRulesForPort 80
+	deploy.ufw.removeAllowRulesForPort 25
+	deploy.ufw.removeAllowRulesForPort 465
+	deploy.ufw.removeAllowRulesForPort 587
 	ufw allow 443/tcp
+	ufw deny 25/tcp
+	ufw deny 465/tcp
+	ufw deny 587/tcp
 	ufw deny 80/tcp
 	ufw --force enable
 	ufw reload

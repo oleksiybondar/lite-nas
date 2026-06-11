@@ -1,5 +1,5 @@
 import { SystemPerformanceLandingPage } from "@pages/SystemPerformanceLandingPage";
-import { SystemTelemetryPage } from "@pages/SystemTelemetryPage";
+import { SystemTelemetryPage } from "@pages/SystemTelemetryPage/SystemTelemetryPage";
 import type { RouteObject } from "react-router-dom";
 
 /**

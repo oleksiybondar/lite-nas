@@ -8,12 +8,14 @@
       "!**/.build",
       "!**/dist",
       "!**/build",
+      "!configs/etc/lite-nas/*-email-notifier/*.html",
       "!**/coverage",
       "!**/.claude",
       "!**/.venv",
       "!**/log.html",
       "!logs",
-      "!tests/logs"
+      "!tests/logs",
+      "!**/.junie"
     ]
   },
   "formatter": {

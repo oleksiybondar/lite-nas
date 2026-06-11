@@ -11,6 +11,24 @@ import (
 type SharedConfig struct {
 	Messaging MessagingConfig
 	Logging   LoggingConfig
+	Auth      AuthConfig
+}
+
+// SharedEmailConfig groups the common runtime bootstrap sections reused by
+// email notifier services.
+type SharedEmailConfig struct {
+	Messaging MessagingConfig
+	Logging   LoggingConfig
+	Email     EmailConfig
+	SMTP      SMTPConfig
+}
+
+// SharedAuthTokenConfig groups shared bootstrap sections reused by services
+// that need local JWT verification policy.
+type SharedAuthTokenConfig struct {
+	Messaging  MessagingConfig
+	Logging    LoggingConfig
+	AuthTokens AuthTokenConfig
 }
 
 // LoadINI reads configuration bytes from the supplied reader and parses them as
@@ -24,7 +42,7 @@ func LoadINI(reader fileio.Reader) (*ini.File, error) {
 	return ini.Load(data)
 }
 
-// LoadSharedConfig extracts the shared [messaging] and [logging] sections from
+// LoadSharedConfig extracts shared bootstrap sections from
 // a parsed INI document.
 func LoadSharedConfig(cfgFile *ini.File) (SharedConfig, error) {
 	messagingConfig, err := LoadMessagingConfig(cfgFile)
@@ -36,9 +54,70 @@ func LoadSharedConfig(cfgFile *ini.File) (SharedConfig, error) {
 	if err != nil {
 		return SharedConfig{}, err
 	}
+	authConfig, err := LoadAuthConfig(cfgFile)
+	if err != nil {
+		return SharedConfig{}, err
+	}
 
 	return SharedConfig{
 		Messaging: messagingConfig,
 		Logging:   loggingConfig,
+		Auth:      authConfig,
+	}, nil
+}
+
+// LoadSharedEmailConfig extracts shared bootstrap sections plus email delivery
+// configuration from a parsed INI document.
+func LoadSharedEmailConfig(cfgFile *ini.File) (SharedEmailConfig, error) {
+	messagingConfig, err := LoadMessagingConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	loggingConfig, err := LoadLoggingConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	emailConfig, err := LoadEmailConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	smtpConfig, err := LoadSMTPConfig(cfgFile)
+	if err != nil {
+		return SharedEmailConfig{}, err
+	}
+
+	return SharedEmailConfig{
+		Messaging: messagingConfig,
+		Logging:   loggingConfig,
+		Email:     emailConfig,
+		SMTP:      smtpConfig,
+	}, nil
+}
+
+// LoadSharedAuthTokenConfig extracts shared bootstrap sections plus
+// auth-token policy from a parsed INI document.
+func LoadSharedAuthTokenConfig(cfgFile *ini.File) (SharedAuthTokenConfig, error) {
+	messagingConfig, err := LoadMessagingConfig(cfgFile)
+	if err != nil {
+		return SharedAuthTokenConfig{}, err
+	}
+
+	loggingConfig, err := LoadLoggingConfig(cfgFile)
+	if err != nil {
+		return SharedAuthTokenConfig{}, err
+	}
+
+	authTokenConfig, err := LoadAuthTokenConfig(cfgFile)
+	if err != nil {
+		return SharedAuthTokenConfig{}, err
+	}
+
+	return SharedAuthTokenConfig{
+		Messaging:  messagingConfig,
+		Logging:    loggingConfig,
+		AuthTokens: authTokenConfig,
 	}, nil
 }

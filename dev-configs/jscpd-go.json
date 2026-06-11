@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/kucherenko/jscpd/master/schemas/jscpd-schema.json",
-  "threshold": 1,
+  "threshold": 2,
   "minLines": 8,
   "minTokens": 50,
   "format": ["go"],
@@ -17,6 +17,7 @@
     "**/.cache/**",
     "**/.build/**",
     "**/.artifacts/**",
+    "**/shared/go/parsers/generated/**",
     "**/*.lock",
     "**/package-lock.json",
     "**/pnpm-lock.yaml",

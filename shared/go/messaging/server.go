@@ -26,6 +26,26 @@ type MessageHandler func(ctx context.Context, envelope Envelope) error
 //   - response encoding is handled by the shared Codec
 type RPCHandler func(ctx context.Context, envelope Envelope) (any, error)
 
+// MessageNext invokes the next subscription step in the middleware chain.
+type MessageNext func(ctx context.Context, envelope Envelope) error
+
+// SubscriptionMiddleware wraps inbound subscription handling.
+type SubscriptionMiddleware func(
+	ctx context.Context,
+	envelope Envelope,
+	next MessageNext,
+) error
+
+// RPCNext invokes the next RPC step in the middleware chain.
+type RPCNext func(ctx context.Context, envelope Envelope) (any, error)
+
+// RPCMiddleware wraps inbound RPC handling.
+type RPCMiddleware func(
+	ctx context.Context,
+	envelope Envelope,
+	next RPCNext,
+) (any, error)
+
 // Server defines inbound messaging operations built on top of the low-level
 // transport connection.
 //
@@ -39,6 +59,12 @@ type Server interface {
 
 	// RegisterRPC registers a request/reply handler for the provided subject.
 	RegisterRPC(subject string, handler RPCHandler) error
+
+	// UseSubscriptionMiddleware appends middleware for subscription handlers.
+	UseSubscriptionMiddleware(middlewares ...SubscriptionMiddleware)
+
+	// UseRPCMiddleware appends middleware for RPC handlers.
+	UseRPCMiddleware(middlewares ...RPCMiddleware)
 
 	// Drain gracefully drains the underlying transport connection.
 	Drain() error
@@ -54,9 +80,11 @@ type Server interface {
 //   - it converts raw NATS messages into Envelope before invoking handlers
 //   - it uses the injected Codec only where serialization is required
 type server struct {
-	connection *connection
-	codec      Codec
-	logger     logger.Logger
+	connection              *connection
+	codec                   Codec
+	logger                  logger.Logger
+	subscriptionMiddlewares []SubscriptionMiddleware
+	rpcMiddlewares          []RPCMiddleware
 }
 
 // NewServer creates a new inbound messaging server.
@@ -100,6 +128,18 @@ func (s *server) RegisterRPC(subject string, handler RPCHandler) error {
 	}
 
 	return s.connection.subscribe(subject, s.buildRPCHandler(handler))
+}
+
+// UseSubscriptionMiddleware appends middleware for subscription handlers.
+func (s *server) UseSubscriptionMiddleware(
+	middlewares ...SubscriptionMiddleware,
+) {
+	s.subscriptionMiddlewares = append(s.subscriptionMiddlewares, middlewares...)
+}
+
+// UseRPCMiddleware appends middleware for RPC handlers.
+func (s *server) UseRPCMiddleware(middlewares ...RPCMiddleware) {
+	s.rpcMiddlewares = append(s.rpcMiddlewares, middlewares...)
 }
 
 // Drain gracefully drains the underlying transport connection.
@@ -149,7 +189,12 @@ func (s *server) handleMessage(
 	handler MessageHandler,
 	envelope Envelope,
 ) error {
-	if err := handler(context.Background(), envelope); err != nil {
+	base := func(ctx context.Context, req Envelope) error {
+		return handler(ctx, req)
+	}
+	chain := s.wrapSubscriptionMiddlewares(base)
+
+	if err := chain(context.Background(), envelope); err != nil {
 		return fmt.Errorf("%w: %w", ErrHandlerFailed, err)
 	}
 
@@ -171,8 +216,14 @@ func (s *server) handleRPC(
 		return fmt.Errorf("%w: missing reply subject", ErrHandlerFailed)
 	}
 
-	response, err := handler(context.Background(), envelope)
+	base := func(ctx context.Context, req Envelope) (any, error) {
+		return handler(ctx, req)
+	}
+	chain := s.wrapRPCMiddlewares(base)
+
+	response, err := chain(context.Background(), envelope)
 	if err != nil {
+		_ = s.publishRPCError(envelope.ReplyTo, err)
 		return fmt.Errorf("%w: %w", ErrHandlerFailed, err)
 	}
 
@@ -186,6 +237,53 @@ func (s *server) handleRPC(
 	}
 
 	return nil
+}
+
+func (s *server) publishRPCError(replySubject string, cause error) error {
+	payload, err := s.codec.Marshal(rpcErrorPayload{Error: cause.Error()})
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrEncodeFailed, err)
+	}
+
+	return s.connection.publish(replySubject, payload)
+}
+
+// wrapSubscriptionMiddlewares composes subscription middleware in registration
+// order around a final message handler.
+func (s *server) wrapSubscriptionMiddlewares(final MessageNext) MessageNext {
+	chain := final
+
+	for index := len(s.subscriptionMiddlewares) - 1; index >= 0; index-- {
+		middleware := s.subscriptionMiddlewares[index]
+		next := chain
+		chain = func(
+			ctx context.Context,
+			envelope Envelope,
+		) error {
+			return middleware(ctx, envelope, next)
+		}
+	}
+
+	return chain
+}
+
+// wrapRPCMiddlewares composes RPC middleware in registration order around a
+// final RPC handler.
+func (s *server) wrapRPCMiddlewares(final RPCNext) RPCNext {
+	chain := final
+
+	for index := len(s.rpcMiddlewares) - 1; index >= 0; index-- {
+		middleware := s.rpcMiddlewares[index]
+		next := chain
+		chain = func(
+			ctx context.Context,
+			envelope Envelope,
+		) (any, error) {
+			return middleware(ctx, envelope, next)
+		}
+	}
+
+	return chain
 }
 
 // logMessageHandlerError logs a message handler failure with transport context.

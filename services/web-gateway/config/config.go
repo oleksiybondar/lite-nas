@@ -37,7 +37,7 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
-	sharedCfg, err := config.LoadSharedConfig(cfgFile)
+	sharedCfg, err := config.LoadSharedAuthTokenConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
@@ -47,15 +47,10 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
-	authTokenConfig, err := config.LoadAuthTokenConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
 	return Config{
 		HTTP:       httpConfig,
 		Messaging:  sharedCfg.Messaging,
-		AuthTokens: authTokenConfig,
+		AuthTokens: sharedCfg.AuthTokens,
 		Logging:    sharedCfg.Logging,
 	}, nil
 }

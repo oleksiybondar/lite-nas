@@ -6,13 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../helpers/logger.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/tool-paths.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../helpers/repo-files.sh"
 
-cd "$(git rev-parse --show-toplevel)"
-
-mapfile -t files < <(find . -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \) \
-	-not -path '*/node_modules/*' \
-	-not -path './dist/*' \
-	-not -path './build/*')
+declare -a files=()
+repo.files.collectShellFiles files
 
 if [ "${#files[@]}" -eq 0 ]; then
 	log.info "No shell files found."

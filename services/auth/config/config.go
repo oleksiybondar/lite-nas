@@ -25,19 +25,14 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 		return Config{}, err
 	}
 
-	sharedCfg, err := sharedconfig.LoadSharedConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	authTokenConfig, err := sharedconfig.LoadAuthTokenConfig(cfgFile)
+	sharedCfg, err := sharedconfig.LoadSharedAuthTokenConfig(cfgFile)
 	if err != nil {
 		return Config{}, err
 	}
 
 	return Config{
 		Messaging:  sharedCfg.Messaging,
-		AuthTokens: authTokenConfig,
+		AuthTokens: sharedCfg.AuthTokens,
 		Logging:    sharedCfg.Logging,
 	}, nil
 }

@@ -216,14 +216,14 @@ repository-managed LiteNAS defaults.
 Build the current LiteNAS package set:
 
 ```bash
-./scripts/package/build-all-debs.sh --version=0.1.0+local
+./scripts/package/build-all-debs.sh --version=0.2.0+local
 ```
 
 Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
-./scripts/package/build-lite-nas-deb.sh --version=0.1.0+local
-./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --system-metrics-cli-binary=/tmp/system-metrics-cli
+./scripts/package/build-lite-nas-deb.sh --version=0.2.0+local
+./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --resources-monitor-binary=/tmp/resources-monitor
 ```
 
 Build only the browser app assets:
@@ -238,7 +238,8 @@ asset layout served from `/usr/share/lite-nas/web-gateway/assets`.
 
 The package output currently contains one native-architecture package:
 
-- `lite-nas`: bootstrap/profile package that also bundles the system metrics service and CLI binaries
+- `lite-nas`: bootstrap/profile package that bundles the currently packaged
+  LiteNAS services, CLIs, and web assets
 
 The `lite-nas` package:
 
@@ -257,17 +258,31 @@ The `lite-nas` package:
 - stores service NATS client certificates under
   `/etc/lite-nas/certificates/transport/<service>/`
 - stores auth token signing material under `/etc/lite-nas/certificates/auth/`
-- grants the `users` group read-only access to the system metrics CLI config
-  and client certificate by default
+- grants the `users` group read-only access to the packaged CLI configs and
+  transport client certificates intended for normal-shell usage
 
-The `lite-nas` package installs the auth service, system metrics service,
-system metrics CLI app, web gateway, and packaged admin-panel assets under that
-profile.
+The `lite-nas` package currently installs:
+
+- `auth-service`
+- `rbac-service`
+- `system-logging-manager`
+- `security-logging-manager`
+- `system-metrics`
+- `resources-monitor`
+- `system-logging-manager-cli`
+- `security-logging-manager-cli`
+- `system-metrics-cli`
+- `web-gateway`
+- packaged `admin-panel` assets
+
+`zfs-metrics` and `zfs-metrics-cli` already exist in the repository and local
+deploy flows, but they are not yet part of the packaged runtime path described
+in this section.
 
 Install a built package with dependency resolution:
 
 ```bash
-sudo ./scripts/package/install-lite-nas-deb.sh --package .build/packages/lite-nas_0.1.0_amd64.deb
+sudo ./scripts/package/install-lite-nas-deb.sh --package .build/packages/lite-nas_0.2.0_amd64.deb
 ```
 
 For local testing, prefer `apt-get install <package.deb>` or the helper above
@@ -278,7 +293,7 @@ them automatically.
 Lint a built package with:
 
 ```bash
-./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.1.0_amd64.deb
+./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.2.0_amd64.deb
 ```
 
 ## Rotate NATS certificates
@@ -294,9 +309,17 @@ By default, client certificates are generated for:
 
 ```text
 lite-nas-system-metrics
+lite-nas-zfs-metrics
+lite-nas-zfs-metrics-cli
 lite-nas-system-metrics-cli
+lite-nas-sys-log-mgr
+lite-nas-sec-log-mgr
+lite-nas-sys-log-mgr-cli
+lite-nas-sec-log-mgr-cli
 lite-nas-web-gateway
 lite-nas-auth-service
+lite-nas-resources-monitor
+lite-nas-rbac-service
 ```
 
 Override the list with repeated `--user` options:
@@ -360,7 +383,7 @@ markdownlint can safely autofix; remaining findings still require manual edits.
 Run the full local CI static analysis suite:
 
 ```bash
-./scripts/run-ci-analysis.sh
+./scripts/run-ci-checks.sh
 ```
 
 This calls the same analysis scripts used by GitHub Actions. It expects local
@@ -374,12 +397,12 @@ as `/usr/libexec/lite-nas/*`, `/etc/lite-nas/*`, or running services belong in
 package install validation, post-install validation, or top-level system tests.
 
 `./scripts/run-ci.sh` remains as a compatibility wrapper around
-`./scripts/run-ci-analysis.sh`.
+`./scripts/run-ci-checks.sh`.
 
 Run the local CI build checks:
 
 ```bash
-./scripts/run-ci-build.sh
+./scripts/run-ci-component-build-checks.sh
 ```
 
 Run the local CI test and coverage checks:
@@ -477,10 +500,13 @@ CI workflow order:
 3. `Release pipeline` runs only after `Main pipeline` completes successfully
    on `main`.
 
-`Main pipeline` uploads the built `system-metrics` binaries as short-lived
-workflow artifacts together with the built `system-metrics-cli`,
-`auth-service`, `web-gateway`, and `admin-panel` frontend asset artifacts. The
-downstream package job consumes those artifacts when assembling the `.deb`.
+`Main pipeline` uploads the package-build inputs as short-lived workflow
+artifacts, including the built `auth-service`, `rbac-service`,
+`system-logging-manager`, `security-logging-manager`, `system-metrics`,
+`system-logging-manager-cli`, `security-logging-manager-cli`,
+`system-metrics-cli`, `web-gateway`, `resources-monitor`, and `admin-panel`
+frontend assets. The downstream package job consumes those artifacts when
+assembling the `.deb`.
 GitHub Actions only supports whole-day retention values, so the workflow uses
 the minimum supported retention of 1 day.
 

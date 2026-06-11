@@ -13,6 +13,7 @@ mapfile -t files < <(find . -type f \( -name '*.sh' -o -name '*.bash' -o -name '
 	-not -path '*/node_modules/*' \
 	-not -path './.venv/*' \
 	-not -path './dist/*' \
+	-not -path './.junie/*' \
 	-not -path './build/*')
 
 if [ "${#files[@]}" -eq 0 ]; then

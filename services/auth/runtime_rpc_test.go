@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"lite-nas/services/auth/sessions"
 	"lite-nas/shared/authtoken"
 	authcontract "lite-nas/shared/contracts/auth"
+	rbaccontract "lite-nas/shared/contracts/rbac"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/testutil/authtokentest"
 )
@@ -48,8 +50,77 @@ func (s *runtimeRecordingServer) RegisterRPC(subject string, handler messaging.R
 	return nil
 }
 
+func (s *runtimeRecordingServer) UseSubscriptionMiddleware(...messaging.SubscriptionMiddleware) {}
+
+func (s *runtimeRecordingServer) UseRPCMiddleware(...messaging.RPCMiddleware) {}
+
 func (s *runtimeRecordingServer) Drain() error { return nil }
 func (s *runtimeRecordingServer) Close()       {}
+
+type runtimeClientStub struct {
+	response rbaccontract.GetSubjectRolesResponse
+	err      error
+}
+
+func (c runtimeClientStub) Publish(context.Context, string, any) error { return nil }
+
+func (c runtimeClientStub) Request(_ context.Context, _ string, _ any, response any) error {
+	if c.err != nil {
+		return c.err
+	}
+	if typed, ok := response.(*rbaccontract.GetSubjectRolesResponse); ok {
+		*typed = c.response
+	}
+	return nil
+}
+
+func (c runtimeClientStub) Drain() error { return nil }
+func (c runtimeClientStub) Close()       {}
+
+func assertIssuedServiceAccessToken(
+	t *testing.T,
+	runtimeDeps authRuntime,
+	accessToken string,
+	wantSubject string,
+	wantRoles []string,
+) {
+	t.Helper()
+
+	if accessToken == "" {
+		t.Fatal("AccessToken is empty, want issued token")
+	}
+
+	claims := mustVerifyAccessToken(t, runtimeDeps, accessToken)
+	if claims.Subject != wantSubject {
+		t.Fatalf("claims subject = %q, want %q", claims.Subject, wantSubject)
+	}
+	assertClaimRoles(t, claims.Roles, wantRoles)
+}
+
+func mustVerifyAccessToken(t *testing.T, runtimeDeps authRuntime, accessToken string) authtoken.AccessClaims {
+	t.Helper()
+
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(accessToken)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+
+	return claims
+}
+
+func assertClaimRoles(t *testing.T, got []string, want []string) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("len(claims roles) = %d, want %d; got=%#v", len(got), len(want), got)
+	}
+
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("claims roles[%d] = %q, want %q; got=%#v", index, got[index], want[index], got)
+		}
+	}
+}
 
 func TestHandleLoginRPCIssuesTokens(t *testing.T) {
 	t.Parallel()
@@ -138,7 +209,7 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
-	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser")
+	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil)
 	if !issued {
 		t.Fatal("issueAccessToken() failed")
 	}
@@ -155,6 +226,77 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	}
 	if response.Username != "testuser" {
 		t.Fatalf("Username = %q, want testuser", response.Username)
+	}
+}
+
+func TestHandleServiceTokenLoginRPCIssuesServiceTokenPair(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	response, err := handleServiceTokenLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenLoginRequest{
+		Service: "web-gateway",
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
+	}
+	if response.AccessToken == "" || response.RefreshToken == "" {
+		t.Fatalf("response tokens = (%q, %q), want both set", response.AccessToken, response.RefreshToken)
+	}
+	if response.ExpiresAt.IsZero() {
+		t.Fatal("ExpiresAt is zero, want set")
+	}
+}
+
+func TestHandleServiceTokenLoginRPCUsesRBACRolesForServiceIdentity(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	runtimeDeps.Client = runtimeClientStub{
+		response: rbaccontract.GetSubjectRolesResponse{
+			UID:    "lite-nas-sec-log-mgr-cli",
+			Groups: []string{"lite-nas-security"},
+		},
+	}
+
+	response, err := handleServiceTokenLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenLoginRequest{
+		Service: "lite-nas-sec-log-mgr-cli",
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
+	}
+
+	assertIssuedServiceAccessToken(
+		t,
+		runtimeDeps,
+		response.AccessToken,
+		"lite-nas-sec-log-mgr-cli",
+		[]string{"lite-nas-security"},
+	)
+}
+
+func TestHandleServiceTokenRefreshRPCRotatesServiceTokenPair(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	loginResponse, err := handleServiceTokenLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenLoginRequest{
+		Service: "web-gateway",
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenLoginRPC() error = %v", err)
+	}
+
+	refreshResponse, err := handleServiceTokenRefreshRPC(runtimeDeps, rpcEnvelope(t, authcontract.ServiceTokenRefreshRequest{
+		Service:      "web-gateway",
+		RefreshToken: loginResponse.RefreshToken,
+	}))
+	if err != nil {
+		t.Fatalf("handleServiceTokenRefreshRPC() error = %v", err)
+	}
+	if refreshResponse.AccessToken == "" || refreshResponse.RefreshToken == "" {
+		t.Fatalf("refresh tokens = (%q, %q), want both set", refreshResponse.AccessToken, refreshResponse.RefreshToken)
+	}
+	if refreshResponse.RefreshToken == loginResponse.RefreshToken {
+		t.Fatal("refresh token was not rotated")
 	}
 }
 
@@ -362,6 +504,8 @@ func TestRegisterRPCHandlersRegistersAuthSubjects(t *testing.T) {
 		authcontract.RefreshRPCSubject,
 		authcontract.LogoutRPCSubject,
 		authcontract.ValidateAccessTokenRPCSubject,
+		authcontract.ServiceTokenLoginRPCSubject,
+		authcontract.ServiceTokenRefreshRPCSubject,
 	} {
 		if server.handlers[subject] == nil {
 			t.Fatalf("handler for %q was not registered", subject)
@@ -378,6 +522,70 @@ func TestRegisterRPCHandlersReturnsRegistrationError(t *testing.T) {
 	}
 	if err := registerRPCHandlers(server, authRuntimeFixture(t, pamauth.Result{})); !errors.Is(err, expectedErr) {
 		t.Fatalf("registerRPCHandlers() error = %v, want %v", err, expectedErr)
+	}
+}
+
+func TestResolvePrincipalRolesReturnsFallbackOnRPCFailure(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
+	runtimeDeps.Client = runtimeClientStub{err: errors.New("rbac unavailable")}
+
+	subject, roles := resolvePrincipalRoles(runtimeDeps, "testuser")
+	if subject != "testuser" {
+		t.Fatalf("subject = %q, want testuser", subject)
+	}
+	if len(roles) != 0 {
+		t.Fatalf("roles = %#v, want empty", roles)
+	}
+}
+
+func TestHandleLoginRPCUsesRBACUIDAndGroupsInToken(t *testing.T) {
+	t.Parallel()
+
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{
+		Code:     pamauth.OutcomeAuthenticated,
+		Username: "testuser",
+	})
+	runtimeDeps.Client = runtimeClientStub{
+		response: rbaccontract.GetSubjectRolesResponse{
+			UID:    "1002",
+			Groups: []string{"wheel", "lite-nas-operator"},
+		},
+	}
+
+	response, err := handleLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.LoginRequest{
+		Username:  "testuser",
+		Password:  "testpassword",
+		UserAgent: "lite-nas-test",
+	}))
+	assertLoginIssued(t, response, err)
+	assertAccessTokenClaims(t, runtimeDeps, response.AccessToken, "1002", 2)
+}
+
+func assertLoginIssued(t *testing.T, response authcontract.LoginResponse, err error) {
+	t.Helper()
+
+	if err != nil {
+		t.Fatalf("handleLoginRPC() error = %v", err)
+	}
+	if response.Status != authcontract.StatusAuthenticated || response.AccessToken == "" {
+		t.Fatalf("login response = %#v, want authenticated with token", response)
+	}
+}
+
+func assertAccessTokenClaims(t *testing.T, runtimeDeps authRuntime, token string, wantSubject string, wantRoles int) {
+	t.Helper()
+
+	claims, verifyErr := runtimeDeps.Tokens.Verifier.Verify(token)
+	if verifyErr != nil {
+		t.Fatalf("Verify() error = %v", verifyErr)
+	}
+	if claims.Subject != wantSubject {
+		t.Fatalf("claims subject = %q, want %s", claims.Subject, wantSubject)
+	}
+	if len(claims.Roles) != wantRoles {
+		t.Fatalf("claims roles = %#v, want %d roles", claims.Roles, wantRoles)
 	}
 }
 
@@ -410,12 +618,29 @@ func authRuntimeFixture(t *testing.T, authResult pamauth.Result) authRuntime {
 			},
 		},
 		Tokens: authTokenRuntime{
-			Issuer:   issuer,
-			Verifier: verifier,
+			Issuer:        issuer,
+			ServiceIssuer: mustNewServiceIssuer(t, privateKey),
+			Verifier:      verifier,
 		},
-		RefreshStore: sessions.NewStore(time.Now, sessions.StoreOptions{}),
-		Validator:    newRequestValidator(),
+		RefreshStore:      sessions.NewStore(time.Now, sessions.StoreOptions{}),
+		ServiceTokenStore: newServiceTokenStore(time.Now),
+		Validator:         newRequestValidator(),
 	}
+}
+
+func mustNewServiceIssuer(t *testing.T, privateKey []byte) authtoken.Issuer {
+	t.Helper()
+
+	issuer, err := authtoken.NewIssuer(authtoken.IssuerOptions{
+		Issuer:         "lite-nas-auth",
+		Audience:       "lite-nas-management-api",
+		AccessLifetime: serviceTokenTTL,
+	}, privateKey)
+	if err != nil {
+		t.Fatalf("NewIssuer(service token) error = %v", err)
+	}
+
+	return issuer
 }
 
 // recordingRequestValidator is a test double for injected RPC validation.

@@ -19,7 +19,7 @@ type AccessClaims struct {
 	Login string `json:"login"`
 	// Scopes contains optional fine-grained permissions such as
 	// "monitoring.read".
-	Scopes []string `json:"scopes,omitempty"`
+	Scopes []string `json:"scopes"`
 	// Roles contains optional coarse authorization labels such as "operator".
-	Roles []string `json:"roles,omitempty"`
+	Roles []string `json:"roles"`
 }

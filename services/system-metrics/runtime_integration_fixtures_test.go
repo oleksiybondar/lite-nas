@@ -23,21 +23,7 @@ type serviceCycleResult struct {
 func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 	t.Helper()
 
-	cpuPath, memPath := createMetricsFilesFixture(t)
-	writeMetricsFixtureFiles(t, cpuPath, memPath, baselineCPUFixture(), baselineMemFixture())
-
-	channels := modules.NewChannelsModule(4)
-	ioModule, err := modules.NewIOModule(cpuPath, memPath)
-	if err != nil {
-		t.Fatalf("NewIOModule() error = %v", err)
-	}
-
-	workerModule := modules.NewWorkersModule(
-		serviceconfig.MetricsConfig{PollInterval: 5 * time.Millisecond, HistorySize: 4},
-		channels,
-		ioModule,
-	)
-	stateModule := modules.NewStateModule(4)
+	channels, workerModule, stateModule, cpuPath, memPath := prepareServiceCycleModulesFixture(t)
 	server := &recordingServer{}
 	if err := registerRPCHandlers(server, stateModule.SnapshotStore); err != nil {
 		t.Fatalf("registerRPCHandlers() error = %v", err)
@@ -48,18 +34,62 @@ func runServiceCycleFixture(t *testing.T) serviceCycleResult {
 
 	client := &recordingClient{publishHook: cancel}
 	startWorkers(ctx, workerModule)
-	go updateMetricsFixtureFilesAfterDelay(t, 10*time.Millisecond, cpuPath, memPath, updatedCPUFixture(), updatedMemFixture())
+	updateDone := scheduleMetricsUpdateFixture(cpuPath, memPath)
 
-	err = serveSnapshots(ctx, channels.SystemSnapshots, stateModule.SnapshotStore, client, &recordingLogger{})
+	err := serveSnapshots(ctx, channels.SystemSnapshots, stateModule.SnapshotStore, client, &recordingLogger{})
 	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatalf("serveSnapshots() error = %v", err)
 	}
+	mustCompleteMetricsUpdateFixture(t, updateDone)
 
 	return serviceCycleResult{
 		client: client,
 		server: server,
 		store:  stateModule.SnapshotStore,
 	}
+}
+
+func prepareServiceCycleModulesFixture(
+	t *testing.T,
+) (modules.Channels, modules.Workers, modules.State, string, string) {
+	t.Helper()
+
+	cpuPath, memPath := createMetricsFilesFixture(t)
+	if err := writeMetricsFixtureFiles(cpuPath, memPath, baselineCPUFixture(), baselineMemFixture()); err != nil {
+		t.Fatalf("writeMetricsFixtureFiles() error = %v", err)
+	}
+
+	channels := modules.NewChannelsModule(4)
+	ioModule, err := modules.NewIOModule(cpuPath, memPath)
+	if err != nil {
+		t.Fatalf("NewIOModule() error = %v", err)
+	}
+
+	workerModule, err := modules.NewWorkersModule(
+		serviceconfig.MetricsConfig{PollInterval: 5 * time.Millisecond, HistorySize: 4},
+		channels,
+		ioModule,
+	)
+	if err != nil {
+		t.Fatalf("NewWorkersModule() error = %v", err)
+	}
+
+	return channels, workerModule, modules.NewStateModule(4), cpuPath, memPath
+}
+
+func scheduleMetricsUpdateFixture(cpuPath string, memPath string) <-chan error {
+	updateDone := make(chan error, 1)
+
+	go updateMetricsFixtureFilesAfterDelay(
+		updateDone,
+		10*time.Millisecond,
+		cpuPath,
+		memPath,
+		updatedCPUFixture(),
+		updatedMemFixture(),
+	)
+
+	return updateDone
 }
 
 func createMetricsFilesFixture(t *testing.T) (string, string) {
@@ -69,30 +99,36 @@ func createMetricsFilesFixture(t *testing.T) (string, string) {
 	return filepath.Join(baseDir, "stat"), filepath.Join(baseDir, "meminfo")
 }
 
-func writeMetricsFixtureFiles(t *testing.T, cpuPath string, memPath string, cpuData string, memData string) {
-	t.Helper()
-
+func writeMetricsFixtureFiles(cpuPath string, memPath string, cpuData string, memData string) error {
 	if err := os.WriteFile(cpuPath, []byte(cpuData), 0o600); err != nil {
-		t.Fatalf("WriteFile(cpu) error = %v", err)
+		return err
 	}
 
 	if err := os.WriteFile(memPath, []byte(memData), 0o600); err != nil {
-		t.Fatalf("WriteFile(mem) error = %v", err)
+		return err
 	}
+
+	return nil
 }
 
 func updateMetricsFixtureFilesAfterDelay(
-	t *testing.T,
+	updateDone chan<- error,
 	delay time.Duration,
 	cpuPath string,
 	memPath string,
 	cpuData string,
 	memData string,
 ) {
+	time.Sleep(delay)
+	updateDone <- writeMetricsFixtureFiles(cpuPath, memPath, cpuData, memData)
+}
+
+func mustCompleteMetricsUpdateFixture(t *testing.T, updateDone <-chan error) {
 	t.Helper()
 
-	time.Sleep(delay)
-	writeMetricsFixtureFiles(t, cpuPath, memPath, cpuData, memData)
+	if err := <-updateDone; err != nil {
+		t.Fatalf("writeMetricsFixtureFiles() error = %v", err)
+	}
 }
 
 func baselineCPUFixture() string {

@@ -3,6 +3,7 @@ package modules
 import (
 	serviceconfig "lite-nas/services/system-metrics/config"
 	"lite-nas/services/system-metrics/workers"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 // Workers groups the worker instances used by the service runtime.
@@ -10,6 +11,7 @@ import (
 // The fields are populated once during startup and are expected to be treated
 // as logically read-only after construction.
 type Workers struct {
+	Timer      sharedworkers.TimerWorker
 	Polling    workers.PollingWorker
 	Processing workers.ProcessingWorker
 }
@@ -24,12 +26,18 @@ func NewWorkersModule(
 	cfg serviceconfig.MetricsConfig,
 	channels Channels,
 	io IO,
-) Workers {
+) (Workers, error) {
+	timerWorker, pollTicks, err := sharedworkers.NewPollingTimerWorker(cfg.PollInterval, 1)
+	if err != nil {
+		return Workers{}, err
+	}
+
 	return Workers{
-		Polling: workers.NewPollingWorker(cfg, io.CPUReader, io.MemReader, channels.RawSnapshots),
+		Timer:   timerWorker,
+		Polling: workers.NewPollingWorker(io.CPUReader, io.MemReader, pollTicks, channels.RawSnapshots),
 		Processing: workers.NewProcessingWorker(
 			channels.RawSnapshots,
 			channels.SystemSnapshots,
 		),
-	}
+	}, nil
 }

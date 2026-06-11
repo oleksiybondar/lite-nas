@@ -1,0 +1,13 @@
+abi <abi/4.0>,
+
+include <abstractions/base>
+include <abstractions/nameservice>
+include <abstractions/openssl>
+include <abstractions/ssl_certs>
+
+/proc/*/mountinfo r,
+/proc/*/cgroup r,
+/proc/mounts r,
+/dev/null rw,
+/dev/stdout w,
+/dev/stderr w,

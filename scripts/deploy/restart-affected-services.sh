@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 affected_services=(
+	apparmor
 	nats-server
+	postfix
 	nginx
 )
 systemd_reloaded=0
@@ -11,8 +13,13 @@ deploy.reloadSystemdOnce() {
 		return
 	fi
 
+	if ! deploy.hasUsableSystemd; then
+		log.warn "Systemd is not available in this environment; skipping dependency service reload."
+		systemd_reloaded=1
+		return
+	fi
+
 	log.pushTask "Reloading systemd manager configuration"
-	systemctl daemon-reload
 	log.popTask
 	systemd_reloaded=1
 }
@@ -20,36 +27,38 @@ deploy.reloadSystemdOnce() {
 deploy.restartService() {
 	local service="$1"
 
-	if command -v systemctl >/dev/null 2>&1; then
+	if deploy.hasUsableSystemd; then
 		deploy.reloadSystemdOnce
 		systemctl restart "$service"
 		return
 	fi
 
-	if command -v service >/dev/null 2>&1; then
-		service "$service" restart
+	if deploy.hasServiceCommand; then
+		if service "$service" restart >/dev/null 2>&1; then
+			return
+		fi
+
+		log.warn "Service command is present but cannot restart $service in this environment; skipping."
 		return
 	fi
 
-	log.error "Missing service manager; cannot restart $service."
-	exit 1
+	log.warn "No usable service manager is available for $service; skipping restart."
 }
 
 deploy.enableService() {
 	local service="$1"
 
-	if command -v systemctl >/dev/null 2>&1; then
+	if deploy.hasUsableSystemd; then
 		deploy.reloadSystemdOnce
 		systemctl enable "$service"
 		return
 	fi
 
-	if command -v service >/dev/null 2>&1; then
+	if deploy.hasServiceCommand; then
 		return
 	fi
 
-	log.error "Missing service manager; cannot enable $service."
-	exit 1
+	log.warn "No usable service manager is available for $service; skipping enable."
 }
 
 deploy.restartAffectedServices() {

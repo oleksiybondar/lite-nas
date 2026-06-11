@@ -35,15 +35,16 @@ than a statement of final product priority.
 
 ## Why the web skeleton is still infrastructure-first
 
-The current web skeleton adds:
+The current web implementation adds:
 
 - `web-gateway` as the browser-facing Go HTTP boundary
 - `auth-service` as a dedicated PAM-backed auth authority
-- `admin-panel` as a Vite + React browser app
+- `admin-panel` as a Vite + React browser app with alerts and telemetry pages
 - packaging and assembly wiring so web assets are consumed by backend packaging
 - CI/CD updates so JS/TS build artifacts are part of the reproducible build flow
 
-This is also intentionally low immediate business value.
+This is still intentionally lower immediate business value than the later NAS
+feature set, but it is no longer just a shell.
 
 The purpose is not to ship a feature-rich user-facing product yet. The purpose
 is to complete the next missing infrastructure boundary:
@@ -65,7 +66,7 @@ continued build and deployment bootstrapping.
 - Internal service communication is wired over NATS rather than direct browser
   access to backend internals.
 - The browser gateway serves packaged admin-panel assets and exposes documented
-  browser-facing auth and system metrics surfaces.
+  browser-facing auth, alert, and telemetry surfaces.
 - The frontend build output is produced under `.build/admin-panel`, normalized
   for gateway serving, and included in Debian package assembly.
 - CI/CD scripts cover frontend dependencies, frontend build, JS/TS analysis,
@@ -73,6 +74,118 @@ continued build and deployment bootstrapping.
 - The branch remains intentionally small in end-user behavior, but it completes
   enough of the skeleton that future branches can focus on actual NAS product
   development rather than platform bootstrapping.
+
+## Why the alerting slice now has a browser surface
+
+The alerting work now spans both CLI and browser access patterns. The browser
+app can show and manage both system and security alerts, while the existing CLI
+paths still matter for headless operation and administrative verification.
+
+That branch added:
+
+- `zfs-metrics` as a second metrics producer beside `system-metrics`
+- `resources-monitor` as a rule-based alert source consuming system and ZFS
+  metric events
+- service-to-service authentication for internal callers
+- `rbac-service` role and capability lookup used by auth and target services
+- auth-token and role enforcement in logging-manager message handling
+
+This gives LiteNAS an end-to-end alerting path that is useful in a home-lab
+deployment and now has a browser-facing control surface:
+
+- metric-producing services publish snapshots
+- `resources-monitor` evaluates rules and emits alert lifecycle updates
+- logging managers consume those updates and keep a user-friendlier state-based
+  view of active alerts
+- the admin panel exposes system and security alert dashboards for review and
+  management
+- raw stateless events still remain available in log files as a separate source
+  of operational detail
+
+For the current use case, the important milestone is that resource and
+condition-change alerting now works through the real service boundaries that
+both CLI and UI consumers can reuse.
+
+## Logging Manager Channel Split
+
+The split between `system-logging-manager` and `security-logging-manager` is
+intentional in the same way separate storage or service slices are intentional.
+
+At this stage, the system side still has the richer set of monitoring producers
+and alert sources. The security side now has browser and CLI management surfaces
+for its alert state, even though its upstream monitoring producers remain more
+limited than the system path.
+
+That is acceptable for the current version line because the important platform
+work is already in place:
+
+- separate manager contracts and storage domains
+- distinct CLI surfaces
+- service authentication and role checks at manager boundaries
+- package/runtime wiring for both domains
+
+This keeps the architecture ready for future security-monitoring producers
+without forcing fake divergence before the behavior exists.
+
+## Why email notification still uses local Postfix
+
+The current notification slice intentionally keeps delivery split across two
+layers:
+
+- `system-email-notifier` and `security-email-notifier` own alert consumption,
+  template rendering, and local SMTP handoff
+- local Postfix owns outbound mail transport
+
+This is intentional.
+
+The notifier services should stay small and transport-focused:
+
+- subscribe to alert subjects
+- render email from packaged templates
+- deliver to `127.0.0.1:25`
+
+They should not also own:
+
+- third-party SMTP provider integration details
+- SASL credential storage
+- relay retry behavior
+- machine-local mail transport policy
+
+Keeping Postfix as the host mail boundary makes the deployment model more
+practical:
+
+- the same Go code works in local development and packaged installs
+- provider credentials stay machine-local under `/etc/postfix/...`
+- direct local rendering tests can switch to capture mode without changing the
+  notifier code path
+- production delivery can move to Mailgun, SES, or another authenticated relay
+  without changing the notifier service contract
+
+This is still infrastructure-first work in the same sense as earlier slices.
+The immediate user-facing value is modest, but it completes an important
+platform boundary: alert creation can now flow into real notification delivery
+through the packaged runtime.
+
+## Why simple system tests still carry more value now
+
+The top-level system tests remain intentionally focused on simple, observable
+verification points.
+
+That simplicity no longer means the checks are shallow.
+
+For example, a logging-manager CLI mutation test now exercises a longer
+integration chain:
+
+- CLI/runtime credential and local permission access
+- service-to-service authentication
+- RBAC-backed role retrieval in auth flows
+- access-token validation in the logging manager
+- manager-side role authorization before accepting a state change
+
+So the tests still read as operationally small checks, but they now validate
+more of the real system integration stack as a side effect. That is a useful
+tradeoff for the current stage: one clear verification point can still prove a
+meaningful amount of runtime wiring.
 
 ## Boundary Validation Direction
 
@@ -103,3 +216,23 @@ shared runtime validation layer.
 
 For packaging/runtime orchestration policy and CI parity expectations, see
 [Packaging Runtime Flow](./packaging-runtime-flow.md).
+
+## Logging Managers Duplication (Current Intent)
+
+`system-logging-manager` and `security-logging-manager` are intentionally kept
+structurally identical in this stage, including their paired CLI apps.
+
+Current expected differences are limited to:
+
+- subscribed and requested NATS subjects/events
+- NATS identity permissions
+- service and CLI configuration files/paths
+
+This is intentional for the current version line. Divergence is expected in
+higher versions when security-specific behavior moves beyond contract-level
+differences.
+
+To keep duplication checks clean, shared runtime/CLI logic is centralized under
+`shared/go/loggingmanagerservice` and `shared/go/loggingmanagercli`, while
+system/security binaries remain thin adapters over different subjects and
+configs.

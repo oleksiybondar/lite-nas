@@ -14,6 +14,7 @@ The service is responsible for:
 - PAM-backed authentication and account-state handling
 - password-change flows required by PAM account policy
 - access-token issuance and refresh-token rotation
+- service-to-service token issuance and rotation for internal callers
 - refresh-token revocation and volatile in-memory session tracking
 - lockdown state management and auth-related event publication
 - online token validation for critical backend flows
@@ -226,6 +227,36 @@ authentication and discards token-based session continuity.
 
 ---
 
+### FR-008 Issue service-to-service token pairs for internal callers
+
+#### FR-008 Description
+
+The Auth Service MUST issue and rotate token pairs for authenticated
+service-to-service communication between LiteNAS internal services.
+
+#### FR-008 Input
+
+- Service identity requesting an internal token pair
+- Service token refresh requests containing current refresh token state
+
+#### FR-008 Output
+
+- Signed JWT access token for internal service calls
+- Refresh token bound to server-managed service-token state
+
+#### FR-008 Acceptance Criteria
+
+- A service-token login flow issues an access token and refresh token pair
+- A service-token refresh flow rotates the pair without requiring end-user
+  browser session state
+- Issued service access tokens carry role context suitable for downstream
+  authorization checks
+- Service-token continuity is held in server-managed in-memory state
+- Rotation fails closed when the current refresh token does not match the
+  active stored service-token state
+
+---
+
 ## Interface Requirements
 
 ### IR-001 Expose auth request/reply contracts over NATS
@@ -245,8 +276,9 @@ request/reply contracts.
 
 #### IR-001 Acceptance Criteria
 
-- Login, refresh, logout, and token-validation capabilities are exposed through
-  explicit NATS request/reply subjects
+- Login, refresh, logout, service-token login, service-token refresh, and
+  token-validation capabilities are exposed through explicit NATS
+  request/reply subjects
 - Request and response contracts distinguish successful sessions from
   structured auth outcomes
 - The messaging contract is usable by the Web Gateway without embedding PAM

@@ -271,6 +271,15 @@ func sessionFromClaims(
 		return Session{}, ErrUnauthorized
 	}
 
+	roles := claims.Roles
+	if roles == nil {
+		roles = []string{}
+	}
+	scopes := claims.Scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+
 	return Session{
 		UserID:        claims.Subject,
 		Login:         claims.Login,
@@ -279,7 +288,7 @@ func sessionFromClaims(
 		AccessExpires: claims.ExpiresAt.Time,
 		RefreshExpiry: now.Add(24 * time.Hour),
 		AuthType:      authTypeJWT,
-		Roles:         claims.Roles,
-		Scopes:        claims.Scopes,
+		Roles:         roles,
+		Scopes:        scopes,
 	}, nil
 }

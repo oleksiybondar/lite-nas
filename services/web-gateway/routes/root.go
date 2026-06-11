@@ -27,18 +27,38 @@ func NewRouter(
 	authentication middlewares.AuthenticationOptions,
 ) http.Handler {
 	root := chi.NewMux()
-	root.Use(chimiddleware.RequestID)
-	root.Use(chimiddleware.RealIP)
-	root.Use(chimiddleware.Recoverer)
+	useRootMiddlewares(root)
 
 	apiRouter := chi.NewMux()
-	api := humachi.New(apiRouter, huma.DefaultConfig(serviceName, version))
+	api := humachi.New(apiRouter, apiConfig(serviceName, version))
 
 	mountAssetsRouter(root, controllerModule)
 	mountAuthRouter(api, controllerModule, authentication)
-	mountSystemMetricsRouter(api, controllerModule, authentication)
+	mountAlertsRouters(api, controllerModule, authentication)
+	mountMetricsRouters(api, controllerModule, authentication)
 	root.Mount("/api", apiRouter)
 	mountIndexRouter(root, controllerModule)
 
 	return root
+}
+
+func apiConfig(serviceName string, version string) huma.Config {
+	config := huma.DefaultConfig(serviceName, version)
+	config.Servers = []*huma.Server{{URL: "/api"}}
+	return config
+}
+
+func useRootMiddlewares(root chi.Router) {
+	root.Use(chimiddleware.RequestID)
+	root.Use(chimiddleware.RealIP)
+	root.Use(chimiddleware.Recoverer)
+}
+
+func mountMetricsRouters(
+	api huma.API,
+	controllerModule modules.Controllers,
+	authentication middlewares.AuthenticationOptions,
+) {
+	mountSystemMetricsRouter(api, controllerModule, authentication)
+	mountZFSMetricsRouter(api, controllerModule, authentication)
 }

@@ -5,6 +5,104 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.2.1 - Email notification delivery
+
+### RL-0.2.1 Summary
+
+- Extends the monitoring and alerting slice with two packaged email notifier
+  services, local Postfix delivery, HTML email templates, and relay-ready
+  outbound mail configuration. The release keeps the notification model
+  infrastructure-first: alert producers and logging managers stay intact while
+  email delivery becomes an additional consumer path.
+
+### RL-0.2.1 Added
+
+- Added `system-email-notifier` and `security-email-notifier` services as
+  dedicated alert email consumers for the system and security domains.
+- Added shared Go email-notifier runtime support for alert subscription
+  handling, HTML template rendering, and SMTP delivery to local Postfix.
+- Added packaged HTML alert templates and notifier-specific config sections for
+  email recipients and local SMTP handoff.
+- Added operator documentation for notifier setup, relay configuration, CLI
+  testing, and Postfix capture-mode testing.
+
+### RL-0.2.1 Changed
+
+- Extended the alert payload contract with optional notifier-facing `message`
+  and `trigger_value` fields without changing existing logging-manager storage
+  behavior.
+- Changed `resources-monitor` alert creation so notifier-relevant message and
+  trigger-value context is included in published alert payloads.
+- Changed email templates to use backend-provided severity colors, inline
+  email-safe styling, and dark-mode compatibility hints for better mail-client
+  behavior.
+
+### RL-0.2.1 Platform
+
+- Expanded package and local deploy flows to include notifier binaries,
+  templates, configs, systemd units, NATS identities, and AppArmor coverage.
+- Added managed Postfix runtime wiring, including local-only SMTP, capture-mode
+  testing support, and relay authentication support through a preserved
+  machine-local `/etc/postfix/postfix.d/authentication.conf`.
+- Extended runtime permission normalization so notifier templates and Postfix
+  relay secret material are installed with stable ownership and restrictive
+  modes.
+
+### RL-0.2.1 Notes
+
+- Real external delivery depends on an operator-configured authenticated relay
+  such as Mailgun, SES, or another SMTP provider.
+- Relay credentials remain outside the repository and are intentionally not
+  shipped as package content.
+
+## 0.2.0 - Authenticated monitoring and alerting
+
+### RL-0.2.0 Summary
+
+- Extends the platform skeleton into a fuller monitoring and alerting slice
+  with RBAC-backed roles, authenticated internal service calls, stateful alert
+  consumption, and end-to-end resource alert generation from system and ZFS
+  metrics.
+
+### RL-0.2.0 Added
+
+- Added `rbac-service` as the internal authorization decision point for role
+  lookup and capability checks.
+- Added service-to-service token login and refresh flows in `auth-service`.
+- Added `zfs-metrics` as a ZFS snapshot producer with event and RPC contracts.
+- Added `resources-monitor` as a rule-based alert source for system and ZFS
+  metric events.
+- Added `system-logging-manager`, `security-logging-manager`, and their CLI
+  surfaces to the packaged runtime path.
+
+### RL-0.2.0 Changed
+
+- Changed logging-manager runtime boundaries to validate access tokens and
+  enforce subject-level role policy before applying writes or state changes.
+- Changed auth token issuance to resolve role context through `rbac-service`
+  for both user and service principals.
+- Changed the effective monitoring path from isolated metrics reporting into a
+  complete alert lifecycle flow ending in stateful logging-manager consumers.
+- Clarified the split between system and security logging-manager domains as an
+  intentional architecture boundary rather than an accidental duplication.
+
+### RL-0.2.0 Platform
+
+- Expanded package build and runtime deployment to include the new RBAC,
+  logging-manager, and resources-monitor components.
+- Expanded managed transport-certificate coverage and deploy flows for the new
+  service and CLI identities.
+- Increased the value of existing system-level CLI checks because the same
+  simple assertions now transit deeper integration paths across permissions,
+  service authentication, RBAC, and manager authorization.
+
+### RL-0.2.0 Notes
+
+- The current operational priority is CLI-first resource monitoring and
+  condition-change alerting for a home-lab deployment.
+- Security-monitoring producers and richer UI alert consumers remain follow-up
+  work on top of the current infrastructure.
+
 ## 0.1.1 - Platform web skeleton
 
 ### RL-0.1.1 Summary

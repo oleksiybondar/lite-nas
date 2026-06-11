@@ -3,10 +3,11 @@ package workers
 import (
 	"errors"
 	"fmt"
-	"strings"
+
+	"lite-nas/shared/cliargs"
 )
 
-var ErrHelpRequested = errors.New("help requested")
+var ErrHelpRequested = cliargs.ErrHelpRequested
 
 type Mode string
 
@@ -52,30 +53,22 @@ func NewArgsProcessor(defaultConfigPath string) ArgsProcessor {
 
 // Process parses the CLI arguments into a validated invocation.
 func (p argsProcessor) Process(args []string) (Invocation, error) {
-	invocation := Invocation{
-		ConfigPath: p.defaultConfigPath,
-		Mode:       ModeCurrent,
-	}
-
-	for _, arg := range args {
-		nextInvocation, err := applyArg(invocation, arg)
-		if err != nil {
-			return Invocation{}, err
-		}
-
-		invocation = nextInvocation
-	}
-
-	return finalizeInvocation(invocation)
+	return cliargs.Process(
+		args,
+		Invocation{
+			ConfigPath: p.defaultConfigPath,
+			Mode:       ModeCurrent,
+		},
+		applyArg,
+		finalizeInvocation,
+	)
 }
 
 func applyArg(invocation Invocation, arg string) (Invocation, error) {
-	if arg == "-h" || arg == "--help" {
-		return Invocation{}, ErrHelpRequested
-	}
-
-	if strings.HasPrefix(arg, "--config=") {
-		invocation.ConfigPath = strings.TrimPrefix(arg, "--config=")
+	if handled, err := cliargs.ApplyHelpAndConfigArg(arg, &invocation.ConfigPath); handled {
+		if err != nil {
+			return Invocation{}, err
+		}
 		return invocation, nil
 	}
 

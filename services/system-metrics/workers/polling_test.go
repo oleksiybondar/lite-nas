@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"lite-nas/services/system-metrics/config"
 	"lite-nas/shared/metrics"
 	"lite-nas/shared/testutil/testcasetest"
 )
@@ -53,13 +52,11 @@ func TestPollingWorkerWaitNextPollStopsOnContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	worker := newPollingWorker(fakeReader{}, fakeReader{})
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if worker.waitNextPoll(ctx, ticker) {
+	if worker.waitNextPoll(ctx) {
 		t.Fatal("expected waitNextPoll() to stop on canceled context")
 	}
 }
@@ -69,10 +66,11 @@ func TestPollingWorkerWaitNextPollContinuesOnTick(t *testing.T) {
 	t.Parallel()
 
 	worker := newPollingWorker(fakeReader{}, fakeReader{})
-	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
+	ticks := make(chan struct{}, 1)
+	worker.ticks = ticks
+	ticks <- struct{}{}
 
-	if !worker.waitNextPoll(context.Background(), ticker) {
+	if !worker.waitNextPoll(context.Background()) {
 		t.Fatal("expected waitNextPoll() to continue on tick")
 	}
 }
@@ -134,16 +132,18 @@ func TestPollingWorkerStartEmitsSnapshot(t *testing.T) {
 	t.Parallel()
 
 	output := make(chan metrics.RawSystemSnapshot, 1)
+	ticks := make(chan struct{}, 1)
 	worker := NewPollingWorker(
-		config.MetricsConfig{PollInterval: time.Hour},
 		fakeReader{data: []byte("cpu  10 20 30 40 5 6 7 8 0 0\ncpu0 1 2 3 4 1 0 0 0 0 0\n")},
 		fakeReader{data: []byte("MemTotal: 1000 kB\nMemAvailable: 250 kB\n")},
+		ticks,
 		output,
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	worker.Start(ctx)
+	ticks <- struct{}{}
 
 	select {
 	case <-output:
@@ -174,10 +174,11 @@ func newPollingWorkerWithOutput(
 	memReader fakeReader,
 	output chan metrics.RawSystemSnapshot,
 ) PollingWorker {
+	ticks := make(chan struct{}, 1)
 	return NewPollingWorker(
-		config.MetricsConfig{PollInterval: time.Second},
 		cpuReader,
 		memReader,
+		ticks,
 		output,
 	)
 }

@@ -17,6 +17,10 @@ func (s *RecordingServer) RegisterRPC(string, messaging.RPCHandler) error {
 	return nil
 }
 
+func (s *RecordingServer) UseSubscriptionMiddleware(...messaging.SubscriptionMiddleware) {}
+
+func (s *RecordingServer) UseRPCMiddleware(...messaging.RPCMiddleware) {}
+
 func (s *RecordingServer) Drain() error {
 	s.DrainCalls++
 	return nil

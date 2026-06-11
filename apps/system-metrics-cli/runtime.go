@@ -9,12 +9,13 @@ import (
 
 	"lite-nas/apps/system-metrics-cli/modules"
 	"lite-nas/apps/system-metrics-cli/workers"
+	sharedcontracts "lite-nas/shared/contracts"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 )
 
 const (
 	defaultConfigPath = "/etc/lite-nas/system-metrics-cli.conf"
-	serviceName       = "system-metrics-cli"
+	serviceName       = sharedcontracts.AppSystemMetricsCLI
 )
 
 type requestClient interface {

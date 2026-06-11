@@ -83,6 +83,15 @@ When repeated behavior is useful across tests, prefer fixtures, helpers, or
 shared test-case steps instead of duplicating setup and assertions inline.
 Duplication in system tests is maintenance debt and is checked by CI.
 
+Keep that single verification point user-visible and operationally simple even
+when the exercised runtime chain is deeper. In the current platform slice, a
+small CLI or API check may also transit service authentication, RBAC-backed
+role resolution, transport-level token validation, and target-service
+authorization before it reaches the final observable result.
+
+That is expected. The test should still assert one main outcome while relying
+on the integrated runtime path to provide broader system coverage implicitly.
+
 ## UI Page Objects
 
 UI system tests use HyperionTF page objects for browser automation. Store those

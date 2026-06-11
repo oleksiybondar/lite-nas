@@ -11,12 +11,52 @@ inputs:
   system_metrics_binary:
     description: Path to the system-metrics binary.
     required: true
+  zfs_metrics_binary:
+    description: Path to the zfs-metrics binary.
+    required: false
+    default: ""
+  rbac_service_binary:
+    description: Path to the rbac-service binary.
+    required: false
+    default: ""
+  system_logging_manager_binary:
+    description: Path to the system-logging-manager binary.
+    required: false
+    default: ""
+  security_logging_manager_binary:
+    description: Path to the security-logging-manager binary.
+    required: false
+    default: ""
+  system_email_notifier_binary:
+    description: Path to the system-email-notifier binary.
+    required: false
+    default: ""
+  security_email_notifier_binary:
+    description: Path to the security-email-notifier binary.
+    required: false
+    default: ""
   system_metrics_cli_binary:
     description: Path to the system-metrics-cli binary.
     required: true
+  zfs_metrics_cli_binary:
+    description: Path to the zfs-metrics-cli binary.
+    required: false
+    default: ""
+  system_logging_manager_cli_binary:
+    description: Path to the system-logging-manager-cli binary.
+    required: false
+    default: ""
+  security_logging_manager_cli_binary:
+    description: Path to the security-logging-manager-cli binary.
+    required: false
+    default: ""
   web_gateway_binary:
     description: Path to the web-gateway binary.
     required: true
+  resources_monitor_binary:
+    description: Path to the resources-monitor binary.
+    required: false
+    default: ""
   admin_panel_assets:
     description: Path to an existing admin-panel Vite build output directory.
     required: false
@@ -47,49 +87,122 @@ runs:
       shell: bash
       run: scripts/ci/install-node-dependencies.sh
 
+    - name: "Prepare: package diagnostic log directory"
+      shell: bash
+      run: mkdir -p .build/package-ci-logs/${{ inputs.package_arch }}
+
     - name: "Build: LiteNAS Debian package"
       shell: bash
-      env:
-        ADMIN_PANEL_ASSETS: ${{ inputs.admin_panel_assets }}
       run: |
-        package_args=(
-          --version=${{ inputs.version }} \
-          --auth-service-binary=${{ inputs.auth_service_binary }} \
-          --system-metrics-binary=${{ inputs.system_metrics_binary }} \
-          --system-metrics-cli-binary=${{ inputs.system_metrics_cli_binary }} \
-          --web-gateway-binary=${{ inputs.web_gateway_binary }} \
-          --output-dir=.build/packages/${{ inputs.package_arch }}
-        )
+        mkdir -p .artifacts/${{ inputs.package_arch }}/auth-service
+        mkdir -p .artifacts/${{ inputs.package_arch }}/rbac-service
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-logging-manager
+        mkdir -p .artifacts/${{ inputs.package_arch }}/security-logging-manager
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-email-notifier
+        mkdir -p .artifacts/${{ inputs.package_arch }}/security-email-notifier
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-metrics
+        mkdir -p .artifacts/${{ inputs.package_arch }}/zfs-metrics
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-logging-manager-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/security-logging-manager-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/system-metrics-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/zfs-metrics-cli
+        mkdir -p .artifacts/${{ inputs.package_arch }}/web-gateway
+        mkdir -p .artifacts/${{ inputs.package_arch }}/resources-monitor
 
-        if [ -n "$ADMIN_PANEL_ASSETS" ]; then
-          package_args+=(--admin-panel-assets="$ADMIN_PANEL_ASSETS")
+        cp "${{ inputs.auth_service_binary }}" .artifacts/${{ inputs.package_arch }}/auth-service/auth-service
+        cp "${{ inputs.system_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics/system-metrics
+        cp "${{ inputs.system_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics-cli/system-metrics-cli
+        cp "${{ inputs.web_gateway_binary }}" .artifacts/${{ inputs.package_arch }}/web-gateway/web-gateway
+
+        if [ -n "${{ inputs.rbac_service_binary }}" ]; then
+          cp "${{ inputs.rbac_service_binary }}" .artifacts/${{ inputs.package_arch }}/rbac-service/rbac-service
+        fi
+        if [ -n "${{ inputs.system_logging_manager_binary }}" ]; then
+          cp "${{ inputs.system_logging_manager_binary }}" .artifacts/${{ inputs.package_arch }}/system-logging-manager/system-logging-manager
+        fi
+        if [ -n "${{ inputs.security_logging_manager_binary }}" ]; then
+          cp "${{ inputs.security_logging_manager_binary }}" .artifacts/${{ inputs.package_arch }}/security-logging-manager/security-logging-manager
+        fi
+        if [ -n "${{ inputs.system_email_notifier_binary }}" ]; then
+          cp "${{ inputs.system_email_notifier_binary }}" .artifacts/${{ inputs.package_arch }}/system-email-notifier/system-email-notifier
+        fi
+        if [ -n "${{ inputs.security_email_notifier_binary }}" ]; then
+          cp "${{ inputs.security_email_notifier_binary }}" .artifacts/${{ inputs.package_arch }}/security-email-notifier/security-email-notifier
+        fi
+        if [ -n "${{ inputs.zfs_metrics_binary }}" ]; then
+          cp "${{ inputs.zfs_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/zfs-metrics/zfs-metrics
+        fi
+        if [ -n "${{ inputs.system_logging_manager_cli_binary }}" ]; then
+          cp "${{ inputs.system_logging_manager_cli_binary }}" .artifacts/${{ inputs.package_arch }}/system-logging-manager-cli/system-logging-manager-cli
+        fi
+        if [ -n "${{ inputs.security_logging_manager_cli_binary }}" ]; then
+          cp "${{ inputs.security_logging_manager_cli_binary }}" .artifacts/${{ inputs.package_arch }}/security-logging-manager-cli/security-logging-manager-cli
+        fi
+        if [ -n "${{ inputs.resources_monitor_binary }}" ]; then
+          cp "${{ inputs.resources_monitor_binary }}" .artifacts/${{ inputs.package_arch }}/resources-monitor/resources-monitor
+        fi
+        if [ -n "${{ inputs.zfs_metrics_cli_binary }}" ]; then
+          cp "${{ inputs.zfs_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/zfs-metrics-cli/zfs-metrics-cli
+        fi
+        if [ -n "${{ inputs.admin_panel_assets }}" ]; then
+          rm -rf .artifacts/admin-panel
+          cp -R "${{ inputs.admin_panel_assets }}" .artifacts/admin-panel
         fi
 
-        scripts/package/build-lite-nas-deb.sh "${package_args[@]}"
+        set -o pipefail
+        scripts/package/build-lite-nas-deb-from-source.sh \
+          --source-layout=ci-artifacts \
+          --source-root=.artifacts \
+          --package-arch=${{ inputs.package_arch }} \
+          --version=${{ inputs.version }} \
+          --output-dir=.build/packages/${{ inputs.package_arch }} \
+          2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/build-package.log
 
     - name: "Build: lint Debian package"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
+        set -o pipefail
         scripts/package/lint-lite-nas-deb.sh \
-          .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb
+          .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
+          2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/lint-package.log
 
-    - name: "Build: validate Debian package installability"
+    - name: "Build: validate Debian package contents"
       if: ${{ inputs.run_package_validation == 'true' }}
       shell: bash
       run: |
-        scripts/ci/validate-lite-nas-deb-install.sh \
+        set -o pipefail
+        scripts/ci/validate-lite-nas-deb-contents.sh \
           .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
-          ${{ inputs.package_arch }}
+          ${{ inputs.package_arch }} \
+          2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/validate-package-contents.log
 
-    - name: "Install: LiteNAS package on runner"
+    - name: "Install: LiteNAS package on runner for system tests"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
       shell: bash
       run: |
+        set -o pipefail
         sudo env DEBIAN_FRONTEND=noninteractive \
           scripts/package/install-lite-nas-deb.sh \
             --package .build/packages/${{ inputs.package_arch }}/lite-nas_${{ inputs.version }}_${{ inputs.package_arch }}.deb \
-            --no-install-recommends
+            --no-install-recommends \
+            2>&1 | tee .build/package-ci-logs/${{ inputs.package_arch }}/install-package.log
+
+    - name: "Archive: collect package diagnostics on failure"
+      if: ${{ failure() }}
+      shell: bash
+      run: |
+        sudo bash scripts/ci/collect-package-diagnostics.sh \
+          --output-dir .build/package-ci-logs/${{ inputs.package_arch }}/diagnostics
+
+    - name: "Archive: upload package diagnostics on failure"
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-diagnostics-${{ inputs.package_arch }}
+        path: .build/package-ci-logs/${{ inputs.package_arch }}
+        if-no-files-found: warn
+        retention-days: 15
 
     - name: "Test prep: install Python and Playwright dependencies"
       if: ${{ inputs.run_installed_package_tests == 'true' }}
@@ -102,7 +215,29 @@ runs:
       env:
         LITENAS_API_LOGIN: testuser
         LITENAS_API_PASSWORD: testpassword
-      run: scripts/ci/prepare-system-test-user.sh
+        LITENAS_OPERATOR_LOGIN: testoperator
+        LITENAS_SECURITY_LOGIN: testsecurity
+        LITENAS_TEST_PASSWORD: testpassword
+      run: scripts/ci/prepare-system-test-users.sh
+
+    - name: "Test prep: prepare restricted sudo system-test user"
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      env:
+        LITENAS_TESTSUDO_LOGIN: testsudouser
+        LITENAS_TESTSUDO_PASSWORD: testpassword
+        LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY: /usr/bin/system-logging-manager-cli
+        LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY: /usr/bin/security-logging-manager-cli
+      run: scripts/ci/prepare-system-test-sudo-user.sh
+
+    - name: "Test prep: verify CI system-test users"
+      if: ${{ inputs.run_installed_package_tests == 'true' }}
+      shell: bash
+      run: |
+        id testuser
+        id testoperator
+        id testsecurity
+        id testsudouser
 
     - name: "Test: installed LiteNAS package"
       if: ${{ inputs.run_installed_package_tests == 'true' }}

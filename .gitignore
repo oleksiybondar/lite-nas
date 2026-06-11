@@ -31,6 +31,12 @@ __pycache__/
 .pytest_cache/
 log.html
 logs/
+/apps/security-logging-manager-cli/security-logging-manager-cli
+/apps/system-logging-manager-cli/system-logging-manager-cli
+/services/security-email-notifier/security-email-notifier
+/services/security-logging-manager/security-logging-manager
+/services/system-email-notifier/system-email-notifier
+/services/system-logging-manager/system-logging-manager
 
 # env file
 .env
@@ -48,6 +54,8 @@ package-lock.json
 .codex/
 .claude/
 .cursor/
+.junie/
 .codex
 .claude
 .cursor
+.junie

@@ -1,0 +1,7 @@
+abi <abi/4.0>,
+
+/etc/lite-nas/certificates/identities/ r,
+/etc/lite-nas/certificates/identities/** r,
+/etc/lite-nas/certificates/auth/ r,
+/etc/lite-nas/certificates/auth/** r,
+

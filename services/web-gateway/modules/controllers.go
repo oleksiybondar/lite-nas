@@ -10,9 +10,12 @@ import (
 // The fields are populated once during startup and are expected to be treated
 // as logically read-only by the runtime after construction.
 type Controllers struct {
-	Auth          controllers.AuthController
-	Static        controllers.StaticController
-	SystemMetrics controllers.SystemMetricsController
+	Auth           controllers.AuthController
+	Static         controllers.StaticController
+	SystemAlerts   controllers.AlertsController
+	SecurityAlerts controllers.AlertsController
+	SystemMetrics  controllers.SystemMetricsController
+	ZFSMetrics     controllers.ZFSMetricsController
 }
 
 // NewControllersModule assembles the HTTP controllers used by the route layer.
@@ -27,8 +30,11 @@ func NewControllersModule(
 	services Services,
 ) Controllers {
 	return Controllers{
-		Auth:          controllers.NewAuthController(services.Auth),
-		Static:        controllers.NewStaticController(staticFiles, log),
-		SystemMetrics: controllers.NewSystemMetricsController(services.SystemMetrics),
+		Auth:           controllers.NewAuthController(services.Auth),
+		Static:         controllers.NewStaticController(staticFiles, log),
+		SystemAlerts:   controllers.NewSystemAlertsController(services.SystemAlerts),
+		SecurityAlerts: controllers.NewSecurityAlertsController(services.SecurityAlerts),
+		SystemMetrics:  controllers.NewSystemMetricsController(services.SystemMetrics),
+		ZFSMetrics:     controllers.NewZFSMetricsController(services.ZFSMetrics),
 	}
 }

@@ -1,5 +1,6 @@
 import { AppDashboardLayout } from "@components/layout/AppDashboardLayout";
 import { DashboardPage } from "@pages/DashboardPage";
+import { alertsRoutes } from "@routes/alerts/routes";
 import { preferencesRoutes } from "@routes/preferences/routes";
 import { systemRoutes } from "@routes/system/routes";
 import { Navigate, type RouteObject } from "react-router-dom";
@@ -14,6 +15,7 @@ export const rootRoutes: RouteObject[] = [
         element: <DashboardPage />,
         path: "/",
       },
+      ...alertsRoutes,
       ...systemRoutes,
       ...preferencesRoutes,
       {

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"lite-nas/shared/roleauth"
+
 	"github.com/danielgtaylor/huma/v2"
 
 	"lite-nas/shared/authtoken"
@@ -13,6 +15,7 @@ import (
 
 type (
 	accessTokenContextKey           struct{}
+	accessClaimsContextKey          struct{}
 	authenticationFailureContextKey struct{}
 )
 
@@ -56,12 +59,13 @@ func ExtractAuthentication(options AuthenticationOptions) func(huma.Context, fun
 			return
 		}
 
-		if _, err := options.Verifier.Verify(token); err != nil {
+		claims, err := options.Verifier.Verify(token)
+		if err != nil {
 			next(withAuthenticationFailure(ctx, err))
 			return
 		}
 
-		next(huma.WithValue(ctx, accessTokenContextKey{}, token))
+		next(withAuthenticatedContext(ctx, token, claims))
 	}
 }
 
@@ -83,6 +87,72 @@ func RequireAuthentication(api huma.API, options AuthenticationOptions) func(hum
 		}
 
 		next(ctx)
+	}
+}
+
+// RequireOperator rejects authenticated callers that do not hold the operator
+// role or an administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+func RequireOperator(api huma.API) func(huma.Context, func(huma.Context)) {
+	return RequireRole(api, roleauth.RequirementOperator)
+}
+
+// RequireAdministrator rejects authenticated callers that do not hold an
+// administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+func RequireAdministrator(api huma.API) func(huma.Context, func(huma.Context)) {
+	return RequireRole(api, roleauth.RequirementAdministrator)
+}
+
+// RequireSecurity rejects authenticated callers that do not hold the security
+// role or an administrator-equivalent role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+func RequireSecurity(api huma.API) func(huma.Context, func(huma.Context)) {
+	return RequireRole(api, roleauth.RequirementSecurity)
+}
+
+// RequireRole rejects authenticated callers unless they satisfy the shared
+// coarse-grained authorization requirement.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+//   - requirement: shared coarse authorization requirement to enforce
+func RequireRole(
+	api huma.API,
+	requirement roleauth.Requirement,
+) func(huma.Context, func(huma.Context)) {
+	return RequireAnyRole(api, roleauth.AllowedRoles(requirement))
+}
+
+// RequireAnyRole rejects authenticated callers unless they hold at least one
+// accepted role.
+//
+// Parameters:
+//   - api: Huma API instance used to render transport-level auth errors
+//   - acceptedRoles: role names accepted for the protected area
+func RequireAnyRole(
+	api huma.API,
+	acceptedRoles []string,
+) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		claims, ok := accessClaimsFromContext(ctx.Context())
+		if !ok {
+			_ = huma.WriteErr(api, ctx, 401, "missing or invalid access token")
+			return
+		}
+
+		if roleauth.HasAnyRole(claims.Roles, acceptedRoles) {
+			next(ctx)
+			return
+		}
+
+		_ = huma.WriteErr(api, ctx, 403, "insufficient role")
 	}
 }
 
@@ -122,6 +192,50 @@ func isAcceptedAccessToken(token string) bool {
 func hasAccessToken(ctx context.Context) bool {
 	token, _ := ctx.Value(accessTokenContextKey{}).(string)
 	return isAcceptedAccessToken(token)
+}
+
+// AccessTokenFromContext returns the access token previously extracted by
+// authentication middleware when one is available.
+func AccessTokenFromContext(ctx context.Context) (string, bool) {
+	token, ok := ctx.Value(accessTokenContextKey{}).(string)
+	if !ok || !isAcceptedAccessToken(token) {
+		return "", false
+	}
+	return token, true
+}
+
+// AccessClaimsFromContext returns the verified JWT claims previously extracted
+// by authentication middleware when they are available.
+func AccessClaimsFromContext(ctx context.Context) (authtoken.AccessClaims, bool) {
+	return accessClaimsFromContext(ctx)
+}
+
+// NewAuthenticatedContext returns a plain context populated with the access
+// token and verified claims that downstream handlers expect after successful
+// authentication extraction.
+func NewAuthenticatedContext(ctx context.Context, token string, claims authtoken.AccessClaims) context.Context {
+	return context.WithValue(
+		context.WithValue(ctx, accessTokenContextKey{}, token),
+		accessClaimsContextKey{},
+		claims,
+	)
+}
+
+func accessClaimsFromContext(ctx context.Context) (authtoken.AccessClaims, bool) {
+	claims, ok := ctx.Value(accessClaimsContextKey{}).(authtoken.AccessClaims)
+	return claims, ok
+}
+
+func withAuthenticatedContext(
+	ctx huma.Context,
+	token string,
+	claims authtoken.AccessClaims,
+) huma.Context {
+	return huma.WithValue(
+		huma.WithValue(ctx, accessTokenContextKey{}, token),
+		accessClaimsContextKey{},
+		claims,
+	)
 }
 
 func withAuthenticationFailure(ctx huma.Context, err error) huma.Context {

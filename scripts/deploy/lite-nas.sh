@@ -5,9 +5,17 @@ DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/ufw.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/apparmor.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/postfix.sh"
+# shellcheck disable=SC1091
+source "$DEPLOY_HELPER_DIR/normalize-etc-permissions.sh"
 
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
-readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_LOG_DIR:-/var/log/lite-nas}"
+readonly LITE_NAS_SECURITY_GROUP="${LITE_NAS_SECURITY_GROUP:-lite-nas-security}"
+readonly LITE_NAS_OPERATOR_GROUP="${LITE_NAS_OPERATOR_GROUP:-lite-nas-operator}"
+readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_BOOTSTRAP_LOG_DIR:-/var/log/lite-nas}"
 
 deploy.liteNAS.usage() {
 	cat <<'MSG'
@@ -25,7 +33,6 @@ deploy.liteNAS.requireTools() {
 		getent
 		groupadd
 		install
-		systemctl
 	)
 
 	for tool in "${tools[@]}"; do
@@ -44,6 +51,17 @@ deploy.liteNAS.ensureCommonGroup() {
 	groupadd --system "$LITE_NAS_BOOTSTRAP_GROUP"
 }
 
+deploy.liteNAS.ensureRoleGroups() {
+	if ! getent group "$LITE_NAS_SECURITY_GROUP" >/dev/null 2>&1; then
+		log.info "Creating LiteNAS security group: $LITE_NAS_SECURITY_GROUP"
+		groupadd --system "$LITE_NAS_SECURITY_GROUP"
+	fi
+	if ! getent group "$LITE_NAS_OPERATOR_GROUP" >/dev/null 2>&1; then
+		log.info "Creating LiteNAS operator group: $LITE_NAS_OPERATOR_GROUP"
+		groupadd --system "$LITE_NAS_OPERATOR_GROUP"
+	fi
+}
+
 deploy.liteNAS.ensureLogDir() {
 	install -d -m 0751 -o root -g "$LITE_NAS_BOOTSTRAP_GROUP" "$LITE_NAS_BOOTSTRAP_LOG_DIR"
 }
@@ -53,15 +71,28 @@ deploy.liteNAS.bootstrap() {
 
 	"$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh"
 	deploy.liteNAS.ensureCommonGroup
+	deploy.liteNAS.ensureRoleGroups
 	deploy.liteNAS.ensureLogDir
+	deploy.apparmor.requireTools
+	deploy.postfix.requireTools
 
 	if [ "$manage_nats_config" = "1" ]; then
 		"$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" --no-restart
 		"$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" --if-missing
-		systemctl restart nats-server.service
+		if deploy.hasUsableSystemd; then
+			systemctl restart nats-server.service
+		elif deploy.hasServiceCommand && service nats-server restart >/dev/null 2>&1; then
+			:
+		else
+			log.warn "No usable service manager is available for nats-server.service; skipping restart."
+		fi
 	else
 		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
 	fi
+
+	deploy.apparmor.deploy 1
+	deploy.postfix.deploy 1
+	deploy.normalizeEtcPermissions /etc
 
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.sh" --if-missing

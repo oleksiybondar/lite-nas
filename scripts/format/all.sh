@@ -12,6 +12,7 @@ cd "$(git rev-parse --show-toplevel)"
 formatters=(
 	"markdown"
 	"js-ts"
+	"python"
 	"go"
 	"shell"
 )

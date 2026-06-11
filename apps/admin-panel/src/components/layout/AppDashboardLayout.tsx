@@ -1,4 +1,5 @@
 import { AppChromeLayout } from "@components/layout/AppChromeLayout";
+import { AppAlertsControl } from "@components/navigation/AppAlertsControl";
 import { AppFooter } from "@components/navigation/AppFooter";
 import { AppSidebar } from "@components/navigation/AppSidebar";
 import { AppSidebarDrawer, AppSidebarDrawerButton } from "@components/navigation/AppSidebarDrawer";
@@ -6,6 +7,7 @@ import { AppSidebarFlyout } from "@components/navigation/AppSidebarFlyout";
 import { AppSidebarModeToggle } from "@components/navigation/AppSidebarModeToggle";
 import { AppTopBar } from "@components/navigation/AppTopBar";
 import { AppUserMenu } from "@components/navigation/AppUserMenu";
+import { useRbac } from "@hooks/useRbac";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import {
@@ -26,7 +28,11 @@ import { Outlet, useLocation } from "react-router-dom";
  */
 export const AppDashboardLayout = (): ReactElement => {
   const { pathname } = useLocation();
-  const navigationItems = resolveNavigationItems(pathname);
+  const { requireOperator, requireSecurity } = useRbac();
+  const navigationItems = resolveNavigationItems(pathname, {
+    requireOperator,
+    requireSecurity,
+  });
   const selectedPath = resolveSelectedNavigationPath(pathname, navigationItems);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -81,7 +87,12 @@ const renderDashboardHeader = ({
           <AppSidebarModeToggle isCollapsed={isSidebarCollapsed} onToggle={onToggleSidebarMode} />
         </Box>
       }
-      trailingAction={<AppUserMenu />}
+      trailingAction={
+        <Box alignItems="center" display="flex" gap={1}>
+          <AppAlertsControl />
+          <AppUserMenu />
+        </Box>
+      }
     />
   );
 };
@@ -108,7 +119,7 @@ const renderDashboardMain = ({
   selectedPath,
 }: DashboardMainRenderOptions): ReactElement => {
   return (
-    <Box data-testid="dashboard-layout" display="flex" minHeight="calc(100vh - 113px)">
+    <Box data-testid="dashboard-layout" display="flex" flex={1} minHeight={0} overflow="hidden">
       <AppSidebarDrawer
         items={navigationItems}
         onClose={onCloseMobileSidebar}
@@ -129,7 +140,16 @@ const renderDashboardMain = ({
         component="section"
         data-testid="dashboard-content"
         maxWidth={false}
-        sx={{ py: 4 }}
+        sx={{
+          "& > *": {
+            minWidth: 0,
+            width: "100%",
+          },
+          minHeight: 0,
+          minWidth: 0,
+          overflowY: "auto",
+          py: 4,
+        }}
       >
         <Outlet />
       </Container>

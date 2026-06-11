@@ -21,18 +21,18 @@ mkdir -p logs
 log.popTask
 
 run_marker_tests() {
-	local marker="$1"
+	local category="$1"
 	local status=0
 	shift
 
-	log.pushTask "Running Python ${marker} tests"
+	log.pushTask "Running Python ${category} tests"
 	set +e
-	"$pytest_bin" -c pytest.ini . -m "$marker" "$@"
+	"$pytest_bin" -c pytest.ini . -m "$category" -x "$@"
 	status=$?
 	set -e
 
 	if [ "$status" -eq 5 ]; then
-		log.info "No Python ${marker} tests found; skipping."
+		log.info "No Python ${category} tests found; skipping."
 		log.popTask
 		return 0
 	fi
@@ -41,7 +41,15 @@ run_marker_tests() {
 	return "$status"
 }
 
-run_marker_tests infra "$@"
-run_marker_tests cli "$@"
-run_marker_tests api "$@"
-run_marker_tests ui "$@"
+run_category_suite() {
+	local category="$1"
+	shift
+	run_marker_tests "$category" "$@"
+}
+
+# Keep execution ordered from base system checks to highest-level UI flows.
+categories=(infra cli api ui)
+
+for category in "${categories[@]}"; do
+	run_category_suite "$category" "$@"
+done

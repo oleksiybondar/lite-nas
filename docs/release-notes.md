@@ -1,5 +1,117 @@
 # Release Notes
 
+Current platform state: the admin panel now surfaces system and security
+alert management plus system and ZFS metrics in the browser. The release
+entries below remain historical snapshots of when the platform slices landed.
+
+## 0.2.1 - 2026-05-31
+
+### RL-0.2.1 Summary
+
+- Extended the monitoring and alerting slice with packaged email notification
+  delivery, local Postfix integration, and relay-ready outbound mail
+  configuration. The release keeps the alert producers and logging-manager
+  consumers intact while adding email as a separate operational notification
+  surface.
+
+### RL-0.2.1 Added
+
+- Added `system-email-notifier` and `security-email-notifier` as dedicated
+  alert email consumers for the system and security domains.
+- Added shared Go notifier runtime support for alert subscription adaptation,
+  HTML template rendering, and local SMTP delivery.
+- Added packaged notifier templates and `[email]` / `[smtp]` config sections
+  for both notifier services.
+- Added operator documentation for notifier setup, relay configuration, and
+  CLI-based verification/testing.
+
+### RL-0.2.1 Changed
+
+- Extended the shared alert payload contract with optional `message` and
+  `trigger_value` fields needed by notifier rendering without changing
+  existing logging-manager state handling.
+- Changed `resources-monitor` alert publication to populate notifier-relevant
+  message and trigger-value context on new alert creation.
+- Changed the packaged email templates to use backend-provided severity colors,
+  inline email-safe styling, and dark-mode compatibility hints for broader
+  client compatibility.
+
+### RL-0.2.1 Platform
+
+- Expanded build, deploy, package, and runtime flows to include notifier
+  binaries, templates, configs, systemd units, NATS permissions, and AppArmor
+  profiles.
+- Added managed Postfix integration with local-only SMTP, capture-mode testing,
+  and relay authentication support through a preserved local
+  `/etc/postfix/postfix.d/authentication.conf`.
+- Extended runtime permission normalization for notifier template directories
+  and Postfix relay secret files.
+
+### RL-0.2.1 Notes
+
+- Real external delivery depends on an operator-configured authenticated SMTP
+  relay such as Mailgun, SES, or another provider.
+- Relay credentials remain machine-local secrets and are intentionally kept
+  out of the repository.
+
+## 0.2.0 - 2026-05-29
+
+### RL-0.2.0 Summary
+
+- Extended the platform skeleton into an authenticated monitoring and alerting
+  slice with RBAC-backed service roles, stateful logging-manager enforcement,
+  and rule-based alert generation from system and ZFS metrics. The release
+  remained operationally CLI-oriented, but it now exercises a much more complete
+  internal runtime path.
+
+### RL-0.2.0 Added
+
+- Added `rbac-service` as the internal authorization decision service for host
+  role/group resolution and capability checks.
+- Added service-to-service token login and refresh flows so internal LiteNAS
+  services can authenticate across the NATS boundary.
+- Added `zfs-metrics` as a ZFS snapshot producer with ZFS event/RPC contracts.
+- Added `resources-monitor` as a rule-based alert source consuming system and
+  ZFS metrics events and publishing alert lifecycle updates.
+- Added packaged and deployable system/security logging-manager CLI binaries and
+  the shared manager runtime wiring they exercise.
+
+### RL-0.2.0 Changed
+
+- Changed logging managers from unauthenticated internal message consumers to
+  authenticated boundaries that validate access tokens and enforce role policy
+  before applying writes or state mutations.
+- Changed auth-service token issuance so issued user and service access tokens
+  resolve role context through `rbac-service`.
+- Clarified the system/security logging-manager split as intentional
+  architecture, even though only the system side currently has richer alert
+  sources behind it.
+- Changed the monitoring path from a simple metrics seed slice into an
+  end-to-end alert flow: metrics producers -> resources-monitor ->
+  logging-manager state -> CLI consumers.
+
+### RL-0.2.0 Platform
+
+- Expanded the packaged LiteNAS runtime to include `rbac-service`,
+  `system-logging-manager`, `security-logging-manager`,
+  `system-logging-manager-cli`, `security-logging-manager-cli`, and
+  `resources-monitor` beside the previously packaged auth, metrics, and web
+  components.
+- Extended repository build/deploy flows and managed NATS certificate coverage
+  for the new service and CLI identities participating in authenticated
+  messaging.
+- Increased the integration value of existing system tests because simple CLI
+  checks now also transit permission boundaries, service authentication, RBAC
+  role retrieval, and manager-side authorization logic.
+
+### RL-0.2.0 Notes
+
+- The current monitoring focus is resource and condition-change alerting for a
+  CLI-oriented home-lab workflow.
+- Security and UI-facing alert consumers are intentionally prepared but not yet
+  expanded into full security-monitoring or browser-native alert-management
+  products.
+
 ## 0.1.1 - 2026-05-06
 
 ### RL-0.1.1 Summary

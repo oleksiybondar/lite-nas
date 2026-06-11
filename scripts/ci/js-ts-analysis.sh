@@ -15,6 +15,7 @@ mapfile -t biome_files < <(find . -type f \( \
 	-not -path './logs/*' \
 	-not -path './tests/logs/*' \
 	-not -path '*/dist/*' \
+	-not -path './.junie/*' \
 	-not -path '*/build/*')
 
 if [ "${#biome_files[@]}" -eq 0 ]; then
@@ -32,6 +33,7 @@ mapfile -t duplicate_files < <(find . -type f \( -name '*.js' -o -name '*.jsx' -
 	-not -path './logs/*' \
 	-not -path './tests/logs/*' \
 	-not -path '*/dist/*' \
+	-not -path './.junie/*' \
 	-not -path '*/build/*')
 
 if [ "${#duplicate_files[@]}" -eq 0 ]; then

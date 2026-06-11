@@ -4,19 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/common.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../config/version.conf"
 
-readonly LITE_NAS_DEB_PACKAGE_BUILD_SCRIPTS=(
-	"$LITE_NAS_REPO_ROOT/scripts/package/build-lite-nas-deb.sh"
-)
-
+readonly LITE_NAS_VERSION_CONFIG="$LITE_NAS_REPO_ROOT/scripts/config/version.conf"
 readonly LITE_NAS_DEB_PACKAGE_CHANGELOGS=(
 	"$LITE_NAS_REPO_ROOT/packaging/debian/lite-nas/usr/share/doc/lite-nas/changelog.Debian"
-)
-
-readonly LITE_NAS_SHARED_CONSUMER_GO_MODS=(
-	"$LITE_NAS_REPO_ROOT/services/system-metrics/go.mod"
-	"$LITE_NAS_REPO_ROOT/services/web-gateway/go.mod"
-	"$LITE_NAS_REPO_ROOT/apps/system-metrics-cli/go.mod"
 )
 
 usage() {
@@ -24,7 +17,7 @@ usage() {
 Usage: scripts/dev/bump-versions.sh
 
 Interactive developer helper that updates:
-- default Debian package versions in package build scripts
+- the repository base Debian package version config
 - Debian changelog headers for known packages
 - lite-nas/shared dependency versions in known service/app go.mod files
 MSG
@@ -75,14 +68,74 @@ prompt_new_version() {
 	printf '%s\n' "$response"
 }
 
+normalize_go_module_version() {
+	local version="$1"
+
+	if [[ "$version" == v* ]]; then
+		printf '%s\n' "$version"
+		return
+	fi
+
+	printf 'v%s\n' "$version"
+}
+
 current_deb_version() {
-	sed -n "s/^package_version=\"\${LITE_NAS_PACKAGE_VERSION:-\\(.*\\)}\"$/\\1/p" \
-		"$LITE_NAS_REPO_ROOT/scripts/package/build-lite-nas-deb.sh"
+	printf '%s\n' "$LITE_NAS_BASE_VERSION"
 }
 
 current_shared_version() {
-	sed -n 's/^require lite-nas\/shared \(v[^ ]*\)$/\1/p' \
-		"${LITE_NAS_SHARED_CONSUMER_GO_MODS[0]}"
+	local first_consumer=""
+	first_consumer="$(shared_consumer_go_mods | head -n 1)"
+
+	if [ -z "$first_consumer" ]; then
+		return
+	fi
+
+	python3 - "$first_consumer" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+content = Path(sys.argv[1]).read_text(encoding="utf-8")
+match = re.search(r'^\s*(?:require\s+)?lite-nas/shared\s+(v[^\s]+)\s*$', content, re.MULTILINE)
+if match:
+    print(match.group(1))
+PY
+}
+
+shared_consumer_go_mods() {
+	find "$LITE_NAS_REPO_ROOT/services" "$LITE_NAS_REPO_ROOT/apps" -name go.mod -print |
+		sort |
+		while IFS= read -r go_mod; do
+			if grep -Eq '(^require lite-nas/shared [^ ]+$)|(^[[:space:]]+lite-nas/shared [^ ]+$)' "$go_mod"; then
+				printf '%s\n' "$go_mod"
+			fi
+		done
+}
+
+replace_shared_version_in_file() {
+	local path="$1"
+	local new_version="$2"
+
+	python3 - "$path" "$new_version" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+new_version = sys.argv[2]
+content = path.read_text(encoding="utf-8")
+updated, count = re.subn(
+    r'(^\s*(?:require\s+)?lite-nas/shared\s+)(v[^\s]+)(\s*$)',
+    rf'\g<1>{new_version}\g<3>',
+    content,
+    count=1,
+    flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit(f"Expected lite-nas/shared require line not found in {path}")
+path.write_text(updated, encoding="utf-8")
+PY
 }
 
 update_deb_package_versions() {
@@ -97,13 +150,11 @@ update_deb_package_versions() {
 
 	log.pushTask "Updating Debian package versions"
 
-	for path in "${LITE_NAS_DEB_PACKAGE_BUILD_SCRIPTS[@]}"; do
-		log.info "Updating $(realpath --relative-to="$LITE_NAS_REPO_ROOT" "$path")"
-		replace_in_file \
-			"$path" \
-			"package_version=\"\${LITE_NAS_PACKAGE_VERSION:-$old_version}\"" \
-			"package_version=\"\${LITE_NAS_PACKAGE_VERSION:-$new_version}\""
-	done
+	log.info "Updating $(realpath --relative-to="$LITE_NAS_REPO_ROOT" "$LITE_NAS_VERSION_CONFIG")"
+	replace_in_file \
+		"$LITE_NAS_VERSION_CONFIG" \
+		"LITE_NAS_BASE_VERSION=$old_version" \
+		"LITE_NAS_BASE_VERSION=$new_version"
 
 	for path in "${LITE_NAS_DEB_PACKAGE_CHANGELOGS[@]}"; do
 		local package_name=""
@@ -122,20 +173,24 @@ update_shared_dependency_versions() {
 	local old_version="$1"
 	local new_version="$2"
 	local path=""
+	local consumers=()
 
 	if [ "$old_version" = "$new_version" ]; then
 		log.info "lite-nas/shared dependency version unchanged: $old_version"
 		return
 	fi
 
+	mapfile -t consumers < <(shared_consumer_go_mods)
+	if [ "${#consumers[@]}" -eq 0 ]; then
+		log.error "No service/app go.mod files requiring lite-nas/shared were found."
+		exit 1
+	fi
+
 	log.pushTask "Updating lite-nas/shared dependency versions"
 
-	for path in "${LITE_NAS_SHARED_CONSUMER_GO_MODS[@]}"; do
+	for path in "${consumers[@]}"; do
 		log.info "Updating $(realpath --relative-to="$LITE_NAS_REPO_ROOT" "$path")"
-		replace_in_file \
-			"$path" \
-			"require lite-nas/shared $old_version" \
-			"require lite-nas/shared $new_version"
+		replace_shared_version_in_file "$path" "$new_version"
 	done
 
 	log.popTask
@@ -173,6 +228,7 @@ main() {
 
 	local shared_new=""
 	shared_new="$(prompt_new_version "SHARED (applies to all known service/app go.mod files)" "$shared_current")"
+	shared_new="$(normalize_go_module_version "$shared_new")"
 
 	update_deb_package_versions "$deb_current" "$deb_new"
 	update_shared_dependency_versions "$shared_current" "$shared_new"

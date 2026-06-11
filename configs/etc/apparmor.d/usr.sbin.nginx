@@ -1,0 +1,42 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/sbin/nginx flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/base>
+  include <abstractions/nameservice>
+  include <abstractions/openssl>
+  include <abstractions/ssl_certs>
+
+  capability net_bind_service,
+  capability dac_override,
+  capability setgid,
+  capability setuid,
+
+  network inet stream,
+  network inet6 stream,
+  network unix stream,
+  network unix dgram,
+
+  /usr/sbin/nginx mr,
+  /usr/lib/nginx/modules/*.so mr,
+  /etc/nginx/ r,
+  /etc/nginx/** r,
+  /etc/default/nginx r,
+  /etc/lite-nas/certificates/nginx/server.crt r,
+  /etc/lite-nas/certificates/nginx/server.key r,
+  /proc/sys/net/core/somaxconn r,
+  /run/nginx.pid rwk,
+  /run/nginx/** rwk,
+  /var/lib/nginx/ rw,
+  /var/lib/nginx/** rwk,
+  /var/log/nginx/ r,
+  /var/log/nginx/*.log rwk,
+  /var/log/nginx/** rwk,
+  /usr/share/nginx/ r,
+  /usr/share/nginx/** r,
+  /usr/share/lite-nas/web-gateway/ r,
+  /usr/share/lite-nas/web-gateway/** r,
+
+  include if exists <local/usr.sbin.nginx>
+}

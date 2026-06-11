@@ -13,15 +13,19 @@ import (
 	"lite-nas/services/auth/sessions"
 	"lite-nas/shared/authtoken"
 	sharedconfig "lite-nas/shared/config"
+	sharedcontracts "lite-nas/shared/contracts"
 	authcontract "lite-nas/shared/contracts/auth"
+	rbaccontract "lite-nas/shared/contracts/rbac"
 	"lite-nas/shared/messaging"
 )
 
 const (
 	packagedConfigPath = "/etc/lite-nas/auth.conf"
-	serviceName        = "auth-service"
+	serviceName        = sharedcontracts.ServiceAuth
 	pamServiceName     = "litenas-auth"
 	refreshTokenTTL    = 24 * time.Hour
+	serviceTokenTTL    = 36 * time.Hour
+	rbacLookupTimeout  = 300 * time.Millisecond
 	sessionIDBytes     = 16
 )
 
@@ -48,10 +52,12 @@ func run(ctx context.Context) error {
 	}
 
 	runtimeDeps := authRuntime{
-		Auth:         authModule,
-		Tokens:       tokenRuntime,
-		RefreshStore: newRefreshStore(infra.Config.AuthTokens),
-		Validator:    newRequestValidator(),
+		Auth:              authModule,
+		Tokens:            tokenRuntime,
+		RefreshStore:      newRefreshStore(infra.Config.AuthTokens),
+		ServiceTokenStore: newServiceTokenStore(time.Now),
+		Validator:         newRequestValidator(),
+		Client:            infra.Client,
 	}
 	if err := registerRPCHandlers(infra.Server, runtimeDeps); err != nil {
 		return err
@@ -72,19 +78,26 @@ func run(ctx context.Context) error {
 }
 
 type authRuntime struct {
-	Auth         modules.Auth
-	Tokens       authTokenRuntime
-	RefreshStore *sessions.Store
-	Validator    requestValidator
+	Auth              modules.Auth
+	Tokens            authTokenRuntime
+	RefreshStore      *sessions.Store
+	ServiceTokenStore *serviceTokenStore
+	Validator         requestValidator
+	Client            messaging.Client
 }
 
 type authTokenRuntime struct {
-	Issuer   authtoken.Issuer
-	Verifier authtoken.Verifier
+	Issuer        authtoken.Issuer
+	ServiceIssuer authtoken.Issuer
+	Verifier      authtoken.Verifier
 }
 
 func newAuthTokenRuntime(cfg sharedconfig.AuthTokenConfig) (authTokenRuntime, error) {
 	issuer, err := newAuthTokenIssuer(cfg)
+	if err != nil {
+		return authTokenRuntime{}, err
+	}
+	serviceIssuer, err := newServiceAuthTokenIssuer(cfg)
 	if err != nil {
 		return authTokenRuntime{}, err
 	}
@@ -95,8 +108,9 @@ func newAuthTokenRuntime(cfg sharedconfig.AuthTokenConfig) (authTokenRuntime, er
 	}
 
 	return authTokenRuntime{
-		Issuer:   issuer,
-		Verifier: verifier,
+		Issuer:        issuer,
+		ServiceIssuer: serviceIssuer,
+		Verifier:      verifier,
 	}, nil
 }
 
@@ -112,6 +126,21 @@ func newAuthTokenIssuer(cfg sharedconfig.AuthTokenConfig) (authtoken.Issuer, err
 	}
 
 	return authtoken.NewIssuer(issuerOptions(cfg), signingKey)
+}
+
+// newServiceAuthTokenIssuer builds the dedicated S2S token issuer.
+func newServiceAuthTokenIssuer(cfg sharedconfig.AuthTokenConfig) (authtoken.Issuer, error) {
+	signingKeyData, err := os.ReadFile(cfg.SigningKey) // #nosec G304 -- path comes from service config
+	if err != nil {
+		return authtoken.Issuer{}, err
+	}
+
+	signingKey, err := authtoken.ParseEd25519PrivateKeyPEM(signingKeyData)
+	if err != nil {
+		return authtoken.Issuer{}, err
+	}
+
+	return authtoken.NewIssuer(serviceIssuerOptions(cfg), signingKey)
 }
 
 func newAuthTokenVerifier(cfg sharedconfig.AuthTokenConfig) (authtoken.Verifier, error) {
@@ -136,6 +165,15 @@ func issuerOptions(cfg sharedconfig.AuthTokenConfig) authtoken.IssuerOptions {
 	}
 }
 
+// serviceIssuerOptions resolves issuer options for S2S token minting.
+func serviceIssuerOptions(cfg sharedconfig.AuthTokenConfig) authtoken.IssuerOptions {
+	return authtoken.IssuerOptions{
+		Issuer:         cfg.Issuer,
+		Audience:       cfg.Audience,
+		AccessLifetime: serviceTokenTTL,
+	}
+}
+
 func verifierOptions(cfg sharedconfig.AuthTokenConfig) authtoken.VerifierOptions {
 	return authtoken.VerifierOptions{
 		Issuer:    cfg.Issuer,
@@ -152,6 +190,17 @@ func newRefreshStore(cfg sharedconfig.AuthTokenConfig) *sessions.Store {
 }
 
 func registerRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error {
+	if err := registerUserRPCHandlers(server, runtimeDeps); err != nil {
+		return err
+	}
+	if err := registerServiceRPCHandlers(server, runtimeDeps); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func registerUserRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error {
 	if err := server.RegisterRPC(authcontract.LoginRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
 		return handleLoginRPC(runtimeDeps, envelope)
 	}); err != nil {
@@ -179,6 +228,21 @@ func registerRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error
 	return nil
 }
 
+func registerServiceRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error {
+	if err := server.RegisterRPC(authcontract.ServiceTokenLoginRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleServiceTokenLoginRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.ServiceTokenRefreshRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleServiceTokenRefreshRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.LoginResponse, error) {
 	var request authcontract.LoginRequest
 	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
@@ -190,12 +254,14 @@ func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authc
 		return loginResponseFromPAM(result), nil
 	}
 
-	accessToken, issued := issueAccessToken(runtimeDeps, result.Username, result.Username)
+	login := resolvedLogin(result.Username, request.Username)
+	subject, roles := resolvePrincipalRoles(runtimeDeps, login)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles)
 	if !issued {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
 	}
 
-	refreshToken, created := createRefreshToken(runtimeDeps, request, result.Username)
+	refreshToken, created := createRefreshToken(runtimeDeps, request, subject, login)
 	if !created {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
 	}
@@ -204,6 +270,13 @@ func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authc
 	response.AccessToken = accessToken
 	response.RefreshToken = refreshToken
 	return response, nil
+}
+
+func resolvedLogin(authenticatedUsername string, requestUsername string) string {
+	if authenticatedUsername != "" {
+		return authenticatedUsername
+	}
+	return requestUsername
 }
 
 func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRequest) (pamauth.Result, bool) {
@@ -221,10 +294,11 @@ func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRe
 	return result, true
 }
 
-func issueAccessToken(runtimeDeps authRuntime, subject string, login string) (string, bool) {
+func issueAccessToken(runtimeDeps authRuntime, subject string, login string, roles []string) (string, bool) {
 	accessToken, _, err := runtimeDeps.Tokens.Issuer.Issue(authtoken.Principal{
 		Subject: subject,
 		Login:   login,
+		Roles:   roles,
 	})
 	if err != nil {
 		return "", false
@@ -233,10 +307,37 @@ func issueAccessToken(runtimeDeps authRuntime, subject string, login string) (st
 	return accessToken, true
 }
 
-func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginRequest, username string) (string, bool) {
+func resolvePrincipalRoles(runtimeDeps authRuntime, username string) (string, []string) {
+	if runtimeDeps.Client == nil {
+		return username, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), rbacLookupTimeout)
+	defer cancel()
+
+	response := rbaccontract.GetSubjectRolesResponse{}
+	err := runtimeDeps.Client.Request(
+		ctx,
+		rbaccontract.GetSubjectRolesRPCSubject,
+		rbaccontract.GetSubjectRolesRequest{Username: username},
+		&response,
+	)
+	if err != nil {
+		return username, nil
+	}
+
+	subject := response.UID
+	if subject == "" {
+		subject = username
+	}
+
+	return subject, response.Groups
+}
+
+func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginRequest, subject string, username string) (string, bool) {
 	refreshToken, _, err := runtimeDeps.RefreshStore.Create(sessions.CreateInput{
 		SessionID: newSessionID(),
-		Subject:   username,
+		Subject:   subject,
 		Login:     username,
 		Context:   refreshContext(request.ClientIP, request.UserAgent),
 		TTL:       refreshTokenTTL,
@@ -259,7 +360,8 @@ func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (aut
 		return authcontract.RefreshResponse{}, nil
 	}
 
-	accessToken, issued := issueAccessToken(runtimeDeps, record.Subject, record.Login)
+	subject, roles := resolvePrincipalRoles(runtimeDeps, record.Login)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, record.Login, roles)
 	if !issued {
 		return authcontract.RefreshResponse{}, nil
 	}
@@ -324,6 +426,85 @@ func verifyAccessToken(runtimeDeps authRuntime, accessToken string) (authtoken.A
 	}
 
 	return claims, true
+}
+
+// handleServiceTokenLoginRPC mints a new service token pair for one service.
+func handleServiceTokenLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.ServiceTokenLoginResponse, error) {
+	var request authcontract.ServiceTokenLoginRequest
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
+		return authcontract.ServiceTokenLoginResponse{}, nil
+	}
+
+	accessToken, refreshToken, expiresAt, issued := issueServiceToken(runtimeDeps, request.Service)
+	if !issued {
+		return authcontract.ServiceTokenLoginResponse{}, nil
+	}
+
+	return authcontract.ServiceTokenLoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
+// handleServiceTokenRefreshRPC rotates a service token pair from refresh token.
+func handleServiceTokenRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.ServiceTokenRefreshResponse, error) {
+	var request authcontract.ServiceTokenRefreshRequest
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
+		return authcontract.ServiceTokenRefreshResponse{}, nil
+	}
+
+	accessToken, newRefreshToken, expiresAt, rotated := rotateServiceToken(runtimeDeps, request.Service, request.RefreshToken)
+	if !rotated {
+		return authcontract.ServiceTokenRefreshResponse{}, nil
+	}
+
+	return authcontract.ServiceTokenRefreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
+// issueServiceToken creates and stores one active service token session.
+func issueServiceToken(runtimeDeps authRuntime, service string) (string, string, time.Time, bool) {
+	subject, roles := resolvePrincipalRoles(runtimeDeps, service)
+
+	accessToken, claims, err := runtimeDeps.Tokens.ServiceIssuer.Issue(authtoken.Principal{
+		Subject: subject,
+		Login:   service,
+		Roles:   roles,
+	})
+	if err != nil {
+		return "", "", time.Time{}, false
+	}
+
+	refreshToken := newSessionID()
+	expiresAt := claims.ExpiresAt.Time
+	runtimeDeps.ServiceTokenStore.Upsert(service, refreshToken, expiresAt)
+	return accessToken, refreshToken, expiresAt, true
+}
+
+// rotateServiceToken rotates a service token session when refresh token matches.
+func rotateServiceToken(runtimeDeps authRuntime, service string, refreshToken string) (string, string, time.Time, bool) {
+	subject, roles := resolvePrincipalRoles(runtimeDeps, service)
+
+	accessToken, claims, err := runtimeDeps.Tokens.ServiceIssuer.Issue(authtoken.Principal{
+		Subject: subject,
+		Login:   service,
+		Roles:   roles,
+	})
+	if err != nil {
+		return "", "", time.Time{}, false
+	}
+
+	newRefreshToken := newSessionID()
+	expiresAt := claims.ExpiresAt.Time
+	if !runtimeDeps.ServiceTokenStore.Rotate(service, refreshToken, newRefreshToken, expiresAt) {
+		return "", "", time.Time{}, false
+	}
+
+	return accessToken, newRefreshToken, expiresAt, true
 }
 
 func decodeRPCRequest(envelope messaging.Envelope, request any, validator requestValidator) bool {

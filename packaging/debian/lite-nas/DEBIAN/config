@@ -4,6 +4,12 @@ set -e
 # shellcheck disable=SC1091
 . /usr/share/debconf/confmodule
 
+if command -v debconf-set-selections >/dev/null 2>&1; then
+	printf '%s\n' \
+		'postfix postfix/main_mailer_type select Local only' \
+		'postfix postfix/mailname string localhost' | debconf-set-selections
+fi
+
 db_input high lite-nas/gpl-notice || true
 db_go || true
 

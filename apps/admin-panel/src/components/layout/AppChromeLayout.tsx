@@ -27,9 +27,22 @@ type AppChromeLayoutProps = {
  */
 export const AppChromeLayout = ({ footer, header, main }: AppChromeLayoutProps): ReactElement => {
   return (
-    <Box data-testid="app-chrome-layout" display="flex" flexDirection="column" minHeight="100vh">
+    <Box
+      data-testid="app-chrome-layout"
+      display="flex"
+      flexDirection="column"
+      height="100dvh"
+      overflow="hidden"
+    >
       {header}
-      <Box component="main" data-testid="app-main" flex={1}>
+      <Box
+        component="main"
+        data-testid="app-main"
+        display="flex"
+        flex={1}
+        minHeight={0}
+        overflow="hidden"
+      >
         {main}
       </Box>
       {footer}

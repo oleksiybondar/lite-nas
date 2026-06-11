@@ -220,7 +220,7 @@ readability, maintenance, and consistent review quality.
 
 - Use existing scripts and configs where available.
 - Prefer `./scripts/install-dev-dependencies.sh` for local developer tooling.
-- Prefer `./scripts/run-ci.sh` for the full local static-analysis check.
+- Prefer `./scripts/run-ci-checks.sh` for the full local static-analysis check.
 - Prefer scripts under `scripts/ci/` for CI-equivalent checks.
 - Prefer scripts under `scripts/format/` for manual formatting.
 - Shell scripts should resolve repository helpers and sourced script modules

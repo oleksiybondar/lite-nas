@@ -3,11 +3,13 @@
 LiteNAS is a lightweight, security-oriented self-hosted platform for Linux that is being built as a
 set of small services, apps, and shared modules.
 
-The repository already contains the initial platform skeleton:
+The repository already contains an implemented platform slice:
 
 - shared Go modules for logging, configuration, messaging, and metrics support
-- backend service slices for system metrics and authentication
-- a system metrics CLI app and browser-facing admin panel
+- backend services for system metrics, ZFS metrics, auth, RBAC, stateful
+  alert management, resource monitoring, and email notification delivery
+- CLI apps for system metrics, ZFS metrics, and logging-manager operations
+- a browser-facing admin panel and gateway for alerts and telemetry
 - NATS-based internal communication between services and consumers
 - a web gateway that serves packaged frontend assets and adapts browser API
   calls to internal services
@@ -45,7 +47,7 @@ The project now has an implemented first slice that seeds the platform architect
 - a shared internal module layer
 - multiple backend services
 - a CLI consumer app
-- a browser-facing web app and gateway
+- a browser-facing web app and gateway for alerts and telemetry
 - messaging-based service interaction over NATS
 - frontend build output consumed by deploy and package assembly
 - reproducible packaging, deployment, and install validation
@@ -158,20 +160,40 @@ Current implemented focus:
 - **Shared runtime and messaging foundations**
   Reusable internal modules for logging, configuration, messaging, and metrics support.
 
-- **Monitoring seed slice**
-  An initial service/app slice used to establish service wiring, messaging flow, and packaging.
+- **Monitoring and alerting slice**
+  System metrics, ZFS metrics, resource-monitor rule evaluation, and
+  logging-manager state tracking now provide an implemented monitoring path.
+  System and security email notifier services extend that path into operator
+  email delivery through local Postfix.
 
 - **Authentication authority**
   `auth-service` owns PAM-backed host authentication, token issuance, and
   auth-state events behind the internal messaging boundary.
+
+- **Internal authorization and service authentication**
+  `rbac-service` resolves host-backed role and capability decisions, while
+  service-to-service token flows allow internal services to authenticate over
+  the messaging boundary.
+
+- **Stateful alert management**
+  `system-logging-manager` and `security-logging-manager` consume alert
+  lifecycle updates, persist current state and occurrences, and provide a
+  CLI-friendly state-based alert surface.
+
+- **Email notification delivery**
+  `system-email-notifier` and `security-email-notifier` consume alert events,
+  render packaged HTML email templates, and deliver through local Postfix with
+  support for authenticated upstream SMTP relay configuration.
 
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
 
 - **Browser-facing gateway and admin shell**
   `web-gateway` serves packaged `admin-panel` assets and adapts browser-facing
-  `/api` auth and system metrics endpoints to internal service calls while
-  serving the SPA entrypoint for non-API browser navigation paths.
+  `/api` auth, alert, and metrics endpoints to internal service calls while
+  serving the SPA entrypoint for non-API browser navigation paths. The current
+  browser app exposes system and security alert management as well as system
+  and ZFS metrics views.
 
 - **Reproducible packaging and deployment**
   Debian packaging, deployment scripts, frontend asset handoff, and install validation for the
@@ -188,7 +210,8 @@ Planned expansion areas:
   use of resources.
 
 - **Monitoring and resource supervision**
-  Continuous insight into system state, including CPU, memory, storage, and service-level metrics.
+  Broader monitoring domains, richer alert sources, and deeper operator-facing
+  supervision beyond the current system and ZFS resource slice.
 
 - **Configuration validation**
   Policy-based validation of system configuration, allowing detection of misconfigurations and drift
@@ -203,7 +226,9 @@ Planned expansion areas:
   coupling and extensibility.
 
 - **Web-based administration**
-  Richer browser-facing administration built on top of the gateway and admin-panel skeleton.
+  Richer browser-facing administration built on top of the gateway and
+  admin-panel implementation, with more domain coverage still planned beyond
+  the current alerts and telemetry surfaces.
 
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
@@ -577,6 +602,10 @@ Useful starting points:
 - [`docs/development-notes.md`](docs/development-notes.md)
   Why early slices are intentionally infrastructure-heavy and low immediate business value.
 
+- [`docs/email-notifiers.md`](docs/email-notifiers.md)
+  Operator-facing setup, relay configuration, and CLI testing flow for the
+  system and security email notifier services.
+
 - [`RELEASE_NOTES.md`](RELEASE_NOTES.md)
   Release-level summary of what has already been established and what later slices add.
 
@@ -594,6 +623,16 @@ Useful starting points:
 
 - [`requirements/auth-service.md`](requirements/auth-service.md)
   Requirements for the PAM-backed authentication authority.
+
+- [`requirements/rbac-service.md`](requirements/rbac-service.md)
+  Requirements for the internal authorization decision service.
+
+- [`requirements/resources-monitor.md`](requirements/resources-monitor.md)
+  Requirements for the rule-based alert source that consumes system and ZFS
+  metric events.
+
+- [`requirements/logging-managers.md`](requirements/logging-managers.md)
+  Requirements shared by the system and security logging-manager services.
 
 - [`services/web-gateway/README.md`](services/web-gateway/README.md)
   Architectural role and boundaries of the browser-facing gateway.

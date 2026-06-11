@@ -1,0 +1,30 @@
+[
+  {
+    "event": "system.metrics.events.stats",
+    "event_prefix": "syscpu",
+    "field": "snapshot.CPU.TotalUsagePct",
+    "condition": ">=",
+    "values": 90,
+    "message": "Total CPU usage is above threshold",
+    "normal_message": "Total CPU usage returned to normal range",
+    "description": "Alert when total CPU usage is greater than or equal to 90%",
+    "category": "system.metrics.cpu.total",
+    "severity": "warning",
+    "priority": 2,
+    "source": "system-metrics"
+  },
+  {
+    "event": "system.metrics.events.stats",
+    "event_prefix": "sysram",
+    "field": "snapshot.Mem.UsedPct",
+    "condition": ">=",
+    "values": 90,
+    "message": "RAM usage is above threshold",
+    "normal_message": "RAM usage returned to normal range",
+    "description": "Alert when RAM usage is greater than or equal to 90%",
+    "category": "system.metrics.mem.used",
+    "severity": "warning",
+    "priority": 2,
+    "source": "system-metrics"
+  }
+]

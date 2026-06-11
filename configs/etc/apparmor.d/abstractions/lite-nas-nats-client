@@ -1,0 +1,10 @@
+abi <abi/4.0>,
+
+network inet stream,
+network inet6 stream,
+network unix stream,
+network unix dgram,
+
+/etc/lite-nas/certificates/transport/ r,
+/etc/lite-nas/certificates/transport/** r,
+

@@ -16,11 +16,21 @@ type accessClaimOptions struct {
 }
 
 func newAccessClaims(options accessClaimOptions) AccessClaims {
+	scopes := options.Principal.Scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+
+	roles := options.Principal.Roles
+	if roles == nil {
+		roles = []string{}
+	}
+
 	return AccessClaims{
 		RegisteredClaims: newRegisteredClaims(options),
 		Login:            options.Principal.Login,
-		Scopes:           options.Principal.Scopes,
-		Roles:            options.Principal.Roles,
+		Scopes:           scopes,
+		Roles:            roles,
 	}
 }
 

@@ -4,15 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/../helpers/logger.sh"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/../helpers/repo-files.sh"
 
-cd "$(git rev-parse --show-toplevel)"
-
-mapfile -t files < <(find . -type f -name '*.md' \
-	-not -path '*/node_modules/*' \
-	-not -path './logs/*' \
-	-not -path './tests/logs/*' \
-	-not -path './dist/*' \
-	-not -path './build/*')
+declare -a files=()
+repo.files.collectMarkdownFiles files
 
 if [ "${#files[@]}" -eq 0 ]; then
 	log.info "No Markdown files found."

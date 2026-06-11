@@ -8,7 +8,6 @@ import (
 
 	sharedfileio "lite-nas/shared/fileio"
 	"lite-nas/shared/testutil/configtest"
-	"lite-nas/shared/testutil/fileiotest"
 )
 
 func TestLoadConfigReturnsMessagingURL(t *testing.T) {
@@ -65,10 +64,7 @@ func TestLoadConfigReturnsReaderError(t *testing.T) {
 func TestLoadConfigReturnsINIParseError(t *testing.T) {
 	t.Parallel()
 
-	_, err := LoadConfig(fileiotest.Reader{Data: []byte("[messaging")})
-	if err == nil {
-		t.Fatal("LoadConfig() error = nil, want parse error")
-	}
+	configtest.RunINIParseErrorCase(t, LoadConfig)
 }
 
 func TestLoadConfigReturnsLoggingConfigError(t *testing.T) {
@@ -77,11 +73,7 @@ func TestLoadConfigReturnsLoggingConfigError(t *testing.T) {
 	configtest.RunRejectsInvalidConfigCase(
 		t,
 		LoadConfig,
-		"[messaging]\n"+
-			"url=nats://127.0.0.1:4222\n"+
-			"timeout=5s\n"+
-			"[logging]\n"+
-			"output=file\n",
+		configtest.InvalidSharedMessagingLoggingConfigFixture(),
 	)
 }
 

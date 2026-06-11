@@ -16,6 +16,7 @@ The auth service owns:
 - host authentication and account-state evaluation through PAM
 - password-change-required flows required by host auth policy
 - access-token issuance and refresh-token rotation
+- service-to-service token issuance and rotation for internal callers
 - refresh-token revocation and volatile in-memory refresh-session state
 - lockdown state and lockdown event publication
 - online token validation for critical backend flows
@@ -79,6 +80,8 @@ The trust model is intentionally split:
 - services may validate JWT access tokens locally for normal protected flows
 - services may call the auth service over NATS for live token validation during
   critical or dangerous flows
+- internal services may also obtain dedicated service-to-service token pairs
+  from the auth service for authenticated NATS calls between LiteNAS services
 
 This allows bounded local trust for routine requests while keeping an online
 credibility check available when revocation-sensitive behavior matters.
@@ -110,6 +113,8 @@ The auth service is expected to expose explicit NATS contracts for:
 - password-change-driven auth continuation
 - refresh
 - logout
+- service-token login
+- service-token refresh
 - access-token validation
 - lockdown state transitions
 
@@ -142,3 +147,8 @@ authorization rules.
 It establishes authenticated identity and session credibility for LiteNAS. Each
 domain service remains responsible for its own operation-level authorization
 decisions on top of that identity context.
+
+The current implementation also resolves role context through `rbac-service`
+when minting user and service access tokens. That keeps group/role ownership in
+the authorization slice while leaving auth-service responsible for token
+credibility and issuance.

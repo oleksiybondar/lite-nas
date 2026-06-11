@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nats-io/nats.go"
+
 	"lite-nas/shared/config"
 	"lite-nas/shared/logger"
 )
@@ -111,21 +113,12 @@ func (c *client) Request(
 		return err
 	}
 
-	requestPayload, err := c.codec.Marshal(request)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrEncodeFailed, err)
-	}
-
-	reply, err := c.connection.request(subject, requestPayload, timeout)
+	reply, err := c.requestReply(subject, request, timeout)
 	if err != nil {
 		return err
 	}
 
-	if err := c.codec.Unmarshal(reply.Data, response); err != nil {
-		return fmt.Errorf("%w: %w", ErrDecodeFailed, err)
-	}
-
-	return nil
+	return c.decodeRPCReply(reply.Data, response)
 }
 
 // Drain gracefully drains the underlying transport connection.
@@ -155,4 +148,36 @@ func (c *client) resolveTimeout(ctx context.Context) (time.Duration, error) {
 	}
 
 	return timeout, nil
+}
+
+func (c *client) decodeRPCError(data []byte) error {
+	var payload rpcErrorPayload
+	if err := c.codec.Unmarshal(data, &payload); err == nil {
+		if payload.Error == "" {
+			return nil
+		}
+		return fmt.Errorf("%w: %s", ErrHandlerFailed, payload.Error)
+	}
+	return nil
+}
+
+func (c *client) requestReply(subject string, request any, timeout time.Duration) (*nats.Msg, error) {
+	requestPayload, err := c.codec.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrEncodeFailed, err)
+	}
+
+	return c.connection.request(subject, requestPayload, timeout)
+}
+
+func (c *client) decodeRPCReply(data []byte, response any) error {
+	if err := c.decodeRPCError(data); err != nil {
+		return err
+	}
+
+	if err := c.codec.Unmarshal(data, response); err != nil {
+		return fmt.Errorf("%w: %w", ErrDecodeFailed, err)
+	}
+
+	return nil
 }
