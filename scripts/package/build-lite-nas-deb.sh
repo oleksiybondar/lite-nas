@@ -12,7 +12,8 @@ source "$SCRIPT_DIR/../config/version.conf"
 cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas"
-package_version="${LITE_NAS_PACKAGE_VERSION:-$LITE_NAS_BASE_VERSION}"
+package_version="${LITE_NAS_PACKAGE_VERSION:-}"
+should_bump_local_build_counter=0
 auth_service_binary_path=""
 rbac_service_binary_path=""
 system_logging_manager_binary_path=""
@@ -39,7 +40,7 @@ usage() {
 Usage: scripts/package/build-lite-nas-deb.sh [options]
 
 Options:
-  --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or LITE_NAS_BASE_VERSION from scripts/config/version.conf.
+  --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or the current local alpha version from scripts/config/package-build-counter.txt.
   --auth-service-binary=PATH         Use an existing auth-service binary.
   --rbac-service-binary=PATH         Use an existing rbac-service binary.
   --system-logging-manager-binary=PATH
@@ -172,6 +173,11 @@ if args.has output-dir && ! output_dir="$(args.require_arg output-dir)"; then
 	log.error "Missing value for --output-dir"
 	usage >&2
 	exit 64
+fi
+
+if [ -z "$package_version" ]; then
+	package_version="$(packageVersion.localAlpha)"
+	should_bump_local_build_counter=1
 fi
 
 package.requireBuildCommands
@@ -471,5 +477,9 @@ log.popTask
 log.pushTask "Building Debian package ${deb_path}"
 dpkg-deb --root-owner-group --build "$package_root" "$deb_path"
 log.popTask
+
+if [ "$should_bump_local_build_counter" -eq 1 ]; then
+	packageVersion.bumpLocalBuildCounter
+fi
 
 log.info "Built Debian package: $deb_path"

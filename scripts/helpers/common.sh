@@ -27,6 +27,8 @@ source "$COMMON_DIR/args.sh"
 source "$COMMON_DIR/build.sh"
 # shellcheck disable=SC1091
 source "$COMMON_DIR/packaging.sh"
+# shellcheck disable=SC1091
+source "$COMMON_DIR/package-version.sh"
 
 deploy.hasUsableSystemd() {
 	command -v systemctl >/dev/null 2>&1 &&

@@ -216,13 +216,13 @@ repository-managed LiteNAS defaults.
 Build the current LiteNAS package set:
 
 ```bash
-./scripts/package/build-all-debs.sh --version=0.2.0+local
+./scripts/package/build-all-debs.sh --version=0.2.0~alpha.1
 ```
 
 Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
-./scripts/package/build-lite-nas-deb.sh --version=0.2.0+local
+./scripts/package/build-lite-nas-deb.sh --version=0.2.0~alpha.1
 ./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --resources-monitor-binary=/tmp/resources-monitor
 ```
 

@@ -105,6 +105,8 @@ jobs:
             dir: ./services/rbac
           - name: Resources monitor service
             dir: ./services/resources-monitor
+          - name: Network metrics service
+            dir: ./services/network-metrics
           - name: Security email notifier service
             dir: ./services/security-email-notifier
           - name: Security logging manager service
@@ -125,6 +127,8 @@ jobs:
             dir: ./apps/system-logging-manager-cli
           - name: System metrics CLI app
             dir: ./apps/system-metrics-cli
+          - name: Network metrics CLI app
+            dir: ./apps/network-metrics-cli
           - name: ZFS metrics CLI app
             dir: ./apps/zfs-metrics-cli
     steps:
@@ -317,6 +321,15 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Network metrics
+              artifact_name: network-metrics-linux
+              build_script: scripts/build-network-metrics-binary.sh
+              output_path: .build/network-metrics/linux-amd64/network-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Security email notifier
               artifact_name: security-email-notifier-linux
               build_script: scripts/build-security-email-notifier-binary.sh
@@ -403,6 +416,15 @@ jobs:
               build_script: scripts/build-resources-monitor-binary.sh
               output_path: .build/resources-monitor/linux-arm64/resources-monitor
               test_script: scripts/ci/go-test-module.sh ./services/resources-monitor
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Network metrics
+              artifact_name: network-metrics-linux
+              build_script: scripts/build-network-metrics-binary.sh
+              output_path: .build/network-metrics/linux-arm64/network-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -503,6 +525,14 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             app:
+              name: Network metrics CLI
+              artifact_name: network-metrics-cli-linux
+              build_script: scripts/build-network-metrics-cli-binary.sh
+              output_path: .build/network-metrics-cli/linux-amd64/network-metrics-cli
+              test_script: scripts/test-network-metrics-cli.sh
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
               name: Security logging manager CLI
               artifact_name: security-logging-manager-cli-linux
               build_script: scripts/build-security-logging-manager-cli-binary.sh
@@ -532,6 +562,14 @@ jobs:
               build_script: scripts/build-zfs-metrics-cli-binary.sh
               output_path: .build/zfs-metrics-cli/linux-amd64/zfs-metrics-cli
               test_script: scripts/test-zfs-metrics-cli.sh
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: Network metrics CLI
+              artifact_name: network-metrics-cli-linux
+              build_script: scripts/build-network-metrics-cli-binary.sh
+              output_path: .build/network-metrics-cli/linux-arm64/network-metrics-cli
+              test_script: scripts/test-network-metrics-cli.sh
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -612,8 +650,8 @@ jobs:
         id: package-version
         run: |
           # shellcheck disable=SC1091
-          source scripts/config/version.conf
-          echo "value=${LITE_NAS_BASE_VERSION}+pr.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          source scripts/helpers/common.sh
+          echo "value=$(packageVersion.prBeta '${{ github.run_number }}' '${{ github.sha }}')" >> "$GITHUB_OUTPUT"
 
       - name: Download auth service build artifact
         uses: actions/download-artifact@v4
@@ -632,6 +670,12 @@ jobs:
         with:
           name: resources-monitor-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/resources-monitor
+
+      - name: Download network metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: network-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/network-metrics
 
       - name: Download security email notifier build artifact
         uses: actions/download-artifact@v4
@@ -686,6 +730,12 @@ jobs:
         with:
           name: system-metrics-cli-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/system-metrics-cli
+
+      - name: Download network metrics CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: network-metrics-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/network-metrics-cli
 
       - name: Download zfs metrics CLI build artifact
         uses: actions/download-artifact@v4

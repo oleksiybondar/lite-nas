@@ -382,8 +382,8 @@ jobs:
         id: package-version
         run: |
           # shellcheck disable=SC1091
-          source scripts/config/version.conf
-          echo "value=${LITE_NAS_BASE_VERSION}+main.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          source scripts/helpers/common.sh
+          echo "value=$(packageVersion.releaseRel '${{ github.run_number }}' '${{ github.sha }}')" >> "$GITHUB_OUTPUT"
 
       - name: Download auth service build artifact
         uses: actions/download-artifact@v4

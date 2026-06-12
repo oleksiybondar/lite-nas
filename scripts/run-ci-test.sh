@@ -10,6 +10,7 @@ source "$SCRIPT_DIR/helpers/tool-paths.sh"
 cd "$(git rev-parse --show-toplevel)"
 log.pushTask "Running local CI test checks"
 scripts/test-auth-service.sh
+scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
 scripts/test-system-metrics.sh --with-coverage
 scripts/test-system-metrics-cli.sh
 scripts/test-network-metrics-cli.sh
