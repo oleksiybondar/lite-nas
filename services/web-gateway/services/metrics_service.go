@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 
+	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 	"lite-nas/shared/messaging"
@@ -21,6 +22,13 @@ type SystemMetricsService interface {
 type ZFSMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.ZFSSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.ZFSSnapshot, error)
+}
+
+// NetworkMetricsService defines the backend-facing network metrics flows used by
+// the gateway service layer.
+type NetworkMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.NetworkMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.NetworkMetricsSnapshot, error)
 }
 
 type metricsRPCService[T any, SnapshotResponse any, HistoryResponse any] struct {
@@ -78,6 +86,31 @@ func NewZFSMetricsService(client messaging.Client) ZFSMetricsService {
 			return response.Snapshot
 		},
 		selectHistoryItems: func(response zfsmetricscontract.GetHistoryResponse) []metrics.ZFSSnapshot {
+			return response.Items
+		},
+	}
+}
+
+// NewNetworkMetricsService creates a service that fetches network metrics over
+// the shared messaging transport.
+//
+// Parameters:
+//   - client: messaging client used for request/reply RPC calls
+func NewNetworkMetricsService(client messaging.Client) NetworkMetricsService {
+	return metricsRPCService[
+		metrics.NetworkMetricsSnapshot,
+		networkmetricscontract.GetSnapshotResponse,
+		networkmetricscontract.GetHistoryResponse,
+	]{
+		client:          client,
+		snapshotSubject: networkmetricscontract.SnapshotRPCSubject,
+		historySubject:  networkmetricscontract.HistoryRPCSubject,
+		snapshotRequest: networkmetricscontract.GetSnapshotRequest{},
+		historyRequest:  networkmetricscontract.GetHistoryRequest{},
+		selectSnapshot: func(response networkmetricscontract.GetSnapshotResponse) metrics.NetworkMetricsSnapshot {
+			return response.Snapshot
+		},
+		selectHistoryItems: func(response networkmetricscontract.GetHistoryResponse) []metrics.NetworkMetricsSnapshot {
 			return response.Items
 		},
 	}

@@ -106,6 +106,27 @@ func TestHandleEnvelopeTracksArrayRulePerPoolIndex(t *testing.T) {
 	assertActiveEventMissingForQualifiers(t, manager, rule, "1")
 }
 
+func TestHandleEnvelopeProcessesNetworkRuleWithSharedHandler(t *testing.T) {
+	t.Parallel()
+
+	client := &recordingClient{requestResponse: loggingmanagercontract.OKResponse{OK: true}}
+	rule := buildNetworkSocketRule()
+	manager := eventmanager.NewManager(0)
+	processor := New([]servicerules.Rule{rule}, manager, client, sharedlogger.NewNop())
+
+	err := processor.HandleEnvelope(context.Background(), messaging.Envelope{
+		Subject: rule.Event,
+		Payload: buildNetworkEnvelopePayload(t, 150),
+	})
+	if err != nil {
+		t.Fatalf("HandleEnvelope() error = %v", err)
+	}
+
+	assertPublishedSubjects(t, client.publishSubjects, []string{systemloggingmanagercontract.AlertSubject})
+	assertPublishedAlertCreatePayload(t, client, "TCP socket count is above threshold", "150")
+	assertActiveEventExists(t, manager, rule)
+}
+
 func TestHandleActiveToNormalKeepsCacheWhenNormalizationFails(t *testing.T) {
 	t.Parallel()
 
@@ -262,12 +283,41 @@ func buildPoolHealthRule() servicerules.Rule {
 	}
 }
 
+func buildNetworkSocketRule() servicerules.Rule {
+	return servicerules.Rule{
+		Event:       "network.metrics.events.snapshot",
+		EventPrefix: "netsock",
+		Field:       "snapshot.sockets.total.tcp",
+		Condition:   ">=",
+		Values:      100.0,
+		Message:     "TCP socket count is above threshold",
+		Category:    "network.metrics.sockets.total.tcp",
+		Severity:    sharedloggingenum.SeverityWarning,
+		Priority:    2,
+		Source:      "network-metrics",
+	}
+}
+
 func buildEnvelopePayload(t *testing.T, usedPct float64) []byte {
 	t.Helper()
 
 	return mustMarshalEnvelopePayload(t, map[string]any{
 		"snapshot": map[string]any{
 			"mem": map[string]any{"usedPct": usedPct},
+		},
+	})
+}
+
+func buildNetworkEnvelopePayload(t *testing.T, tcpCount float64) []byte {
+	t.Helper()
+
+	return mustMarshalEnvelopePayload(t, map[string]any{
+		"snapshot": map[string]any{
+			"sockets": map[string]any{
+				"total": map[string]any{
+					"tcp": tcpCount,
+				},
+			},
 		},
 	})
 }

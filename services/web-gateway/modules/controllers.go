@@ -15,6 +15,7 @@ type Controllers struct {
 	SystemAlerts   controllers.AlertsController
 	SecurityAlerts controllers.AlertsController
 	SystemMetrics  controllers.SystemMetricsController
+	NetworkMetrics controllers.NetworkMetricsController
 	ZFSMetrics     controllers.ZFSMetricsController
 }
 
@@ -35,6 +36,7 @@ func NewControllersModule(
 		SystemAlerts:   controllers.NewSystemAlertsController(services.SystemAlerts),
 		SecurityAlerts: controllers.NewSecurityAlertsController(services.SecurityAlerts),
 		SystemMetrics:  controllers.NewSystemMetricsController(services.SystemMetrics),
+		NetworkMetrics: controllers.NewNetworkMetricsController(services.NetworkMetrics),
 		ZFSMetrics:     controllers.NewZFSMetricsController(services.ZFSMetrics),
 	}
 }

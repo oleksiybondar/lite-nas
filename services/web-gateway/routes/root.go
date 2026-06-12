@@ -60,5 +60,6 @@ func mountMetricsRouters(
 	authentication middlewares.AuthenticationOptions,
 ) {
 	mountSystemMetricsRouter(api, controllerModule, authentication)
+	mountNetworkMetricsRouter(api, controllerModule, authentication)
 	mountZFSMetricsRouter(api, controllerModule, authentication)
 }

@@ -96,6 +96,42 @@ func TestRunWithDependenciesReturnsRulesError(t *testing.T) {
 	}
 }
 
+func TestRunWithDependenciesLoadsConfiguredRulesFiles(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	wantFiles := []string{
+		"/etc/lite-nas/resources-monitor/rules/system-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
+	}
+
+	var gotFiles []string
+	err := runWithDependencies(
+		ctx,
+		"/etc/lite-nas/resources-monitor.conf",
+		"resources-monitor",
+		func(string, string) (servicemodules.Infra, error) {
+			infra := buildTestInfra()
+			infra.Config.Rules.Files = append([]string(nil), wantFiles...)
+			return infra, nil
+		},
+		func(files []string) ([]servicerules.Rule, error) {
+			gotFiles = append([]string(nil), files...)
+			return []servicerules.Rule{}, nil
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("runWithDependencies() error = %v, want %v", err, context.Canceled)
+	}
+
+	if !slices.Equal(gotFiles, wantFiles) {
+		t.Fatalf("rules loader files = %v, want %v", gotFiles, wantFiles)
+	}
+}
+
 func TestRunWithDependenciesReturnsSubscribeError(t *testing.T) {
 	t.Parallel()
 

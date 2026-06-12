@@ -134,6 +134,19 @@ func (routeZFSMetricsService) GetHistory(context.Context) ([]metrics.ZFSSnapshot
 	}, nil
 }
 
+type routeNetworkMetricsService struct{}
+
+func (routeNetworkMetricsService) GetSnapshot(context.Context) (metrics.NetworkMetricsSnapshot, error) {
+	return metrics.NetworkMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeNetworkMetricsService) GetHistory(context.Context) ([]metrics.NetworkMetricsSnapshot, error) {
+	return []metrics.NetworkMetricsSnapshot{
+		{Timestamp: time.Unix(100, 0).UTC()},
+		{Timestamp: time.Unix(101, 0).UTC()},
+	}, nil
+}
+
 type routeAlertsService struct{}
 
 func (routeAlertsService) List(context.Context, services.AlertListInput) (services.AlertListPage, error) {
@@ -207,6 +220,7 @@ func routerFixtureWithVerifier(authService controllers.AuthService, verifier rou
 		SystemAlerts:   controllers.NewSystemAlertsController(routeAlertsService{}),
 		SecurityAlerts: controllers.NewSecurityAlertsController(routeAlertsService{}),
 		SystemMetrics:  controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		NetworkMetrics: controllers.NewNetworkMetricsController(routeNetworkMetricsService{}),
 		ZFSMetrics:     controllers.NewZFSMetricsController(routeZFSMetricsService{}),
 	}
 
@@ -325,6 +339,22 @@ func TestRouterSystemMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/system-metrics/history", nil, http.StatusOK)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterNetworkMetricsHistoryRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/network-metrics/history", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterNetworkMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/network-metrics/history", nil, http.StatusOK)
 }
 
 // Requirements: web-gateway/FR-003, web-gateway/TR-001

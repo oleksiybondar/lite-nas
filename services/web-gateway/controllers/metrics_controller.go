@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	networkmetricsdto "lite-nas/services/web-gateway/dto/network_metrics"
 	systemmetricsdto "lite-nas/services/web-gateway/dto/system_metrics"
 	zfsmetricsdto "lite-nas/services/web-gateway/dto/zfs_metrics"
 	"lite-nas/shared/metrics"
@@ -21,6 +22,13 @@ type SystemMetricsService interface {
 type ZFSMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.ZFSSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.ZFSSnapshot, error)
+}
+
+// NetworkMetricsService defines the network metrics behavior required by the
+// browser-facing controller.
+type NetworkMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.NetworkMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.NetworkMetricsSnapshot, error)
 }
 
 type metricsController[T any, SnapshotOutput any, HistoryOutput any] struct {
@@ -44,6 +52,13 @@ type ZFSMetricsController = metricsController[
 	metrics.ZFSSnapshot,
 	zfsmetricsdto.ZFSSnapshotOutput,
 	zfsmetricsdto.ZFSHistoryOutput,
+]
+
+// NetworkMetricsController exposes browser-facing network metrics endpoints.
+type NetworkMetricsController = metricsController[
+	metrics.NetworkMetricsSnapshot,
+	networkmetricsdto.NetworkSnapshotOutput,
+	networkmetricsdto.NetworkHistoryOutput,
 ]
 
 // newMetricsController wires the shared controller behavior for snapshot and
@@ -110,6 +125,29 @@ func NewZFSMetricsController(service ZFSMetricsService) ZFSMetricsController {
 		},
 		"failed to fetch latest ZFS metrics snapshot",
 		"failed to fetch ZFS metrics history",
+	)
+}
+
+// NewNetworkMetricsController creates a NetworkMetricsController.
+//
+// Parameters:
+//   - service: backend-facing network metrics service used by the controller
+func NewNetworkMetricsController(service NetworkMetricsService) NetworkMetricsController {
+	return newMetricsController[
+		metrics.NetworkMetricsSnapshot,
+		networkmetricsdto.NetworkSnapshotOutput,
+		networkmetricsdto.NetworkHistoryOutput,
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.NetworkMetricsSnapshot) networkmetricsdto.NetworkSnapshotOutput {
+			return networkmetricsdto.NetworkSnapshotOutput{Body: networkmetricsdto.NewSnapshotBody(now, snapshot)}
+		},
+		func(now time.Time, history []metrics.NetworkMetricsSnapshot) networkmetricsdto.NetworkHistoryOutput {
+			return networkmetricsdto.NetworkHistoryOutput{Body: networkmetricsdto.NewHistoryBody(now, history)}
+		},
+		"failed to fetch latest network metrics snapshot",
+		"failed to fetch network metrics history",
 	)
 }
 
