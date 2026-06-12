@@ -45,7 +45,7 @@ func TestRegisterSubscriptionsReturnsServerError(t *testing.T) {
 	}
 }
 
-func TestRegisterSubscriptionsSubscribesToSystemAndZFSSnapshots(t *testing.T) {
+func TestRegisterSubscriptionsSubscribesToNetworkSystemAndZFSSnapshots(t *testing.T) {
 	t.Parallel()
 
 	server := &stubServer{}
@@ -54,7 +54,11 @@ func TestRegisterSubscriptionsSubscribesToSystemAndZFSSnapshots(t *testing.T) {
 		t.Fatalf("registerSubscriptions() error = %v", err)
 	}
 
-	want := []string{"system.metrics.events.stats", "zfs.metrics.events.snapshot"}
+	want := []string{
+		"network.metrics.events.snapshot",
+		"system.metrics.events.stats",
+		"zfs.metrics.events.snapshot",
+	}
 	if !slices.Equal(server.subscribedSubjects, want) {
 		t.Fatalf("subscribedSubjects = %v, want %v", server.subscribedSubjects, want)
 	}

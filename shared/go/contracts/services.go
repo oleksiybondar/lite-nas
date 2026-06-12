@@ -16,6 +16,7 @@ const (
 	ServiceRBAC                   = "rbac-service"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"
+	AppNetworkMetricsCLI       = "network-metrics-cli"
 	AppZFSMetricsCLI           = "zfs-metrics-cli"
 	AppSystemLoggingManagerCLI = "system-logging-manager-cli"
 	AppSecurityLoggingMgrCLI   = "security-logging-manager-cli"

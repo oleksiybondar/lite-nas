@@ -1,0 +1,47 @@
+[Unit]
+Description=LiteNAS network metrics service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-network-metrics
+Group=lite-nas-network-metrics
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/network-metrics
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+# Network metrics polling requires access to /proc/net/* on the host.
+ProtectProc=default
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas /proc/net /proc/self/net /proc/softirqs /sys/class/net /sys/devices
+ReadWritePaths=/var/log/lite-nas/network-metrics.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

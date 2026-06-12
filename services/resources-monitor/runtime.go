@@ -9,6 +9,7 @@ import (
 	"lite-nas/services/resources-monitor/processor"
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedcontracts "lite-nas/shared/contracts"
+	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 	"lite-nas/shared/eventmanager"
@@ -102,6 +103,10 @@ func handleAuthRefreshTick(ctx context.Context, infra servicemodules.Infra) {
 
 // registerSubscriptions wires subject handlers required by resources-monitor.
 func registerSubscriptions(server messaging.Server, eventProcessor *processor.Processor) error {
+	if err := server.Subscribe(networkmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope); err != nil {
+		return err
+	}
+
 	if err := server.Subscribe(systemmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope); err != nil {
 		return err
 	}

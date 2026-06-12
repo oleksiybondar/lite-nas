@@ -19,11 +19,13 @@ system_logging_manager_binary_path=""
 security_logging_manager_binary_path=""
 system_email_notifier_binary_path=""
 security_email_notifier_binary_path=""
+network_metrics_binary_path=""
 system_metrics_binary_path=""
 zfs_metrics_binary_path=""
 system_logging_manager_cli_binary_path=""
 security_logging_manager_cli_binary_path=""
 system_metrics_cli_binary_path=""
+network_metrics_cli_binary_path=""
 zfs_metrics_cli_binary_path=""
 web_gateway_binary_path=""
 resources_monitor_binary_path=""
@@ -48,6 +50,7 @@ Options:
                                      Use an existing system-email-notifier binary.
   --security-email-notifier-binary=PATH
                                      Use an existing security-email-notifier binary.
+  --network-metrics-binary=PATH      Use an existing network-metrics binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --zfs-metrics-binary=PATH          Use an existing zfs-metrics binary.
   --system-logging-manager-cli-binary=PATH
@@ -55,6 +58,7 @@ Options:
   --security-logging-manager-cli-binary=PATH
                                      Use an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
+  --network-metrics-cli-binary=PATH  Use an existing network-metrics-cli binary.
   --zfs-metrics-cli-binary=PATH      Use an existing zfs-metrics-cli binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
@@ -65,8 +69,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -109,6 +113,11 @@ if args.has security-email-notifier-binary && ! security_email_notifier_binary_p
 	usage >&2
 	exit 64
 fi
+if args.has network-metrics-binary && ! network_metrics_binary_path="$(args.require_arg network-metrics-binary)"; then
+	log.error "Missing value for --network-metrics-binary"
+	usage >&2
+	exit 64
+fi
 if args.has system-metrics-binary && ! system_metrics_binary_path="$(args.require_arg system-metrics-binary)"; then
 	log.error "Missing value for --system-metrics-binary"
 	usage >&2
@@ -131,6 +140,11 @@ if args.has security-logging-manager-cli-binary && ! security_logging_manager_cl
 fi
 if args.has system-metrics-cli-binary && ! system_metrics_cli_binary_path="$(args.require_arg system-metrics-cli-binary)"; then
 	log.error "Missing value for --system-metrics-cli-binary"
+	usage >&2
+	exit 64
+fi
+if args.has network-metrics-cli-binary && ! network_metrics_cli_binary_path="$(args.require_arg network-metrics-cli-binary)"; then
+	log.error "Missing value for --network-metrics-cli-binary"
 	usage >&2
 	exit 64
 fi
@@ -198,6 +212,12 @@ if [ -z "$security_email_notifier_binary_path" ]; then
 		"--output=${security_email_notifier_binary_path}"
 fi
 
+if [ -z "$network_metrics_binary_path" ]; then
+	network_metrics_binary_path="$output_dir/${package_name}-${package_arch}/network-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-network-metrics-binary.sh" \
+		"--output=${network_metrics_binary_path}"
+fi
+
 if [ -z "$system_metrics_binary_path" ]; then
 	system_metrics_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
@@ -225,6 +245,11 @@ if [ -z "$system_metrics_cli_binary_path" ]; then
 	system_metrics_cli_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics-cli"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-cli-binary.sh" \
 		"--output=${system_metrics_cli_binary_path}"
+fi
+if [ -z "$network_metrics_cli_binary_path" ]; then
+	network_metrics_cli_binary_path="$output_dir/${package_name}-${package_arch}/network-metrics-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-network-metrics-cli-binary.sh" \
+		"--output=${network_metrics_cli_binary_path}"
 fi
 if [ -z "$zfs_metrics_cli_binary_path" ]; then
 	zfs_metrics_cli_binary_path="$output_dir/${package_name}-${package_arch}/zfs-metrics-cli"
@@ -279,6 +304,11 @@ if [ ! -f "$security_email_notifier_binary_path" ]; then
 	exit 1
 fi
 
+if [ ! -f "$network_metrics_binary_path" ]; then
+	log.error "Missing network-metrics binary: $network_metrics_binary_path"
+	exit 1
+fi
+
 if [ ! -f "$system_metrics_binary_path" ]; then
 	log.error "Missing system-metrics binary: $system_metrics_binary_path"
 	exit 1
@@ -300,6 +330,10 @@ fi
 
 if [ ! -f "$system_metrics_cli_binary_path" ]; then
 	log.error "Missing system-metrics-cli binary: $system_metrics_cli_binary_path"
+	exit 1
+fi
+if [ ! -f "$network_metrics_cli_binary_path" ]; then
+	log.error "Missing network-metrics-cli binary: $network_metrics_cli_binary_path"
 	exit 1
 fi
 if [ ! -f "$zfs_metrics_cli_binary_path" ]; then
@@ -364,6 +398,8 @@ install -D -m 0755 "$system_email_notifier_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-email-notifier"
 install -D -m 0755 "$security_email_notifier_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier"
+install -D -m 0755 "$network_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/network-metrics"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$zfs_metrics_binary_path" \
@@ -374,6 +410,8 @@ install -D -m 0755 "$security_logging_manager_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
+install -D -m 0755 "$network_metrics_cli_binary_path" \
+	"$package_root/usr/libexec/lite-nas/network-metrics-cli"
 install -D -m 0755 "$zfs_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli"
 install -d -m 0755 "$package_root/usr/bin"
@@ -383,6 +421,8 @@ ln -sfn /usr/libexec/lite-nas/security-logging-manager-cli \
 	"$package_root/usr/bin/security-logging-manager-cli"
 ln -sfn /usr/libexec/lite-nas/system-metrics-cli \
 	"$package_root/usr/bin/system-metrics-cli"
+ln -sfn /usr/libexec/lite-nas/network-metrics-cli \
+	"$package_root/usr/bin/network-metrics-cli"
 ln -sfn /usr/libexec/lite-nas/zfs-metrics-cli \
 	"$package_root/usr/bin/zfs-metrics-cli"
 install -D -m 0755 "$web_gateway_binary_path" \
@@ -407,12 +447,14 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager" \
 	"$package_root/usr/libexec/lite-nas/system-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
+	"$package_root/usr/libexec/lite-nas/network-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
+	"$package_root/usr/libexec/lite-nas/network-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \

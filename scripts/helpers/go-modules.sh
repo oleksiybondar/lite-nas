@@ -11,6 +11,9 @@ readonly LITE_NAS_SHARED_GO_MODULE
 export LITE_NAS_SYSTEM_METRICS_MODULE="./services/system-metrics"
 readonly LITE_NAS_SYSTEM_METRICS_MODULE
 
+export LITE_NAS_NETWORK_METRICS_MODULE="./services/network-metrics"
+readonly LITE_NAS_NETWORK_METRICS_MODULE
+
 export LITE_NAS_ZFS_METRICS_MODULE="./services/zfs-metrics"
 readonly LITE_NAS_ZFS_METRICS_MODULE
 
@@ -19,6 +22,9 @@ readonly LITE_NAS_ZFS_METRICS_CLI_APP_MODULE
 
 export LITE_NAS_SYSTEM_METRICS_CLI_APP_MODULE="./apps/system-metrics-cli"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_APP_MODULE
+
+export LITE_NAS_NETWORK_METRICS_CLI_APP_MODULE="./apps/network-metrics-cli"
+readonly LITE_NAS_NETWORK_METRICS_CLI_APP_MODULE
 
 export LITE_NAS_WEB_GATEWAY_MODULE="./services/web-gateway"
 readonly LITE_NAS_WEB_GATEWAY_MODULE

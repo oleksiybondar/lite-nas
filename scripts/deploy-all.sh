@@ -17,6 +17,8 @@ source "$ENTRYPOINT_DIR/deploy/system-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/network-metrics.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/zfs-metrics.sh"
@@ -26,6 +28,8 @@ source "$ENTRYPOINT_DIR/deploy/system-logging-manager-cli.sh"
 source "$ENTRYPOINT_DIR/deploy/security-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/network-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
@@ -39,11 +43,13 @@ system_logging_manager_binary=""
 security_logging_manager_binary=""
 system_email_notifier_binary=""
 security_email_notifier_binary=""
+network_metrics_binary=""
 system_metrics_binary=""
 zfs_metrics_binary=""
 system_logging_manager_cli_binary=""
 security_logging_manager_cli_binary=""
 system_metrics_cli_binary=""
+network_metrics_cli_binary=""
 zfs_metrics_cli_binary=""
 web_gateway_binary=""
 admin_panel_assets=""
@@ -67,6 +73,7 @@ Options:
                                   Install an existing system-email-notifier binary.
   --security-email-notifier-binary PATH
                                   Install an existing security-email-notifier binary.
+  --network-metrics-binary PATH   Install an existing network-metrics binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
   --zfs-metrics-binary PATH       Install an existing zfs-metrics binary.
   --system-logging-manager-cli-binary PATH
@@ -75,6 +82,8 @@ Options:
                                   Install an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary PATH
                                   Install an existing system-metrics-cli binary.
+  --network-metrics-cli-binary PATH
+                                  Install an existing network-metrics-cli binary.
   --zfs-metrics-cli-binary PATH   Install an existing zfs-metrics-cli binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
   --admin-panel-assets PATH       Install existing admin-panel Vite build output.
@@ -113,6 +122,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		system_metrics_binary="$2"
+		shift 2
+		;;
+	--network-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --network-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		network_metrics_binary="$2"
 		shift 2
 		;;
 	--zfs-metrics-binary)
@@ -187,6 +205,15 @@ while [ "$#" -gt 0 ]; do
 		system_metrics_cli_binary="$2"
 		shift 2
 		;;
+	--network-metrics-cli-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --network-metrics-cli-binary"
+			usage >&2
+			exit 2
+		fi
+		network_metrics_cli_binary="$2"
+		shift 2
+		;;
 	--zfs-metrics-cli-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --zfs-metrics-cli-binary"
@@ -255,17 +282,19 @@ deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
 deploy.systemEmailNotifier.requireTools
 deploy.securityEmailNotifier.requireTools
+deploy.networkMetrics.requireTools
 deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
+deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -304,6 +333,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		security_email_notifier_binary="$tmp_dir/security-email-notifier"
 	fi
 
+	if [ -z "$network_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/network-metrics")
+		"$ENTRYPOINT_DIR/build-network-metrics-binary.sh" "${build_args[@]}"
+		network_metrics_binary="$tmp_dir/network-metrics"
+	fi
+
 	if [ -z "$system_metrics_binary" ]; then
 		build_args=("--output=$tmp_dir/system-metrics")
 		"$ENTRYPOINT_DIR/build-system-metrics-binary.sh" "${build_args[@]}"
@@ -332,6 +367,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		build_args=("--output=$tmp_dir/system-metrics-cli")
 		"$ENTRYPOINT_DIR/build-system-metrics-cli-binary.sh" "${build_args[@]}"
 		system_metrics_cli_binary="$tmp_dir/system-metrics-cli"
+	fi
+
+	if [ -z "$network_metrics_cli_binary" ]; then
+		build_args=("--output=$tmp_dir/network-metrics-cli")
+		"$ENTRYPOINT_DIR/build-network-metrics-cli-binary.sh" "${build_args[@]}"
+		network_metrics_cli_binary="$tmp_dir/network-metrics-cli"
 	fi
 
 	if [ -z "$zfs_metrics_cli_binary" ]; then
@@ -390,6 +431,10 @@ log.pushTask "Deploying security-email-notifier service"
 deploy.securityEmailNotifier.deploy "$security_email_notifier_binary" "$should_start"
 log.popTask
 
+log.pushTask "Deploying network-metrics service"
+deploy.networkMetrics.deploy "$network_metrics_binary" "$should_start"
+log.popTask
+
 log.pushTask "Deploying system-metrics service"
 deploy.systemMetrics.deploy "$system_metrics_binary" "$should_start"
 log.popTask
@@ -413,6 +458,10 @@ log.popTask
 
 log.pushTask "Deploying system-metrics-cli app"
 deploy.systemMetricsCLI.deploy "$system_metrics_cli_binary"
+log.popTask
+
+log.pushTask "Deploying network-metrics-cli app"
+deploy.networkMetricsCLI.deploy "$network_metrics_cli_binary"
 log.popTask
 
 log.pushTask "Deploying zfs-metrics-cli app"

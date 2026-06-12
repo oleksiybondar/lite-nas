@@ -12,6 +12,7 @@ log.pushTask "Running local CI test checks"
 scripts/test-auth-service.sh
 scripts/test-system-metrics.sh --with-coverage
 scripts/test-system-metrics-cli.sh
+scripts/test-network-metrics-cli.sh
 scripts/test-zfs-metrics-cli.sh
 scripts/test-shared.sh --with-coverage
 scripts/test-web-gateway.sh

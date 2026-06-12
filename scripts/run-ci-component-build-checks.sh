@@ -16,11 +16,13 @@ scripts/build-security-logging-manager.sh
 scripts/build-system-email-notifier.sh
 scripts/build-security-email-notifier.sh
 scripts/build-resources-monitor.sh
+scripts/build-network-metrics.sh
 scripts/build-system-metrics.sh
 scripts/build-zfs-metrics.sh
 scripts/build-system-logging-manager-cli.sh
 scripts/build-security-logging-manager-cli.sh
 scripts/build-system-metrics-cli.sh
+scripts/build-network-metrics-cli.sh
 scripts/build-zfs-metrics-cli.sh
 scripts/build-shared.sh
 scripts/build-web-gateway.sh

@@ -38,6 +38,26 @@ deploy.hasServiceCommand() {
 	command -v service >/dev/null 2>&1
 }
 
+# Runs a command with stderr suppressed on success and replayed on failure.
+command.quietStderrUnlessFailure() {
+	local stderr_file
+	local exit_code=0
+
+	stderr_file="$(mktemp)"
+	if "$@" 2>"$stderr_file"; then
+		rm -f "$stderr_file"
+		return 0
+	else
+		exit_code=$?
+	fi
+
+	if [ -s "$stderr_file" ]; then
+		cat "$stderr_file" >&2
+	fi
+	rm -f "$stderr_file"
+	return "$exit_code"
+}
+
 deploy.enableAndRefreshService() {
 	local service="$1"
 

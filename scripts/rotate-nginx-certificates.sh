@@ -96,10 +96,9 @@ subjectAltName = $certificate_alt_names
 EOF
 
 	log.info "Rotating LiteNAS nginx certificate."
-	openssl req \
+	command.quietStderrUnlessFailure openssl req \
 		-x509 \
 		-newkey rsa:4096 \
-		-quiet \
 		-sha256 \
 		-days "$certificate_days" \
 		-nodes \

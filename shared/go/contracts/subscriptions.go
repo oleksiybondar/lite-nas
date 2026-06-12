@@ -3,6 +3,7 @@ package contracts
 import (
 	authcontract "lite-nas/shared/contracts/auth"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
@@ -22,6 +23,10 @@ type SubscriptionContract struct {
 // identity.
 var SubscriptionsByService = map[string]map[string]SubscriptionContract{
 	ServiceResourcesMonitor: {
+		"network_metrics_snapshot": {
+			Subject: networkmetricscontract.SnapshotEventSubject,
+			Payload: networkmetricscontract.SnapshotUpdatedEvent{},
+		},
 		"system_metrics_snapshot": {
 			Subject: systemmetricscontract.SnapshotEventSubject,
 			Payload: systemmetricscontract.SnapshotUpdatedEvent{},

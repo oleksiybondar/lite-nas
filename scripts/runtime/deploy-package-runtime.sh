@@ -23,6 +23,8 @@ source "$PACKAGE_ROOT/scripts/deploy/system-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/network-metrics.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/zfs-metrics.sh"
@@ -32,6 +34,8 @@ source "$PACKAGE_ROOT/scripts/deploy/system-logging-manager-cli.sh"
 source "$PACKAGE_ROOT/scripts/deploy/security-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/system-metrics-cli.sh"
+# shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/network-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
@@ -66,11 +70,13 @@ deploy_runtime_files_without_start() {
 	deploy.securityLoggingManager.deploy "$PACKAGE_ROOT/security-logging-manager" 0
 	deploy.systemEmailNotifier.deploy "$PACKAGE_ROOT/system-email-notifier" 0
 	deploy.securityEmailNotifier.deploy "$PACKAGE_ROOT/security-email-notifier" 0
+	deploy.networkMetrics.deploy "$PACKAGE_ROOT/network-metrics" 0
 	deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
 	deploy.zfsMetrics.deploy "$PACKAGE_ROOT/zfs-metrics" 0
 	deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
 	deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
 	deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
+	deploy.networkMetricsCLI.deploy "$PACKAGE_ROOT/network-metrics-cli"
 	deploy.zfsMetricsCLI.deploy "$PACKAGE_ROOT/zfs-metrics-cli"
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
@@ -122,11 +128,13 @@ deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
 deploy.systemEmailNotifier.requireTools
 deploy.securityEmailNotifier.requireTools
+deploy.networkMetrics.requireTools
 deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
+deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
@@ -168,6 +176,7 @@ deploy.systemLoggingManager.enableAndStart
 deploy.securityLoggingManager.enableAndStart
 deploy.systemEmailNotifier.enableAndStart
 deploy.securityEmailNotifier.enableAndStart
+deploy.networkMetrics.enableAndStart
 deploy.systemMetrics.enableAndStart
 deploy.zfsMetrics.enableAndStart
 deploy.webGateway.enableAndStart

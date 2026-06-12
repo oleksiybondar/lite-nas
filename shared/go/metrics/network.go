@@ -60,6 +60,12 @@ type NetworkInterfaceSnapshot struct {
 	// TxQueueLen is the transmit queue length when available from the host.
 	TxQueueLen *uint64 `json:"tx_queue_len"`
 
+	// Kind classifies the interface role using a stable service-level category.
+	Kind string `json:"kind"`
+
+	// Bus classifies the backing device attachment bus when locally resolvable.
+	Bus *string `json:"bus"`
+
 	// Adapter contains stable adapter identity metadata when locally
 	// resolvable for the interface.
 	Adapter *NetworkInterfaceAdapter `json:"adapter"`

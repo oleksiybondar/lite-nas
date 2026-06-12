@@ -158,10 +158,9 @@ create_identity_root_ca_if_missing() {
 	fi
 
 	log.info "Creating auth identity root CA."
-	openssl req \
+	command.quietStderrUnlessFailure openssl req \
 		-x509 \
 		-newkey rsa:4096 \
-		-quiet \
 		-sha256 \
 		-days "$identity_root_ca_days" \
 		-nodes \
@@ -187,15 +186,14 @@ subjectAltName = DNS:$identity_user
 EOF
 
 	log.info "Rotating auth identity certificate: $identity_user"
-	openssl req \
+	command.quietStderrUnlessFailure openssl req \
 		-newkey rsa:4096 \
-		-quiet \
 		-nodes \
 		-keyout "$key_file" \
 		-out "$csr_file" \
 		-subj "/CN=$identity_user"
 
-	openssl x509 \
+	command.quietStderrUnlessFailure openssl x509 \
 		-req \
 		-in "$csr_file" \
 		-CA "$identity_certificate_dir/root-ca.crt" \

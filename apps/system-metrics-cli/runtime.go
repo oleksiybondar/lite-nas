@@ -11,6 +11,7 @@ import (
 	"lite-nas/apps/system-metrics-cli/workers"
 	sharedcontracts "lite-nas/shared/contracts"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
+	sharedmetricscli "lite-nas/shared/metricscli"
 )
 
 const (
@@ -18,58 +19,53 @@ const (
 	serviceName       = sharedcontracts.AppSystemMetricsCLI
 )
 
-type requestClient interface {
-	Request(ctx context.Context, subject string, request any, response any) error
-}
-
 func run(ctx context.Context, args []string) error {
 	workerModule := modules.NewWorkersModule(defaultConfigPath)
-
-	invocation, err := workerModule.ArgsProcessor.Process(args)
-	if err != nil {
-		if errors.Is(err, workers.ErrHelpRequested) {
-			printUsage(os.Stdout)
-			return context.Canceled
-		}
-
-		return err
-	}
-
-	infra, err := modules.NewInfraModule(invocation.ConfigPath, serviceName)
-	if err != nil {
-		return err
-	}
-	defer infra.Close()
-
-	return executeCommand(ctx, invocation, infra.Client, workerModule.OutputWriter, os.Stdout)
+	return sharedmetricscli.Run(
+		ctx,
+		args,
+		os.Stdout,
+		serviceName,
+		workerModule.ArgsProcessor.Process,
+		func(invocation workers.Invocation) string { return invocation.ConfigPath },
+		func(err error) bool { return errors.Is(err, workers.ErrHelpRequested) },
+		printUsage,
+		func(ctx context.Context, invocation workers.Invocation, client sharedmetricscli.RequestClient, writer io.Writer) error {
+			return executeCommand(ctx, invocation, client, workerModule.OutputWriter, writer)
+		},
+	)
 }
 
 func executeCommand(
 	ctx context.Context,
 	invocation workers.Invocation,
-	client requestClient,
+	client sharedmetricscli.RequestClient,
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	switch invocation.Mode {
-	case workers.ModeCurrent:
-		return executeCurrentCommand(ctx, invocation, client, output, writer)
-	case workers.ModeHistory:
-		return executeHistoryCommand(ctx, client, output, writer)
-	default:
-		return fmt.Errorf("unsupported invocation mode: %s", invocation.Mode)
-	}
+	return sharedmetricscli.ExecuteMode(
+		invocation.Mode,
+		workers.ModeCurrent,
+		workers.ModeHistory,
+		func() error { return executeCurrentCommand(ctx, invocation, client, output, writer) },
+		func() error { return executeHistoryCommand(ctx, client, output, writer) },
+	)
 }
 
 func executeCurrentCommand(
 	ctx context.Context,
 	invocation workers.Invocation,
-	client requestClient,
+	client sharedmetricscli.RequestClient,
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	var response systemmetricscontract.GetSnapshotResponse
-	if err := client.Request(ctx, systemmetricscontract.SnapshotRPCSubject, systemmetricscontract.GetSnapshotRequest{}, &response); err != nil {
+	response, err := sharedmetricscli.RequestRPC[systemmetricscontract.GetSnapshotResponse](
+		ctx,
+		client,
+		systemmetricscontract.SnapshotRPCSubject,
+		systemmetricscontract.GetSnapshotRequest{},
+	)
+	if err != nil {
 		return err
 	}
 
@@ -78,12 +74,17 @@ func executeCurrentCommand(
 
 func executeHistoryCommand(
 	ctx context.Context,
-	client requestClient,
+	client sharedmetricscli.RequestClient,
 	output workers.OutputWriter,
 	writer io.Writer,
 ) error {
-	var response systemmetricscontract.GetHistoryResponse
-	if err := client.Request(ctx, systemmetricscontract.HistoryRPCSubject, systemmetricscontract.GetHistoryRequest{}, &response); err != nil {
+	response, err := sharedmetricscli.RequestRPC[systemmetricscontract.GetHistoryResponse](
+		ctx,
+		client,
+		systemmetricscontract.HistoryRPCSubject,
+		systemmetricscontract.GetHistoryRequest{},
+	)
+	if err != nil {
 		return err
 	}
 
