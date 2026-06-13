@@ -55,7 +55,7 @@ PROFILE_CERT["zfs-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-z
 PROFILE_KEY["zfs-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-zfs-metrics-cli/client.key"
 
 supported_subscriptions=(
-	"system.metrics.events.stats"
+	"system.metrics.events.snapshot"
 	"system.metrics.rpc.stats.get"
 	"system.metrics.rpc.history.get"
 	"auth.rpc.login"
@@ -139,7 +139,7 @@ Options:
   -h, --help               Show this help.
 
 Examples:
-  scripts/nats-test-subscribe.sh --subscription system.metrics.events.stats
+  scripts/nats-test-subscribe.sh --subscription system.metrics.events.snapshot
   scripts/nats-test-subscribe.sh --subscription auth.events.lockdown.changed --profile auth-service
 
 Profiles:
@@ -152,7 +152,7 @@ Profiles:
   - zfs-metrics-cli
 
 Supported subscriptions:
-  - system.metrics.events.stats
+  - system.metrics.events.snapshot
   - system.metrics.rpc.stats.get
   - system.metrics.rpc.history.get
   - auth.rpc.login

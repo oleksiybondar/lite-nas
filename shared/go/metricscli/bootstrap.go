@@ -120,6 +120,35 @@ func Run[Invocation any](
 	return execute(ctx, invocation, infra.Client, stdout)
 }
 
+// RunWithOutput parses arguments, initializes shared runtime infrastructure,
+// and executes the selected metrics CLI command with a shared output helper.
+func RunWithOutput[Invocation any, Output any](
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	serviceName string,
+	processArgs func([]string) (Invocation, error),
+	configPath func(Invocation) string,
+	isHelpRequested func(error) bool,
+	printUsage func(io.Writer),
+	output Output,
+	execute func(context.Context, Invocation, RequestClient, Output, io.Writer) error,
+) error {
+	return Run(
+		ctx,
+		args,
+		stdout,
+		serviceName,
+		processArgs,
+		configPath,
+		isHelpRequested,
+		printUsage,
+		func(ctx context.Context, invocation Invocation, client RequestClient, writer io.Writer) error {
+			return execute(ctx, invocation, client, output, writer)
+		},
+	)
+}
+
 // ExecuteMode dispatches a metrics CLI invocation between current-snapshot and
 // history execution paths.
 func ExecuteMode[Mode ~string](

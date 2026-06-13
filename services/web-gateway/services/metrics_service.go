@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 
+	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
@@ -22,6 +23,13 @@ type SystemMetricsService interface {
 type ZFSMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.ZFSSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.ZFSSnapshot, error)
+}
+
+// DiskMetricsService defines the backend-facing disk metrics flows used by the
+// gateway service layer.
+type DiskMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.DiskMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.DiskMetricsSnapshot, error)
 }
 
 // NetworkMetricsService defines the backend-facing network metrics flows used by
@@ -86,6 +94,31 @@ func NewZFSMetricsService(client messaging.Client) ZFSMetricsService {
 			return response.Snapshot
 		},
 		selectHistoryItems: func(response zfsmetricscontract.GetHistoryResponse) []metrics.ZFSSnapshot {
+			return response.Items
+		},
+	}
+}
+
+// NewDiskMetricsService creates a service that fetches disk metrics over the
+// shared messaging transport.
+//
+// Parameters:
+//   - client: messaging client used for request/reply RPC calls
+func NewDiskMetricsService(client messaging.Client) DiskMetricsService {
+	return metricsRPCService[
+		metrics.DiskMetricsSnapshot,
+		diskmetricscontract.GetSnapshotResponse,
+		diskmetricscontract.GetHistoryResponse,
+	]{
+		client:          client,
+		snapshotSubject: diskmetricscontract.SnapshotRPCSubject,
+		historySubject:  diskmetricscontract.HistoryRPCSubject,
+		snapshotRequest: diskmetricscontract.GetSnapshotRequest{},
+		historyRequest:  diskmetricscontract.GetHistoryRequest{},
+		selectSnapshot: func(response diskmetricscontract.GetSnapshotResponse) metrics.DiskMetricsSnapshot {
+			return response.Snapshot
+		},
+		selectHistoryItems: func(response diskmetricscontract.GetHistoryResponse) []metrics.DiskMetricsSnapshot {
 			return response.Items
 		},
 	}

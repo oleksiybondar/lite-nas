@@ -22,7 +22,7 @@ const (
 
 func run(ctx context.Context, args []string) error {
 	workerModule := modules.NewWorkersModule(defaultConfigPath)
-	return sharedmetricscli.Run(
+	return sharedmetricscli.RunWithOutput(
 		ctx,
 		args,
 		os.Stdout,
@@ -31,9 +31,8 @@ func run(ctx context.Context, args []string) error {
 		func(invocation workers.Invocation) string { return invocation.ConfigPath },
 		func(err error) bool { return errors.Is(err, workers.ErrHelpRequested) },
 		printUsage,
-		func(ctx context.Context, invocation workers.Invocation, client sharedmetricscli.RequestClient, writer io.Writer) error {
-			return executeCommand(ctx, invocation, client, workerModule.OutputWriter, writer)
-		},
+		workerModule.OutputWriter,
+		executeCommand,
 	)
 }
 

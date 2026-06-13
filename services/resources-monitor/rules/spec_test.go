@@ -11,7 +11,7 @@ func TestLoadRulesSuccess(t *testing.T) {
 
 	path := writeRulesFile(t, `[
 		{
-			"event":"system.metrics.events.stats",
+			"event":"system.metrics.events.snapshot",
 			"event_prefix":"syscpu",
 			"field":"snapshot.cpu.totalUsagePct",
 			"condition":">=",
@@ -38,7 +38,7 @@ func TestLoadRulesRejectsInvalidInValues(t *testing.T) {
 
 	path := writeRulesFile(t, `[
 		{
-			"event":"system.metrics.events.stats",
+			"event":"system.metrics.events.snapshot",
 			"event_prefix":"syscpu",
 			"field":"snapshot.cpu.totalUsagePct",
 			"condition":"in",
@@ -61,7 +61,7 @@ func TestLoadRulesRejectsNonNumericComparisonValue(t *testing.T) {
 
 	path := writeRulesFile(t, `[
 		{
-			"event":"system.metrics.events.stats",
+			"event":"system.metrics.events.snapshot",
 			"event_prefix":"syscpu",
 			"field":"snapshot.cpu.totalUsagePct",
 			"condition":">=",

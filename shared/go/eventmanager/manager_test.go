@@ -10,8 +10,8 @@ import (
 func TestBuildKeyReturnsEventFieldConditionKey(t *testing.T) {
 	t.Parallel()
 
-	got := eventmanager.BuildKey("system.metrics.events.stats", "snapshot.cpu.totalUsagePct", ">=")
-	want := "system.metrics.events.stats:snapshot.cpu.totalUsagePct:>="
+	got := eventmanager.BuildKey("system.metrics.events.snapshot", "snapshot.cpu.totalUsagePct", ">=")
+	want := "system.metrics.events.snapshot:snapshot.cpu.totalUsagePct:>="
 	if got != want {
 		t.Fatalf("BuildKey() = %q, want %q", got, want)
 	}
@@ -33,11 +33,11 @@ func TestCreateEventAndFindEvent(t *testing.T) {
 	manager := eventmanager.NewManager(0)
 	payload := map[string]any{"event_id": "syscpu00000001"}
 
-	if err := manager.CreateEvent("system.metrics.events.stats", "snapshot.cpu.totalUsagePct", ">=", payload); err != nil {
+	if err := manager.CreateEvent("system.metrics.events.snapshot", "snapshot.cpu.totalUsagePct", ">=", payload); err != nil {
 		t.Fatalf("CreateEvent() error = %v", err)
 	}
 
-	got, exists := manager.FindEvent("system.metrics.events.stats", "snapshot.cpu.totalUsagePct", ">=")
+	got, exists := manager.FindEvent("system.metrics.events.snapshot", "snapshot.cpu.totalUsagePct", ">=")
 	if !exists {
 		t.Fatal("FindEvent() exists = false, want true")
 	}
@@ -70,11 +70,11 @@ func TestCreateEventRejectsDuplicateKey(t *testing.T) {
 	t.Parallel()
 
 	manager := eventmanager.NewManager(0)
-	if err := manager.CreateEvent("system.metrics.events.stats", "snapshot.cpu.totalUsagePct", ">=", nil); err != nil {
+	if err := manager.CreateEvent("system.metrics.events.snapshot", "snapshot.cpu.totalUsagePct", ">=", nil); err != nil {
 		t.Fatalf("CreateEvent() first error = %v", err)
 	}
 
-	err := manager.CreateEvent("system.metrics.events.stats", "snapshot.cpu.totalUsagePct", ">=", nil)
+	err := manager.CreateEvent("system.metrics.events.snapshot", "snapshot.cpu.totalUsagePct", ">=", nil)
 	if !errors.Is(err, eventmanager.ErrEventAlreadyExists) {
 		t.Fatalf("CreateEvent() duplicate error = %v, want %v", err, eventmanager.ErrEventAlreadyExists)
 	}
@@ -84,13 +84,13 @@ func TestDeleteEventRemovesCachedEntry(t *testing.T) {
 	t.Parallel()
 
 	manager := eventmanager.NewManager(0)
-	if err := manager.CreateEvent("system.metrics.events.stats", "snapshot.mem.usedPct", ">=", nil); err != nil {
+	if err := manager.CreateEvent("system.metrics.events.snapshot", "snapshot.mem.usedPct", ">=", nil); err != nil {
 		t.Fatalf("CreateEvent() error = %v", err)
 	}
 
-	manager.DeleteEvent("system.metrics.events.stats", "snapshot.mem.usedPct", ">=")
+	manager.DeleteEvent("system.metrics.events.snapshot", "snapshot.mem.usedPct", ">=")
 
-	_, exists := manager.FindEvent("system.metrics.events.stats", "snapshot.mem.usedPct", ">=")
+	_, exists := manager.FindEvent("system.metrics.events.snapshot", "snapshot.mem.usedPct", ">=")
 	if exists {
 		t.Fatal("FindEvent() exists = true, want false")
 	}
@@ -122,8 +122,8 @@ func TestCounterOperations(t *testing.T) {
 func assertFoundEventFields(t *testing.T, got eventmanager.Event) {
 	t.Helper()
 
-	if got.Event != "system.metrics.events.stats" {
-		t.Fatalf("got.Event = %q, want %q", got.Event, "system.metrics.events.stats")
+	if got.Event != "system.metrics.events.snapshot" {
+		t.Fatalf("got.Event = %q, want %q", got.Event, "system.metrics.events.snapshot")
 	}
 	if got.Field != "snapshot.cpu.totalUsagePct" {
 		t.Fatalf("got.Field = %q, want %q", got.Field, "snapshot.cpu.totalUsagePct")

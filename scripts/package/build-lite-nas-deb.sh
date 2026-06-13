@@ -21,6 +21,7 @@ security_logging_manager_binary_path=""
 system_email_notifier_binary_path=""
 security_email_notifier_binary_path=""
 network_metrics_binary_path=""
+disk_metrics_binary_path=""
 system_metrics_binary_path=""
 zfs_metrics_binary_path=""
 system_logging_manager_cli_binary_path=""
@@ -52,6 +53,7 @@ Options:
   --security-email-notifier-binary=PATH
                                      Use an existing security-email-notifier binary.
   --network-metrics-binary=PATH      Use an existing network-metrics binary.
+  --disk-metrics-binary=PATH         Use an existing disk-metrics binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --zfs-metrics-binary=PATH          Use an existing zfs-metrics binary.
   --system-logging-manager-cli-binary=PATH
@@ -70,8 +72,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary disk-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary disk-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -116,6 +118,11 @@ if args.has security-email-notifier-binary && ! security_email_notifier_binary_p
 fi
 if args.has network-metrics-binary && ! network_metrics_binary_path="$(args.require_arg network-metrics-binary)"; then
 	log.error "Missing value for --network-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has disk-metrics-binary && ! disk_metrics_binary_path="$(args.require_arg disk-metrics-binary)"; then
+	log.error "Missing value for --disk-metrics-binary"
 	usage >&2
 	exit 64
 fi
@@ -224,6 +231,12 @@ if [ -z "$network_metrics_binary_path" ]; then
 		"--output=${network_metrics_binary_path}"
 fi
 
+if [ -z "$disk_metrics_binary_path" ]; then
+	disk_metrics_binary_path="$output_dir/${package_name}-${package_arch}/disk-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-disk-metrics-binary.sh" \
+		"--output=${disk_metrics_binary_path}"
+fi
+
 if [ -z "$system_metrics_binary_path" ]; then
 	system_metrics_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
@@ -312,6 +325,11 @@ fi
 
 if [ ! -f "$network_metrics_binary_path" ]; then
 	log.error "Missing network-metrics binary: $network_metrics_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$disk_metrics_binary_path" ]; then
+	log.error "Missing disk-metrics binary: $disk_metrics_binary_path"
 	exit 1
 fi
 
@@ -406,6 +424,8 @@ install -D -m 0755 "$security_email_notifier_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier"
 install -D -m 0755 "$network_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/network-metrics"
+install -D -m 0755 "$disk_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/disk-metrics"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$zfs_metrics_binary_path" \
@@ -454,6 +474,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/network-metrics" \
+	"$package_root/usr/libexec/lite-nas/disk-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor" \

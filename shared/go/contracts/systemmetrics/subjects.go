@@ -3,7 +3,7 @@ package systemmetrics
 const (
 	// SnapshotEventSubject publishes the latest processed system metrics
 	// snapshot to interested consumers.
-	SnapshotEventSubject = "system.metrics.events.stats"
+	SnapshotEventSubject = "system.metrics.events.snapshot"
 
 	// SnapshotRPCSubject serves the latest processed system metrics snapshot via
 	// request/reply messaging.

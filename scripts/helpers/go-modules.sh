@@ -14,6 +14,9 @@ readonly LITE_NAS_SYSTEM_METRICS_MODULE
 export LITE_NAS_NETWORK_METRICS_MODULE="./services/network-metrics"
 readonly LITE_NAS_NETWORK_METRICS_MODULE
 
+export LITE_NAS_DISK_METRICS_MODULE="./services/disk-metrics"
+readonly LITE_NAS_DISK_METRICS_MODULE
+
 export LITE_NAS_ZFS_METRICS_MODULE="./services/zfs-metrics"
 readonly LITE_NAS_ZFS_METRICS_MODULE
 

@@ -1,6 +1,6 @@
 [
   {
-    "event": "system.metrics.events.stats",
+    "event": "system.metrics.events.snapshot",
     "event_prefix": "syscpu",
     "field": "snapshot.CPU.TotalUsagePct",
     "condition": ">=",
@@ -14,7 +14,7 @@
     "source": "system-metrics"
   },
   {
-    "event": "system.metrics.events.stats",
+    "event": "system.metrics.events.snapshot",
     "event_prefix": "sysram",
     "field": "snapshot.Mem.UsedPct",
     "condition": ">=",

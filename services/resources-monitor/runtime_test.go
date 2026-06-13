@@ -56,7 +56,8 @@ func TestRegisterSubscriptionsSubscribesToNetworkSystemAndZFSSnapshots(t *testin
 
 	want := []string{
 		"network.metrics.events.snapshot",
-		"system.metrics.events.stats",
+		"system.metrics.events.snapshot",
+		"disk.metrics.events.snapshot",
 		"zfs.metrics.events.snapshot",
 	}
 	if !slices.Equal(server.subscribedSubjects, want) {
@@ -105,6 +106,7 @@ func TestRunWithDependenciesLoadsConfiguredRulesFiles(t *testing.T) {
 	wantFiles := []string{
 		"/etc/lite-nas/resources-monitor/rules/system-metrics.json",
 		"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/disk-metrics.json",
 		"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
 	}
 

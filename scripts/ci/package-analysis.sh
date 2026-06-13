@@ -40,6 +40,8 @@ create_systemd_validation_root() {
 		"$systemd_root/etc/systemd/system/lite-nas-rbac.service"
 	cp configs/etc/systemd/system/lite-nas-system-metrics.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-disk-metrics.service \
+		"$systemd_root/etc/systemd/system/lite-nas-disk-metrics.service"
 	cp configs/etc/systemd/system/lite-nas-web-gateway.service \
 		"$systemd_root/etc/systemd/system/lite-nas-web-gateway.service"
 	cp configs/etc/systemd/system/lite-nas-system-logging-manager.service \
@@ -53,7 +55,7 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-resources-monitor.service \
 		"$systemd_root/etc/systemd/system/lite-nas-resources-monitor.service"
 
-	for binary in auth-service rbac-service system-metrics web-gateway system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor; do
+	for binary in auth-service rbac-service system-metrics disk-metrics web-gateway system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -116,6 +118,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-system-email-notifier.service \
 		lite-nas-security-email-notifier.service \
 		lite-nas-system-metrics.service \
+		lite-nas-disk-metrics.service \
 		lite-nas-resources-monitor.service \
 		lite-nas-web-gateway.service
 	log.popTask

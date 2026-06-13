@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	diskmetricsdto "lite-nas/services/web-gateway/dto/disk_metrics"
 	networkmetricsdto "lite-nas/services/web-gateway/dto/network_metrics"
 	systemmetricsdto "lite-nas/services/web-gateway/dto/system_metrics"
 	zfsmetricsdto "lite-nas/services/web-gateway/dto/zfs_metrics"
@@ -22,6 +23,13 @@ type SystemMetricsService interface {
 type ZFSMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.ZFSSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.ZFSSnapshot, error)
+}
+
+// DiskMetricsService defines the disk metrics behavior required by the
+// browser-facing controller.
+type DiskMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.DiskMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.DiskMetricsSnapshot, error)
 }
 
 // NetworkMetricsService defines the network metrics behavior required by the
@@ -52,6 +60,13 @@ type ZFSMetricsController = metricsController[
 	metrics.ZFSSnapshot,
 	zfsmetricsdto.ZFSSnapshotOutput,
 	zfsmetricsdto.ZFSHistoryOutput,
+]
+
+// DiskMetricsController exposes browser-facing disk metrics endpoints.
+type DiskMetricsController = metricsController[
+	metrics.DiskMetricsSnapshot,
+	diskmetricsdto.DiskSnapshotOutput,
+	diskmetricsdto.DiskHistoryOutput,
 ]
 
 // NetworkMetricsController exposes browser-facing network metrics endpoints.
@@ -125,6 +140,29 @@ func NewZFSMetricsController(service ZFSMetricsService) ZFSMetricsController {
 		},
 		"failed to fetch latest ZFS metrics snapshot",
 		"failed to fetch ZFS metrics history",
+	)
+}
+
+// NewDiskMetricsController creates a DiskMetricsController.
+//
+// Parameters:
+//   - service: backend-facing disk metrics service used by the controller
+func NewDiskMetricsController(service DiskMetricsService) DiskMetricsController {
+	return newMetricsController[
+		metrics.DiskMetricsSnapshot,
+		diskmetricsdto.DiskSnapshotOutput,
+		diskmetricsdto.DiskHistoryOutput,
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.DiskMetricsSnapshot) diskmetricsdto.DiskSnapshotOutput {
+			return diskmetricsdto.DiskSnapshotOutput{Body: diskmetricsdto.NewSnapshotBody(now, snapshot)}
+		},
+		func(now time.Time, history []metrics.DiskMetricsSnapshot) diskmetricsdto.DiskHistoryOutput {
+			return diskmetricsdto.DiskHistoryOutput{Body: diskmetricsdto.NewHistoryBody(now, history)}
+		},
+		"failed to fetch latest disk metrics snapshot",
+		"failed to fetch disk metrics history",
 	)
 }
 

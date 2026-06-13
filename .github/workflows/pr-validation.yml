@@ -107,6 +107,8 @@ jobs:
             dir: ./services/resources-monitor
           - name: Network metrics service
             dir: ./services/network-metrics
+          - name: Disk metrics service
+            dir: ./services/disk-metrics
           - name: Security email notifier service
             dir: ./services/security-email-notifier
           - name: Security logging manager service
@@ -330,6 +332,15 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Disk metrics
+              artifact_name: disk-metrics-linux
+              build_script: scripts/build-disk-metrics-binary.sh
+              output_path: .build/disk-metrics/linux-amd64/disk-metrics
+              test_script: scripts/test-disk-metrics.sh
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Security email notifier
               artifact_name: security-email-notifier-linux
               build_script: scripts/build-security-email-notifier-binary.sh
@@ -425,6 +436,15 @@ jobs:
               build_script: scripts/build-network-metrics-binary.sh
               output_path: .build/network-metrics/linux-arm64/network-metrics
               test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Disk metrics
+              artifact_name: disk-metrics-linux
+              build_script: scripts/build-disk-metrics-binary.sh
+              output_path: .build/disk-metrics/linux-arm64/disk-metrics
+              test_script: scripts/test-disk-metrics.sh
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -676,6 +696,12 @@ jobs:
         with:
           name: network-metrics-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/network-metrics
+
+      - name: Download disk metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: disk-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/disk-metrics
 
       - name: Download security email notifier build artifact
         uses: actions/download-artifact@v4

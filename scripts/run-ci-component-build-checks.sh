@@ -17,6 +17,7 @@ scripts/build-system-email-notifier.sh
 scripts/build-security-email-notifier.sh
 scripts/build-resources-monitor.sh
 scripts/build-network-metrics.sh
+scripts/build-disk-metrics.sh
 scripts/build-system-metrics.sh
 scripts/build-zfs-metrics.sh
 scripts/build-system-logging-manager-cli.sh

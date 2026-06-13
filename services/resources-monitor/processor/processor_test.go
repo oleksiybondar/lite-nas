@@ -49,7 +49,7 @@ func TestHandleEnvelopeRejectsInvalidJSON(t *testing.T) {
 
 	processor := New(nil, eventmanager.NewManager(0), &recordingClient{}, sharedlogger.NewNop())
 	err := processor.HandleEnvelope(context.Background(), messaging.Envelope{
-		Subject: "system.metrics.events.stats",
+		Subject: "system.metrics.events.snapshot",
 		Payload: []byte("{"),
 	})
 	if err == nil {
@@ -66,7 +66,7 @@ func TestHandleNewToActiveSkipsCacheWhenPublishFails(t *testing.T) {
 	processor := New([]servicerules.Rule{rule}, manager, client, sharedlogger.NewNop())
 
 	err := processor.HandleEnvelope(context.Background(), messaging.Envelope{
-		Subject: "system.metrics.events.stats",
+		Subject: "system.metrics.events.snapshot",
 		Payload: buildEnvelopePayload(t, 95.0),
 	})
 	if err != nil {
@@ -254,7 +254,7 @@ func mustMarshalEnvelopePayload(t *testing.T, payload map[string]any) []byte {
 
 func buildMemoryThresholdRule() servicerules.Rule {
 	return servicerules.Rule{
-		Event:       "system.metrics.events.stats",
+		Event:       "system.metrics.events.snapshot",
 		EventPrefix: "sysram",
 		Field:       "snapshot.mem.usedPct",
 		Condition:   ">=",

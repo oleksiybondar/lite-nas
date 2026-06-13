@@ -1,0 +1,48 @@
+[Unit]
+Description=LiteNAS disk metrics service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-disk-metrics
+Group=lite-nas-disk-metrics
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/disk-metrics
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=no
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+# Disk metrics polling requires host /proc mount metadata, /sys block topology,
+# and /dev path resolution for mounted block devices.
+ProtectProc=default
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas /proc/diskstats /proc/self/mountinfo /proc/mounts /sys/block /sys/devices /dev
+ReadWritePaths=/var/log/lite-nas/disk-metrics.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

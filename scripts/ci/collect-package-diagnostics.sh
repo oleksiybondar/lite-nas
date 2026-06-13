@@ -107,6 +107,7 @@ for unit in \
 	lite-nas-system-email-notifier \
 	lite-nas-security-email-notifier \
 	lite-nas-system-metrics \
+	lite-nas-disk-metrics \
 	lite-nas-zfs-metrics \
 	lite-nas-web-gateway \
 	lite-nas-resources-monitor; do

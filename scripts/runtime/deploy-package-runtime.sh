@@ -25,6 +25,8 @@ source "$PACKAGE_ROOT/scripts/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/network-metrics.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/disk-metrics.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/zfs-metrics.sh"
@@ -71,6 +73,7 @@ deploy_runtime_files_without_start() {
 	deploy.systemEmailNotifier.deploy "$PACKAGE_ROOT/system-email-notifier" 0
 	deploy.securityEmailNotifier.deploy "$PACKAGE_ROOT/security-email-notifier" 0
 	deploy.networkMetrics.deploy "$PACKAGE_ROOT/network-metrics" 0
+	deploy.diskMetrics.deploy "$PACKAGE_ROOT/disk-metrics" 0
 	deploy.systemMetrics.deploy "$PACKAGE_ROOT/system-metrics" 0
 	deploy.zfsMetrics.deploy "$PACKAGE_ROOT/zfs-metrics" 0
 	deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
@@ -129,6 +132,7 @@ deploy.securityLoggingManager.requireTools
 deploy.systemEmailNotifier.requireTools
 deploy.securityEmailNotifier.requireTools
 deploy.networkMetrics.requireTools
+deploy.diskMetrics.requireTools
 deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
@@ -177,6 +181,7 @@ deploy.securityLoggingManager.enableAndStart
 deploy.systemEmailNotifier.enableAndStart
 deploy.securityEmailNotifier.enableAndStart
 deploy.networkMetrics.enableAndStart
+deploy.diskMetrics.enableAndStart
 deploy.systemMetrics.enableAndStart
 deploy.zfsMetrics.enableAndStart
 deploy.webGateway.enableAndStart

@@ -4,6 +4,7 @@ package contracts
 // configuration.
 const (
 	ServiceAuth                   = "auth-service"
+	ServiceDiskMetrics            = "disk-metrics"
 	ServiceNetworkMetrics         = "network-metrics"
 	ServiceSystemMetrics          = "system-metrics"
 	ServiceZFSMetrics             = "zfs-metrics"

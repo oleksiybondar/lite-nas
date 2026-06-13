@@ -9,6 +9,7 @@ import (
 	"lite-nas/services/resources-monitor/processor"
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedcontracts "lite-nas/shared/contracts"
+	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
@@ -108,6 +109,10 @@ func registerSubscriptions(server messaging.Server, eventProcessor *processor.Pr
 	}
 
 	if err := server.Subscribe(systemmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope); err != nil {
+		return err
+	}
+
+	if err := server.Subscribe(diskmetricscontract.SnapshotEventSubject, eventProcessor.HandleEnvelope); err != nil {
 		return err
 	}
 
