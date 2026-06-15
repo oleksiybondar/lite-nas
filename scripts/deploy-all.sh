@@ -21,6 +21,8 @@ source "$ENTRYPOINT_DIR/deploy/network-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/disk-metrics.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/service-metrics.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/zfs-metrics.sh"
@@ -47,6 +49,7 @@ system_email_notifier_binary=""
 security_email_notifier_binary=""
 network_metrics_binary=""
 disk_metrics_binary=""
+service_metrics_binary=""
 system_metrics_binary=""
 zfs_metrics_binary=""
 system_logging_manager_cli_binary=""
@@ -78,6 +81,7 @@ Options:
                                   Install an existing security-email-notifier binary.
   --network-metrics-binary PATH   Install an existing network-metrics binary.
   --disk-metrics-binary PATH      Install an existing disk-metrics binary.
+  --service-metrics-binary PATH   Install an existing service-metrics binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
   --zfs-metrics-binary PATH       Install an existing zfs-metrics binary.
   --system-logging-manager-cli-binary PATH
@@ -144,6 +148,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		disk_metrics_binary="$2"
+		shift 2
+		;;
+	--service-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --service-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		service_metrics_binary="$2"
 		shift 2
 		;;
 	--zfs-metrics-binary)
@@ -297,6 +310,7 @@ deploy.systemEmailNotifier.requireTools
 deploy.securityEmailNotifier.requireTools
 deploy.networkMetrics.requireTools
 deploy.diskMetrics.requireTools
+deploy.serviceMetrics.requireTools
 deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
@@ -308,7 +322,7 @@ deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -357,6 +371,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		build_args=("--output=$tmp_dir/disk-metrics")
 		"$ENTRYPOINT_DIR/build-disk-metrics-binary.sh" "${build_args[@]}"
 		disk_metrics_binary="$tmp_dir/disk-metrics"
+	fi
+
+	if [ -z "$service_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/service-metrics")
+		"$ENTRYPOINT_DIR/build-service-metrics-binary.sh" "${build_args[@]}"
+		service_metrics_binary="$tmp_dir/service-metrics"
 	fi
 
 	if [ -z "$system_metrics_binary" ]; then
@@ -457,6 +477,10 @@ log.popTask
 
 log.pushTask "Deploying disk-metrics service"
 deploy.diskMetrics.deploy "$disk_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying service-metrics service"
+deploy.serviceMetrics.deploy "$service_metrics_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying system-metrics service"

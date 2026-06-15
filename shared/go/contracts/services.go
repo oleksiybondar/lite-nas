@@ -6,6 +6,7 @@ const (
 	ServiceAuth                   = "auth-service"
 	ServiceDiskMetrics            = "disk-metrics"
 	ServiceNetworkMetrics         = "network-metrics"
+	ServiceServiceMetrics         = "service-metrics"
 	ServiceSystemMetrics          = "system-metrics"
 	ServiceZFSMetrics             = "zfs-metrics"
 	ServiceResourcesMonitor       = "resources-monitor"

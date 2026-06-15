@@ -14,6 +14,7 @@ type Services struct {
 	SystemAlerts   services.AlertsService
 	SecurityAlerts services.AlertsService
 	SystemMetrics  services.SystemMetricsService
+	ServiceMetrics services.ServiceMetricsService
 	DiskMetrics    services.DiskMetricsService
 	NetworkMetrics services.NetworkMetricsService
 	ZFSMetrics     services.ZFSMetricsService
@@ -31,6 +32,7 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 		SystemAlerts:   services.NewSystemAlertsService(client),
 		SecurityAlerts: services.NewSecurityAlertsService(client),
 		SystemMetrics:  services.NewSystemMetricsService(client),
+		ServiceMetrics: services.NewServiceMetricsService(client),
 		DiskMetrics:    services.NewDiskMetricsService(client),
 		NetworkMetrics: services.NewNetworkMetricsService(client),
 		ZFSMetrics:     services.NewZFSMetricsService(client),

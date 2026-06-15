@@ -5,20 +5,20 @@ import (
 	"testing"
 	"time"
 
-	"lite-nas/shared/testutil/fileiotest"
+	"lite-nas/shared/testutil/configtest"
 )
 
 func TestLoadConfigParsesMetricsAndSharedSections(t *testing.T) {
 	t.Parallel()
 
-	cfg := mustLoadConfig(t, validConfigINI())
+	cfg := configtest.MustLoadConfig(t, LoadConfig, validConfigINI())
 	assertConfiguredMetrics(t, cfg)
 }
 
 func TestLoadConfigUsesDefaultMetricsValues(t *testing.T) {
 	t.Parallel()
 
-	cfg := mustLoadConfig(t, defaultMetricsConfigINI())
+	cfg := configtest.MustLoadConfig(t, LoadConfig, defaultMetricsConfigINI())
 	assertDefaultMetrics(t, cfg)
 }
 
@@ -26,20 +26,7 @@ func TestLoadConfigRejectsInvalidPollInterval(t *testing.T) {
 	t.Parallel()
 
 	invalidINI := strings.Replace(validConfigINI(), "poll_interval = 2s", "poll_interval = nope", 1)
-	if _, err := LoadConfig(fileiotest.Reader{Data: []byte(invalidINI)}); err == nil {
-		t.Fatal("LoadConfig() error = nil, want invalid duration error")
-	}
-}
-
-func mustLoadConfig(t *testing.T, iniData string) Config {
-	t.Helper()
-
-	cfg, err := LoadConfig(fileiotest.Reader{Data: []byte(iniData)})
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v", err)
-	}
-
-	return cfg
+	configtest.RunRejectsInvalidConfigCase(t, LoadConfig, invalidINI)
 }
 
 func assertConfiguredMetrics(t *testing.T, cfg Config) {
@@ -71,35 +58,12 @@ func assertDefaultMetrics(t *testing.T, cfg Config) {
 }
 
 func validConfigINI() string {
-	return `[messaging]
-url = nats://127.0.0.1:4222
-client_name = disk-metrics
-timeout = 3s
-
-[logging]
-level = info
-format = rfc5424
-output = stdout
-
-[auth]
-
-[metrics]
-poll_interval = 2s
-history_size = 64
-`
+	return configtest.MetricsServiceSharedConfigFixture("disk-metrics") +
+		"\n[metrics]\n" +
+		"poll_interval = 2s\n" +
+		"history_size = 64\n"
 }
 
 func defaultMetricsConfigINI() string {
-	return `[messaging]
-url = nats://127.0.0.1:4222
-client_name = disk-metrics
-timeout = 3s
-
-[logging]
-level = info
-format = rfc5424
-output = stdout
-
-[auth]
-`
+	return configtest.MetricsServiceSharedConfigFixture("disk-metrics")
 }

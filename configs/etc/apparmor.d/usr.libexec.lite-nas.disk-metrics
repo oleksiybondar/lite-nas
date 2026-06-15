@@ -18,6 +18,10 @@ profile /usr/libexec/lite-nas/disk-metrics flags=(attach_disconnected,mediate_de
   /sys/devices/** r,
   /dev/ r,
   /dev/** r,
+  /dev/disk/ r,
+  /dev/disk/** r,
+  /dev/mapper/ r,
+  /dev/mapper/** r,
 
   include if exists <local/usr.libexec.lite-nas.disk-metrics>
 }

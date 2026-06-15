@@ -1,11 +1,11 @@
 package workers
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
 	"lite-nas/shared/metrics"
+	"lite-nas/shared/testutil/fstest"
 )
 
 // Requirements: network-metrics-svc/FR-001
@@ -32,26 +32,6 @@ func TestCollectInterfacesClassifiesPhysicalPCIInterface(t *testing.T) {
 
 	assertInterfaceKind(t, iface, "physical")
 	assertInterfaceBus(t, iface, "pci")
-}
-
-func mustMkdirAll(t *testing.T, path string) {
-	t.Helper()
-
-	if err := os.MkdirAll(path, 0o750); err != nil {
-		t.Fatalf("MkdirAll(%q) error = %v", path, err)
-	}
-}
-
-func mustWriteFile(t *testing.T, path string, content string) {
-	t.Helper()
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		t.Fatalf("MkdirAll(%q) error = %v", filepath.Dir(path), err)
-	}
-
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatalf("WriteFile(%q) error = %v", path, err)
-	}
 }
 
 func mustCollectSingleInterface(t *testing.T, worker PollingWorker) metrics.NetworkInterfaceSnapshot {
@@ -121,7 +101,7 @@ func newCollectInterfacesFixture(t *testing.T) collectInterfacesFixture {
 		procNetDev:  filepath.Join(tempDir, "proc-net-dev"),
 	}
 
-	mustMkdirAll(t, fixture.sysClassNet)
+	fstest.MustMkdirAll(t, fixture.sysClassNet, 0o750)
 	return fixture
 }
 
@@ -147,17 +127,17 @@ func (f collectInterfacesFixture) addVirtualInterface(name string) {
 	deviceRoot := filepath.Join(f.tempDir, "devices", "virtual", "net", name)
 	statsDir := filepath.Join(deviceRoot, "statistics")
 
-	mustMkdirAll(f.t, statsDir)
-	mustWriteFile(f.t, f.procNetDev, procNetDevFixtureLine(name))
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "ifindex"), "7\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "address"), "00:11:22:33:44:55\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "mtu"), "1500\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "operstate"), "up\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "carrier"), "1\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "tx_queue_len"), "1000\n")
-	mustWriteFile(f.t, filepath.Join(statsDir, "rx_bytes"), "10\n")
-	mustWriteFile(f.t, filepath.Join(statsDir, "tx_bytes"), "20\n")
-	mustSymlink(f.t, deviceRoot, filepath.Join(f.sysClassNet, name))
+	fstest.MustMkdirAll(f.t, statsDir, 0o750)
+	fstest.MustWriteFile(f.t, f.procNetDev, procNetDevFixtureLine(name), 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "ifindex"), "7\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "address"), "00:11:22:33:44:55\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "mtu"), "1500\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "operstate"), "up\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "carrier"), "1\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "tx_queue_len"), "1000\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(statsDir, "rx_bytes"), "10\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(statsDir, "tx_bytes"), "20\n", 0o750, 0o600)
+	fstest.MustSymlink(f.t, deviceRoot, filepath.Join(f.sysClassNet, name))
 }
 
 func (f collectInterfacesFixture) addPhysicalPCIInterface(name string) {
@@ -165,30 +145,22 @@ func (f collectInterfacesFixture) addPhysicalPCIInterface(name string) {
 	statsDir := filepath.Join(deviceRoot, "statistics")
 	subsystemDir := filepath.Join(f.tempDir, "bus", "pci")
 
-	mustMkdirAll(f.t, statsDir)
-	mustMkdirAll(f.t, subsystemDir)
-	mustWriteFile(f.t, f.procNetDev, procNetDevFixtureLine(name))
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "type"), "1\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "ifindex"), "8\n")
-	mustWriteFile(f.t, filepath.Join(statsDir, "rx_bytes"), "10\n")
-	mustWriteFile(f.t, filepath.Join(statsDir, "tx_bytes"), "20\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "device", "vendor"), "0x8086\n")
-	mustWriteFile(f.t, filepath.Join(deviceRoot, "device", "device"), "0x100e\n")
-	mustSymlink(f.t, subsystemDir, filepath.Join(deviceRoot, "device", "subsystem"))
-	mustSymlink(f.t, deviceRoot, filepath.Join(f.sysClassNet, name))
+	fstest.MustMkdirAll(f.t, statsDir, 0o750)
+	fstest.MustMkdirAll(f.t, subsystemDir, 0o750)
+	fstest.MustWriteFile(f.t, f.procNetDev, procNetDevFixtureLine(name), 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "type"), "1\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "ifindex"), "8\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(statsDir, "rx_bytes"), "10\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(statsDir, "tx_bytes"), "20\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "device", "vendor"), "0x8086\n", 0o750, 0o600)
+	fstest.MustWriteFile(f.t, filepath.Join(deviceRoot, "device", "device"), "0x100e\n", 0o750, 0o600)
+	fstest.MustSymlink(f.t, subsystemDir, filepath.Join(deviceRoot, "device", "subsystem"))
+	fstest.MustSymlink(f.t, deviceRoot, filepath.Join(f.sysClassNet, name))
 }
 
 func procNetDevFixtureLine(name string) string {
 	return "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n" +
 		name + ": 10 1 0 0 0 0 0 0 20 2 0 0 0 0 0 0\n"
-}
-
-func mustSymlink(t *testing.T, target string, path string) {
-	t.Helper()
-
-	if err := os.Symlink(target, path); err != nil {
-		t.Fatalf("Symlink(%q, %q) error = %v", target, path, err)
-	}
 }
 
 // Requirements: network-metrics-svc/FR-003, network-metrics-svc/RR-001

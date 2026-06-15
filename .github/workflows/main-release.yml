@@ -85,6 +85,14 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Service metrics
+              artifact_name: service-metrics-linux
+              build_script: scripts/build-service-metrics-binary.sh
+              output_path: .build/service-metrics/linux-amd64/service-metrics
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Security email notifier
               artifact_name: security-email-notifier-linux
               build_script: scripts/build-security-email-notifier-binary.sh
@@ -177,6 +185,14 @@ jobs:
               artifact_name: disk-metrics-linux
               build_script: scripts/build-disk-metrics-binary.sh
               output_path: .build/disk-metrics/linux-arm64/disk-metrics
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Service metrics
+              artifact_name: service-metrics-linux
+              build_script: scripts/build-service-metrics-binary.sh
+              output_path: .build/service-metrics/linux-arm64/service-metrics
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -461,6 +477,12 @@ jobs:
           name: disk-metrics-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/disk-metrics
 
+      - name: Download service metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: service-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/service-metrics
+
       - name: Download security email notifier build artifact
         uses: actions/download-artifact@v4
         with:
@@ -629,8 +651,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

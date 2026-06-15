@@ -7,14 +7,12 @@ import (
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 )
 
 // RPCContract describes one request/reply endpoint contract.
-//
-// Request and Response are zero-value typed placeholders that encode endpoint
-// DTO ownership in one registry map.
 type RPCContract struct {
 	Subject  string
 	Request  any
@@ -55,6 +53,18 @@ var RPCByService = map[string]map[string]RPCContract{
 			Subject:  networkmetricscontract.HistoryRPCSubject,
 			Request:  networkmetricscontract.GetHistoryRequest{},
 			Response: networkmetricscontract.GetHistoryResponse{},
+		},
+	},
+	ServiceServiceMetrics: {
+		"get_snapshot": {
+			Subject:  servicemetricscontract.SnapshotRPCSubject,
+			Request:  servicemetricscontract.GetSnapshotRequest{},
+			Response: servicemetricscontract.GetSnapshotResponse{},
+		},
+		"get_history": {
+			Subject:  servicemetricscontract.HistoryRPCSubject,
+			Request:  servicemetricscontract.GetHistoryRequest{},
+			Response: servicemetricscontract.GetHistoryResponse{},
 		},
 	},
 	ServiceSystemMetrics: {

@@ -5,17 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"lite-nas/shared/testutil/fileiotest"
+	"lite-nas/shared/testutil/configtest"
 )
 
 func TestLoadConfigParsesMetricsAndSharedSections(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := LoadConfig(fileiotest.Reader{Data: []byte(validConfigINI())})
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v", err)
-	}
-
+	cfg := configtest.MustLoadConfig(t, LoadConfig, validConfigINI())
 	if cfg.Metrics.PollInterval != 2*time.Second {
 		t.Fatalf("Metrics.PollInterval = %v, want 2s", cfg.Metrics.PollInterval)
 	}
@@ -33,11 +29,7 @@ func TestLoadConfigParsesMetricsAndSharedSections(t *testing.T) {
 func TestLoadMetricsConfigUsesDefaults(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := LoadConfig(fileiotest.Reader{Data: []byte(defaultMetricsConfigINI())})
-	if err != nil {
-		t.Fatalf("LoadConfig() error = %v", err)
-	}
-
+	cfg := configtest.MustLoadConfig(t, LoadConfig, defaultMetricsConfigINI())
 	if cfg.Metrics.PollInterval != time.Second {
 		t.Fatalf("Metrics.PollInterval = %v, want 1s", cfg.Metrics.PollInterval)
 	}
@@ -49,42 +41,20 @@ func TestLoadMetricsConfigUsesDefaults(t *testing.T) {
 func TestLoadConfigRejectsInvalidPollInterval(t *testing.T) {
 	t.Parallel()
 
-	_, err := LoadConfig(fileiotest.Reader{Data: []byte(strings.Replace(validConfigINI(), "poll_interval = 2s", "poll_interval = nope", 1))})
-	if err == nil {
-		t.Fatal("LoadConfig() error = nil, want invalid duration error")
-	}
+	configtest.RunRejectsInvalidConfigCase(
+		t,
+		LoadConfig,
+		strings.Replace(validConfigINI(), "poll_interval = 2s", "poll_interval = nope", 1),
+	)
 }
 
 func validConfigINI() string {
-	return `[messaging]
-url = nats://127.0.0.1:4222
-client_name = network-metrics
-timeout = 3s
-
-[logging]
-level = info
-format = rfc5424
-output = stdout
-
-[auth]
-
-[metrics]
-poll_interval = 2s
-history_size = 64
-`
+	return configtest.MetricsServiceSharedConfigFixture("network-metrics") +
+		"\n[metrics]\n" +
+		"poll_interval = 2s\n" +
+		"history_size = 64\n"
 }
 
 func defaultMetricsConfigINI() string {
-	return `[messaging]
-url = nats://127.0.0.1:4222
-client_name = network-metrics
-timeout = 3s
-
-[logging]
-level = info
-format = rfc5424
-output = stdout
-
-[auth]
-`
+	return configtest.MetricsServiceSharedConfigFixture("network-metrics")
 }

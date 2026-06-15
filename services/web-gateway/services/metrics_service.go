@@ -5,6 +5,7 @@ import (
 
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 	"lite-nas/shared/messaging"
@@ -16,6 +17,13 @@ import (
 type SystemMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.SystemSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.SystemSnapshot, error)
+}
+
+// ServiceMetricsService defines the backend-facing service metrics flows used by
+// the gateway service layer.
+type ServiceMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.ServiceMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.ServiceMetricsSnapshot, error)
 }
 
 // ZFSMetricsService defines the backend-facing ZFS metrics flows used by the
@@ -51,9 +59,6 @@ type metricsRPCService[T any, SnapshotResponse any, HistoryResponse any] struct 
 
 // NewSystemMetricsService creates a service that fetches system metrics over
 // the shared messaging transport.
-//
-// Parameters:
-//   - client: messaging client used for request/reply RPC calls
 func NewSystemMetricsService(client messaging.Client) SystemMetricsService {
 	return metricsRPCService[
 		metrics.SystemSnapshot,
@@ -74,11 +79,30 @@ func NewSystemMetricsService(client messaging.Client) SystemMetricsService {
 	}
 }
 
+// NewServiceMetricsService creates a service that fetches service metrics over
+// the shared messaging transport.
+func NewServiceMetricsService(client messaging.Client) ServiceMetricsService {
+	return metricsRPCService[
+		metrics.ServiceMetricsSnapshot,
+		servicemetricscontract.GetSnapshotResponse,
+		servicemetricscontract.GetHistoryResponse,
+	]{
+		client:          client,
+		snapshotSubject: servicemetricscontract.SnapshotRPCSubject,
+		historySubject:  servicemetricscontract.HistoryRPCSubject,
+		snapshotRequest: servicemetricscontract.GetSnapshotRequest{},
+		historyRequest:  servicemetricscontract.GetHistoryRequest{},
+		selectSnapshot: func(response servicemetricscontract.GetSnapshotResponse) metrics.ServiceMetricsSnapshot {
+			return response.Snapshot
+		},
+		selectHistoryItems: func(response servicemetricscontract.GetHistoryResponse) []metrics.ServiceMetricsSnapshot {
+			return response.Items
+		},
+	}
+}
+
 // NewZFSMetricsService creates a service that fetches ZFS metrics over the
 // shared messaging transport.
-//
-// Parameters:
-//   - client: messaging client used for request/reply RPC calls
 func NewZFSMetricsService(client messaging.Client) ZFSMetricsService {
 	return metricsRPCService[
 		metrics.ZFSSnapshot,
@@ -101,9 +125,6 @@ func NewZFSMetricsService(client messaging.Client) ZFSMetricsService {
 
 // NewDiskMetricsService creates a service that fetches disk metrics over the
 // shared messaging transport.
-//
-// Parameters:
-//   - client: messaging client used for request/reply RPC calls
 func NewDiskMetricsService(client messaging.Client) DiskMetricsService {
 	return metricsRPCService[
 		metrics.DiskMetricsSnapshot,
@@ -126,9 +147,6 @@ func NewDiskMetricsService(client messaging.Client) DiskMetricsService {
 
 // NewNetworkMetricsService creates a service that fetches network metrics over
 // the shared messaging transport.
-//
-// Parameters:
-//   - client: messaging client used for request/reply RPC calls
 func NewNetworkMetricsService(client messaging.Client) NetworkMetricsService {
 	return metricsRPCService[
 		metrics.NetworkMetricsSnapshot,
@@ -150,9 +168,6 @@ func NewNetworkMetricsService(client messaging.Client) NetworkMetricsService {
 }
 
 // GetSnapshot requests the latest metrics snapshot over messaging.
-//
-// Parameters:
-//   - ctx: request-scoped context used for cancellation and deadlines
 func (s metricsRPCService[T, SnapshotResponse, HistoryResponse]) GetSnapshot(ctx context.Context) (T, error) {
 	return requestSnapshot(
 		ctx,
@@ -164,9 +179,6 @@ func (s metricsRPCService[T, SnapshotResponse, HistoryResponse]) GetSnapshot(ctx
 }
 
 // GetHistory requests the metrics history over messaging.
-//
-// Parameters:
-//   - ctx: request-scoped context used for cancellation and deadlines
 func (s metricsRPCService[T, SnapshotResponse, HistoryResponse]) GetHistory(ctx context.Context) ([]T, error) {
 	return requestHistory(
 		ctx,

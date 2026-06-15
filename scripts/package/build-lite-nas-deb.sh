@@ -22,6 +22,7 @@ system_email_notifier_binary_path=""
 security_email_notifier_binary_path=""
 network_metrics_binary_path=""
 disk_metrics_binary_path=""
+service_metrics_binary_path=""
 system_metrics_binary_path=""
 zfs_metrics_binary_path=""
 system_logging_manager_cli_binary_path=""
@@ -54,6 +55,7 @@ Options:
                                      Use an existing security-email-notifier binary.
   --network-metrics-binary=PATH      Use an existing network-metrics binary.
   --disk-metrics-binary=PATH         Use an existing disk-metrics binary.
+  --service-metrics-binary=PATH      Use an existing service-metrics binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --zfs-metrics-binary=PATH          Use an existing zfs-metrics binary.
   --system-logging-manager-cli-binary=PATH
@@ -72,8 +74,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary disk-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary disk-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -333,6 +335,11 @@ if [ ! -f "$disk_metrics_binary_path" ]; then
 	exit 1
 fi
 
+if [ ! -f "$service_metrics_binary_path" ]; then
+	log.error "Missing service-metrics binary: $service_metrics_binary_path"
+	exit 1
+fi
+
 if [ ! -f "$system_metrics_binary_path" ]; then
 	log.error "Missing system-metrics binary: $system_metrics_binary_path"
 	exit 1
@@ -426,6 +433,8 @@ install -D -m 0755 "$network_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/network-metrics"
 install -D -m 0755 "$disk_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/disk-metrics"
+install -D -m 0755 "$service_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/service-metrics"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$zfs_metrics_binary_path" \
@@ -475,6 +484,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/network-metrics" \
 	"$package_root/usr/libexec/lite-nas/disk-metrics" \
+	"$package_root/usr/libexec/lite-nas/service-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor" \

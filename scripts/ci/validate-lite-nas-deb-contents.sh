@@ -108,6 +108,7 @@ assert_cmd "system-email-notifier binary packaged" assert_executable usr/libexec
 assert_cmd "security-email-notifier binary packaged" assert_executable usr/libexec/lite-nas/security-email-notifier
 assert_cmd "network-metrics binary packaged" assert_executable usr/libexec/lite-nas/network-metrics
 assert_cmd "disk-metrics binary packaged" assert_executable usr/libexec/lite-nas/disk-metrics
+assert_cmd "service-metrics binary packaged" assert_executable usr/libexec/lite-nas/service-metrics
 assert_cmd "system-metrics binary packaged" assert_executable usr/libexec/lite-nas/system-metrics
 assert_cmd "zfs-metrics binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics
 assert_cmd "resources-monitor binary packaged" assert_executable usr/libexec/lite-nas/resources-monitor
@@ -137,6 +138,7 @@ assert_cmd "system-email-notifier.conf packaged" assert_file "$packaged_config_r
 assert_cmd "security-email-notifier.conf packaged" assert_file "$packaged_config_root/lite-nas/security-email-notifier.conf"
 assert_cmd "network-metrics.conf packaged" assert_file "$packaged_config_root/lite-nas/network-metrics.conf"
 assert_cmd "disk-metrics.conf packaged" assert_file "$packaged_config_root/lite-nas/disk-metrics.conf"
+assert_cmd "service-metrics.conf packaged" assert_file "$packaged_config_root/lite-nas/service-metrics.conf"
 assert_cmd "network-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/network-metrics-cli.conf"
 assert_cmd "resources-monitor.conf packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor.conf"
 assert_cmd "zfs-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/zfs-metrics-cli.conf"
@@ -144,6 +146,7 @@ assert_cmd "system metrics rule packaged" assert_file "$packaged_config_root/lit
 assert_cmd "network metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/network-metrics.json"
 assert_cmd "disk metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/disk-metrics.json"
 assert_cmd "zfs metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/zfs-metrics.json"
+assert_cmd "service metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/service-metrics.json"
 assert_cmd "web-gateway.conf packaged" assert_file "$packaged_config_root/lite-nas/web-gateway.conf"
 
 assert_cmd "resources-monitor unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-resources-monitor.service"
@@ -154,6 +157,7 @@ assert_cmd "security email notifier unit template packaged" assert_file "$packag
 assert_cmd "rbac unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-rbac.service"
 assert_cmd "network-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-network-metrics.service"
 assert_cmd "disk-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-disk-metrics.service"
+assert_cmd "service-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-service-metrics.service"
 assert_cmd "zfs-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-zfs-metrics.service"
 
 assert_cmd "postfix main.cf template packaged" assert_file "$packaged_config_root/postfix/main.cf"
@@ -170,6 +174,7 @@ assert_cmd "system-email-notifier AppArmor profile packaged" assert_file "$packa
 assert_cmd "security-email-notifier AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.security-email-notifier"
 assert_cmd "network-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.network-metrics"
 assert_cmd "disk-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.disk-metrics"
+assert_cmd "service-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.service-metrics"
 assert_cmd "web-gateway AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.web-gateway"
 assert_cmd "system-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-metrics-cli"
 assert_cmd "network-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.network-metrics-cli"

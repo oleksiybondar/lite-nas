@@ -6,6 +6,7 @@ lite-nas: statically-linked-binary [usr/libexec/lite-nas/security-logging-manage
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-email-notifier]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-logging-manager]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-logging-manager-cli]
+lite-nas: statically-linked-binary [usr/libexec/lite-nas/service-metrics]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-metrics]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/system-metrics-cli]
 lite-nas: statically-linked-binary [usr/libexec/lite-nas/web-gateway]

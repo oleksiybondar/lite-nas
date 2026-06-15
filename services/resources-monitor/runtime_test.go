@@ -45,7 +45,7 @@ func TestRegisterSubscriptionsReturnsServerError(t *testing.T) {
 	}
 }
 
-func TestRegisterSubscriptionsSubscribesToNetworkSystemAndZFSSnapshots(t *testing.T) {
+func TestRegisterSubscriptionsSubscribesToNetworkSystemDiskAndZFSSnapshots(t *testing.T) {
 	t.Parallel()
 
 	server := &stubServer{}
@@ -272,9 +272,39 @@ func buildTestInfra() servicemodules.Infra {
 			AuthRefreshTicks: authRefreshTicks,
 		},
 		Config: serviceconfig.Config{
-			Rules: sharedconfig.RulesConfig{Files: []string{"/tmp/rules.json"}},
+			Messaging: sharedconfig.MessagingConfig{Timeout: time.Second},
+			Auth: sharedconfig.AuthConfig{
+				CA:           "/etc/lite-nas/certificates/identities/root-ca.crt",
+				Cert:         "/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.crt",
+				Key:          "/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.key",
+				ServiceName:  "resources-monitor",
+				ServiceLogin: "lite-nas-resources-monitor",
+			},
+			Rules: sharedconfig.RulesConfig{Files: []string{
+				"/etc/lite-nas/resources-monitor/rules/system-metrics.json",
+				"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
+				"/etc/lite-nas/resources-monitor/rules/disk-metrics.json",
+				"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
+			}},
+			Logging: sharedconfig.LoggingConfig{Level: "info", Output: "stdout"},
 		},
 	}
+}
+
+func buildAuthInfraComponents(
+	client messaging.Client,
+) (*servicetoken.Manager, sharedworkers.TimerWorker, <-chan struct{}, error) {
+	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
+	if err != nil {
+		return nil, sharedworkers.TimerWorker{}, nil, err
+	}
+
+	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
+	if err != nil {
+		return nil, sharedworkers.TimerWorker{}, nil, err
+	}
+
+	return authTokenManager, authRefreshTimer, authRefreshTicks, nil
 }
 
 type authTickClientStub struct {
@@ -369,20 +399,4 @@ func buildAuthTickTestInfra(t *testing.T, client authTickClientStub) servicemodu
 			AuthRefreshTicks: authRefreshTicks,
 		},
 	}
-}
-
-func buildAuthInfraComponents(
-	client messaging.Client,
-) (*servicetoken.Manager, sharedworkers.TimerWorker, <-chan struct{}, error) {
-	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
-	if err != nil {
-		return nil, sharedworkers.TimerWorker{}, nil, err
-	}
-
-	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
-	if err != nil {
-		return nil, sharedworkers.TimerWorker{}, nil, err
-	}
-
-	return authTokenManager, authRefreshTimer, authRefreshTicks, nil
 }

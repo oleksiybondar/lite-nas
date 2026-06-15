@@ -160,6 +160,19 @@ func (routeNetworkMetricsService) GetHistory(context.Context) ([]metrics.Network
 	}, nil
 }
 
+type routeServiceMetricsService struct{}
+
+func (routeServiceMetricsService) GetSnapshot(context.Context) (metrics.ServiceMetricsSnapshot, error) {
+	return metrics.ServiceMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeServiceMetricsService) GetHistory(context.Context) ([]metrics.ServiceMetricsSnapshot, error) {
+	return []metrics.ServiceMetricsSnapshot{
+		{Timestamp: time.Unix(100, 0).UTC()},
+		{Timestamp: time.Unix(101, 0).UTC()},
+	}, nil
+}
+
 type routeAlertsService struct{}
 
 func (routeAlertsService) List(context.Context, services.AlertListInput) (services.AlertListPage, error) {
@@ -233,6 +246,7 @@ func routerFixtureWithVerifier(authService controllers.AuthService, verifier rou
 		SystemAlerts:   controllers.NewSystemAlertsController(routeAlertsService{}),
 		SecurityAlerts: controllers.NewSecurityAlertsController(routeAlertsService{}),
 		SystemMetrics:  controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		ServiceMetrics: controllers.NewServiceMetricsController(routeServiceMetricsService{}),
 		DiskMetrics:    controllers.NewDiskMetricsController(routeDiskMetricsService{}),
 		NetworkMetrics: controllers.NewNetworkMetricsController(routeNetworkMetricsService{}),
 		ZFSMetrics:     controllers.NewZFSMetricsController(routeZFSMetricsService{}),
@@ -591,4 +605,20 @@ func mustMapField(t *testing.T, source map[string]any, field string) map[string]
 		t.Fatalf("openapi %s = %T, want map[string]any", field, source[field])
 	}
 	return value
+}
+
+func TestRouterServiceMetricsHistoryRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/service-metrics/history", nil))
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestRouterServiceMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/service-metrics/history", nil, http.StatusOK)
 }

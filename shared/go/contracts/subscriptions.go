@@ -2,18 +2,17 @@ package contracts
 
 import (
 	authcontract "lite-nas/shared/contracts/auth"
+	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 )
 
 // SubscriptionContract describes one fire-and-forget messaging contract.
-//
-// Payload is a zero-value typed placeholder that encodes payload ownership in
-// one registry map.
 type SubscriptionContract struct {
 	Subject string
 	Payload any
@@ -30,6 +29,14 @@ var SubscriptionsByService = map[string]map[string]SubscriptionContract{
 		"system_metrics_snapshot": {
 			Subject: systemmetricscontract.SnapshotEventSubject,
 			Payload: systemmetricscontract.SnapshotUpdatedEvent{},
+		},
+		"service_metrics_snapshot": {
+			Subject: servicemetricscontract.SnapshotEventSubject,
+			Payload: servicemetricscontract.SnapshotUpdatedEvent{},
+		},
+		"disk_metrics_snapshot": {
+			Subject: diskmetricscontract.SnapshotEventSubject,
+			Payload: diskmetricscontract.SnapshotUpdatedEvent{},
 		},
 		"zfs_metrics_snapshot": {
 			Subject: zfsmetricscontract.SnapshotEventSubject,
