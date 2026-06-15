@@ -14,6 +14,9 @@ inputs:
   disk_metrics_binary:
     description: Path to the disk-metrics binary.
     required: true
+  service_metrics_binary:
+    description: Path to the service-metrics binary.
+    required: true
   system_metrics_binary:
     description: Path to the system-metrics binary.
     required: true
@@ -111,6 +114,7 @@ runs:
         mkdir -p .artifacts/${{ inputs.package_arch }}/security-email-notifier
         mkdir -p .artifacts/${{ inputs.package_arch }}/network-metrics
         mkdir -p .artifacts/${{ inputs.package_arch }}/disk-metrics
+        mkdir -p .artifacts/${{ inputs.package_arch }}/service-metrics
         mkdir -p .artifacts/${{ inputs.package_arch }}/system-metrics
         mkdir -p .artifacts/${{ inputs.package_arch }}/zfs-metrics
         mkdir -p .artifacts/${{ inputs.package_arch }}/system-logging-manager-cli
@@ -124,6 +128,7 @@ runs:
         cp "${{ inputs.auth_service_binary }}" .artifacts/${{ inputs.package_arch }}/auth-service/auth-service
         cp "${{ inputs.network_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/network-metrics/network-metrics
         cp "${{ inputs.disk_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/disk-metrics/disk-metrics
+        cp "${{ inputs.service_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/service-metrics/service-metrics
         cp "${{ inputs.system_metrics_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics/system-metrics
         cp "${{ inputs.network_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/network-metrics-cli/network-metrics-cli
         cp "${{ inputs.system_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics-cli/system-metrics-cli

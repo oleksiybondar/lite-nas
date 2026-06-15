@@ -128,6 +128,11 @@ if args.has disk-metrics-binary && ! disk_metrics_binary_path="$(args.require_ar
 	usage >&2
 	exit 64
 fi
+if args.has service-metrics-binary && ! service_metrics_binary_path="$(args.require_arg service-metrics-binary)"; then
+	log.error "Missing value for --service-metrics-binary"
+	usage >&2
+	exit 64
+fi
 if args.has system-metrics-binary && ! system_metrics_binary_path="$(args.require_arg system-metrics-binary)"; then
 	log.error "Missing value for --system-metrics-binary"
 	usage >&2
@@ -237,6 +242,12 @@ if [ -z "$disk_metrics_binary_path" ]; then
 	disk_metrics_binary_path="$output_dir/${package_name}-${package_arch}/disk-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-disk-metrics-binary.sh" \
 		"--output=${disk_metrics_binary_path}"
+fi
+
+if [ -z "$service_metrics_binary_path" ]; then
+	service_metrics_binary_path="$output_dir/${package_name}-${package_arch}/service-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-service-metrics-binary.sh" \
+		"--output=${service_metrics_binary_path}"
 fi
 
 if [ -z "$system_metrics_binary_path" ]; then
