@@ -35,6 +35,16 @@ export const PreferencesMonitoringSettingsPage = (): ReactElement => {
         title="System metrics"
       />
       <MonitoringPollingSettingsCard
+        description="Polling settings used by interface throughput and network state telemetry views."
+        storageKey="network-metrics"
+        title="Network metrics"
+      />
+      <MonitoringPollingSettingsCard
+        description="Polling settings used by block-device and filesystem telemetry views."
+        storageKey="disk-metrics"
+        title="Disk metrics"
+      />
+      <MonitoringPollingSettingsCard
         description="Polling settings used by ZFS pool and storage telemetry views."
         storageKey="zfs-metrics"
         title="ZFS metrics"

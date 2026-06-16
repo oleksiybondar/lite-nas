@@ -121,7 +121,7 @@ describe("category landing pages", () => {
   });
 });
 
-describe("preferences pages", () => {
+describe("preferences page rendering", () => {
   test("renders the profile preferences page", () => {
     renderWithThemeManager(<PreferencesProfilePage />);
 
@@ -143,7 +143,9 @@ describe("preferences pages", () => {
 
     expect(screen.getByRole("heading", { name: "Theme" })).toBeInTheDocument();
   });
+});
 
+describe("theme settings persistence", () => {
   test("persists changed theme settings on apply", () => {
     window.localStorage.clear();
     render(
@@ -157,32 +159,72 @@ describe("preferences pages", () => {
 
     expect(loadThemeSettings().source).toBe("os");
   });
+});
 
-  test("persists changed monitoring settings for one resource scope on apply", () => {
-    window.localStorage.clear();
+test("persists changed monitoring settings for one resource scope on apply", () => {
+  window.localStorage.clear();
 
-    render(<PreferencesMonitoringSettingsPage />);
+  render(<PreferencesMonitoringSettingsPage />);
 
-    const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
+  const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
 
-    fireEvent.mouseDown(within(systemMetricsCard).getByRole("combobox", { name: "Polling mode" }));
-    fireEvent.click(screen.getByRole("option", { name: "Snapshot" }));
-    fireEvent.change(within(systemMetricsCard).getByRole("spinbutton", { name: "Max records" }), {
-      target: { value: "180" },
-    });
-    fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-system-metrics"));
+  fireEvent.mouseDown(within(systemMetricsCard).getByRole("combobox", { name: "Polling mode" }));
+  fireEvent.click(screen.getByRole("option", { name: "History" }));
+  fireEvent.change(
+    within(systemMetricsCard).getByRole("spinbutton", { name: "History interval (ms)" }),
+    {
+      target: { value: "20000" },
+    },
+  );
+  fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-system-metrics"));
 
-    expect(loadMonitoringPollingSettings("system-metrics")).toEqual({
+  expect(loadMonitoringPollingSettings("system-metrics")).toEqual({
+    historyIntervalMs: 20000,
+    historyResetGapMs: 10000,
+    maxRecords: 180,
+    mode: "history",
+    snapshotIntervalMs: 1000,
+  });
+  expect(
+    window.localStorage.getItem(buildMonitoringPollingSettingsStorageKey("zfs-metrics")),
+  ).toBeNull();
+});
+
+test("renders persisted monitoring polling modes in the correct resource cards", () => {
+  window.localStorage.clear();
+  window.localStorage.setItem(
+    buildMonitoringPollingSettingsStorageKey("system-metrics"),
+    JSON.stringify({
+      historyIntervalMs: 20000,
+      historyResetGapMs: 10000,
+      maxRecords: 180,
+      mode: "history",
+      snapshotIntervalMs: 1000,
+    }),
+  );
+  window.localStorage.setItem(
+    buildMonitoringPollingSettingsStorageKey("network-metrics"),
+    JSON.stringify({
       historyIntervalMs: 15000,
       historyResetGapMs: 10000,
       maxRecords: 180,
       mode: "snapshot",
       snapshotIntervalMs: 1000,
-    });
-    expect(
-      window.localStorage.getItem(buildMonitoringPollingSettingsStorageKey("zfs-metrics")),
-    ).toBeNull();
-  });
+    }),
+  );
+
+  render(<PreferencesMonitoringSettingsPage />);
+
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-system-metrics")).getByRole("combobox", {
+      name: "Polling mode",
+    }),
+  ).toHaveTextContent("History");
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-network-metrics")).getByRole("combobox", {
+      name: "Polling mode",
+    }),
+  ).toHaveTextContent("Snapshot");
 });
 
 describe("theme creation", () => {

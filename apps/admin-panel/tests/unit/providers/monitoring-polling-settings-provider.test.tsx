@@ -67,7 +67,7 @@ describe("MonitoringPollingSettingsProvider resets", () => {
  * Asserts the default monitoring polling settings exposed by the shared test probe.
  */
 const expectDefaultMonitoringPollingSettings = (): void => {
-  expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("history");
+  expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("snapshot");
   expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("15000");
   expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("1000");
   expect(screen.getByTestId("monitoring-max-records")).toHaveTextContent("180");

@@ -1,6 +1,7 @@
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { formatRouteLabel, resolveTelemetryRoute } from "@pages/SystemTelemetryPage/helpers";
+import { SystemTelemetryNetworkMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryNetworkMetricState";
 import { SystemTelemetryPageContent } from "@pages/SystemTelemetryPage/SystemTelemetryPageContent";
 import { SystemTelemetrySystemMetricState } from "@pages/SystemTelemetryPage/SystemTelemetrySystemMetricState";
 import { SystemTelemetryUnsupportedState } from "@pages/SystemTelemetryPage/SystemTelemetryUnsupportedState";
@@ -26,7 +27,7 @@ export const SystemTelemetryPage = (): ReactElement => {
           {route.title}
         </Typography>
       </Stack>
-      <SystemTelemetryPageContent routeType={route.type}>
+      <SystemTelemetryPageContent route={route}>
         {renderTelemetryState(route)}
       </SystemTelemetryPageContent>
     </Stack>
@@ -39,6 +40,10 @@ export const SystemTelemetryPage = (): ReactElement => {
 const renderTelemetryState = (route: ReturnType<typeof resolveTelemetryRoute>): ReactElement => {
   if (route.type === "system-metric") {
     return <SystemTelemetrySystemMetricState />;
+  }
+
+  if (route.type === "network-metric") {
+    return <SystemTelemetryNetworkMetricState />;
   }
 
   if (route.type === "zfs-metric") {

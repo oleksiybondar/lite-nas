@@ -17,7 +17,7 @@ export const defaultMonitoringPollingSettings: MonitoringPollingSettings = {
   historyIntervalMs: 15000,
   historyResetGapMs: 10000,
   maxRecords: 180,
-  mode: "history",
+  mode: "snapshot",
   snapshotIntervalMs: 1000,
 };
 
