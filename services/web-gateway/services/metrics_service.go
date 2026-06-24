@@ -5,6 +5,7 @@ import (
 
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	processmetricscontract "lite-nas/shared/contracts/processmetrics"
 	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
@@ -24,6 +25,12 @@ type SystemMetricsService interface {
 type ServiceMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.ServiceMetricsSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.ServiceMetricsSnapshot, error)
+}
+
+// ProcessMetricsService defines the backend-facing process metrics flow used by
+// the gateway service layer.
+type ProcessMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.ProcessMetricsSnapshot, error)
 }
 
 // ZFSMetricsService defines the backend-facing ZFS metrics flows used by the
@@ -97,6 +104,22 @@ func NewServiceMetricsService(client messaging.Client) ServiceMetricsService {
 		},
 		selectHistoryItems: func(response servicemetricscontract.GetHistoryResponse) []metrics.ServiceMetricsSnapshot {
 			return response.Items
+		},
+	}
+}
+
+// NewProcessMetricsService creates a service that fetches process metrics over
+// the shared messaging transport.
+func NewProcessMetricsService(client messaging.Client) ProcessMetricsService {
+	return snapshotRPCService[
+		metrics.ProcessMetricsSnapshot,
+		processmetricscontract.GetSnapshotResponse,
+	]{
+		client:          client,
+		snapshotSubject: processmetricscontract.SnapshotRPCSubject,
+		snapshotRequest: processmetricscontract.GetSnapshotRequest{},
+		selectSnapshot: func(response processmetricscontract.GetSnapshotResponse) metrics.ProcessMetricsSnapshot {
+			return response.Snapshot
 		},
 	}
 }
@@ -186,5 +209,23 @@ func (s metricsRPCService[T, SnapshotResponse, HistoryResponse]) GetHistory(ctx 
 		s.historySubject,
 		s.historyRequest,
 		s.selectHistoryItems,
+	)
+}
+
+type snapshotRPCService[T any, SnapshotResponse any] struct {
+	client          messaging.Client
+	snapshotSubject string
+	snapshotRequest any
+	selectSnapshot  func(SnapshotResponse) T
+}
+
+// GetSnapshot requests the latest metrics snapshot over messaging.
+func (s snapshotRPCService[T, SnapshotResponse]) GetSnapshot(ctx context.Context) (T, error) {
+	return requestSnapshot(
+		ctx,
+		s.client,
+		s.snapshotSubject,
+		s.snapshotRequest,
+		s.selectSnapshot,
 	)
 }

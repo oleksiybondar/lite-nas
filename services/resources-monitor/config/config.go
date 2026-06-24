@@ -3,6 +3,8 @@ package config
 import (
 	sharedconfig "lite-nas/shared/config"
 	"lite-nas/shared/fileio"
+
+	"gopkg.in/ini.v1"
 )
 
 // Config defines runtime configuration for the resources monitor service.
@@ -22,25 +24,20 @@ type Config struct {
 // LoadConfig reads monitor configuration from a file abstraction and returns a
 // parsed Config value.
 func LoadConfig(reader fileio.Reader) (Config, error) {
-	cfgFile, err := sharedconfig.LoadINI(reader)
-	if err != nil {
-		return Config{}, err
-	}
+	return sharedconfig.LoadConfigWithSharedSections(
+		reader,
+		func(cfgFile *ini.File, sharedCfg sharedconfig.SharedConfig) (Config, error) {
+			rulesConfig, err := sharedconfig.LoadRulesConfig(cfgFile)
+			if err != nil {
+				return Config{}, err
+			}
 
-	sharedCfg, err := sharedconfig.LoadSharedConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	rulesConfig, err := sharedconfig.LoadRulesConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return Config{
-		Messaging: sharedCfg.Messaging,
-		Auth:      sharedCfg.Auth,
-		Rules:     rulesConfig,
-		Logging:   sharedCfg.Logging,
-	}, nil
+			return Config{
+				Messaging: sharedCfg.Messaging,
+				Auth:      sharedCfg.Auth,
+				Rules:     rulesConfig,
+				Logging:   sharedCfg.Logging,
+			}, nil
+		},
+	)
 }

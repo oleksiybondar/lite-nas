@@ -19,6 +19,8 @@ source "$ENTRYPOINT_DIR/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/network-metrics.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/process-metrics.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/disk-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/service-metrics.sh"
@@ -48,6 +50,7 @@ security_logging_manager_binary=""
 system_email_notifier_binary=""
 security_email_notifier_binary=""
 network_metrics_binary=""
+process_metrics_binary=""
 disk_metrics_binary=""
 service_metrics_binary=""
 system_metrics_binary=""
@@ -80,6 +83,7 @@ Options:
   --security-email-notifier-binary PATH
                                   Install an existing security-email-notifier binary.
   --network-metrics-binary PATH   Install an existing network-metrics binary.
+  --process-metrics-binary PATH   Install an existing process-metrics binary.
   --disk-metrics-binary PATH      Install an existing disk-metrics binary.
   --service-metrics-binary PATH   Install an existing service-metrics binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
@@ -139,6 +143,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		network_metrics_binary="$2"
+		shift 2
+		;;
+	--process-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --process-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		process_metrics_binary="$2"
 		shift 2
 		;;
 	--disk-metrics-binary)
@@ -367,6 +380,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		network_metrics_binary="$tmp_dir/network-metrics"
 	fi
 
+	if [ -z "$process_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/process-metrics")
+		"$ENTRYPOINT_DIR/build-process-metrics-binary.sh" "${build_args[@]}"
+		process_metrics_binary="$tmp_dir/process-metrics"
+	fi
+
 	if [ -z "$disk_metrics_binary" ]; then
 		build_args=("--output=$tmp_dir/disk-metrics")
 		"$ENTRYPOINT_DIR/build-disk-metrics-binary.sh" "${build_args[@]}"
@@ -473,6 +492,10 @@ log.popTask
 
 log.pushTask "Deploying network-metrics service"
 deploy.networkMetrics.deploy "$network_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying process-metrics service"
+deploy.processMetrics.deploy "$process_metrics_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying disk-metrics service"

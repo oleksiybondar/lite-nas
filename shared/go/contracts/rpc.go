@@ -5,6 +5,7 @@ import (
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	processmetricscontract "lite-nas/shared/contracts/processmetrics"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
@@ -54,6 +55,13 @@ var RPCByService = map[string]map[string]RPCContract{
 			Subject:  networkmetricscontract.HistoryRPCSubject,
 			Request:  networkmetricscontract.GetHistoryRequest{},
 			Response: networkmetricscontract.GetHistoryResponse{},
+		},
+	},
+	ServiceProcessMetrics: {
+		"get_snapshot": {
+			Subject:  processmetricscontract.SnapshotRPCSubject,
+			Request:  processmetricscontract.GetSnapshotRequest{},
+			Response: processmetricscontract.GetSnapshotResponse{},
 		},
 	},
 	ServiceServiceMetrics: {

@@ -2,7 +2,7 @@ package modules
 
 import (
 	serviceconfig "lite-nas/services/disk-metrics/config"
-	sharedfileio "lite-nas/shared/fileio"
+	sharedconfig "lite-nas/shared/config"
 	sharedmodules "lite-nas/shared/modules"
 )
 
@@ -14,17 +14,18 @@ type Infra struct {
 
 // NewInfraModule loads config and constructs shared service infrastructure.
 func NewInfraModule(configPath string, serviceName string) (Infra, error) {
-	cfgReader, err := sharedfileio.NewFileReader(configPath)
-	if err != nil {
-		return Infra{}, err
-	}
-
-	cfg, err := serviceconfig.LoadConfig(cfgReader)
-	if err != nil {
-		return Infra{}, err
-	}
-
-	core, err := sharedmodules.NewCoreClientServerInfra(serviceName, cfg.Logging, cfg.Messaging)
+	core, cfg, err := sharedmodules.LoadCoreInfra(
+		configPath,
+		serviceName,
+		serviceconfig.LoadConfig,
+		sharedmodules.NewCoreClientServerInfra,
+		func(cfg serviceconfig.Config) sharedconfig.MessagingConfig {
+			return cfg.Messaging
+		},
+		func(cfg serviceconfig.Config) sharedconfig.LoggingConfig {
+			return cfg.Logging
+		},
+	)
 	if err != nil {
 		return Infra{}, err
 	}

@@ -24,26 +24,21 @@ type MetricsConfig struct {
 
 // LoadConfig reads and parses service configuration from the provided reader.
 func LoadConfig(reader fileio.Reader) (Config, error) {
-	cfgFile, err := sharedconfig.LoadINI(reader)
-	if err != nil {
-		return Config{}, err
-	}
+	return sharedconfig.LoadConfigWithSharedSections(
+		reader,
+		func(cfgFile *ini.File, sharedCfg sharedconfig.SharedConfig) (Config, error) {
+			metricsCfg, err := loadMetricsConfig(cfgFile)
+			if err != nil {
+				return Config{}, err
+			}
 
-	sharedCfg, err := sharedconfig.LoadSharedConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	metricsCfg, err := loadMetricsConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return Config{
-		Metrics:   metricsCfg,
-		Messaging: sharedCfg.Messaging,
-		Logging:   sharedCfg.Logging,
-	}, nil
+			return Config{
+				Metrics:   metricsCfg,
+				Messaging: sharedCfg.Messaging,
+				Logging:   sharedCfg.Logging,
+			}, nil
+		},
+	)
 }
 
 // loadMetricsConfig loads the network-metrics-specific [metrics] section.

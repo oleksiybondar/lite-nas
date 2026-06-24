@@ -121,6 +121,12 @@ func (routeSystemMetricsService) GetHistory(context.Context) ([]metrics.SystemSn
 	}, nil
 }
 
+type routeProcessMetricsService struct{}
+
+func (routeProcessMetricsService) GetSnapshot(context.Context) (metrics.ProcessMetricsSnapshot, error) {
+	return metrics.ProcessMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
 type routeZFSMetricsService struct{}
 
 func (routeZFSMetricsService) GetSnapshot(context.Context) (metrics.ZFSSnapshot, error) {
@@ -250,6 +256,7 @@ func routerFixtureWithVerifier(authService controllers.AuthService, verifier rou
 		SystemAlerts:   controllers.NewSystemAlertsController(routeAlertsService{}),
 		SecurityAlerts: controllers.NewSecurityAlertsController(routeAlertsService{}),
 		SystemMetrics:  controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		ProcessMetrics: controllers.NewProcessMetricsController(routeProcessMetricsService{}),
 		ServiceMetrics: controllers.NewServiceMetricsController(routeServiceMetricsService{}),
 		DiskMetrics:    controllers.NewDiskMetricsController(routeDiskMetricsService{}),
 		NetworkMetrics: controllers.NewNetworkMetricsController(routeNetworkMetricsService{}),
@@ -371,6 +378,20 @@ func TestRouterSystemMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/system-metrics/history", nil, http.StatusOK)
+}
+
+func TestRouterProcessMetricsSnapshotRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/process-metrics/snapshot", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestRouterProcessMetricsSnapshotReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/process-metrics/snapshot", nil, http.StatusOK)
 }
 
 // Requirements: web-gateway/FR-003, web-gateway/TR-001

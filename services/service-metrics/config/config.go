@@ -25,26 +25,21 @@ type MetricsConfig struct {
 // LoadConfig reads configuration data from the provided Reader and parses it
 // into a Config struct.
 func LoadConfig(reader fileio.Reader) (Config, error) {
-	cfgFile, err := config.LoadINI(reader)
-	if err != nil {
-		return Config{}, err
-	}
+	return config.LoadConfigWithSharedSections(
+		reader,
+		func(cfgFile *ini.File, sharedCfg config.SharedConfig) (Config, error) {
+			metricsConfig, err := loadMetricsConfig(cfgFile)
+			if err != nil {
+				return Config{}, err
+			}
 
-	sharedCfg, err := config.LoadSharedConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	metricsConfig, err := loadMetricsConfig(cfgFile)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return Config{
-		Metrics:   metricsConfig,
-		Messaging: sharedCfg.Messaging,
-		Logging:   sharedCfg.Logging,
-	}, nil
+			return Config{
+				Metrics:   metricsConfig,
+				Messaging: sharedCfg.Messaging,
+				Logging:   sharedCfg.Logging,
+			}, nil
+		},
+	)
 }
 
 // loadMetricsConfig extracts and parses the [metrics] section from the INI

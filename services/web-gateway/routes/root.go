@@ -120,6 +120,7 @@ func mountMetricsRouters(
 	authentication middlewares.AuthenticationOptions,
 ) {
 	mountSystemMetricsRouter(api, controllerModule, authentication)
+	mountProcessMetricsRouter(api, controllerModule, authentication)
 	mountServiceMetricsRouter(api, controllerModule, authentication)
 	mountDiskMetricsRouter(api, controllerModule, authentication)
 	mountNetworkMetricsRouter(api, controllerModule, authentication)
