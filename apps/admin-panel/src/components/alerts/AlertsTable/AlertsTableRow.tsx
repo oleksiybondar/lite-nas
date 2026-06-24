@@ -39,7 +39,7 @@ export const AlertsTableRow = ({ domain, item }: AlertsTableRowProps): ReactElem
       <AlertsTablePriorityCell item={item} />
       <AlertsTableEventIdCell item={item} />
       <AlertsTableMessageCell item={item} />
-      <AlertsTableValueCell item={item} />
+      <AlertsTableValueCell domain={domain} item={item} />
       <AlertsTableSourceCell item={item} />
       <AlertsTableStatusCell item={item} />
       {domain === "security" ? <AlertsTableMitigateCell item={item} /> : null}

@@ -143,6 +143,36 @@ export type AlertListResponseDTO = {
 };
 
 /**
+ * One occurrence row returned by the alert occurrences endpoints.
+ *
+ * The field names intentionally mirror the current gateway response contract.
+ */
+export type AlertOccurrenceItemDTO = {
+  EventID: string;
+  EventRecID: number;
+  RecID: number;
+  Timestamp: string;
+  ValueBool: boolean | null;
+  ValueNum: number | null;
+  ValueText: string | null;
+  ValueType: string;
+  ValueUnit: string | null;
+};
+
+/**
+ * Response envelope returned by alert occurrences endpoints.
+ */
+export type AlertOccurrencesResponseDTO = {
+  code?: string;
+  data: AlertOccurrenceItemDTO[];
+  message?: string;
+  request_id?: string;
+  success: boolean;
+  timestamp: string;
+  trace_id?: string;
+};
+
+/**
  * Browser-facing alert action response returned by acknowledge endpoints.
  */
 export type AlertActionResponseDTO = {

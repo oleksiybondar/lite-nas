@@ -71,6 +71,13 @@ export const buildAlertsListPath = ({
 };
 
 /**
+ * Builds the gateway occurrences path for one alert event identifier.
+ */
+export const buildAlertOccurrencesPath = (domain: AlertDomain, eventId: string): string => {
+  return `/api/alerts/${domain}/${encodeURIComponent(eventId)}/occurrences`;
+};
+
+/**
  * Builds one stable TanStack query key for an alerts list slice.
  */
 export const buildAlertsQueryKey = ({
@@ -96,6 +103,16 @@ export const buildAlertsQueryKey = ({
       sourceFilter: sortStrings(sourceFilter),
     },
   ] as const;
+};
+
+/**
+ * Builds one stable TanStack query key for an alert occurrences dataset.
+ */
+export const buildAlertOccurrencesQueryKey = (
+  domain: AlertDomain,
+  eventId: string,
+): readonly unknown[] => {
+  return ["alerts", domain, "occurrences", eventId] as const;
 };
 
 /**
