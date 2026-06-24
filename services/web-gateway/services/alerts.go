@@ -20,6 +20,7 @@ type AlertsService interface {
 	ListActive(context.Context, AlertListInput) (AlertListPage, error)
 	ListUnacknowledged(context.Context, AlertListInput) (AlertListPage, error)
 	Get(context.Context, AlertGetInput) (loggingmanagercontract.ListAlertItem, bool, error)
+	GetOccurrences(context.Context, AlertGetInput) ([]loggingmanagercontract.AlertOccurrenceItem, error)
 	Acknowledge(context.Context, AlertActionInput) error
 	Mute(context.Context, AlertActionInput) error
 }
@@ -56,6 +57,7 @@ type alertSubjects struct {
 	getActive         string
 	getUnacknowledged string
 	getOne            string
+	getOccurrences    string
 	acknowledge       string
 	mute              string
 }
@@ -74,6 +76,7 @@ func NewSystemAlertsService(client messaging.Client) AlertsService {
 			getActive:         systemloggingmanagercontract.GetActiveAlertsRPCSubject,
 			getUnacknowledged: systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 			getOne:            systemloggingmanagercontract.GetAlertRPCSubject,
+			getOccurrences:    systemloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 			acknowledge:       systemloggingmanagercontract.AcknowledgeAlertRPCSubject,
 			mute:              systemloggingmanagercontract.MuteAlertRPCSubject,
 		},
@@ -89,6 +92,7 @@ func NewSecurityAlertsService(client messaging.Client) AlertsService {
 			getActive:         securityloggingmanagercontract.GetActiveAlertsRPCSubject,
 			getUnacknowledged: securityloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 			getOne:            securityloggingmanagercontract.GetAlertRPCSubject,
+			getOccurrences:    securityloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 			acknowledge:       securityloggingmanagercontract.AcknowledgeAlertRPCSubject,
 			mute:              securityloggingmanagercontract.MuteAlertRPCSubject,
 		},
@@ -124,6 +128,19 @@ func (s alertsService) Get(ctx context.Context, input AlertGetInput) (loggingman
 		return loggingmanagercontract.ListAlertItem{}, false, nil
 	}
 	return *response.Item, true, nil
+}
+
+// GetOccurrences requests the full occurrence history for one alert in the configured logging-manager domain.
+func (s alertsService) GetOccurrences(ctx context.Context, input AlertGetInput) ([]loggingmanagercontract.AlertOccurrenceItem, error) {
+	var response loggingmanagercontract.GetAlertOccurrencesResponse
+	request := loggingmanagercontract.GetAlertOccurrencesInput{
+		AccessToken: input.AccessToken,
+		EventID:     input.ID,
+	}
+	if err := s.client.Request(ctx, s.subjects.getOccurrences, request, &response); err != nil {
+		return nil, err
+	}
+	return response.Items, nil
 }
 
 // Acknowledge requests alert acknowledgement in the configured logging-manager domain.

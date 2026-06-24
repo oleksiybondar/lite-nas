@@ -415,6 +415,7 @@ mv "$package_root/usr/share/doc/$package_name/changelog.Debian.gz" \
 	"$package_root/usr/share/doc/$package_name/changelog.gz"
 
 package.copyTree "$LITE_NAS_REPO_ROOT/configs" "$package_root/usr/libexec/lite-nas/configs"
+package.copyTree "$LITE_NAS_REPO_ROOT/scripts/config" "$package_root/usr/libexec/lite-nas/scripts/config"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/helpers" "$package_root/usr/libexec/lite-nas/scripts/helpers"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/deploy" "$package_root/usr/libexec/lite-nas/scripts/deploy"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/runtime" "$package_root/usr/libexec/lite-nas/scripts/runtime"

@@ -153,6 +153,22 @@ func (c AlertsController) Get(ctx context.Context, input *alertsdto.GetInput) (*
 	return &alertsdto.GetOutput{Body: alertsdto.NewGetBody(now, item)}, nil
 }
 
+// GetOccurrences returns the full browser-facing occurrence history for one alert.
+func (c AlertsController) GetOccurrences(ctx context.Context, input *alertsdto.OccurrencesInput) (*alertsdto.OccurrencesOutput, error) {
+	now := time.Now()
+	request, err := extractAlertGetInput(ctx, &alertsdto.GetInput{ID: input.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := c.service.GetOccurrences(ctx, request)
+	if err != nil {
+		return nil, mapAlertBackendError(err, "failed to fetch alert occurrences")
+	}
+
+	return &alertsdto.OccurrencesOutput{Body: alertsdto.NewOccurrencesBody(now, items)}, nil
+}
+
 // Acknowledge acknowledges one alert in the configured domain.
 func (c AlertsController) Acknowledge(ctx context.Context, input *alertsdto.ActionInput) (*alertsdto.ActionOutput, error) {
 	now := time.Now()

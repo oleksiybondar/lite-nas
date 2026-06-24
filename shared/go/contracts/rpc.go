@@ -22,6 +22,7 @@ type RPCContract struct {
 type loggingManagerRPCSubjects struct {
 	GetAlerts                     string
 	GetAlert                      string
+	GetAlertOccurrences           string
 	GetActiveAlerts               string
 	GetUnacknowledgedActiveAlerts string
 	UpdateAlertState              string
@@ -82,6 +83,7 @@ var RPCByService = map[string]map[string]RPCContract{
 	ServiceSystemLoggingManager: buildLoggingManagerRPCContracts(loggingManagerRPCSubjects{
 		GetAlerts:                     systemloggingmanagercontract.GetAlertsRPCSubject,
 		GetAlert:                      systemloggingmanagercontract.GetAlertRPCSubject,
+		GetAlertOccurrences:           systemloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 		GetActiveAlerts:               systemloggingmanagercontract.GetActiveAlertsRPCSubject,
 		GetUnacknowledgedActiveAlerts: systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		UpdateAlertState:              systemloggingmanagercontract.UpdateAlertStateRPCSubject,
@@ -91,6 +93,7 @@ var RPCByService = map[string]map[string]RPCContract{
 	ServiceSecurityLoggingManager: buildLoggingManagerRPCContracts(loggingManagerRPCSubjects{
 		GetAlerts:                     securityloggingmanagercontract.GetAlertsRPCSubject,
 		GetAlert:                      securityloggingmanagercontract.GetAlertRPCSubject,
+		GetAlertOccurrences:           securityloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 		GetActiveAlerts:               securityloggingmanagercontract.GetActiveAlertsRPCSubject,
 		GetUnacknowledgedActiveAlerts: securityloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		UpdateAlertState:              securityloggingmanagercontract.UpdateAlertStateRPCSubject,
@@ -169,41 +172,31 @@ var RPCByService = map[string]map[string]RPCContract{
 }
 
 func buildLoggingManagerRPCContracts(subjects loggingManagerRPCSubjects) map[string]RPCContract {
-	return map[string]RPCContract{
-		"get_alerts": {
-			Subject:  subjects.GetAlerts,
-			Request:  loggingmanagercontract.ListAlertsInput{},
-			Response: loggingmanagercontract.ListAlertsResponse{},
-		},
-		"get_alert": {
-			Subject:  subjects.GetAlert,
-			Request:  loggingmanagercontract.GetAlertInput{},
-			Response: loggingmanagercontract.GetAlertResponse{},
-		},
-		"get_active_alerts": {
-			Subject:  subjects.GetActiveAlerts,
-			Request:  loggingmanagercontract.ListAlertsInput{},
-			Response: loggingmanagercontract.ListAlertsResponse{},
-		},
-		"get_active_unacknowledged_alerts": {
-			Subject:  subjects.GetUnacknowledgedActiveAlerts,
-			Request:  loggingmanagercontract.ListAlertsInput{},
-			Response: loggingmanagercontract.ListAlertsResponse{},
-		},
-		"update_alert_state": {
-			Subject:  subjects.UpdateAlertState,
-			Request:  loggingmanagercontract.UpdateAlertStateInput{},
-			Response: loggingmanagercontract.OKResponse{},
-		},
-		"acknowledge_alert": {
-			Subject:  subjects.AcknowledgeAlert,
-			Request:  loggingmanagercontract.AcknowledgeAlertInput{},
-			Response: loggingmanagercontract.OKResponse{},
-		},
-		"mute_alert": {
-			Subject:  subjects.MuteAlert,
-			Request:  loggingmanagercontract.MuteAlertInput{},
-			Response: loggingmanagercontract.OKResponse{},
-		},
+	contracts := buildLoggingManagerReadRPCContracts(subjects)
+	for name, contract := range buildLoggingManagerWriteRPCContracts(subjects) {
+		contracts[name] = contract
 	}
+	return contracts
+}
+
+func buildLoggingManagerReadRPCContracts(subjects loggingManagerRPCSubjects) map[string]RPCContract {
+	return map[string]RPCContract{
+		"get_alerts":                       newRPCContract(subjects.GetAlerts, loggingmanagercontract.ListAlertsInput{}, loggingmanagercontract.ListAlertsResponse{}),
+		"get_alert":                        newRPCContract(subjects.GetAlert, loggingmanagercontract.GetAlertInput{}, loggingmanagercontract.GetAlertResponse{}),
+		"get_alert_occurrences":            newRPCContract(subjects.GetAlertOccurrences, loggingmanagercontract.GetAlertOccurrencesInput{}, loggingmanagercontract.GetAlertOccurrencesResponse{}),
+		"get_active_alerts":                newRPCContract(subjects.GetActiveAlerts, loggingmanagercontract.ListAlertsInput{}, loggingmanagercontract.ListAlertsResponse{}),
+		"get_active_unacknowledged_alerts": newRPCContract(subjects.GetUnacknowledgedActiveAlerts, loggingmanagercontract.ListAlertsInput{}, loggingmanagercontract.ListAlertsResponse{}),
+	}
+}
+
+func buildLoggingManagerWriteRPCContracts(subjects loggingManagerRPCSubjects) map[string]RPCContract {
+	return map[string]RPCContract{
+		"update_alert_state": newRPCContract(subjects.UpdateAlertState, loggingmanagercontract.UpdateAlertStateInput{}, loggingmanagercontract.OKResponse{}),
+		"acknowledge_alert":  newRPCContract(subjects.AcknowledgeAlert, loggingmanagercontract.AcknowledgeAlertInput{}, loggingmanagercontract.OKResponse{}),
+		"mute_alert":         newRPCContract(subjects.MuteAlert, loggingmanagercontract.MuteAlertInput{}, loggingmanagercontract.OKResponse{}),
+	}
+}
+
+func newRPCContract(subject string, request any, response any) RPCContract {
+	return RPCContract{Subject: subject, Request: request, Response: response}
 }

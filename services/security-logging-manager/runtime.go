@@ -40,6 +40,7 @@ func buildNATSSubjects() sharedloggingmanagernats.Subjects {
 		AlertOccurrenceSubject:                  securityloggingmanagercontract.AlertOccurrenceSubject,
 		GetAlertsRPCSubject:                     securityloggingmanagercontract.GetAlertsRPCSubject,
 		GetAlertRPCSubject:                      securityloggingmanagercontract.GetAlertRPCSubject,
+		GetAlertOccurrencesRPCSubject:           securityloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 		GetActiveAlertsRPCSubject:               securityloggingmanagercontract.GetActiveAlertsRPCSubject,
 		GetUnacknowledgedActiveAlertsRPCSubject: securityloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		UpdateAlertStateRPCSubject:              securityloggingmanagercontract.UpdateAlertStateRPCSubject,
@@ -55,6 +56,7 @@ func buildAuthorizationPolicy(subjects sharedloggingmanagernats.Subjects) shared
 		RPCRolesBySubject: map[string][]string{
 			subjects.GetAlertsRPCSubject:                     allowedRoles,
 			subjects.GetAlertRPCSubject:                      allowedRoles,
+			subjects.GetAlertOccurrencesRPCSubject:           allowedRoles,
 			subjects.GetActiveAlertsRPCSubject:               allowedRoles,
 			subjects.GetUnacknowledgedActiveAlertsRPCSubject: allowedRoles,
 			subjects.UpdateAlertStateRPCSubject:              allowedRoles,

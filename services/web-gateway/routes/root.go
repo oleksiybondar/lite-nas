@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 
 	"lite-nas/services/web-gateway/middlewares"
@@ -30,9 +31,11 @@ func NewRouter(
 	useRootMiddlewares(root)
 
 	apiRouter := chi.NewMux()
-	api := humachi.New(apiRouter, apiConfig(serviceName, version))
+	config := apiConfig(serviceName, version)
+	api := humachi.New(apiRouter, config)
 
 	mountAssetsRouter(root, controllerModule)
+	mountDocsRoute(apiRouter, config)
 	mountAuthRouter(api, controllerModule, authentication)
 	mountAlertsRouters(api, controllerModule, authentication)
 	mountMetricsRouters(api, controllerModule, authentication)
@@ -45,7 +48,64 @@ func NewRouter(
 func apiConfig(serviceName string, version string) huma.Config {
 	config := huma.DefaultConfig(serviceName, version)
 	config.Servers = []*huma.Server{{URL: "/api"}}
+	config.DocsPath = ""
 	return config
+}
+
+func mountDocsRoute(apiRouter chi.Router, config huma.Config) {
+	apiRouter.Get("/docs", func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = writer.Write([]byte(buildDocsHTML(config)))
+	})
+}
+
+const docsHTMLTemplate = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="same-origin" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>%s</title>
+    <link href="https://unpkg.com/@stoplight/elements@9.0.0/styles.min.css" rel="stylesheet" />
+    <script src="https://unpkg.com/@stoplight/elements@9.0.0/web-components.min.js" integrity="sha256-Tqvw1qE2abI+G6dPQBc5zbeHqfVwGoamETU3/TSpUw4=" crossorigin="anonymous"></script>
+    <style>
+      html, body {
+        height: 100%%;
+        margin: 0;
+      }
+
+      body,
+      elements-api {
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <elements-api
+      apiDescriptionUrl="%s"
+      router="hash"
+      layout="sidebar"
+      tryItCredentialsPolicy="same-origin"
+    ></elements-api>
+  </body>
+</html>`
+
+func buildDocsHTML(config huma.Config) string {
+	return fmt.Sprintf(docsHTMLTemplate, docsTitle(config), docsOpenAPIPath(config))
+}
+
+func docsTitle(config huma.Config) string {
+	if config.Info != nil && config.Info.Title != "" {
+		return config.Info.Title + " Reference"
+	}
+	return "Elements in HTML"
+}
+
+func docsOpenAPIPath(config huma.Config) string {
+	if len(config.Servers) == 0 || config.Servers[0] == nil || config.Servers[0].URL == "" {
+		return "/api/openapi.yaml"
+	}
+	return config.Servers[0].URL + config.OpenAPIPath + ".yaml"
 }
 
 func useRootMiddlewares(root chi.Router) {

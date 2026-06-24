@@ -16,6 +16,16 @@ type ListEventsPage struct {
 	TotalCount int
 }
 
+// ListEventOccurrences returns all stored occurrences for one event ID.
+func (core *Core) ListEventOccurrences(input dto.GetEventHistoryInput) ([]dto.OccurrenceRow, error) {
+	if err := core.validator.Struct(input); err != nil {
+		return nil, err
+	}
+
+	builtQuery := query.BuildGetEventHistoryQuery(input)
+	return core.listOccurrencesQuery(context.Background(), builtQuery)
+}
+
 // GetEvent returns one event by business event ID.
 func (core *Core) GetEvent(input dto.GetEventHistoryInput) (model.Event, bool, error) {
 	if err := core.validator.Struct(input); err != nil {

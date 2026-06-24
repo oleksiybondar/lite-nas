@@ -110,7 +110,7 @@ func buildActiveFilter() dto.Filter {
 // BuildGetEventHistoryQuery builds the history query for one business event ID.
 func BuildGetEventHistoryQuery(input dto.GetEventHistoryInput) Query {
 	return Query{
-		SQL: "SELECT o.rec_id, e.event_id, o.ts, o.value_type, o.value_num, o.value_text, o.value_bool, o.value_unit " +
+		SQL: "SELECT o.rec_id, e.event_id, o.event_rec_id, o.ts, o.value_type, o.value_num, o.value_text, o.value_bool, o.value_unit " +
 			"FROM occurrences o " +
 			"JOIN events e ON e.event_id = o.event_id " +
 			"WHERE o.event_id = ? " +

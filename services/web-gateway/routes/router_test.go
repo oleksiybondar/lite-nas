@@ -200,6 +200,10 @@ func (routeAlertsService) Get(context.Context, services.AlertGetInput) (loggingm
 	return loggingmanagercontract.ListAlertItem{EventID: "evt-1"}, true, nil
 }
 
+func (routeAlertsService) GetOccurrences(context.Context, services.AlertGetInput) ([]loggingmanagercontract.AlertOccurrenceItem, error) {
+	return []loggingmanagercontract.AlertOccurrenceItem{{EventID: "evt-1", RecID: 1}}, nil
+}
+
 func (routeAlertsService) Acknowledge(context.Context, services.AlertActionInput) error {
 	return nil
 }
@@ -438,6 +442,16 @@ func TestRouterSystemAlertsAcceptOperatorRole(t *testing.T) {
 }
 
 // Requirements: web-gateway/FR-005, web-gateway/TR-001
+func TestRouterSystemAlertOccurrencesAcceptOperatorRole(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixtureWithVerifier(nil, routeAuthVerifier{
+		claims: authtoken.AccessClaims{Login: "john.doe", Roles: []string{"lite-nas-operator"}},
+	})
+	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(http.MethodGet, "/api/alerts/system/evt-1/occurrences", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
+
 func TestRouterSecurityAlertsRejectOperatorRole(t *testing.T) {
 	t.Parallel()
 
