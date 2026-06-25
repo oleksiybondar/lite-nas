@@ -11,18 +11,10 @@ func TestNewChannelsModuleAllocatesBufferedChannels(t *testing.T) {
 	t.Parallel()
 
 	channels := NewChannelsModule(2)
-	if channels.ProcessSnapshots == nil {
-		t.Fatal("ProcessSnapshots = nil, want allocated channel")
-	}
-	if channels.PollErrors == nil {
-		t.Fatal("PollErrors = nil, want allocated channel")
-	}
-	if got := cap(channels.ProcessSnapshots); got != 2 {
-		t.Fatalf("cap(ProcessSnapshots) = %d, want 2", got)
-	}
-	if got := cap(channels.PollErrors); got != 2 {
-		t.Fatalf("cap(PollErrors) = %d, want 2", got)
-	}
+
+	assertChannelAllocatedWithCapacity(t, "ProcessedProcessSnapshots", channels.ProcessedProcessSnapshots, 2)
+	assertChannelAllocatedWithCapacity(t, "RawProcessSnapshots", channels.RawProcessSnapshots, 2)
+	assertChannelAllocatedWithCapacity(t, "PollErrors", channels.PollErrors, 2)
 }
 
 func TestNewWorkersModuleReturnsTimerValidationError(t *testing.T) {
@@ -57,11 +49,30 @@ func TestNewWorkersModuleBuildsTimerAndPollingWorkers(t *testing.T) {
 		t.Fatalf("NewWorkersModule() error = %v", err)
 	}
 
-	if got := cap(channels.ProcessSnapshots); got != 3 {
-		t.Fatalf("cap(ProcessSnapshots) = %d, want 3", got)
+	if got := cap(channels.ProcessedProcessSnapshots); got != 3 {
+		t.Fatalf("cap(ProcessedProcessSnapshots) = %d, want 3", got)
+	}
+	if got := cap(channels.RawProcessSnapshots); got != 3 {
+		t.Fatalf("cap(RawProcessSnapshots) = %d, want 3", got)
 	}
 	if got := cap(channels.PollErrors); got != 3 {
 		t.Fatalf("cap(PollErrors) = %d, want 3", got)
 	}
 	_ = workerModule
+}
+
+func assertChannelAllocatedWithCapacity[T any](
+	t *testing.T,
+	name string,
+	channel chan T,
+	wantCapacity int,
+) {
+	t.Helper()
+
+	if channel == nil {
+		t.Fatalf("%s = nil, want allocated channel", name)
+	}
+	if got := cap(channel); got != wantCapacity {
+		t.Fatalf("cap(%s) = %d, want %d", name, got, wantCapacity)
+	}
 }

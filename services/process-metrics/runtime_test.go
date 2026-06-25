@@ -238,7 +238,7 @@ func TestStartWorkers(t *testing.T) {
 	startWorkers(ctx, workerModule)
 
 	select {
-	case <-channels.ProcessSnapshots:
+	case <-channels.ProcessedProcessSnapshots:
 	case <-time.After(time.Second):
 		t.Fatal("process snapshot was not emitted")
 	}

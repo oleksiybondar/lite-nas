@@ -13,8 +13,9 @@ type SourcePaths struct {
 
 // Workers groups worker instances used by the service runtime.
 type Workers struct {
-	Timer   sharedworkers.TimerWorker
-	Polling workers.PollingWorker
+	Timer      sharedworkers.TimerWorker
+	Polling    workers.PollingWorker
+	Processing workers.ProcessingWorker
 }
 
 // NewWorkersModule assembles workers required by the process-metrics runtime.
@@ -33,8 +34,12 @@ func NewWorkersModule(
 		Polling: workers.NewPollingWorker(
 			paths.ProcRoot,
 			pollTicks,
-			channels.ProcessSnapshots,
+			channels.RawProcessSnapshots,
 			channels.PollErrors,
+		),
+		Processing: workers.NewProcessingWorker(
+			channels.RawProcessSnapshots,
+			channels.ProcessedProcessSnapshots,
 		),
 	}, nil
 }

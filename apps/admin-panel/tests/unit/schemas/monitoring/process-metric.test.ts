@@ -7,6 +7,7 @@ const processMetricSnapshotBody = {
       {
         cmdline: "/usr/libexec/lite-nas/process-metrics",
         cpu: {
+          cpu_pct: 19.4,
           system_ticks: 121,
           total_ticks: 194,
           user_ticks: 73,

@@ -228,7 +228,7 @@ const renderProcessMetricRows = (
         <TableCell sx={processCompactColumnSx}>{process.username ?? "unknown"}</TableCell>
         <TableCell sx={processCompactColumnSx}>{process.state}</TableCell>
         <TableCell align="right" sx={processCompactColumnSx}>
-          {process.cpu.total_ticks}
+          {formatProcessCPUPct(process.cpu.cpu_pct)}
         </TableCell>
         <TableCell align="right" sx={processCompactColumnSx}>
           {formatMetricBytes(process.memory.rss_bytes)}
@@ -301,4 +301,11 @@ const buildProcessMetricSummary = (state: ReturnType<typeof useProcessMetric>): 
       : ` Sorted by ${state.sortKey} (${state.sortDirection}).`;
 
   return `${state.visibleProcessesCount} of ${state.totalProcesses} processes match the current search.${sortState}${refreshState}`;
+};
+
+/**
+ * Formats one process CPU percent value for compact task-manager table output.
+ */
+const formatProcessCPUPct = (value: number): string => {
+  return `${value.toFixed(1)}%`;
 };

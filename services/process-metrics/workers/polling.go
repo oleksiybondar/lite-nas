@@ -113,6 +113,7 @@ func (w PollingWorker) emitError(ctx context.Context, err error) {
 // poll reads procfs and composes one live process snapshot.
 func (w PollingWorker) poll() (metrics.ProcessMetricsSnapshot, error) {
 	bootTime, _ := w.readBootTime()
+	systemTotalCPUTicks, _ := w.readSystemTotalCPUTicks()
 
 	entries, err := os.ReadDir(w.procRoot)
 	if err != nil {
@@ -133,8 +134,9 @@ func (w PollingWorker) poll() (metrics.ProcessMetricsSnapshot, error) {
 	})
 
 	return metrics.ProcessMetricsSnapshot{
-		Timestamp: w.now(),
-		Processes: processes,
+		Timestamp:           w.now(),
+		Processes:           processes,
+		SystemTotalCPUTicks: systemTotalCPUTicks,
 	}, nil
 }
 
@@ -218,6 +220,60 @@ func (w PollingWorker) readBootTime() (*time.Time, error) {
 	}
 
 	return nil, errors.New("missing btime in /proc/stat")
+}
+
+// readSystemTotalCPUTicks reads the aggregate host CPU tick counter from the
+// first cpu line in /proc/stat.
+func (w PollingWorker) readSystemTotalCPUTicks() (uint64, error) {
+	data, err := os.ReadFile(filepath.Join(w.procRoot, "stat")) // #nosec G304 -- proc root is runtime-owned configuration.
+	if err != nil {
+		return 0, err
+	}
+
+	return parseSystemTotalCPUTicks(string(data))
+}
+
+// parseSystemTotalCPUTicks extracts the aggregate host CPU tick counter from
+// the first cpu line in /proc/stat content.
+func parseSystemTotalCPUTicks(content string) (uint64, error) {
+	cpuLine, err := findSystemCPULine(content)
+	if err != nil {
+		return 0, err
+	}
+
+	return sumSystemCPULineFields(cpuLine)
+}
+
+// findSystemCPULine returns the aggregate cpu line from /proc/stat content.
+func findSystemCPULine(content string) (string, error) {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "cpu ") {
+			return line, nil
+		}
+	}
+
+	return "", errors.New("missing cpu totals in /proc/stat")
+}
+
+// sumSystemCPULineFields parses and sums the numeric counters on one aggregate
+// cpu line from /proc/stat.
+func sumSystemCPULineFields(cpuLine string) (uint64, error) {
+	fields := strings.Fields(cpuLine)
+	if len(fields) < 2 {
+		return 0, errors.New("missing cpu counters in /proc/stat")
+	}
+
+	var total uint64
+	for _, field := range fields[1:] {
+		value, err := strconv.ParseUint(field, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		total += value
+	}
+
+	return total, nil
 }
 
 // lookupOptionalUsername resolves a username for one UID when it can be

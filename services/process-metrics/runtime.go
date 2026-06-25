@@ -52,7 +52,14 @@ func run(ctx context.Context) error {
 	startWorkers(ctx, workerModule)
 
 	infra.Logger.Info("process metrics service started", "config", packagedConfigPath)
-	return serveSnapshots(ctx, channels.ProcessSnapshots, channels.PollErrors, store, infra.Client, infra.Logger)
+	return serveSnapshots(
+		ctx,
+		channels.ProcessedProcessSnapshots,
+		channels.PollErrors,
+		store,
+		infra.Client,
+		infra.Logger,
+	)
 }
 
 // registerRPCHandlers registers snapshot read RPC handlers on the messaging server.
@@ -141,4 +148,5 @@ func handleSnapshot(
 func startWorkers(ctx context.Context, workerModule modules.Workers) {
 	workerModule.Timer.Start(ctx)
 	workerModule.Polling.Start(ctx)
+	workerModule.Processing.Start(ctx)
 }

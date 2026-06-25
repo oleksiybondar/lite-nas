@@ -5,6 +5,7 @@ import type { PaginationActions, PaginationMeta, PaginationState } from "@dto/pa
  * CPU usage block returned for one process snapshot item.
  */
 export type ProcessMetricCpuDTO = {
+  cpu_pct: number;
   system_ticks: number;
   total_ticks: number;
   user_ticks: number;

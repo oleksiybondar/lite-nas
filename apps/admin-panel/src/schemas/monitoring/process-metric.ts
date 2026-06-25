@@ -9,6 +9,7 @@ import { z } from "zod";
  * Runtime schema for one process CPU usage block.
  */
 export const processMetricCpuSchema = z.object({
+  cpu_pct: z.number(),
   system_ticks: z.number(),
   total_ticks: z.number(),
   user_ticks: z.number(),

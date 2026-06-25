@@ -10,6 +10,13 @@ type ProcessMetricsSnapshot struct {
 	// Processes contains one entry per process that could be collected during
 	// the snapshot cycle.
 	Processes []ProcessMetric `json:"processes"`
+
+	// SystemTotalCPUTicks stores the cumulative host CPU tick counter used to
+	// derive per-process CPU percentages between consecutive snapshots.
+	//
+	// This field is internal to the metrics pipeline and is not exposed through
+	// transport payloads.
+	SystemTotalCPUTicks uint64 `json:"-"`
 }
 
 // ProcessMetric represents one Linux process snapshot collected from procfs.
@@ -72,6 +79,10 @@ type ProcessCPU struct {
 
 	// TotalTicks stores the sum of user and system ticks.
 	TotalTicks uint64 `json:"total_ticks"`
+
+	// CPUPct stores the computed share of total host CPU capacity used by the
+	// process between the previous and current snapshots.
+	CPUPct float64 `json:"cpu_pct"`
 }
 
 // ProcessMemory stores raw per-process memory counters in bytes.

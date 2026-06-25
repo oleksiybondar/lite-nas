@@ -407,6 +407,7 @@ const processMetricProcesses: ProcessMetricProcessDTO[] = [
   {
     cmdline: "/usr/libexec/lite-nas/process-metrics",
     cpu: {
+      cpu_pct: 19.4,
       system_ticks: 121,
       total_ticks: 194,
       user_ticks: 73,
@@ -429,6 +430,7 @@ const processMetricProcesses: ProcessMetricProcessDTO[] = [
   {
     cmdline: "/usr/sbin/nginx -g daemon on;",
     cpu: {
+      cpu_pct: 0,
       system_ticks: 0,
       total_ticks: 0,
       user_ticks: 0,
@@ -704,6 +706,7 @@ test("renders process telemetry on the processes route", () => {
   expect(screen.getByTestId("process-metric-sort-pid")).toBeInTheDocument();
   expect(screen.getByTestId("process-metric-sort-name")).toBeInTheDocument();
   expect(screen.getByText("lite-nas-process-metrics")).toBeInTheDocument();
+  expect(screen.getByText("19.4%")).toBeInTheDocument();
   expect(screen.getByText("12 MiB")).toBeInTheDocument();
 });
 

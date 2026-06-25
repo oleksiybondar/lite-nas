@@ -254,7 +254,7 @@ const selectSortableProcessValue = (
   sortKey: Exclude<ProcessMetricSortKey, "name" | "username">,
 ): number => {
   if (sortKey === "cpu") {
-    return process.cpu.total_ticks;
+    return process.cpu.cpu_pct;
   }
 
   if (sortKey === "ram") {
