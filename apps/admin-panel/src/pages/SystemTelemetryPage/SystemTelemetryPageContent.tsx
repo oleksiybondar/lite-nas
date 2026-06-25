@@ -1,6 +1,7 @@
 import { DiskMetricProvider } from "@providers/DiskMetricProvider";
 import { MonitoringPollingSettingsProvider } from "@providers/MonitoringPollingSettingsProvider";
 import { NetworkMetricProvider } from "@providers/NetworkMetricProvider";
+import { ProcessMetricProvider } from "@providers/ProcessMetricProvider";
 import { ServiceMetricProvider } from "@providers/ServiceMetricProvider";
 import { SystemMetricProvider } from "@providers/SystemMetricProvider";
 import { ZFSMetricProvider } from "@providers/ZFSMetricProvider";
@@ -44,6 +45,11 @@ const performanceRouteWrappers: Record<string, RouteWrapper> = {
 };
 
 const processesRouteWrappers: Record<string, RouteWrapper> = {
+  processes: (children) => (
+    <MonitoringPollingSettingsProvider storageKey="process-metrics">
+      <ProcessMetricProvider>{children}</ProcessMetricProvider>
+    </MonitoringPollingSettingsProvider>
+  ),
   services: (children) => (
     <MonitoringPollingSettingsProvider storageKey="service-metrics">
       <ServiceMetricProvider>{children}</ServiceMetricProvider>

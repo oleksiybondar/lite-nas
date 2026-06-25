@@ -1,4 +1,5 @@
 import { ServiceMetricContext } from "@contexts/service-metric-context";
+import { buildPaginationContext } from "@domain/pagination/helpers/buildPaginationContext";
 import { useClientPagination } from "@domain/pagination/hooks/useClientPagination";
 import { usePaginationState } from "@domain/pagination/hooks/usePaginationState";
 import type {
@@ -23,7 +24,7 @@ type ServiceMetricFilterState = ReturnType<typeof useServiceMetricFilterState>;
 type ServiceMetricFilterOptions = ReturnType<typeof useServiceMetricFilterOptions>;
 
 const defaultServicesPage = 1;
-const defaultServicesPageSize = 25;
+const defaultServicesPageSize = 50;
 
 /**
  * Snapshot polling provider configured for gateway-backed service inspection.
@@ -169,25 +170,6 @@ const useMemoServiceMetricContextValue = (
       visibleServicesCount: filtered.filteredCount,
     };
   }, [allServices, base, filterOptions, filtered, pagination]);
-};
-
-/**
- * Extracts the shared pagination members exposed by the service metric context.
- */
-const buildPaginationContext = (pagination: ServiceMetricFilterState["pagination"]) => {
-  return {
-    hasNextPage: pagination.hasNextPage,
-    hasPreviousPage: pagination.hasPreviousPage,
-    nextPage: pagination.nextPage,
-    page: pagination.page,
-    pageSize: pagination.pageSize,
-    previousPage: pagination.previousPage,
-    resetPage: pagination.resetPage,
-    resetPagination: pagination.resetPagination,
-    setPage: pagination.setPage,
-    setPageSize: pagination.setPageSize,
-    totalPages: pagination.totalPages,
-  };
 };
 
 /**

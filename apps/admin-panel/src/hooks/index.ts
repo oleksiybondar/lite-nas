@@ -8,6 +8,7 @@ export { useMetric } from "@hooks/useMetric";
 export { useMonitoringPollingSettings } from "@hooks/useMonitoringPollingSettings";
 export { useNetworkMetric } from "@hooks/useNetworkMetric";
 export { usePollingResource } from "@hooks/usePollingResource";
+export { useProcessMetric } from "@hooks/useProcessMetric";
 export { useRbac } from "@hooks/useRbac";
 export { useServiceMetric } from "@hooks/useServiceMetric";
 export { useThemeManager } from "@hooks/useThemeManager";

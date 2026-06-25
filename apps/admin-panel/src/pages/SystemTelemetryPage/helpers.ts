@@ -9,6 +9,7 @@ export type SupportedTelemetryRoute = {
   type:
     | "disk-metric"
     | "network-metric"
+    | "process-metric"
     | "service-metric"
     | "system-metric"
     | "zfs-metric"
@@ -42,6 +43,10 @@ const supportedPerformanceRoutesByCategory: Record<string, SupportedTelemetryRou
 };
 
 const supportedProcessesRoutesByCategory: Record<string, SupportedTelemetryRouteConfig> = {
+  processes: {
+    summary: "Gateway-backed process snapshot polling is available for this route.",
+    type: "process-metric",
+  },
   services: {
     summary: "Gateway-backed service snapshot polling is available for this route.",
     type: "service-metric",

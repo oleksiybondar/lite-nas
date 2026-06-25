@@ -4,12 +4,27 @@ import { formatRouteLabel, resolveTelemetryRoute } from "@pages/SystemTelemetryP
 import { SystemTelemetryDiskMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryDiskMetricState";
 import { SystemTelemetryNetworkMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryNetworkMetricState";
 import { SystemTelemetryPageContent } from "@pages/SystemTelemetryPage/SystemTelemetryPageContent";
+import { SystemTelemetryProcessMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryProcessMetricState";
 import { SystemTelemetryServiceMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryServiceMetricState";
 import { SystemTelemetrySystemMetricState } from "@pages/SystemTelemetryPage/SystemTelemetrySystemMetricState";
 import { SystemTelemetryUnsupportedState } from "@pages/SystemTelemetryPage/SystemTelemetryUnsupportedState";
 import { SystemTelemetryZFSMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryZFSMetricState";
 import type { ReactElement } from "react";
 import { useLocation, useParams } from "react-router-dom";
+
+const telemetryStateByType = {
+  "disk-metric": <SystemTelemetryDiskMetricState />,
+  "network-metric": <SystemTelemetryNetworkMetricState />,
+  "process-metric": <SystemTelemetryProcessMetricState />,
+  "service-metric": <SystemTelemetryServiceMetricState />,
+  "system-metric": <SystemTelemetrySystemMetricState />,
+} as const;
+
+const isDirectTelemetryStateType = (
+  type: ReturnType<typeof resolveTelemetryRoute>["type"],
+): type is keyof typeof telemetryStateByType => {
+  return type in telemetryStateByType;
+};
 
 /**
  * Telemetry page host for system performance and Raspberry Pi sensor routes.
@@ -40,24 +55,12 @@ export const SystemTelemetryPage = (): ReactElement => {
  * Resolves the telemetry state component that matches the current route contract.
  */
 const renderTelemetryState = (route: ReturnType<typeof resolveTelemetryRoute>): ReactElement => {
-  if (route.type === "disk-metric") {
-    return <SystemTelemetryDiskMetricState />;
-  }
-
-  if (route.type === "system-metric") {
-    return <SystemTelemetrySystemMetricState />;
-  }
-
-  if (route.type === "network-metric") {
-    return <SystemTelemetryNetworkMetricState />;
-  }
-
-  if (route.type === "service-metric") {
-    return <SystemTelemetryServiceMetricState />;
-  }
-
   if (route.type === "zfs-metric") {
     return <SystemTelemetryZFSMetricState route={route} />;
+  }
+
+  if (isDirectTelemetryStateType(route.type)) {
+    return telemetryStateByType[route.type];
   }
 
   return <SystemTelemetryUnsupportedState route={route} />;

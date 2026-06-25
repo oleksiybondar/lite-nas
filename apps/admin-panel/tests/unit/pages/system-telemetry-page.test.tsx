@@ -8,6 +8,7 @@ import type {
   NetworkMetricInterfaceSnapshotDTO,
   NetworkMetricSnapshotDTO,
 } from "@dto/monitoring/network-metric";
+import type { ProcessMetricProcessDTO } from "@dto/monitoring/process-metric";
 import { SystemTelemetryPage } from "@pages/SystemTelemetryPage/SystemTelemetryPage";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
@@ -402,6 +403,86 @@ const serviceMetricHookValue = {
   visibleServicesCount: 2,
 };
 
+const processMetricProcesses: ProcessMetricProcessDTO[] = [
+  {
+    cmdline: "/usr/libexec/lite-nas/process-metrics",
+    cpu: {
+      system_ticks: 121,
+      total_ticks: 194,
+      user_ticks: 73,
+    },
+    gid: 958,
+    memory: {
+      rss_bytes: 12283904,
+      vms_bytes: 1266016256,
+    },
+    name: "process-metrics",
+    open_fds: 9,
+    pid: 414669,
+    ppid: 1,
+    start_time: "2026-06-24T18:57:24.46Z",
+    state: "S",
+    threads: 10,
+    uid: 971,
+    username: "lite-nas-process-metrics",
+  },
+  {
+    cmdline: "/usr/sbin/nginx -g daemon on;",
+    cpu: {
+      system_ticks: 0,
+      total_ticks: 0,
+      user_ticks: 0,
+    },
+    gid: 0,
+    memory: {
+      rss_bytes: 6340608,
+      vms_bytes: 21684224,
+    },
+    name: "nginx",
+    open_fds: 0,
+    pid: 230563,
+    ppid: 1,
+    start_time: "2026-06-24T13:28:53.5Z",
+    state: "S",
+    threads: 1,
+    uid: 0,
+    username: "root",
+  },
+];
+
+const processMetricHookValue = {
+  clearFilters: vi.fn(),
+  error: null,
+  hasNextPage: false,
+  hasPreviousPage: false,
+  isError: false,
+  isFetching: false,
+  isLoading: false,
+  nextPage: vi.fn(),
+  page: 1,
+  pageSize: 100,
+  previousPage: vi.fn(),
+  processes: processMetricProcesses,
+  refetch: vi.fn(),
+  resetPage: vi.fn(),
+  resetPagination: vi.fn(),
+  search: "",
+  setPage: vi.fn(),
+  setPageSize: vi.fn(),
+  setSearch: vi.fn(),
+  setSort: vi.fn(),
+  snapshot: {
+    processes: processMetricProcesses,
+    timestamp: "2026-06-24T21:03:20.452436529+02:00",
+  },
+  sortDirection: "asc",
+  sortKey: null,
+  terminate: vi.fn(),
+  totalPages: 1,
+  totalProcesses: 2,
+  visibleProcessesCount: 2,
+};
+
 const zfsMetricHookValue = {
   error: null,
   isError: false,
@@ -481,6 +562,12 @@ vi.mock("@providers/ServiceMetricProvider", () => ({
   ),
 }));
 
+vi.mock("@providers/ProcessMetricProvider", () => ({
+  ProcessMetricProvider: ({ children }: PropsWithChildren): ReactElement => (
+    <div data-testid="process-metric-provider">{children}</div>
+  ),
+}));
+
 vi.mock("@hooks/useSystemMetric", () => ({
   useSystemMetric: vi.fn(() => systemMetricHookValue),
 }));
@@ -516,6 +603,10 @@ vi.mock("@hooks/useZFSMetric", () => ({
 
 vi.mock("@hooks/useServiceMetric", () => ({
   useServiceMetric: vi.fn(() => serviceMetricHookValue),
+}));
+
+vi.mock("@hooks/useProcessMetric", () => ({
+  useProcessMetric: vi.fn(() => processMetricHookValue),
 }));
 
 test("renders gateway-backed system metrics state on the system performance route", () => {
@@ -593,14 +684,27 @@ test("renders a placeholder state for unsupported telemetry routes", () => {
   );
 });
 
-test("keeps the processes route placeholder for categories without a backend contract", () => {
+test("renders process telemetry on the processes route", () => {
   renderSystemTelemetryPage("/system/processes/processes", "/system/processes/:category");
 
+  expect(screen.getByTestId("monitoring-settings-provider-process-metrics")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-provider")).toBeInTheDocument();
   expect(screen.getByTestId("system-telemetry-overline")).toHaveTextContent("Processes");
   expect(screen.getByTestId("system-telemetry-title")).toHaveTextContent("Processes");
-  expect(screen.getByTestId("system-telemetry-placeholder-title")).toHaveTextContent(
-    "Route pending backend support",
+  expect(screen.getByTestId("process-metric-state-card")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-search-control")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-top-pagination-control")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-bottom-pagination-control")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-total-processes")).toHaveTextContent(
+    "2 of 2 processes match",
   );
+  expect(screen.getByTestId("process-metric-table")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-name-414669")).toHaveTextContent("process-metrics");
+  expect(screen.getByTestId("process-metric-terminate-414669")).toHaveTextContent("Terminate");
+  expect(screen.getByTestId("process-metric-sort-pid")).toBeInTheDocument();
+  expect(screen.getByTestId("process-metric-sort-name")).toBeInTheDocument();
+  expect(screen.getByText("lite-nas-process-metrics")).toBeInTheDocument();
+  expect(screen.getByText("12 MiB")).toBeInTheDocument();
 });
 
 test("renders services telemetry on the processes services route", () => {
