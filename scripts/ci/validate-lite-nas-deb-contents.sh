@@ -119,6 +119,12 @@ assert_cmd "network-metrics-cli binary packaged" assert_executable usr/libexec/l
 assert_cmd "zfs-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics-cli
 assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/web-gateway
 
+assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
+assert_cmd "deploy configs entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/deploy-configs.sh
+assert_cmd "resources-monitor deploy script packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/resources-monitor.sh
+assert_cmd "etc permission normalizer packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/normalize-etc-permissions.sh
+assert_cmd "package version config packaged" assert_file usr/libexec/lite-nas/scripts/config/version.conf
+
 assert_cmd "system-logging-manager-cli symlink packaged" assert_symlink_target usr/bin/system-logging-manager-cli /usr/libexec/lite-nas/system-logging-manager-cli
 assert_cmd "security-logging-manager-cli symlink packaged" assert_symlink_target usr/bin/security-logging-manager-cli /usr/libexec/lite-nas/security-logging-manager-cli
 assert_cmd "system-metrics-cli symlink packaged" assert_symlink_target usr/bin/system-metrics-cli /usr/libexec/lite-nas/system-metrics-cli

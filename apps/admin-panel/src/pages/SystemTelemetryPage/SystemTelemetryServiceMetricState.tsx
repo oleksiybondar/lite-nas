@@ -32,17 +32,9 @@ export const SystemTelemetryServiceMetricState = (): ReactElement => {
           {state.visibleServicesCount} of {state.totalServices} services match the current search
           and filters.
         </Typography>
+        {renderServiceMetricPaginationControl(state, "top")}
         {renderServiceMetricRows(state)}
-        <PaginationControl
-          pagination={{
-            page: state.page,
-            setPage: state.setPage,
-            totalCount: state.visibleServicesCount,
-            totalPages: state.totalPages,
-          }}
-          summary={`${state.visibleServicesCount} matching services across ${Math.max(state.totalPages, 1)} pages`}
-          testIdPrefix="service-metric"
-        />
+        {renderServiceMetricPaginationControl(state, "bottom")}
         {renderServiceMetricPaginationState(state)}
       </Stack>
     </Paper>
@@ -173,6 +165,24 @@ const renderServiceMetricRows = (
   return state.services.map((service) => {
     return <ServiceMetricCard key={service.name} service={service} serviceActions={state} />;
   });
+};
+
+const renderServiceMetricPaginationControl = (
+  state: ReturnType<typeof useServiceMetric>,
+  position: "bottom" | "top",
+): ReactElement => {
+  return (
+    <PaginationControl
+      pagination={{
+        page: state.page,
+        setPage: state.setPage,
+        totalCount: state.visibleServicesCount,
+        totalPages: state.totalPages,
+      }}
+      summary={`${state.visibleServicesCount} matching services across ${Math.max(state.totalPages, 1)} pages`}
+      testIdPrefix={`service-metric-${position}`}
+    />
+  );
 };
 
 /**

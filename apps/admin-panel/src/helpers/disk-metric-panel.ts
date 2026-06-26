@@ -358,7 +358,7 @@ const buildDiskSeriesContext = (
   index: number,
   node: string,
 ): DiskSeriesContext => {
-  const previousItem = index > 0 ? items[index - 1] : null;
+  const previousItem = index > 0 ? (items[index - 1] ?? null) : null;
   const previousIo = previousItem ? findDeviceIo(previousItem, node) : null;
 
   return {

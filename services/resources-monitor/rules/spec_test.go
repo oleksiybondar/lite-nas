@@ -79,6 +79,33 @@ func TestLoadRulesRejectsNonNumericComparisonValue(t *testing.T) {
 	}
 }
 
+func TestLoadRulesAllowsStringEqualityValue(t *testing.T) {
+	t.Parallel()
+
+	path := writeRulesFile(t, `[
+		{
+			"event":"zfs.metrics.events.snapshot",
+			"event_prefix":"zfsdeg",
+			"field":"snapshot.Pools[].Health",
+			"condition":"==",
+			"values":"DEGRADED",
+			"message":"pool degraded",
+			"category":"zfs.metrics.pool.health",
+			"severity":"warning",
+			"priority":2,
+			"source":"zfs-metrics"
+		}
+	]`)
+
+	loadedRules, err := LoadRules([]string{path})
+	if err != nil {
+		t.Fatalf("LoadRules() error = %v", err)
+	}
+	if len(loadedRules) != 1 {
+		t.Fatalf("len(loadedRules) = %d, want 1", len(loadedRules))
+	}
+}
+
 func TestLoadRulesRejectsMissingFiles(t *testing.T) {
 	t.Parallel()
 

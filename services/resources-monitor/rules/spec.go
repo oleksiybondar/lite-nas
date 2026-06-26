@@ -116,7 +116,7 @@ func validateRuleValues(rule Rule) error {
 		return nil
 	}
 
-	if !slices.Contains([]string{">", ">=", "<", "<=", "=="}, rule.Condition) {
+	if !slices.Contains([]string{">", ">=", "<", "<="}, rule.Condition) {
 		return nil
 	}
 

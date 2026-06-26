@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	gopkg.in/ini.v1 v1.67.1
-	lite-nas/shared v0.2.0
+	lite-nas/shared v0.2.3
 )
 
 require (

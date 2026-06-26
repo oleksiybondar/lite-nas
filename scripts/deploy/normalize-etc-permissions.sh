@@ -69,6 +69,15 @@ deploy.normalizeLiteNAS() {
 	deploy.normalizePath 0640 "$litenas_system_metrics_config_file" "$(deploy.resolveUserGroupOwner "$litenas_system_metrics_runtime_user" "$litenas_group" "$litenas_config_owner")"
 	deploy.normalizePath 0640 "$litenas_zfs_metrics_config_file" "$(deploy.resolveUserGroupOwner "$litenas_zfs_metrics_runtime_user" "$litenas_group" "$litenas_config_owner")"
 	deploy.normalizePath 0640 "$litenas_resources_monitor_config_file" "$(deploy.resolveUserGroupOwner "$litenas_resources_monitor_runtime_user" "$litenas_group" "$litenas_config_owner")"
+	if [ -d "$litenas_resources_monitor_dir" ]; then
+		deploy.normalizePath 0750 "$litenas_resources_monitor_dir" "$(deploy.resolveUserGroupOwner "$litenas_resources_monitor_runtime_user" "$litenas_group" "$litenas_config_owner")"
+	fi
+	if [ -d "$litenas_resources_monitor_rules_dir" ]; then
+		deploy.normalizePath 0750 "$litenas_resources_monitor_rules_dir" "$(deploy.resolveUserGroupOwner "$litenas_resources_monitor_runtime_user" "$litenas_group" "$litenas_config_owner")"
+		while IFS= read -r -d '' template_file; do
+			deploy.normalizePath 0640 "$template_file" "$(deploy.resolveUserGroupOwner "$litenas_resources_monitor_runtime_user" "$litenas_group" "$litenas_config_owner")"
+		done < <(find "$litenas_resources_monitor_rules_dir" -maxdepth 1 -type f -name '*.json' -print0)
+	fi
 	deploy.normalizePath 0640 "$litenas_system_logging_manager_config_file" "$(deploy.resolveUserGroupOwner "$litenas_system_logging_manager_runtime_user" "$litenas_group" "$litenas_config_owner")"
 	deploy.normalizePath 0640 "$litenas_security_logging_manager_config_file" "$(deploy.resolveUserGroupOwner "$litenas_security_logging_manager_runtime_user" "$litenas_group" "$litenas_config_owner")"
 	deploy.normalizePath 0640 "$litenas_system_email_notifier_config_file" "$(deploy.resolveUserGroupOwner "$litenas_system_email_notifier_runtime_user" "$litenas_group" "$litenas_config_owner")"
@@ -325,6 +334,8 @@ deploy.normalizeEtcPermissions() {
 	local litenas_system_metrics_config_file="$litenas_config_dir/system-metrics.conf"
 	local litenas_zfs_metrics_config_file="$litenas_config_dir/zfs-metrics.conf"
 	local litenas_resources_monitor_config_file="$litenas_config_dir/resources-monitor.conf"
+	local litenas_resources_monitor_dir="$litenas_config_dir/resources-monitor"
+	local litenas_resources_monitor_rules_dir="$litenas_resources_monitor_dir/rules"
 	local litenas_system_logging_manager_config_file="$litenas_config_dir/system-logging-manager.conf"
 	local litenas_security_logging_manager_config_file="$litenas_config_dir/security-logging-manager.conf"
 	local litenas_system_email_notifier_config_file="$litenas_config_dir/system-email-notifier.conf"

@@ -614,7 +614,8 @@ test("renders services telemetry on the processes services route", () => {
   expect(screen.getByTestId("service-metric-search-control")).toBeInTheDocument();
   expect(screen.getByTestId("service-metric-active-state-filter")).toBeInTheDocument();
   expect(screen.getByTestId("service-metric-enabled-state-filter")).toBeInTheDocument();
-  expect(screen.getByTestId("service-metric-pagination-control")).toBeInTheDocument();
+  expect(screen.getByTestId("service-metric-top-pagination-control")).toBeInTheDocument();
+  expect(screen.getByTestId("service-metric-bottom-pagination-control")).toBeInTheDocument();
   expect(screen.getByTestId("service-metric-total-services")).toHaveTextContent(
     "2 of 2 services match",
   );

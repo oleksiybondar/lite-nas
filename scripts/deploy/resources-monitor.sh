@@ -85,16 +85,19 @@ deploy.resourcesMonitor.installConfig() {
 
 deploy.resourcesMonitor.installRules() {
 	local rules_file
+	local rules_parent_dir
 
 	if [ ! -d "$LITE_NAS_RESOURCES_MONITOR_RULES_SOURCE_DIR" ]; then
 		log.error "Missing resources-monitor rules source directory: $LITE_NAS_RESOURCES_MONITOR_RULES_SOURCE_DIR"
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" "$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR"
+	rules_parent_dir="$(dirname "$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR")"
+	install -d -m 0750 -o "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER" -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" "$rules_parent_dir"
+	install -d -m 0750 -o "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER" -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" "$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR"
 
 	while IFS= read -r -d '' rules_file; do
-		install -m 0640 -o root -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" \
+		install -m 0640 -o "$LITE_NAS_RESOURCES_MONITOR_RUNTIME_USER" -g "$LITE_NAS_RESOURCES_MONITOR_CONFIG_GROUP" \
 			"$rules_file" \
 			"$LITE_NAS_RESOURCES_MONITOR_RULES_TARGET_DIR/$(basename "$rules_file")"
 	done < <(find "$LITE_NAS_RESOURCES_MONITOR_RULES_SOURCE_DIR" -maxdepth 1 -type f -name '*.json' -print0)

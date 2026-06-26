@@ -412,20 +412,22 @@ function buildDiskMount(
   overrides: Partial<DiskMetricMountSnapshotDTO> &
     Pick<DiskMetricMountSnapshotDTO, "mountpoint" | "source">,
 ): DiskMetricMountSnapshotDTO {
+  const { mountpoint, source, ...restOverrides } = overrides;
+
   return {
     available_bytes: 500 * 1024 ** 2,
     device: "sda1",
     filesystem: "ext4",
     free_bytes: 500 * 1024 ** 2,
     memory_backed: false,
-    mountpoint: overrides.mountpoint,
+    mountpoint,
     readonly: false,
     remote: false,
-    source: overrides.source,
+    source,
     total_bytes: 900 * 1024 ** 2,
     used_bytes: 400 * 1024 ** 2,
     used_percent: 44.4,
-    ...overrides,
+    ...restOverrides,
   };
 }
 

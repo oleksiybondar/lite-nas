@@ -2,7 +2,7 @@ module lite-nas/services/security-logging-manager
 
 go 1.25.0
 
-require lite-nas/shared v0.2.0
+require lite-nas/shared v0.2.3
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
