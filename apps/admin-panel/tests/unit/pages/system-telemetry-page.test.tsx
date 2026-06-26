@@ -619,8 +619,22 @@ test("renders services telemetry on the processes services route", () => {
     "2 of 2 services match",
   );
   expect(
-    screen.getByText("lite-nas-service-metrics.service | active | enabled"),
-  ).toBeInTheDocument();
+    screen.getByTestId("service-metric-card-title-lite-nas-service-metrics.service"),
+  ).toHaveTextContent("lite-nas-service-metrics.service");
+  expect(
+    screen.getByTestId("service-metric-status-lite-nas-service-metrics.service"),
+  ).toHaveTextContent("Status: active");
+  expect(
+    screen.getByTestId("service-metric-substatus-lite-nas-service-metrics.service"),
+  ).toHaveTextContent("Substatus: running");
+  expect(
+    screen.getByTestId("service-metric-toggle-state-lite-nas-service-metrics.service"),
+  ).toHaveTextContent("Stop");
+  expect(
+    screen.getByTestId("service-metric-toggle-startup-lite-nas-service-metrics.service"),
+  ).toHaveTextContent("Disable");
+  expect(screen.getByText("Startup: enabled")).toBeInTheDocument();
+  expect(screen.getAllByText("Manager: systemd")).toHaveLength(2);
 });
 
 /**

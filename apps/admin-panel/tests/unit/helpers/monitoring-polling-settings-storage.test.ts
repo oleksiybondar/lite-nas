@@ -3,6 +3,7 @@ import {
   defaultMonitoringPollingSettings,
   loadMonitoringPollingSettings,
   normalizeMonitoringPollingSettings,
+  resolveDefaultMonitoringPollingSettings,
   saveMonitoringPollingSettings,
 } from "@helpers/monitoring-polling-settings-storage";
 
@@ -18,6 +19,23 @@ describe("monitoring polling settings storage loading", () => {
     expect(loadMonitoringPollingSettings("system-metrics")).toEqual(
       defaultMonitoringPollingSettings,
     );
+  });
+
+  test("loads scope-specific defaults for process and service telemetry", () => {
+    expect(loadMonitoringPollingSettings("process-metrics")).toEqual({
+      historyIntervalMs: 1,
+      historyResetGapMs: 1,
+      maxRecords: 1,
+      mode: "snapshot",
+      snapshotIntervalMs: 5000,
+    });
+    expect(loadMonitoringPollingSettings("service-metrics")).toEqual({
+      historyIntervalMs: 1,
+      historyResetGapMs: 1,
+      maxRecords: 1,
+      mode: "snapshot",
+      snapshotIntervalMs: 15000,
+    });
   });
 
   test("loads saved settings for one source scope", () => {
@@ -73,8 +91,10 @@ describe("monitoring polling settings storage normalization", () => {
     });
   });
 
-  test("normalizes unsupported input values to defaults", () => {
+  test("uses scope-specific defaults while normalizing unsupported input values", () => {
+    const serviceDefaults = resolveDefaultMonitoringPollingSettings("service-metrics");
+
     expect(normalizeMonitoringPollingSettings(null)).toEqual(defaultMonitoringPollingSettings);
-    expect(normalizeMonitoringPollingSettings("history")).toEqual(defaultMonitoringPollingSettings);
+    expect(normalizeMonitoringPollingSettings("history", serviceDefaults)).toEqual(serviceDefaults);
   });
 });

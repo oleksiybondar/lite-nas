@@ -1,3 +1,4 @@
+import { ServiceMetricCard } from "@components/monitoring/ServiceMetricCard";
 import { PaginationControl } from "@components/pagination";
 import { useServiceMetric } from "@hooks/useServiceMetric";
 import Button from "@mui/material/Button";
@@ -170,16 +171,7 @@ const renderServiceMetricRows = (
   }
 
   return state.services.map((service) => {
-    return (
-      <Typography
-        data-test-class="service-metric-state-row"
-        data-test-name={service.name}
-        key={service.name}
-        variant="body2"
-      >
-        {service.name} | {service.active_state ?? "unknown"} | {service.enabled_state ?? "unknown"}
-      </Typography>
-    );
+    return <ServiceMetricCard key={service.name} service={service} serviceActions={state} />;
   });
 };
 

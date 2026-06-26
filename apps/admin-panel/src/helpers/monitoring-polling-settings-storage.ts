@@ -21,6 +21,37 @@ export const defaultMonitoringPollingSettings: MonitoringPollingSettings = {
   snapshotIntervalMs: 1000,
 };
 
+const processScopedMonitoringPollingSettings: MonitoringPollingSettings = {
+  historyIntervalMs: 1,
+  historyResetGapMs: 1,
+  maxRecords: 1,
+  mode: "snapshot",
+  snapshotIntervalMs: 5000,
+};
+
+const serviceScopedMonitoringPollingSettings: MonitoringPollingSettings = {
+  historyIntervalMs: 1,
+  historyResetGapMs: 1,
+  maxRecords: 1,
+  mode: "snapshot",
+  snapshotIntervalMs: 15000,
+};
+
+const monitoringPollingSettingsDefaultsByScope: Partial<Record<string, MonitoringPollingSettings>> =
+  {
+    "process-metrics": processScopedMonitoringPollingSettings,
+    "service-metrics": serviceScopedMonitoringPollingSettings,
+  };
+
+/**
+ * Resolves the default polling settings for one persisted monitoring scope.
+ */
+export const resolveDefaultMonitoringPollingSettings = (
+  scope: string,
+): MonitoringPollingSettings => {
+  return monitoringPollingSettingsDefaultsByScope[scope] ?? defaultMonitoringPollingSettings;
+};
+
 /**
  * Builds the source-scoped local-storage key for monitoring polling settings.
  */
@@ -34,9 +65,12 @@ export const buildMonitoringPollingSettingsStorageKey = (scope: string): string 
  * Invalid or missing fields fall back individually so future partial backend
  * settings can reuse this function without discarding valid values.
  */
-export const normalizeMonitoringPollingSettings = (value: unknown): MonitoringPollingSettings => {
+export const normalizeMonitoringPollingSettings = (
+  value: unknown,
+  defaults: MonitoringPollingSettings = defaultMonitoringPollingSettings,
+): MonitoringPollingSettings => {
   if (typeof value !== "object" || value === null) {
-    return defaultMonitoringPollingSettings;
+    return defaults;
   }
 
   const record = value as Record<string, unknown>;
@@ -44,20 +78,17 @@ export const normalizeMonitoringPollingSettings = (value: unknown): MonitoringPo
   return {
     historyIntervalMs: normalizePositiveInteger(
       record.historyIntervalMs,
-      defaultMonitoringPollingSettings.historyIntervalMs,
+      defaults.historyIntervalMs,
     ),
     historyResetGapMs: normalizePositiveInteger(
       record.historyResetGapMs,
-      defaultMonitoringPollingSettings.historyResetGapMs,
+      defaults.historyResetGapMs,
     ),
-    maxRecords: normalizePositiveInteger(
-      record.maxRecords,
-      defaultMonitoringPollingSettings.maxRecords,
-    ),
-    mode: normalizeMode(record.mode),
+    maxRecords: normalizePositiveInteger(record.maxRecords, defaults.maxRecords),
+    mode: normalizeMode(record.mode, defaults.mode),
     snapshotIntervalMs: normalizePositiveInteger(
       record.snapshotIntervalMs,
-      defaultMonitoringPollingSettings.snapshotIntervalMs,
+      defaults.snapshotIntervalMs,
     ),
   };
 };
@@ -66,21 +97,23 @@ export const normalizeMonitoringPollingSettings = (value: unknown): MonitoringPo
  * Loads source-scoped monitoring polling settings from local storage.
  */
 export const loadMonitoringPollingSettings = (scope: string): MonitoringPollingSettings => {
+  const defaults = resolveDefaultMonitoringPollingSettings(scope);
+
   if (typeof window === "undefined") {
-    return defaultMonitoringPollingSettings;
+    return defaults;
   }
 
   const rawSettings = window.localStorage.getItem(buildMonitoringPollingSettingsStorageKey(scope));
 
   if (rawSettings === null) {
-    return defaultMonitoringPollingSettings;
+    return defaults;
   }
 
   try {
     const parsedSettings: unknown = JSON.parse(rawSettings);
-    return normalizeMonitoringPollingSettings(parsedSettings);
+    return normalizeMonitoringPollingSettings(parsedSettings, defaults);
   } catch {
-    return defaultMonitoringPollingSettings;
+    return defaults;
   }
 };
 
@@ -97,15 +130,17 @@ export const saveMonitoringPollingSettings = (
 
   window.localStorage.setItem(
     buildMonitoringPollingSettingsStorageKey(scope),
-    JSON.stringify(normalizeMonitoringPollingSettings(settings)),
+    JSON.stringify(
+      normalizeMonitoringPollingSettings(settings, resolveDefaultMonitoringPollingSettings(scope)),
+    ),
   );
 };
 
-const normalizeMode = (value: unknown): MonitoringPollingMode => {
+const normalizeMode = (value: unknown, fallback: MonitoringPollingMode): MonitoringPollingMode => {
   const result = monitoringPollingModeSchema.safeParse(value);
 
   if (!result.success) {
-    return defaultMonitoringPollingSettings.mode;
+    return fallback;
   }
 
   return result.data;

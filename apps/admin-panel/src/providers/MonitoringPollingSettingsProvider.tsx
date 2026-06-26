@@ -4,9 +4,9 @@ import type {
   MonitoringPollingSettingsContextValue,
 } from "@dto/monitoring/monitoring-polling-settings";
 import {
-  defaultMonitoringPollingSettings,
   loadMonitoringPollingSettings,
   normalizeMonitoringPollingSettings,
+  resolveDefaultMonitoringPollingSettings,
   saveMonitoringPollingSettings,
 } from "@helpers/monitoring-polling-settings-storage";
 import type { Dispatch, PropsWithChildren, ReactElement, SetStateAction } from "react";
@@ -65,7 +65,7 @@ const buildMonitoringPollingSettingsContextValue = ({
   return {
     ...settings,
     resetSettings: () => {
-      updateSettings(defaultMonitoringPollingSettings);
+      updateSettings(resolveDefaultMonitoringPollingSettings(storageKey));
     },
     setHistoryIntervalMs: (historyIntervalMs: number) => {
       updateSettings({
@@ -109,7 +109,10 @@ const createSettingsUpdater = (
   storageKey: string,
 ): ((settings: MonitoringPollingSettings) => void) => {
   return (nextSettings: MonitoringPollingSettings): void => {
-    const normalizedSettings = normalizeMonitoringPollingSettings(nextSettings);
+    const normalizedSettings = normalizeMonitoringPollingSettings(
+      nextSettings,
+      resolveDefaultMonitoringPollingSettings(storageKey),
+    );
 
     setSettingsState(normalizedSettings);
     saveMonitoringPollingSettings(storageKey, normalizedSettings);

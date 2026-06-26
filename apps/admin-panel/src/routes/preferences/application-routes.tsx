@@ -1,5 +1,6 @@
 import { PreferencesApplicationSettingsPage } from "@pages/PreferencesApplicationSettingsPage";
 import { PreferencesMonitoringSettingsPage } from "@pages/PreferencesMonitoringSettingsPage";
+import { PreferencesProcessesPollingSettingsPage } from "@pages/PreferencesProcessesPollingSettingsPage";
 import { PreferencesThemeSettingsPage } from "@pages/PreferencesThemeSettingsPage";
 import type { RouteObject } from "react-router-dom";
 
@@ -18,5 +19,9 @@ export const applicationPreferencesRoutes: RouteObject[] = [
   {
     element: <PreferencesMonitoringSettingsPage />,
     path: "/preferences/application/monitoring",
+  },
+  {
+    element: <PreferencesProcessesPollingSettingsPage />,
+    path: "/preferences/application/monitoring/processes",
   },
 ];

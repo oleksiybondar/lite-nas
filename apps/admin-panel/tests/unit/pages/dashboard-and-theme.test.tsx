@@ -8,6 +8,7 @@ import { DashboardPage } from "@pages/DashboardPage";
 import { PreferencesApplicationSettingsPage } from "@pages/PreferencesApplicationSettingsPage";
 import { PreferencesLandingPage } from "@pages/PreferencesLandingPage";
 import { PreferencesMonitoringSettingsPage } from "@pages/PreferencesMonitoringSettingsPage";
+import { PreferencesProcessesPollingSettingsPage } from "@pages/PreferencesProcessesPollingSettingsPage";
 import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
 import { PreferencesThemeSettingsPage } from "@pages/PreferencesThemeSettingsPage";
 import { SystemLandingPage } from "@pages/SystemLandingPage";
@@ -177,7 +178,11 @@ describe("theme settings persistence", () => {
 test("persists changed monitoring settings for one resource scope on apply", () => {
   window.localStorage.clear();
 
-  render(<PreferencesMonitoringSettingsPage />);
+  render(
+    <TestMemoryRouter>
+      <PreferencesMonitoringSettingsPage />
+    </TestMemoryRouter>,
+  );
 
   const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
 
@@ -203,6 +208,55 @@ test("persists changed monitoring settings for one resource scope on apply", () 
   ).toBeNull();
 });
 
+test("persists changed processes polling settings using interval-only cards", () => {
+  window.localStorage.clear();
+
+  render(
+    <TestMemoryRouter>
+      <PreferencesProcessesPollingSettingsPage />
+    </TestMemoryRouter>,
+  );
+
+  fireEvent.change(
+    within(screen.getByTestId("monitoring-settings-card-service-metrics")).getByRole("spinbutton", {
+      name: "Snapshot interval (ms)",
+    }),
+    {
+      target: { value: "18000" },
+    },
+  );
+  fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-service-metrics"));
+
+  expect(loadMonitoringPollingSettings("service-metrics")).toEqual({
+    historyIntervalMs: 1,
+    historyResetGapMs: 1,
+    maxRecords: 1,
+    mode: "snapshot",
+    snapshotIntervalMs: 18000,
+  });
+});
+
+test("renders process and service polling defaults on the dedicated processes page", () => {
+  window.localStorage.clear();
+
+  render(
+    <TestMemoryRouter>
+      <PreferencesProcessesPollingSettingsPage />
+    </TestMemoryRouter>,
+  );
+
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-process-metrics")).getByRole("spinbutton", {
+      name: "Snapshot interval (ms)",
+    }),
+  ).toHaveValue(5000);
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-service-metrics")).getByRole("spinbutton", {
+      name: "Snapshot interval (ms)",
+    }),
+  ).toHaveValue(15000);
+});
+
 test("renders persisted monitoring polling modes in the correct resource cards", () => {
   window.localStorage.clear();
   window.localStorage.setItem(
@@ -226,7 +280,11 @@ test("renders persisted monitoring polling modes in the correct resource cards",
     }),
   );
 
-  render(<PreferencesMonitoringSettingsPage />);
+  render(
+    <TestMemoryRouter>
+      <PreferencesMonitoringSettingsPage />
+    </TestMemoryRouter>,
+  );
 
   expect(
     within(screen.getByTestId("monitoring-settings-card-system-metrics")).getByRole("combobox", {

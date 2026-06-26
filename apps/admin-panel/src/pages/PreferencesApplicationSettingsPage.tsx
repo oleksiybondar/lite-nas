@@ -19,7 +19,7 @@ export const PreferencesApplicationSettingsPage = (): ReactElement => {
         },
         {
           description:
-            "Configure monitoring polling mode, intervals, cache size, and history reset behavior.",
+            "Configure metrics history polling and separate process or service snapshot refresh intervals.",
           icon: <MonitorHeartRoundedIcon />,
           path: "/preferences/application/monitoring",
           title: "Monitoring",

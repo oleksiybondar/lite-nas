@@ -14,6 +14,16 @@ describe("MonitoringPollingSettingsProvider", () => {
 
     expectDefaultMonitoringPollingSettings();
   });
+
+  test("uses service telemetry defaults for the service scope", () => {
+    renderMonitoringPollingSettingsProvider("service-metrics");
+
+    expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("snapshot");
+    expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("1");
+    expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("15000");
+    expect(screen.getByTestId("monitoring-max-records")).toHaveTextContent("1");
+    expect(screen.getByTestId("monitoring-history-reset-gap")).toHaveTextContent("1");
+  });
 });
 
 describe("MonitoringPollingSettingsProvider persistence", () => {
@@ -60,6 +70,17 @@ describe("MonitoringPollingSettingsProvider resets", () => {
     fireEvent.click(screen.getByTestId("reset-settings"));
 
     expectDefaultMonitoringPollingSettings();
+  });
+
+  test("resets service telemetry back to its scope-specific default interval", () => {
+    renderMonitoringPollingSettingsProvider("service-metrics");
+
+    fireEvent.click(screen.getByTestId("set-snapshot-interval"));
+    expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("1500");
+
+    fireEvent.click(screen.getByTestId("reset-settings"));
+    expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("15000");
+    expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("1");
   });
 });
 
@@ -133,9 +154,9 @@ const MonitoringPollingSettingsProbe = (): ReactElement => {
 /**
  * Renders the monitoring polling settings provider around the shared test probe.
  */
-const renderMonitoringPollingSettingsProvider = (): void => {
+const renderMonitoringPollingSettingsProvider = (storageKey = "system-metrics"): void => {
   render(
-    <MonitoringPollingSettingsProvider storageKey="system-metrics">
+    <MonitoringPollingSettingsProvider storageKey={storageKey}>
       <MonitoringPollingSettingsProbe />
     </MonitoringPollingSettingsProvider>,
   );

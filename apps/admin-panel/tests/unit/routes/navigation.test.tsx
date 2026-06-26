@@ -31,6 +31,11 @@ describe("resolveSelectedNavigationPath", () => {
       selectedPath: "/preferences/application/monitoring",
       items: preferencesNavigationItems,
     },
+    {
+      pathname: "/preferences/application/monitoring/processes",
+      selectedPath: "/preferences/application/monitoring",
+      items: preferencesNavigationItems,
+    },
     { pathname: "/preferences", selectedPath: null },
     { pathname: "/missing", selectedPath: null },
   ])("maps $pathname to $selectedPath", ({ items, pathname, selectedPath }) => {
