@@ -6,6 +6,7 @@ import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MemoryIcon from "@mui/icons-material/Memory";
 import MemoryRoundedIcon from "@mui/icons-material/MemoryRounded";
+import MiscellaneousServicesIcon from "@mui/icons-material/MiscellaneousServices";
 import MonitorHeartRoundedIcon from "@mui/icons-material/MonitorHeartRounded";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
@@ -16,6 +17,7 @@ import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
 import TableRowsIcon from "@mui/icons-material/TableRows";
+import TerminalIcon from "@mui/icons-material/Terminal";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import type { ReactNode } from "react";
@@ -179,7 +181,11 @@ const buildAlertStatusNavigationItems = (domainPath: string): AppNavigationItem[
  */
 const buildSystemNavigationItem = (): AppNavigationItem => {
   return {
-    children: [buildPerformanceNavigationItem(), buildSensorsNavigationItem()],
+    children: [
+      buildPerformanceNavigationItem(),
+      buildProcessesNavigationItem(),
+      buildSensorsNavigationItem(),
+    ],
     icon: <MemoryRoundedIcon />,
     path: "/system",
     title: "System",
@@ -254,6 +260,29 @@ const buildSensorsNavigationItem = (): AppNavigationItem => {
     icon: <DeviceThermostatRoundedIcon />,
     path: "/system/sensors",
     title: "Sensors",
+  };
+};
+
+/**
+ * Builds the system processes navigation branch.
+ */
+const buildProcessesNavigationItem = (): AppNavigationItem => {
+  return {
+    children: [
+      {
+        icon: <TerminalIcon />,
+        path: "/system/processes/processes",
+        title: "Processes",
+      },
+      {
+        icon: <MiscellaneousServicesIcon />,
+        path: "/system/processes/services",
+        title: "Services",
+      },
+    ],
+    icon: <TerminalIcon />,
+    path: "/system/processes",
+    title: "Processes",
   };
 };
 

@@ -1,6 +1,7 @@
 import { DiskMetricProvider } from "@providers/DiskMetricProvider";
 import { MonitoringPollingSettingsProvider } from "@providers/MonitoringPollingSettingsProvider";
 import { NetworkMetricProvider } from "@providers/NetworkMetricProvider";
+import { ServiceMetricProvider } from "@providers/ServiceMetricProvider";
 import { SystemMetricProvider } from "@providers/SystemMetricProvider";
 import { ZFSMetricProvider } from "@providers/ZFSMetricProvider";
 import type { ReactElement } from "react";
@@ -17,9 +18,9 @@ type SystemTelemetryPageContentProps = {
   route: SupportedTelemetryRoute;
 };
 
-type PerformanceRouteWrapper = (children: ReactElement) => ReactElement;
+type RouteWrapper = (children: ReactElement) => ReactElement;
 
-const performanceRouteWrappers: Record<string, PerformanceRouteWrapper> = {
+const performanceRouteWrappers: Record<string, RouteWrapper> = {
   disk: (children) => (
     <MonitoringPollingSettingsProvider storageKey="disk-metrics">
       <DiskMetricProvider>{children}</DiskMetricProvider>
@@ -42,6 +43,14 @@ const performanceRouteWrappers: Record<string, PerformanceRouteWrapper> = {
   ),
 };
 
+const processesRouteWrappers: Record<string, RouteWrapper> = {
+  services: (children) => (
+    <MonitoringPollingSettingsProvider storageKey="service-metrics">
+      <ServiceMetricProvider>{children}</ServiceMetricProvider>
+    </MonitoringPollingSettingsProvider>
+  ),
+};
+
 /**
  * Wraps telemetry route content with the providers required by the current route type.
  */
@@ -49,9 +58,13 @@ export const SystemTelemetryPageContent = ({
   children,
   route,
 }: SystemTelemetryPageContentProps): ReactElement => {
-  if (route.group !== "performance") {
-    return children;
+  if (route.group === "performance") {
+    return performanceRouteWrappers[route.category]?.(children) ?? children;
   }
 
-  return performanceRouteWrappers[route.category]?.(children) ?? children;
+  if (route.group === "processes") {
+    return processesRouteWrappers[route.category]?.(children) ?? children;
+  }
+
+  return children;
 };

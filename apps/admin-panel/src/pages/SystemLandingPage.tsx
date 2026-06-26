@@ -1,6 +1,7 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
+import TerminalIcon from "@mui/icons-material/Terminal";
 import type { ReactElement } from "react";
 
 /**
@@ -15,6 +16,12 @@ export const SystemLandingPage = (): ReactElement => {
           icon: <SpeedRoundedIcon />,
           path: "/system/performance",
           title: "Performance",
+        },
+        {
+          description: "Explore runtime processes and service-managed workloads.",
+          icon: <TerminalIcon />,
+          path: "/system/processes",
+          title: "Processes",
         },
         {
           description: "Raspberry Pi temperature, voltage, clocks, throttling, and fan state.",

@@ -7,7 +7,14 @@ import { useAlertsFiltersState } from "@domain/alerts/hooks/useAlertsFiltersStat
 import { useAlertsList } from "@domain/alerts/hooks/useAlertsList";
 import { useAlertsPaginationState } from "@domain/alerts/hooks/useAlertsPaginationState";
 import { useAlertsSearchState } from "@domain/alerts/hooks/useAlertsSearchState";
-import type { AlertCategory, AlertDomain, AlertsContextValue } from "@dto/alerts/alerts";
+import { useServerPagination } from "@domain/pagination/hooks/useServerPagination";
+import type {
+  AlertCategory,
+  AlertDomain,
+  AlertListItemDTO,
+  AlertsContextValue,
+} from "@dto/alerts/alerts";
+import type { ServerPaginationController } from "@dto/pagination";
 import { buildAlertsListPath, buildAlertsQueryKey, buildAlertsRoutePath } from "@helpers/alerts";
 import type { QueryObserverResult, RefetchOptions, UseMutationResult } from "@tanstack/react-query";
 import type { PropsWithChildren, ReactElement } from "react";
@@ -43,20 +50,30 @@ const useAlertsProviderValue = (
   domain: AlertDomain,
   category: AlertCategory,
 ): AlertsContextValue => {
-  const pagination = useAlertsPaginationState();
+  const paginationState = useAlertsPaginationState();
   const filters = useAlertsFiltersState();
   const searchState = useAlertsSearchState();
   const alertsQuery = useAlertsList({
     category,
     categoryFilter: filters.categoryFilter,
     domain,
-    page: pagination.page,
-    pageSize: pagination.pageSize,
+    page: paginationState.page,
+    pageSize: paginationState.pageSize,
     priorityFilter: filters.priorityFilter,
     severityFilter: filters.severityFilter,
     sourceFilter: filters.sourceFilter,
   });
   const acknowledgeMutation = useAcknowledgeAlert(domain);
+  const pagination = useServerPagination<AlertListItemDTO>({
+    data: alertsQuery.data
+      ? {
+          records: alertsQuery.data.items,
+          totalCount: alertsQuery.data.metadata.total_count,
+          totalPages: alertsQuery.data.metadata.total_pages,
+        }
+      : null,
+    pagination: paginationState,
+  });
   const queryState = {
     category,
     categoryFilter: filters.categoryFilter,
@@ -86,7 +103,7 @@ type BuildAlertsContextValueOptions = {
   category: AlertCategory;
   domain: AlertDomain;
   filters: ReturnType<typeof useAlertsFiltersState>;
-  pagination: ReturnType<typeof useAlertsPaginationState>;
+  pagination: ServerPaginationController<AlertListItemDTO>;
   queryState: Parameters<typeof buildAlertsListPath>[0];
   searchState: ReturnType<typeof useAlertsSearchState>;
 };
@@ -112,11 +129,13 @@ const buildAlertsContextValue = ({
     clearFilters: createClearFilters(filters.clearFilters, pagination.resetPage),
     domain,
     error: alertsQuery.error ?? null,
+    hasNextPage: pagination.hasNextPage,
+    hasPreviousPage: pagination.hasPreviousPage,
     isAcknowledging: acknowledgeMutation.isPending,
     isError: alertsQuery.isError,
     isFetching: alertsQuery.isFetching,
     isLoading: alertsQuery.isLoading,
-    items: alertsQuery.data?.items ?? [],
+    items: pagination.records,
     nextPage: pagination.nextPage,
     page: pagination.page,
     pageSize: pagination.pageSize,
@@ -124,6 +143,8 @@ const buildAlertsContextValue = ({
     priorityFilter: filters.priorityFilter,
     queryKey: buildAlertsQueryKey(queryState),
     refetch,
+    resetPage: pagination.resetPage,
+    resetPagination: pagination.resetPagination,
     routePath: buildAlertsRoutePath(domain, category),
     search: searchState.search,
     setCategoryFilter: createFilterSetter(filters.setCategoryFilter, pagination.resetPage),
@@ -135,8 +156,8 @@ const buildAlertsContextValue = ({
     setSourceFilter: createFilterSetter(filters.setSourceFilter, pagination.resetPage),
     severityFilter: filters.severityFilter,
     sourceFilter: filters.sourceFilter,
-    totalCount: alertsQuery.data?.metadata.total_count ?? 0,
-    totalPages: alertsQuery.data?.metadata.total_pages ?? 0,
+    totalCount: pagination.totalCount,
+    totalPages: pagination.totalPages,
   };
 };
 

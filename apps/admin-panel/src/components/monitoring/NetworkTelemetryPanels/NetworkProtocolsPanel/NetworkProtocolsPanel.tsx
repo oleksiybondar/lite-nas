@@ -1,3 +1,7 @@
+import {
+  createMonitoringScrollableTableSx,
+  monitoringDetailColumnSx,
+} from "@components/monitoring/table-panel-shared";
 import { ValueLineChart } from "@components/monitoring/ValueLineChart";
 import { formatMetricValue } from "@helpers/metric-display";
 import type {
@@ -31,17 +35,7 @@ const networkProtocolChartColumnSx = {
   p: 1,
 } as const;
 
-const networkProtocolDetailColumnSx = {
-  flex: "1 1 480px",
-  minWidth: 0,
-  p: 1,
-} as const;
-
-const networkProtocolScrollableTableSx = {
-  maxHeight: 260,
-  minHeight: 260,
-  overflowY: "auto",
-} as const;
+const networkProtocolScrollableTableSx = createMonitoringScrollableTableSx(260);
 
 /**
  * Renders the protocols-and-sockets panel with a wider totals chart and scrollable detail tables.
@@ -187,7 +181,7 @@ const renderMetadataSection = (
  */
 const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement => {
   return (
-    <Paper sx={networkProtocolDetailColumnSx} variant="outlined">
+    <Paper sx={monitoringDetailColumnSx} variant="outlined">
       <Stack spacing={0.625}>
         <Typography
           data-test-class="network-protocols-table-title"
@@ -241,7 +235,7 @@ const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement =>
  */
 const renderRemoteIPsTable = (rows: NetworkProtocolsPanelRemoteIPRow[]): ReactElement => {
   return (
-    <Paper sx={networkProtocolDetailColumnSx} variant="outlined">
+    <Paper sx={monitoringDetailColumnSx} variant="outlined">
       <Stack spacing={0.625}>
         <Typography
           data-test-class="network-protocols-table-title"

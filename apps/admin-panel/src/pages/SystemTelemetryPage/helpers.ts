@@ -3,20 +3,30 @@
  */
 export type SupportedTelemetryRoute = {
   category: string;
-  group: "performance" | "sensors";
+  group: "performance" | "processes" | "sensors";
   summary: string;
   title: string;
-  type: "network-metric" | "system-metric" | "zfs-metric" | "unsupported";
+  type:
+    | "disk-metric"
+    | "network-metric"
+    | "service-metric"
+    | "system-metric"
+    | "zfs-metric"
+    | "unsupported";
 };
 
-type SupportedPerformanceTelemetryType = Exclude<SupportedTelemetryRoute["type"], "unsupported">;
+type SupportedTelemetryType = Exclude<SupportedTelemetryRoute["type"], "unsupported">;
 
-type SupportedPerformanceRouteConfig = {
+type SupportedTelemetryRouteConfig = {
   summary: string;
-  type: SupportedPerformanceTelemetryType;
+  type: SupportedTelemetryType;
 };
 
-const supportedPerformanceRoutesByCategory: Record<string, SupportedPerformanceRouteConfig> = {
+const supportedPerformanceRoutesByCategory: Record<string, SupportedTelemetryRouteConfig> = {
+  disk: {
+    summary: "Gateway-backed disk and filesystem telemetry is available for this route.",
+    type: "disk-metric",
+  },
   network: {
     summary: "Gateway-backed network telemetry is available for this route.",
     type: "network-metric",
@@ -31,6 +41,13 @@ const supportedPerformanceRoutesByCategory: Record<string, SupportedPerformanceR
   },
 };
 
+const supportedProcessesRoutesByCategory: Record<string, SupportedTelemetryRouteConfig> = {
+  services: {
+    summary: "Gateway-backed service snapshot polling is available for this route.",
+    type: "service-metric",
+  },
+};
+
 /**
  * Resolves the current telemetry route metadata from the browser pathname.
  */
@@ -38,18 +55,17 @@ export const resolveTelemetryRoute = (
   pathname: string,
   category: string,
 ): SupportedTelemetryRoute => {
-  const group = pathname.startsWith("/system/sensors/") ? "sensors" : "performance";
+  const group = resolveTelemetryRouteGroup(pathname);
   const title = resolveTelemetryRouteTitle(group, category);
-  const performanceRouteConfig =
-    group === "performance" ? supportedPerformanceRoutesByCategory[category] : undefined;
+  const routeConfig = resolveTelemetryRouteConfig(group, category);
 
-  if (performanceRouteConfig !== undefined) {
+  if (routeConfig !== undefined) {
     return {
       category,
       group,
-      summary: performanceRouteConfig.summary,
+      summary: routeConfig.summary,
       title,
-      type: performanceRouteConfig.type,
+      type: routeConfig.type,
     };
   }
 
@@ -60,6 +76,39 @@ export const resolveTelemetryRoute = (
     title,
     type: "unsupported",
   };
+};
+
+/**
+ * Resolves the telemetry subsection from the current browser pathname.
+ */
+const resolveTelemetryRouteGroup = (pathname: string): SupportedTelemetryRoute["group"] => {
+  if (pathname.startsWith("/system/sensors/")) {
+    return "sensors";
+  }
+
+  if (pathname.startsWith("/system/processes/")) {
+    return "processes";
+  }
+
+  return "performance";
+};
+
+/**
+ * Resolves route support metadata from one telemetry subsection and category.
+ */
+const resolveTelemetryRouteConfig = (
+  group: SupportedTelemetryRoute["group"],
+  category: string,
+): SupportedTelemetryRouteConfig | undefined => {
+  if (group === "performance") {
+    return supportedPerformanceRoutesByCategory[category];
+  }
+
+  if (group === "processes") {
+    return supportedProcessesRoutesByCategory[category];
+  }
+
+  return undefined;
 };
 
 /**

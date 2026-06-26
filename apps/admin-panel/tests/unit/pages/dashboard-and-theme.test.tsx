@@ -12,6 +12,7 @@ import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
 import { PreferencesThemeSettingsPage } from "@pages/PreferencesThemeSettingsPage";
 import { SystemLandingPage } from "@pages/SystemLandingPage";
 import { SystemPerformanceLandingPage } from "@pages/SystemPerformanceLandingPage";
+import { SystemProcessesLandingPage } from "@pages/SystemProcessesLandingPage";
 import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
@@ -36,6 +37,10 @@ const categoryLandingPageCases = [
     page: <SystemLandingPage />,
   },
   {
+    cardName: "Processes",
+    page: <SystemLandingPage />,
+  },
+  {
     cardName: "System",
     page: <SystemPerformanceLandingPage />,
   },
@@ -50,6 +55,14 @@ const categoryLandingPageCases = [
   {
     cardName: "ZFS",
     page: <SystemPerformanceLandingPage />,
+  },
+  {
+    cardName: "Processes",
+    page: <SystemProcessesLandingPage />,
+  },
+  {
+    cardName: "Services",
+    page: <SystemProcessesLandingPage />,
   },
   {
     cardName: "Temperature",
@@ -104,7 +117,7 @@ describe("category landing pages", () => {
   test.each(categoryLandingPageCases)("renders $cardName category card", ({ cardName, page }) => {
     render(<TestMemoryRouter>{page}</TestMemoryRouter>);
 
-    expect(screen.getByRole("heading", { name: cardName })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: cardName }).length).toBeGreaterThan(0);
   });
 
   test("renders category cards as full-card links", () => {

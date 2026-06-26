@@ -1,8 +1,10 @@
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { formatRouteLabel, resolveTelemetryRoute } from "@pages/SystemTelemetryPage/helpers";
+import { SystemTelemetryDiskMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryDiskMetricState";
 import { SystemTelemetryNetworkMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryNetworkMetricState";
 import { SystemTelemetryPageContent } from "@pages/SystemTelemetryPage/SystemTelemetryPageContent";
+import { SystemTelemetryServiceMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryServiceMetricState";
 import { SystemTelemetrySystemMetricState } from "@pages/SystemTelemetryPage/SystemTelemetrySystemMetricState";
 import { SystemTelemetryUnsupportedState } from "@pages/SystemTelemetryPage/SystemTelemetryUnsupportedState";
 import { SystemTelemetryZFSMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryZFSMetricState";
@@ -38,12 +40,20 @@ export const SystemTelemetryPage = (): ReactElement => {
  * Resolves the telemetry state component that matches the current route contract.
  */
 const renderTelemetryState = (route: ReturnType<typeof resolveTelemetryRoute>): ReactElement => {
+  if (route.type === "disk-metric") {
+    return <SystemTelemetryDiskMetricState />;
+  }
+
   if (route.type === "system-metric") {
     return <SystemTelemetrySystemMetricState />;
   }
 
   if (route.type === "network-metric") {
     return <SystemTelemetryNetworkMetricState />;
+  }
+
+  if (route.type === "service-metric") {
+    return <SystemTelemetryServiceMetricState />;
   }
 
   if (route.type === "zfs-metric") {

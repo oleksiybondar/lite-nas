@@ -11,8 +11,11 @@ describe("resolveSelectedNavigationPath", () => {
     { pathname: "/", selectedPath: "/" },
     { pathname: "/system", selectedPath: "/system" },
     { pathname: "/system/performance", selectedPath: "/system/performance" },
+    { pathname: "/system/processes", selectedPath: "/system/processes" },
     { pathname: "/system/sensors", selectedPath: "/system/sensors" },
     { pathname: "/system/performance/network", selectedPath: "/system/performance/network" },
+    { pathname: "/system/processes/processes", selectedPath: "/system/processes/processes" },
+    { pathname: "/system/processes/services/logs", selectedPath: "/system/processes/services" },
     { pathname: "/system/sensors/temperature", selectedPath: "/system/sensors/temperature" },
     {
       pathname: "/system/sensors/temperature/history",
@@ -56,6 +59,8 @@ describe("appNavigationItems", () => {
   test("contains Raspberry Pi sensor routes", () => {
     const routePaths = JSON.stringify(appNavigationItems);
 
+    expect(routePaths).toContain("/system/processes/processes");
+    expect(routePaths).toContain("/system/processes/services");
     expect(routePaths).toContain("/system/sensors/temperature");
     expect(routePaths).toContain("/system/sensors/voltage");
     expect(routePaths).toContain("/system/sensors/clock");
