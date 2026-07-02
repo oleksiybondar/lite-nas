@@ -40,6 +40,33 @@ deploy.hasServiceCommand() {
 	command -v service >/dev/null 2>&1
 }
 
+deploy.ensureSystemGroup() {
+	local group_name="$1"
+	local group_description="${2:-system group}"
+
+	if getent group "$group_name" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	log.info "Creating ${group_description}: $group_name"
+	groupadd --system "$group_name"
+}
+
+deploy.validateSudoersDropIn() {
+	local sudoers_file="$1"
+
+	visudo -c -f "$sudoers_file" >/dev/null
+}
+
+deploy.installSudoersTemplate() {
+	local source_template="$1"
+	local target_file="$2"
+
+	install -d -m 0750 -o root -g root "$(dirname "$target_file")"
+	install -m 0440 -o root -g root "$source_template" "$target_file"
+	deploy.validateSudoersDropIn "$target_file"
+}
+
 # Runs a command with stderr suppressed on success and replayed on failure.
 command.quietStderrUnlessFailure() {
 	local stderr_file

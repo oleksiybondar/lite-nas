@@ -1,0 +1,7 @@
+%zfs-adm ALL=(root) NOPASSWD: \
+	/sbin/zpool *, \
+	/usr/sbin/zpool *, \
+	/usr/bin/zpool *, \
+	/sbin/zfs *, \
+	/usr/sbin/zfs *, \
+	/usr/bin/zfs *

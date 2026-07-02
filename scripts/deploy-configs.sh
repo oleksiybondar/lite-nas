@@ -79,9 +79,32 @@ require_directory() {
 require_directory "$source_dir" "source"
 require_directory "$target_dir" "target"
 
+validate_sudoers_drop_ins() {
+	local sudoers_dir="$1"
+	local validated_any=0
+	local sudoers_file
+
+	if [ ! -d "$sudoers_dir" ]; then
+		return 0
+	fi
+
+	log.requireCommand "visudo" "Install visudo and retry."
+
+	while IFS= read -r -d '' sudoers_file; do
+		deploy.validateSudoersDropIn "$sudoers_file"
+		validated_any=1
+	done < <(find "$sudoers_dir" -maxdepth 1 -type f -name 'lite-nas-*' -print0)
+
+	if [ "$validated_any" -eq 1 ]; then
+		log.info "Validated LiteNAS sudoers drop-ins in $sudoers_dir"
+	fi
+}
+
 log.pushTask "Deploying etc configs"
 cp -a "$source_dir/." "$target_dir/"
 log.popTask
+
+validate_sudoers_drop_ins "$target_dir/sudoers.d"
 
 deploy.normalizeEtcPermissions "$target_dir"
 

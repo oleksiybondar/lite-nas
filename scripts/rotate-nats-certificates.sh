@@ -14,6 +14,8 @@ litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 litenas_certificates_dir="${LITE_NAS_CERTIFICATES_DIR:-$litenas_config_dir/certificates}"
 litenas_transport_certificates_dir="${LITE_NAS_TRANSPORT_CERTIFICATE_DIR:-$litenas_certificates_dir/transport}"
 litenas_group="${LITE_NAS_GROUP:-lite-nas}"
+service_admin_group="${LITE_NAS_SERVICE_ADMIN_GROUP:-lite-nas-svc-adm}"
+zfs_admin_group="${LITE_NAS_ZFS_ADMIN_GROUP:-zfs-adm}"
 cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
 cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
 network_cli_certificate_user="${LITE_NAS_NETWORK_METRICS_CLI_CERT_USER:-lite-nas-network-metrics-cli}"
@@ -97,37 +99,17 @@ done
 ensure_litenas_groups() {
 	local certificate_user
 
-	if ! getent group "$litenas_group" >/dev/null 2>&1; then
-		log.info "Creating system group: $litenas_group"
-		groupadd --system "$litenas_group"
-	fi
-
-	if ! getent group "$cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $cli_access_group"
-		groupadd --system "$cli_access_group"
-	fi
-	if ! getent group "$network_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $network_cli_access_group"
-		groupadd --system "$network_cli_access_group"
-	fi
-	if ! getent group "$zfs_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $zfs_cli_access_group"
-		groupadd --system "$zfs_cli_access_group"
-	fi
-	if ! getent group "$system_logging_manager_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $system_logging_manager_cli_access_group"
-		groupadd --system "$system_logging_manager_cli_access_group"
-	fi
-	if ! getent group "$security_logging_manager_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $security_logging_manager_cli_access_group"
-		groupadd --system "$security_logging_manager_cli_access_group"
-	fi
+	deploy.ensureSystemGroup "$litenas_group" "system group"
+	deploy.ensureSystemGroup "$service_admin_group" "LiteNAS service admin group"
+	deploy.ensureSystemGroup "$zfs_admin_group" "ZFS admin group"
+	deploy.ensureSystemGroup "$cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$network_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$zfs_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$system_logging_manager_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$security_logging_manager_cli_access_group" "CLI access group"
 
 	for certificate_user in "${certificate_users[@]}"; do
-		if ! getent group "$certificate_user" >/dev/null 2>&1; then
-			log.info "Creating service group: $certificate_user"
-			groupadd --system "$certificate_user"
-		fi
+		deploy.ensureSystemGroup "$certificate_user" "service group"
 	done
 }
 

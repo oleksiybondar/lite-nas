@@ -197,6 +197,9 @@ assert_cmd "PAM config template packaged" assert_file "$packaged_config_root/pam
 assert_cmd "nginx site config template packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf"
 assert_cmd "ufw default config template packaged" assert_file "$packaged_config_root/default/ufw"
 assert_cmd "ufw config template packaged" assert_file "$packaged_config_root/ufw/ufw.conf"
+assert_cmd "service admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-svc-adm"
+assert_cmd "zfs admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-zfs-adm"
+assert_cmd "rbac sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-rbac"
 
 assert_cmd "web-gateway index.html packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.html
 assert_cmd "web-gateway index.css packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.css

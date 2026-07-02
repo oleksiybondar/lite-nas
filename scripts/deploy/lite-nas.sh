@@ -15,6 +15,8 @@ source "$DEPLOY_HELPER_DIR/normalize-etc-permissions.sh"
 readonly LITE_NAS_BOOTSTRAP_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_SECURITY_GROUP="${LITE_NAS_SECURITY_GROUP:-lite-nas-security}"
 readonly LITE_NAS_OPERATOR_GROUP="${LITE_NAS_OPERATOR_GROUP:-lite-nas-operator}"
+readonly LITE_NAS_SERVICE_ADMIN_GROUP="${LITE_NAS_SERVICE_ADMIN_GROUP:-lite-nas-svc-adm}"
+readonly LITE_NAS_ZFS_ADMIN_GROUP="${LITE_NAS_ZFS_ADMIN_GROUP:-zfs-adm}"
 readonly LITE_NAS_BOOTSTRAP_LOG_DIR="${LITE_NAS_BOOTSTRAP_LOG_DIR:-/var/log/lite-nas}"
 
 deploy.liteNAS.usage() {
@@ -43,23 +45,14 @@ deploy.liteNAS.requireTools() {
 }
 
 deploy.liteNAS.ensureCommonGroup() {
-	if getent group "$LITE_NAS_BOOTSTRAP_GROUP" >/dev/null 2>&1; then
-		return 0
-	fi
-
-	log.info "Creating common LiteNAS group: $LITE_NAS_BOOTSTRAP_GROUP"
-	groupadd --system "$LITE_NAS_BOOTSTRAP_GROUP"
+	deploy.ensureSystemGroup "$LITE_NAS_BOOTSTRAP_GROUP" "common LiteNAS group"
 }
 
 deploy.liteNAS.ensureRoleGroups() {
-	if ! getent group "$LITE_NAS_SECURITY_GROUP" >/dev/null 2>&1; then
-		log.info "Creating LiteNAS security group: $LITE_NAS_SECURITY_GROUP"
-		groupadd --system "$LITE_NAS_SECURITY_GROUP"
-	fi
-	if ! getent group "$LITE_NAS_OPERATOR_GROUP" >/dev/null 2>&1; then
-		log.info "Creating LiteNAS operator group: $LITE_NAS_OPERATOR_GROUP"
-		groupadd --system "$LITE_NAS_OPERATOR_GROUP"
-	fi
+	deploy.ensureSystemGroup "$LITE_NAS_SECURITY_GROUP" "LiteNAS security group"
+	deploy.ensureSystemGroup "$LITE_NAS_OPERATOR_GROUP" "LiteNAS operator group"
+	deploy.ensureSystemGroup "$LITE_NAS_SERVICE_ADMIN_GROUP" "LiteNAS service admin group"
+	deploy.ensureSystemGroup "$LITE_NAS_ZFS_ADMIN_GROUP" "ZFS admin group"
 }
 
 deploy.liteNAS.ensureLogDir() {

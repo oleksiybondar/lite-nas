@@ -1,0 +1,7 @@
+%lite-nas-svc-adm ALL=(root) NOPASSWD: \
+	/usr/bin/systemctl start *, \
+	/usr/bin/systemctl stop *, \
+	/usr/bin/systemctl restart *, \
+	/usr/bin/systemctl enable *, \
+	/usr/bin/systemctl disable *, \
+	/usr/bin/kill [0-9]*

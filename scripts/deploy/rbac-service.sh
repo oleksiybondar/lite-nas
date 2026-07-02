@@ -131,9 +131,7 @@ deploy.rbacService.installSudoers() {
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g root "$(dirname "$LITE_NAS_RBAC_SUDOERS_TARGET")"
-	install -m 0440 -o root -g root "$LITE_NAS_RBAC_SUDOERS_TEMPLATE" "$LITE_NAS_RBAC_SUDOERS_TARGET"
-	visudo -c -f "$LITE_NAS_RBAC_SUDOERS_TARGET" >/dev/null
+	deploy.installSudoersTemplate "$LITE_NAS_RBAC_SUDOERS_TEMPLATE" "$LITE_NAS_RBAC_SUDOERS_TARGET"
 }
 
 deploy.rbacService.installLogTarget() {
