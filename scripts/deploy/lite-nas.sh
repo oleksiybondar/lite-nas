@@ -61,6 +61,7 @@ deploy.liteNAS.ensureLogDir() {
 
 deploy.liteNAS.bootstrap() {
 	local manage_nats_config="$1"
+	local config_deploy_args=(--no-restart)
 
 	"$LITE_NAS_REPO_ROOT/scripts/install-runtime-dependencies.sh"
 	deploy.liteNAS.ensureCommonGroup
@@ -69,8 +70,13 @@ deploy.liteNAS.bootstrap() {
 	deploy.apparmor.requireTools
 	deploy.postfix.requireTools
 
+	if [ "$manage_nats_config" != "1" ]; then
+		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
+		config_deploy_args+=(--no-nats-config)
+	fi
+	"$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" "${config_deploy_args[@]}"
+
 	if [ "$manage_nats_config" = "1" ]; then
-		"$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh" --no-restart
 		"$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" --if-missing
 		if deploy.hasUsableSystemd; then
 			systemctl restart nats-server.service
@@ -79,8 +85,6 @@ deploy.liteNAS.bootstrap() {
 		else
 			log.warn "No usable service manager is available for nats-server.service; skipping restart."
 		fi
-	else
-		log.warn "Skipping NATS config replacement; LiteNAS services may require manual NATS configuration."
 	fi
 
 	deploy.apparmor.deploy 1

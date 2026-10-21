@@ -61,6 +61,12 @@ assert_file() {
 	test -f "$package_root/$path"
 }
 
+assert_file_contains() {
+	local path="$1"
+	local expected_line="$2"
+	grep -Fq "$expected_line" "$package_root/$path"
+}
+
 assert_dir() {
 	local path="$1"
 	test -d "$package_root/$path"
@@ -123,6 +129,10 @@ assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/
 
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
 assert_cmd "deploy configs entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/deploy-configs.sh
+assert_cmd "service-admin kill helper packaged" assert_executable usr/libexec/lite-nas/scripts/helpers/lite-nas-kill-pid.sh
+assert_cmd "deploy configs installs service-admin kill helper" assert_file_contains usr/libexec/lite-nas/scripts/deploy-configs.sh "kill_helper_target=\"\${LITE_NAS_KILL_HELPER_TARGET:-/usr/libexec/lite-nas/lite-nas-kill-pid}\""
+assert_cmd "package deploy applies configs with NATS preservation option" assert_file_contains usr/libexec/lite-nas/scripts/deploy/lite-nas.sh "\"\$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh\" \"\${config_deploy_args[@]}\""
+assert_cmd "NATS preservation skips only NATS config entries" assert_file_contains usr/libexec/lite-nas/scripts/deploy-configs.sh "[ \"\$config_name\" = \"nats-server.conf\" ]"
 assert_cmd "resources-monitor deploy script packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/resources-monitor.sh
 assert_cmd "etc permission normalizer packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/normalize-etc-permissions.sh
 assert_cmd "package version config packaged" assert_file usr/libexec/lite-nas/scripts/config/version.conf
@@ -202,6 +212,10 @@ assert_cmd "nginx site config template packaged" assert_file "$packaged_config_r
 assert_cmd "ufw default config template packaged" assert_file "$packaged_config_root/default/ufw"
 assert_cmd "ufw config template packaged" assert_file "$packaged_config_root/ufw/ufw.conf"
 assert_cmd "service admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-svc-adm"
+assert_cmd "service admin sudoers rule uses kill helper" assert_file_contains "$packaged_config_root/sudoers.d/lite-nas-svc-adm" $'\t/usr/libexec/lite-nas/lite-nas-kill-pid'
+assert_cmd "auth unit permits PAM helper transition" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "NoNewPrivileges=no"
+assert_cmd "auth unit grants PAM credential read capability" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "CapabilityBoundingSet=CAP_DAC_READ_SEARCH"
+assert_cmd "auth unit makes PAM credential read capability effective" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "AmbientCapabilities=CAP_DAC_READ_SEARCH"
 assert_cmd "zfs admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-zfs-adm"
 assert_cmd "rbac sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-rbac"
 assert_cmd "litenas-integrity sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-integrity"

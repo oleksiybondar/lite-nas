@@ -12,6 +12,7 @@ source "$SCRIPT_DIR/deploy/restart-affected-services.sh"
 source_dir="$LITE_NAS_REPO_ROOT/configs/etc"
 target_dir="${LITE_NAS_ETC_TARGET:-/etc}"
 restart_services=1
+manage_nats_config=1
 
 usage() {
 	cat <<'MSG'
@@ -20,6 +21,7 @@ Usage: scripts/deploy-configs.sh [options]
 Options:
   --source-dir PATH  Source etc config directory. Defaults to configs/etc.
   --target-dir PATH  Target etc directory. Defaults to /etc.
+  --no-nats-config   Keep the current NATS configuration unchanged.
   --no-restart       Deploy files without restarting affected services.
   -h, --help         Show this help.
 MSG
@@ -50,6 +52,10 @@ while [ "$#" -gt 0 ]; do
 		;;
 	--no-restart)
 		restart_services=0
+		shift
+		;;
+	--no-nats-config)
+		manage_nats_config=0
 		shift
 		;;
 	-h | --help)
@@ -109,7 +115,15 @@ validate_sudoers_drop_ins() {
 }
 
 log.pushTask "Deploying etc configs"
-cp -a "$source_dir/." "$target_dir/"
+config_entries=("$source_dir"/*)
+for config_entry in "${config_entries[@]}"; do
+	[ -e "$config_entry" ] || [ -L "$config_entry" ] || continue
+	config_name="${config_entry##*/}"
+	if [ "$manage_nats_config" -eq 0 ] && { [ "$config_name" = "nats-server.conf" ] || [ "$config_name" = "nats-server" ]; }; then
+		continue
+	fi
+	cp -a "$config_entry" "$target_dir/"
+done
 log.popTask
 
 # visudo checks the live sudoers include directory ownership during validation.
