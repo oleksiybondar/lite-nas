@@ -1,0 +1,9 @@
+/var/log/lite-nas/file-service.log /var/log/lite-nas/stream-service.log {
+	daily
+	rotate 7
+	missingok
+	notifempty
+	compress
+	delaycompress
+	copytruncate
+}

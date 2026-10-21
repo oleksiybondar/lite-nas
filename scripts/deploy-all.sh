@@ -42,6 +42,8 @@ source "$ENTRYPOINT_DIR/deploy/zfs-metrics-cli.sh"
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/litenas-integrity.sh"
 
 auth_service_binary=""
 rbac_service_binary=""
@@ -63,6 +65,7 @@ zfs_metrics_cli_binary=""
 web_gateway_binary=""
 admin_panel_assets=""
 resources_monitor_binary=""
+litenas_integrity_binary=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -100,6 +103,7 @@ Options:
   --web-gateway-binary PATH       Install an existing web-gateway binary.
   --admin-panel-assets PATH       Install existing admin-panel Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
+  --litenas-integrity-binary PATH Install an existing litenas-integrity binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
   --no-nats-config                Keep the current NATS configuration unchanged during bootstrap.
@@ -289,6 +293,15 @@ while [ "$#" -gt 0 ]; do
 		resources_monitor_binary="$2"
 		shift 2
 		;;
+	--litenas-integrity-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --litenas-integrity-binary"
+			usage >&2
+			exit 2
+		fi
+		litenas_integrity_binary="$2"
+		shift 2
+		;;
 	--no-start)
 		should_start=0
 		shift
@@ -333,9 +346,10 @@ deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
+deploy.liteNASIntegrity.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -456,6 +470,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		"$ENTRYPOINT_DIR/build-resources-monitor-binary.sh" "${build_args[@]}"
 		resources_monitor_binary="$tmp_dir/resources-monitor"
 	fi
+
+	if [ -z "$litenas_integrity_binary" ]; then
+		build_args=("--output=$tmp_dir/litenas-integrity")
+		"$ENTRYPOINT_DIR/build-litenas-integrity-binary.sh" "${build_args[@]}"
+		litenas_integrity_binary="$tmp_dir/litenas-integrity"
+	fi
 fi
 
 if [ "$should_bootstrap" -eq 1 ]; then
@@ -541,6 +561,10 @@ log.popTask
 
 log.pushTask "Deploying resources-monitor service"
 deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying litenas-integrity service"
+deploy.liteNASIntegrity.deploy "$litenas_integrity_binary" "$should_start"
 log.popTask
 
 log.pushTask "Normalizing deployed LiteNAS permissions"

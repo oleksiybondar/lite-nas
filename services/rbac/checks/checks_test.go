@@ -15,52 +15,34 @@ import (
 
 func TestCanReadUsesOwnerPermission(t *testing.T) {
 	t.Parallel()
-
-	runCanAccessTest(t, func(ctx context.Context, runner Runner) (bool, error) {
-		return CanRead(ctx, runner, "1002", "/input/path")
-	}, append(identityCalls("1002", "testuser", "testgroup", "testgroup wheel"),
-		scriptedCall{
-			name:   "getfacl",
-			args:   []string{"-p", "/resolved/path"},
-			output: "# file: /resolved/path\n# owner: testuser\n# group: lite-nas\nuser::rwx\ngroup::--x\nother::---\n",
-		},
-	), true)
+	path := mustTestFile(t)
+	runner := pathFixtureRunner{leaf: path, leafACL: "# owner: testuser\n# group: lite-nas\nuser::rwx\ngroup::--x\nother::---\n"}
+	allowed, err := CanRead(t.Context(), runner, "1002", path)
+	if err != nil || !allowed {
+		t.Fatalf("CanRead() = %v, %v; want allow", allowed, err)
+	}
 }
 
 func TestCanWriteUsesGroupPermissionMaskedByMask(t *testing.T) {
 	t.Parallel()
 
-	runner := newScriptedRunner(append(identityCalls("1002", "testuser", "ops", "ops lite-nas"),
-		scriptedCall{
-			name:   "getfacl",
-			args:   []string{"-p", "/resolved/path"},
-			output: "# owner: root\n# group: lite-nas\nuser::rwx\ngroup::rwx\nmask::r-x\nother::---\n",
-		},
-	))
-
-	withResolvedPath(t, "/resolved/path", func() {
-		allowed, err := CanWrite(t.Context(), runner, "1002", "/input/path")
-		if err != nil {
-			t.Fatalf("CanWrite() error = %v", err)
-		}
-		if allowed {
-			t.Fatalf("CanWrite() = true, want false because mask removes write")
-		}
-	})
+	path := mustTestFile(t)
+	runner := pathFixtureRunner{leaf: path, leafACL: "# owner: root\n# group: testgroup\nuser::rwx\ngroup::rwx\nmask::r-x\nother::---\n"}
+	allowed, err := CanWrite(t.Context(), runner, "1002", path)
+	if err != nil || allowed {
+		t.Fatalf("CanWrite() = %v, %v; want deny", allowed, err)
+	}
 }
 
 func TestCanExecUsesOtherPermissionWhenNoOwnerOrGroupMatch(t *testing.T) {
 	t.Parallel()
 
-	runCanAccessTest(t, func(ctx context.Context, runner Runner) (bool, error) {
-		return CanExec(ctx, runner, "1002", "/input/path")
-	}, append(identityCalls("1002", "testuser", "testgroup", "testgroup"),
-		scriptedCall{
-			name:   "getfacl",
-			args:   []string{"-p", "/resolved/path"},
-			output: "# owner: root\n# group: lite-nas\nuser::rwx\ngroup::--x\nother::--x\n",
-		},
-	), true)
+	path := mustTestFile(t)
+	runner := pathFixtureRunner{leaf: path, leafACL: "# owner: root\n# group: lite-nas\nuser::rwx\ngroup::--x\nother::--x\n"}
+	allowed, err := CanExec(t.Context(), runner, "1002", path)
+	if err != nil || !allowed {
+		t.Fatalf("CanExec() = %v, %v; want allow", allowed, err)
+	}
 }
 
 func TestCanSudoExecReturnsTrueOnSuccess(t *testing.T) {
@@ -128,20 +110,6 @@ func TestParseIdentityParsesAllFields(t *testing.T) {
 	assertIdentityGroups(t, identity, []string{"testgroup", "wheel"})
 }
 
-func withResolvedPath(t *testing.T, resolvedPath string, run func()) {
-	t.Helper()
-
-	original := evalSymlinks
-	evalSymlinks = func(string) (string, error) {
-		return resolvedPath, nil
-	}
-	defer func() {
-		evalSymlinks = original
-	}()
-
-	run()
-}
-
 func identityCalls(uid string, username string, primaryGroup string, groups string) []scriptedCall {
 	groupEntries := groupsWithIDs(groups)
 	return []scriptedCall{
@@ -177,26 +145,6 @@ func assertCanSudoExecAllowed(t *testing.T, runner Runner, wantAllowed bool) {
 	if allowed != wantAllowed {
 		t.Fatalf("CanSudoExec() = %v, want %v", allowed, wantAllowed)
 	}
-}
-
-func runCanAccessTest(
-	t *testing.T,
-	check func(ctx context.Context, runner Runner) (bool, error),
-	calls []scriptedCall,
-	wantAllowed bool,
-) {
-	t.Helper()
-
-	runner := newScriptedRunner(calls)
-	withResolvedPath(t, "/resolved/path", func() {
-		allowed, err := check(t.Context(), runner)
-		if err != nil {
-			t.Fatalf("check() error = %v", err)
-		}
-		if allowed != wantAllowed {
-			t.Fatalf("check() = %v, want %v", allowed, wantAllowed)
-		}
-	})
 }
 
 func assertACLHasOwnerGroup(t *testing.T, acl getfaclparser.Document, owner string, group string) {

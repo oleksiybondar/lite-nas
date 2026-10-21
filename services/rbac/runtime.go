@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 
@@ -86,6 +89,9 @@ func registerRPCHandlers(server messaging.Server, requestValidator *validator.Va
 	if err := registerRPCEndpoint(server, rbaccontract.CanExecPathRPCSubject, newPathCheckHandler(requestValidator, service.CanExec)); err != nil {
 		return err
 	}
+	if err := registerRPCEndpoint(server, rbaccontract.CheckPathOperationRPCSubject, newPathOperationHandler(requestValidator, service)); err != nil {
+		return err
+	}
 	if err := registerRPCEndpoint(server, rbaccontract.CanSudoExecRPCSubject, newCanSudoExecHandler(requestValidator, service)); err != nil {
 		return err
 	}
@@ -128,6 +134,22 @@ func newPathCheckHandler(
 	}
 }
 
+// newPathOperationHandler validates an operation request before invoking the decision service.
+func newPathOperationHandler(
+	requestValidator *validator.Validate,
+	service *decisionService,
+) func(context.Context, messaging.Envelope) (any, error) {
+	return func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		var request rbaccontract.CheckPathOperationRequest
+		if !decodeRPCRequest(envelope, &request, requestValidator) || !validPathRequest(request.UID, request.Path) {
+			return rbaccontract.DecisionResponse{Allowed: false}, nil
+		}
+		return rbaccontract.DecisionResponse{
+			Allowed: service.CheckPathOperation(ctx, request.UID, request.Path, string(request.Operation)),
+		}, nil
+	}
+}
+
 func newCanSudoExecHandler(
 	requestValidator *validator.Validate,
 	service *decisionService,
@@ -164,7 +186,7 @@ func handlePathCheckRPC(
 	checkFn func(context.Context, string, string) bool,
 ) (rbaccontract.DecisionResponse, error) {
 	var request rbaccontract.CheckPathRequest
-	if !decodeRPCRequest(envelope, &request, requestValidator) {
+	if !decodeRPCRequest(envelope, &request, requestValidator) || !validPathRequest(request.UID, request.Path) {
 		return rbaccontract.DecisionResponse{Allowed: false}, nil
 	}
 
@@ -179,4 +201,11 @@ func decodeRPCRequest(envelope messaging.Envelope, request any, requestValidator
 	}
 
 	return requestValidator.Struct(request) == nil
+}
+
+// validPathRequest rejects ambiguous paths and identities before a path decision runs.
+func validPathRequest(uid string, path string) bool {
+	numericUID, err := strconv.ParseUint(uid, 10, 32)
+	return err == nil && numericUID != 0 && filepath.IsAbs(path) &&
+		filepath.Clean(path) == path && !strings.ContainsRune(path, 0)
 }

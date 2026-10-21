@@ -57,10 +57,17 @@ Current intent:
 - ship preconfigured `logrotate` entries with the package
 - keep retention intentionally short to reduce write pressure on Raspberry Pi
   SD-card-based environments
-- prefer a conservative default such as 7 days of rotation for LiteNAS-managed
-  logs unless a specific service requires a different policy
+- rotate LiteNAS-managed logs daily and retain seven rotations unless a
+  specific service requires a different policy
+- use `copytruncate` for current Go services whose shared file logger does not
+  reopen its log after rotation
 
-This section should later list each shipped log target and its retention rule.
+The shared `/etc/logrotate.d/lite-nas` drop-in includes:
+
+| Log target | Rotation | Retention | Compression |
+| --- | --- | --- | --- |
+| `/var/log/lite-nas/file-service.log` | Daily | 7 rotations | Yes |
+| `/var/log/lite-nas/stream-service.log` | Daily | 7 rotations | Yes |
 
 ## Integrity Monitoring Baseline
 

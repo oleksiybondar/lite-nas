@@ -11,6 +11,7 @@ const (
 	ServiceSystemMetrics          = "system-metrics"
 	ServiceZFSMetrics             = "zfs-metrics"
 	ServiceResourcesMonitor       = "resources-monitor"
+	ServiceLiteNASIntegrity       = "litenas-integrity"
 	ServiceSystemEmailNotifier    = "system-email-notifier"
 	ServiceSecurityEmailNotifier  = "security-email-notifier"
 	ServiceSystemLoggingManager   = "system-logging-manager"

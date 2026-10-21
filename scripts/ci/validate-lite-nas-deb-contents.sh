@@ -113,6 +113,7 @@ assert_cmd "service-metrics binary packaged" assert_executable usr/libexec/lite-
 assert_cmd "system-metrics binary packaged" assert_executable usr/libexec/lite-nas/system-metrics
 assert_cmd "zfs-metrics binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics
 assert_cmd "resources-monitor binary packaged" assert_executable usr/libexec/lite-nas/resources-monitor
+assert_cmd "litenas-integrity binary packaged" assert_executable usr/libexec/lite-nas/litenas-integrity
 assert_cmd "system-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/system-logging-manager-cli
 assert_cmd "security-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/security-logging-manager-cli
 assert_cmd "system-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/system-metrics-cli
@@ -149,6 +150,7 @@ assert_cmd "disk-metrics.conf packaged" assert_file "$packaged_config_root/lite-
 assert_cmd "service-metrics.conf packaged" assert_file "$packaged_config_root/lite-nas/service-metrics.conf"
 assert_cmd "network-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/network-metrics-cli.conf"
 assert_cmd "resources-monitor.conf packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor.conf"
+assert_cmd "litenas-integrity.conf packaged" assert_file "$packaged_config_root/lite-nas/litenas-integrity.conf"
 assert_cmd "zfs-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/zfs-metrics-cli.conf"
 assert_cmd "system metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/system-metrics.json"
 assert_cmd "network metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/network-metrics.json"
@@ -168,6 +170,7 @@ assert_cmd "disk-metrics unit template packaged" assert_file "$packaged_config_r
 assert_cmd "service-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-service-metrics.service"
 assert_cmd "process-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-process-metrics.service"
 assert_cmd "zfs-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-zfs-metrics.service"
+assert_cmd "litenas-integrity unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-integrity.service"
 
 assert_cmd "postfix main.cf template packaged" assert_file "$packaged_config_root/postfix/main.cf"
 assert_cmd "postfix master.cf template packaged" assert_file "$packaged_config_root/postfix/master.cf"
@@ -177,6 +180,7 @@ assert_cmd "rbac AppArmor profile packaged" assert_file "$packaged_config_root/a
 assert_cmd "system-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-metrics"
 assert_cmd "zfs-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.zfs-metrics"
 assert_cmd "resources-monitor AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.resources-monitor"
+assert_cmd "litenas-integrity AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.litenas-integrity"
 assert_cmd "system-logging-manager AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-logging-manager"
 assert_cmd "security-logging-manager AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.security-logging-manager"
 assert_cmd "system-email-notifier AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-email-notifier"
@@ -200,6 +204,7 @@ assert_cmd "ufw config template packaged" assert_file "$packaged_config_root/ufw
 assert_cmd "service admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-svc-adm"
 assert_cmd "zfs admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-zfs-adm"
 assert_cmd "rbac sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-rbac"
+assert_cmd "litenas-integrity sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-integrity"
 
 assert_cmd "web-gateway index.html packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.html
 assert_cmd "web-gateway index.css packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.css

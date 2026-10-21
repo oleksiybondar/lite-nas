@@ -69,6 +69,14 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: LiteNAS integrity
+              artifact_name: litenas-integrity-linux
+              build_script: scripts/build-litenas-integrity-binary.sh
+              output_path: .build/litenas-integrity/linux-amd64/litenas-integrity
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Network metrics
               artifact_name: network-metrics-linux
               build_script: scripts/build-network-metrics-binary.sh
@@ -169,6 +177,14 @@ jobs:
               artifact_name: resources-monitor-linux
               build_script: scripts/build-resources-monitor-binary.sh
               output_path: .build/resources-monitor/linux-arm64/resources-monitor
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: LiteNAS integrity
+              artifact_name: litenas-integrity-linux
+              build_script: scripts/build-litenas-integrity-binary.sh
+              output_path: .build/litenas-integrity/linux-arm64/litenas-integrity
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -464,6 +480,12 @@ jobs:
         with:
           name: resources-monitor-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/resources-monitor
+
+      - name: Download litenas-integrity build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: litenas-integrity-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/litenas-integrity
 
       - name: Download network metrics build artifact
         uses: actions/download-artifact@v4

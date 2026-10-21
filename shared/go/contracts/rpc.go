@@ -3,6 +3,7 @@ package contracts
 import (
 	authcontract "lite-nas/shared/contracts/auth"
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
+	litenasintegritycontract "lite-nas/shared/contracts/litenasintegrity"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	processmetricscontract "lite-nas/shared/contracts/processmetrics"
@@ -145,6 +146,13 @@ var RPCByService = map[string]map[string]RPCContract{
 			Response: authcontract.SetLockdownResponse{},
 		},
 	},
+	ServiceLiteNASIntegrity: {
+		"regenerate_baseline": {
+			Subject:  litenasintegritycontract.RegenerateBaselineRPCSubject,
+			Request:  litenasintegritycontract.RegenerateBaselineRequest{},
+			Response: litenasintegritycontract.RegenerateBaselineResponse{},
+		},
+	},
 	ServiceRBAC: {
 		"get_subject_roles": {
 			Subject:  rbaccontract.GetSubjectRolesRPCSubject,
@@ -164,6 +172,11 @@ var RPCByService = map[string]map[string]RPCContract{
 		"check_path_exec": {
 			Subject:  rbaccontract.CanExecPathRPCSubject,
 			Request:  rbaccontract.CheckPathRequest{},
+			Response: rbaccontract.DecisionResponse{},
+		},
+		"check_path_operation": {
+			Subject:  rbaccontract.CheckPathOperationRPCSubject,
+			Request:  rbaccontract.CheckPathOperationRequest{},
 			Response: rbaccontract.DecisionResponse{},
 		},
 		"check_sudo_exec": {

@@ -49,6 +49,8 @@ source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/litenas-integrity.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/restart-affected-services.sh"
 
 # Package maintainer execution should not inherit pipefail from sourced helpers.
@@ -89,6 +91,7 @@ deploy_runtime_files_without_start() {
 	deploy.zfsMetricsCLI.deploy "$PACKAGE_ROOT/zfs-metrics-cli"
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
+	deploy.liteNASIntegrity.deploy "$PACKAGE_ROOT/litenas-integrity" 0
 }
 
 while [ "$#" -gt 0 ]; do
@@ -149,6 +152,7 @@ deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
+deploy.liteNASIntegrity.requireTools
 
 if [ "$run_mode" = "validate" ]; then
 	log.pushTask "Deploying LiteNAS package runtime in validate mode"
@@ -194,6 +198,7 @@ deploy.systemMetrics.enableAndStart
 deploy.zfsMetrics.enableAndStart
 deploy.webGateway.enableAndStart
 deploy.resourcesMonitor.enableAndStart
+deploy.liteNASIntegrity.enableAndStart
 log.popTask
 
 log.info "LiteNAS package runtime deployment completed."

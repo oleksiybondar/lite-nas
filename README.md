@@ -205,6 +205,12 @@ Current implemented focus:
 
 Planned expansion areas:
 
+- **Authorized file transfer and media delivery**
+  Planned File and Stream Services will provide RBAC-checked, resumable file
+  transfers and original-format media delivery, including Apple Live Photo
+  still/movie pairs. Both services are specified but are not yet part of the
+  installed runtime.
+
 - **ZFS-based storage management**
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient
   use of resources.
@@ -626,6 +632,18 @@ Useful starting points:
 
 - [`requirements/rbac-service.md`](requirements/rbac-service.md)
   Requirements for the internal authorization decision service.
+
+- [`services/file-service/requirements.md`](services/file-service/requirements.md)
+  Planned File Service requirements for RBAC-checked, resumable uploads and
+  downloads.
+
+- [`services/stream-service/requirements.md`](services/stream-service/requirements.md)
+  Planned Stream Service requirements for authorized media delivery, seeking,
+  and Live Photo support.
+
+- [`services/file-service/task.md`](services/file-service/task.md) and
+  [`services/stream-service/task.md`](services/stream-service/task.md)
+  Implementation action lists for the planned services.
 
 - [`requirements/resources-monitor.md`](requirements/resources-monitor.md)
   Requirements for the rule-based alert source that consumes system and ZFS

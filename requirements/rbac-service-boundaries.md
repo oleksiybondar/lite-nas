@@ -44,11 +44,13 @@ chain.
 - Role/group resolution for authenticated subjects
 - UID return as canonical key for downstream capability checks
 - Boolean decision answers for:
-  - path access (`read`, `write`, `modify`)
+  - existing-path access (`read`, `write`, `exec`) and directory-entry
+    operations (`create`, `replace`, `delete`) and traversal
   - non-sudo app execution
   - sudo capability for requested command identity
 - Permission evaluation based on host identity and permission sources
 - Symlink resolution and target-path permission evaluation
+- Directory search checks on both supplied and resolved symlink routes
 - POSIX ACL-aware path decision logic
 - Decision caching with configurable TTL and explicit invalidation support
 - Fail-closed behavior on inability to evaluate safely
@@ -97,6 +99,12 @@ chain.
 - Calling services must not reinterpret transport or evaluation failure as
   implicit allow.
 - RBAC must return deny when safe evaluation is not possible.
+- A path allow is a snapshot. Target services bind it to stable objects using
+  race-resistant operations and reject changed destinations or parents.
+- File Service requests create or replace at upload start, resume, and
+  publication; stage cleanup uses delete on the `.upload` entry. File deletion
+  uses delete on the destination. Stream and File Service read decisions include
+  traversal; directory listing requires read and search on the directory.
 
 ---
 

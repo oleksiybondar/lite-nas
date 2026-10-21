@@ -18,6 +18,7 @@ certificate_common_name="${LITE_NAS_AUTH_TOKEN_CERTIFICATE_COMMON_NAME:-lite-nas
 identity_ca_common_name="${LITE_NAS_AUTH_IDENTITY_CA_COMMON_NAME:-lite-nas-auth-service-identity-root-ca}"
 auth_identity_owner_user="${LITE_NAS_AUTH_IDENTITY_OWNER_USER:-lite-nas-auth-service}"
 resources_monitor_identity_user="${LITE_NAS_RESOURCES_MONITOR_IDENTITY_USER:-lite-nas-resources-monitor}"
+integrity_identity_user="${LITE_NAS_INTEGRITY_IDENTITY_USER:-lite-nas-integrity}"
 system_logging_manager_cli_identity_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sys-log-mgr-cli}"
 security_logging_manager_cli_identity_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sec-log-mgr-cli}"
 rotate_only_if_missing=0
@@ -82,6 +83,7 @@ ensure_identity_groups() {
 	for identity_group in \
 		"$auth_identity_owner_user" \
 		"$resources_monitor_identity_user" \
+		"$integrity_identity_user" \
 		"$system_logging_manager_cli_identity_user" \
 		"$security_logging_manager_cli_identity_user"; do
 		if getent group "$identity_group" >/dev/null 2>&1; then
@@ -107,6 +109,8 @@ required_certificates_exist() {
 		[ -f "$identity_certificate_dir/$auth_identity_owner_user/client.crt" ] &&
 		[ -f "$identity_certificate_dir/$resources_monitor_identity_user/client.key" ] &&
 		[ -f "$identity_certificate_dir/$resources_monitor_identity_user/client.crt" ] &&
+		[ -f "$identity_certificate_dir/$integrity_identity_user/client.key" ] &&
+		[ -f "$identity_certificate_dir/$integrity_identity_user/client.crt" ] &&
 		[ -f "$identity_certificate_dir/$system_logging_manager_cli_identity_user/client.key" ] &&
 		[ -f "$identity_certificate_dir/$system_logging_manager_cli_identity_user/client.crt" ] &&
 		[ -f "$identity_certificate_dir/$security_logging_manager_cli_identity_user/client.key" ] &&
@@ -214,6 +218,7 @@ rotate_identity_certificates() {
 	for identity_user in \
 		"$auth_identity_owner_user" \
 		"$resources_monitor_identity_user" \
+		"$integrity_identity_user" \
 		"$system_logging_manager_cli_identity_user" \
 		"$security_logging_manager_cli_identity_user"; do
 		ensure_identity_leaf_directory "$identity_user"
@@ -263,6 +268,7 @@ normalize_certificate_permissions() {
 	for identity_user in \
 		"$auth_identity_owner_user" \
 		"$resources_monitor_identity_user" \
+		"$integrity_identity_user" \
 		"$system_logging_manager_cli_identity_user" \
 		"$security_logging_manager_cli_identity_user"; do
 		identity_owner="$(owner_for_identity "$identity_user")"

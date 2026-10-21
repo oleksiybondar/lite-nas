@@ -89,7 +89,9 @@ sudo ./scripts/deploy-configs.sh
 
 The deployment script overwrites matching files under `/etc`, normalizes
 permissions for LiteNAS-managed NATS config paths, and restarts affected
-services. The currently affected service list contains `nats-server`.
+services. The currently affected service list contains `nats-server`. This also
+deploys the LiteNAS logrotate policy at `/etc/logrotate.d/lite-nas`, including
+the File Service and Stream Service logs.
 
 For validation without touching `/etc`, deploy to another target directory and
 skip service restarts:
@@ -278,6 +280,87 @@ The `lite-nas` package currently installs:
 `zfs-metrics` and `zfs-metrics-cli` already exist in the repository and local
 deploy flows, but they are not yet part of the packaged runtime path described
 in this section.
+
+The File Service and Stream Service are currently specified in
+`services/file-service/` and `services/stream-service/`; the dedicated
+`file-writer` application, installed as `lite-nas-file-writer`, is specified in
+`apps/file-writer/task.md`. They are not yet implemented or installed
+by the package. Their implementation plans require
+integration with the existing single-package build and release workflows when
+they are developed.
+
+The planned services will listen on separate loopback-only HTTP(S) ports.
+Nginx will expose File Service at `/f/` for content/file operations and `/d/`
+for explicit downloads, and Stream Service at `/s/`, while internal service
+calls continue to use NATS. For example,
+`/f/home/alice/photo.jpg` and `/d/home/alice/photo.jpg` map to
+`/home/alice/photo.jpg`, and `/s/media/movie.avi` maps to `/media/movie.avi`;
+RBAC checks the resolved host paths. File Service will also provide public
+`GET /ls/{absolute-path...}`, separately from the `/f/` file-operation mount.
+For example, `/ls/abs/path?recursive&files-only` lists RBAC-authorized files
+below host `/abs/path`. Successful responses contain JSON `files` and
+`directories` arrays of absolute host paths; `files-only` returns an empty
+`directories` array. Errors use a non-success HTTP status and JSON with an
+`error` code.
+
+File Service will also support `DELETE /f/{absolute-path...}` for authorized
+regular files. It checks an explicit RBAC delete decision and rejects targets
+inside protected system paths before changing the filesystem. Installed
+protected roots include `/etc` and platform-critical runtime directories; the
+`filesystem.protected_paths` setting lets operators add protected trees.
+Built-in OS/runtime roots cannot be removed through configuration. Directory
+and symbolic-link deletion are outside the initial scope.
+
+File downloads use standard HTTP byte ranges. A regular browser download can
+resume or seek when its client uses `Range`; the future file-explorer download
+manager can fetch separate ranges concurrently (16 per file by default), then
+reassemble them locally. That accelerated mode is implemented in the client;
+the service simply answers ordinary `HEAD` and `GET` requests. Strong ETags
+keep all segments tied to the same file version if an upload replaces it while
+the download is running. `/f/` uses inline headers for recognized PDFs/images
+and attachment headers for other content; `/d/` always uses
+`application/octet-stream` with attachment. Neither route redirects.
+
+The planned File Service supports ordinary browser/form uploads at `/f/upload`
+with `multipart/form-data` and a separate resumable protocol for the future
+LiteNAS frontend app under `/f/proprietary/upload`. Resumable chunks default to
+1 MiB and can be configured from 1 MiB through 16 MiB; the effective size is
+saved per upload.
+Concurrency is limited by a 60 MiB chunk-buffer budget in a 64 MiB tmpfs, with
+4 MiB reserved for metadata working files. A failed chunk resumes from the last
+committed offset; when buffers are full the service returns a retryable on-hold
+response and the app probes `/f/proprietary/upload-window`. Both upload modes
+create and write a user-owned `<destination>.upload` file in the destination
+directory through `lite-nas-file-writer`, invoked as the verified Unix user
+through restricted noninteractive sudo. Exclusive creation by the writer is
+the Unix permission check; no preliminary `touch` is needed. After size and
+SHA-256 verification and a fresh RBAC decision, the writer attempts the
+final rename as the verified Unix user. A successful upload atomically replaces
+an existing regular file; a failed rename leaves the old file intact and
+triggers staged-file cleanup. Uploads and deletes are denied under built-in
+protected OS/runtime paths and
+operator-added `filesystem.protected_paths`.
+
+The File and Stream Services run non-root. `lite-nas-fs-rd` grants file read
+and directory read plus search/traverse in provisioned file-backed storage
+roots, with no write permission. Neither service has a general host write
+group. System-critical paths are excluded, and existing content and new mounts
+need read/search group/ACL provisioning. RBAC still decides each requesting
+user's potential access. The user owns the completed file because the writer
+creates and writes the stage under that identity; its group, mode, and ACL
+become the final file's metadata even on overwrite. The previous file's
+permissions and ACL are not copied. The writer has a separate enforce-mode
+AppArmor profile, and deployment must verify its confinement across sudo.
+
+The service also exposes its authenticated Swagger UI at `/f/docs` and its
+OpenAPI document at `/f/openapi.json`. The `api_docs.enabled` setting can turn
+both off. Development and test configurations enable these routes; production
+configuration disables them.
+
+In the planned browser flow, both mounts use the existing `lite-nas-at` access
+cookie on the same HTTPS origin. The cookie is `Secure`, `HttpOnly`,
+`SameSite=Lax`, and scoped to `/`; Nginx forwards it to the matching service,
+which validates the token itself.
 
 Install a built package with dependency resolution:
 

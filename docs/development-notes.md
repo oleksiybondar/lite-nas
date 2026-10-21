@@ -106,6 +106,105 @@ For the current use case, the important milestone is that resource and
 condition-change alerting now works through the real service boundaries that
 both CLI and UI consumers can reuse.
 
+## Planned file and media services
+
+The File Service and Stream Service are specified as separate service
+boundaries:
+
+- File Service owns authenticated uploads/downloads, explicit pause/resume, and
+  transfer state.
+- Stream Service owns progressive media delivery, HTTP range requests for
+  pause/resume/seeking, and Live Photo component association.
+- Both services validate the caller's token and use RBAC for path permission
+  decisions. They share common token/RBAC and safe file-access infrastructure
+  when the behavior is identical.
+- Each service exposes an HTTP(S) listener on its own loopback-only port. Nginx
+  mounts File Service at `/f/` for content/file operations and `/d/` for
+  explicit downloads, and Stream Service at `/s/`; internal
+  service-to-service calls continue to use NATS. The route suffix maps to the
+  corresponding absolute host path: `/f/home/alice/photo.jpg` and
+  `/d/home/alice/photo.jpg` map to `/home/alice/photo.jpg`, and
+  `/s/media/movie.avi` maps to `/media/movie.avi`. RBAC checks the resolved
+  host paths.
+- Both service logs are rotated by the packaged `/etc/logrotate.d/lite-nas`
+  policy at `/var/log/lite-nas/file-service.log` and
+  `/var/log/lite-nas/stream-service.log`, with daily rotation, seven retained
+  rotations, and compression.
+- Local deployment and Debian installation create the shared `lite-nas-fs-rd`
+  group idempotently. File Service and Stream Service use it for file read and
+  directory read plus search/traverse in provisioned file-backed storage
+  roots, with no write access. System-critical paths are excluded. Existing
+  content and new mounts need read/search group/ACL provisioning. Each service
+  has a dedicated AppArmor profile installed and loaded in enforce mode.
+- Browser requests use the gateway's existing `lite-nas-at` access cookie over
+  the same HTTPS origin. Its `Secure`, `HttpOnly`, `SameSite=Lax`, and `Path=/`
+  attributes allow both path mounts while keeping the token unavailable to
+  frontend JavaScript. Nginx forwards the cookie; each service validates it.
+- Because upload requests use an automatically attached cookie, File Service
+  enforces CSRF protection on state-changing operations.
+- File Service has two upload modes: conventional multipart upload at
+  `/f/upload` for browser/form clients, and a resumable app protocol under
+  `/f/proprietary/upload` with initialization, ordered chunks, progress,
+  resume, and finalization. Chunk size defaults to 1 MiB and is configurable
+  from 1 MiB through 16 MiB; the effective size is saved per upload.
+  Concurrency is limited by a 60 MiB chunk-buffer budget in a 64 MiB tmpfs,
+  with 4 MiB reserved for metadata working files. A failed chunk retries from
+  the last committed offset; if buffers are full the service returns a
+  retryable on-hold response and the app probes
+  `/f/proprietary/upload-window`. Both upload modes exclusively create and
+  write a user-owned `<destination>.upload` file in the destination directory
+  through the dedicated `lite-nas-file-writer` Go application, invoked as the
+  verified Unix user through restricted noninteractive sudo. The writer's
+  exclusive create is the Unix permission check; no preliminary `touch` or
+  service write group is required. After size and SHA-256 verification and a
+  fresh RBAC decision, the writer attempts the final rename as that user. Its
+  separate AppArmor profile must remain enforced across sudo. A failed rename
+  leaves the old destination intact and
+  triggers staged-file cleanup. Successful uploads atomically replace existing
+  regular files. Built-in and configured `filesystem.protected_paths` are
+  excluded from uploads and deletes.
+- Its authenticated Swagger UI is available at `/f/docs`, with the OpenAPI
+  document at `/f/openapi.json`; development and test configurations enable
+  them, while production disables them through `api_docs.enabled`.
+- File Service adds public `GET /ls/{absolute-path...}` with presence-based
+  `recursive` and `files-only` query flags, separately from its `/f/`
+  file-operation mount. For example,
+  `/ls/abs/path?recursive&files-only` lists authorized files below host
+  `/abs/path`. Success JSON has `files` and `directories` arrays of absolute
+  host paths; `files-only` leaves `directories` empty. Failures return a
+  non-success status and JSON with an `error` code. Listing and traversal use
+  RBAC read and execute/search decisions for the subject, including ancestor
+  directories.
+- File Service supports `DELETE /f/{absolute-path...}` for regular files when
+  RBAC explicitly authorizes deletion. Built-in protected OS/runtime paths
+  (including `/etc`) are always denied; operators can add more roots with
+  `filesystem.protected_paths`. Directory and symlink deletion are not
+  part of the initial scope.
+- File downloads use ordinary HTTP byte ranges. The future file-explorer UI can
+  fetch up to 16 ranges concurrently by default and reassemble them; each range
+  request is authorized independently and carries a strong ETag condition so
+  segments cannot silently mix file versions. No separate download-session
+  protocol is needed. `/f/` can present recognized PDFs/images inline and
+  returns attachment headers for other content; `/d/` always requests a
+  download as `application/octet-stream`. Neither route redirects to the other.
+- Both run as non-root services. RBAC authorizes the caller; the read group
+  gives the processes storage read access, and the verified Unix user performs
+  upload creation, writes, and final publication. Completed uploads retain that user's
+  UID. The stage's group, mode, and ACL become the final file's metadata even
+  on overwrite; the old file's permissions and ACL are not copied.
+- The design favors native Unix facilities, the Go standard library, and small
+  mainstream Go libraries. Media is delivered in original formats by default;
+  where playback requires codec processing, the Stream Service prefers
+  OS-maintained codec packages over codecs bundled in Go so compatible codec
+  fixes can arrive through OS package updates. Client compatibility still
+  depends on the playback client's codec support unless a documented conversion
+  mode is provided.
+
+These services are currently requirements and implementation plans only. Their
+requirements and action lists are documented in
+`services/file-service/` and `services/stream-service/`; they are not yet
+installed or published by the current Debian package.
+
 ## Logging Manager Channel Split
 
 The split between `system-logging-manager` and `security-logging-manager` is

@@ -33,6 +33,7 @@ network_metrics_cli_binary_path=""
 zfs_metrics_cli_binary_path=""
 web_gateway_binary_path=""
 resources_monitor_binary_path=""
+litenas_integrity_binary_path=""
 admin_panel_assets_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
@@ -69,6 +70,7 @@ Options:
   --zfs-metrics-cli-binary=PATH      Use an existing zfs-metrics-cli binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
+  --litenas-integrity-binary=PATH    Use an existing litenas-integrity binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
@@ -76,8 +78,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -182,6 +184,11 @@ if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg 
 fi
 if args.has resources-monitor-binary && ! resources_monitor_binary_path="$(args.require_arg resources-monitor-binary)"; then
 	log.error "Missing value for --resources-monitor-binary"
+	usage >&2
+	exit 64
+fi
+if args.has litenas-integrity-binary && ! litenas_integrity_binary_path="$(args.require_arg litenas-integrity-binary)"; then
+	log.error "Missing value for --litenas-integrity-binary"
 	usage >&2
 	exit 64
 fi
@@ -313,6 +320,11 @@ if [ -z "$resources_monitor_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-resources-monitor-binary.sh" \
 		"--output=${resources_monitor_binary_path}"
 fi
+if [ -z "$litenas_integrity_binary_path" ]; then
+	litenas_integrity_binary_path="$output_dir/${package_name}-${package_arch}/litenas-integrity"
+	"$LITE_NAS_REPO_ROOT/scripts/build-litenas-integrity-binary.sh" \
+		"--output=${litenas_integrity_binary_path}"
+fi
 
 if [ -z "$admin_panel_assets_path" ]; then
 	admin_panel_assets_path="$output_dir/${package_name}-${package_arch}/admin-panel-assets"
@@ -410,6 +422,10 @@ if [ ! -f "$resources_monitor_binary_path" ]; then
 	log.error "Missing resources-monitor binary: $resources_monitor_binary_path"
 	exit 1
 fi
+if [ ! -f "$litenas_integrity_binary_path" ]; then
+	log.error "Missing litenas-integrity binary: $litenas_integrity_binary_path"
+	exit 1
+fi
 
 adminPanelAssets.validateBuildOutput "$admin_panel_assets_path"
 
@@ -496,6 +512,8 @@ install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
 install -D -m 0755 "$resources_monitor_binary_path" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor"
+install -D -m 0755 "$litenas_integrity_binary_path" \
+	"$package_root/usr/libexec/lite-nas/litenas-integrity"
 package.copyTree "$admin_panel_assets_path" \
 	"$package_root/usr/libexec/lite-nas/admin-panel-assets"
 adminPanelAssets.installFlat \
@@ -521,6 +539,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor" \
+	"$package_root/usr/libexec/lite-nas/litenas-integrity" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
