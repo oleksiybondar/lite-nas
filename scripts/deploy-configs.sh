@@ -79,6 +79,14 @@ require_directory() {
 require_directory "$source_dir" "source"
 require_directory "$target_dir" "target"
 
+kill_helper_source="$LITE_NAS_REPO_ROOT/scripts/helpers/lite-nas-kill-pid.sh"
+kill_helper_target="${LITE_NAS_KILL_HELPER_TARGET:-/usr/libexec/lite-nas/lite-nas-kill-pid}"
+if [ ! -f "$kill_helper_source" ]; then
+	log.error "Missing service-admin kill helper: $kill_helper_source"
+	exit 1
+fi
+install -D -o root -g root -m 0755 "$kill_helper_source" "$kill_helper_target"
+
 validate_sudoers_drop_ins() {
 	local sudoers_dir="$1"
 	local validated_any=0
@@ -104,9 +112,10 @@ log.pushTask "Deploying etc configs"
 cp -a "$source_dir/." "$target_dir/"
 log.popTask
 
-validate_sudoers_drop_ins "$target_dir/sudoers.d"
-
+# visudo checks the live sudoers include directory ownership during validation.
 deploy.normalizeEtcPermissions "$target_dir"
+
+validate_sudoers_drop_ins "$target_dir/sudoers.d"
 
 if [ "$restart_services" -eq 1 ]; then
 	deploy.restartAffectedServices

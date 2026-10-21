@@ -4,4 +4,4 @@
 	/usr/bin/systemctl restart *, \
 	/usr/bin/systemctl enable *, \
 	/usr/bin/systemctl disable *, \
-	/usr/bin/kill [0-9]*
+	/usr/libexec/lite-nas/lite-nas-kill-pid

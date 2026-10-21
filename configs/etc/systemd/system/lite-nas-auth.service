@@ -13,7 +13,8 @@ ExecStart=/usr/libexec/lite-nas/auth-service
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/
-NoNewPrivileges=yes
+# PAM's unix_chkpwd helper needs its AppArmor profile transition.
+NoNewPrivileges=no
 PrivateDevices=yes
 PrivateTmp=yes
 ProtectClock=yes
@@ -34,8 +35,9 @@ IPAddressAllow=::1
 RestrictNamespaces=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
-CapabilityBoundingSet=
-AmbientCapabilities=
+# PAM needs to read local account credentials from the protected host account database.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH
 UMask=0027
 ReadOnlyPaths=/etc/lite-nas
 ReadWritePaths=/var/log/lite-nas/auth-service.log
