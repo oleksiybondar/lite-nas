@@ -1,0 +1,829 @@
+# File Service — Implementation Task
+
+## Goal
+
+Create a LiteNAS File Service for authorized file upload and download. The
+service MUST validate the caller's access token and MUST use the RBAC Service
+for every file-system access decision. It MUST fail closed when authentication,
+RBAC, or safe path resolution fails.
+
+Implement the requirements in [requirements.md](requirements.md). Use its
+source-qualified IDs (for example, `file-service-svc/FR-001`) in
+requirement-traceable tests. This task follows the classification in
+`requirements/requirement-types.md` and the boundaries in
+`requirements/rbac-service-boundaries.md`.
+
+## Service Boundaries
+
+- Auth Service owns access-token issuance and token lifecycle, including its
+  revocation policy. The existing web-gateway authentication flow owns browser
+  cookie issuance and clearing. File Service does not issue, refresh, revoke,
+  or set browser tokens or cookies. For each
+  protected HTTP request, File Service sends the presented access token to the
+  existing `auth.rpc.token.validate` NATS contract and uses only the username
+  returned when `valid` is true, `status` is authenticated, and `username` is
+  nonempty. Token roles or scopes do not grant file
+  access. The current Auth validation contract verifies token validity and
+  expiry; it does not provide immediate access-token revocation checks.
+- RBAC resolves the verified token's username through
+  `rbac.rpc.subject.roles.get` and supplies the UID used for file checks.
+- RBAC decides path access through `rbac.rpc.path.read.check` for downloads and
+  directory listings. Upload creation and atomic replacement use
+  `rbac.rpc.path.operation.check` with `create` or `replace`, and deletion uses
+  that subject with `delete`. The existing `rbac.rpc.path.write.check` covers
+  writing an existing file's content, not upload publication. RBAC owns host
+  mode-bit, group, ACL, and symlink permission evaluation.
+- The File Service owns upload/download workflow, transfer state, storage
+  operations, HTTP response behavior, and enforcing each returned decision.
+- The HTTP process MUST run as a dedicated non-root service account. A
+  provisioned `lite-nas-fs-rd` group grants read on files and read plus
+  search/traverse on directories in configured file-backed storage roots, with
+  no write grant. File Service and Stream Service join this group; neither
+  receives a general host write group. System-critical paths are excluded.
+  RBAC still decides each caller's potential access; service group membership
+  never authorizes a caller.
+- For uploads, the dedicated Go application
+  [lite-nas-file-writer](../../apps/file-writer/task.md) exclusively
+  creates `<destination>.upload`, writes conventional and resumable bytes,
+  verifies/recovers the stage, and attempts the same-directory final rename as
+  the verified Unix user after the relevant RBAC checks. File Service streams
+  bounded request bytes to the writer and owns private resume metadata; it
+  does not open the stage for writing. Unix permissions and ACLs make the final
+  filesystem decision. Invoke the fixed executable through restricted
+  noninteractive `sudo -u` without a shell; a general-purpose sudo grant is
+  forbidden.
+- The File Service has a dedicated AppArmor profile at
+  `configs/etc/apparmor.d/usr.libexec.lite-nas.file-service`, attached to
+  `/usr/libexec/lite-nas/file-service` and loaded in enforce mode through the
+  repository's managed AppArmor profile loader during local deployment and
+  Debian installation.
+- Common token verification, RBAC subject/path authorization, and safe
+  file-access/path-resolution behavior MUST use shared repository
+  infrastructure where those contracts and lifecycle are identical across
+  File Service and Stream Service. Keep upload workflow specific to this
+  service; do not force transfer-specific behavior into shared infrastructure.
+- The client-facing interface uses HTTP on a service-owned loopback-only port.
+  Nginx owns browser-facing HTTP/HTTPS routing and mounts file operations at
+  `/f/` and explicit downloads at `/d/`. For example, both
+  `/f/home/alice/photo.jpg` and `/d/home/alice/photo.jpg` identify host path
+  `/home/alice/photo.jpg` after removing their mount prefix. The existing
+  `lite-nas-at` browser cookie is `Secure` and therefore accompanies browser
+  requests over HTTPS, not HTTP.
+  File Service communicates internally with Auth and RBAC only through their
+  existing shared NATS RPC contracts; it introduces no new cross-service API.
+- Prefer native Linux/Unix filesystem and process facilities and the Go standard
+  library for file operations, temporary storage, permissions, and transfer
+  handling. Add a database, external storage system, or specialized transfer
+  framework only when a documented requirement cannot be met safely with the
+  existing platform facilities.
+- Prefer simple, mainstream Go libraries for capabilities the standard library
+  does not cover well. Keep the dependency set small, favor actively maintained
+  libraries with broad Go ecosystem use, and document the specific need before
+  adding a specialized or heavyweight dependency.
+- A missing token, invalid/expired token, failed subject resolution, denied
+  RBAC decision, RBAC timeout/error, or unsafe path MUST never result in file
+  bytes being read or written.
+
+## Requirements
+
+### IR-001 Configure HTTP, Nginx, NATS, and service certificates
+
+The service MUST use LiteNAS's established transport-security and certificate
+configuration for every internal or externally reachable connection.
+
+Acceptance criteria:
+
+- The HTTP listener uses a service-owned port and binds only to loopback; it
+  is not directly reachable from non-local interfaces.
+- Nginx exposes the service at `/f/` and `/d/` through the existing HTTP/HTTPS
+  entrypoints and reverse-proxy conventions. Browser cookie authentication on
+  both mounts works through HTTPS; an HTTP request without a valid token is
+  denied. Path forwarding preserves the suffix used to derive the absolute
+  host path and does not collide with gateway/API routes.
+- Nginx forwards `GET` and `HEAD /d/{absolute-path...}` to the File Service's
+  explicit download handler. The `/d/` suffix identifies the same host file as
+  the corresponding `/f/` suffix; `/d/` does not accept upload, delete, or
+  other mutation methods.
+- Nginx forwards `/f/docs`, `/f/openapi.json`, `/f/upload`,
+  `/f/proprietary/upload...`, `/f/proprietary/upload-window`, and generic
+  `DELETE /f/{absolute-path...}` requests to the corresponding File Service
+  routes after removing the `/f` prefix. These explicit API routes take
+  precedence over the generic file-path handler.
+  The paths `/docs`, `/openapi.json`, `/upload`, and `/proprietary/upload...`
+  are reserved API routes, not generic host-path aliases.
+- Nginx uses `proxy_request_buffering off` for both upload modes so it does not
+  write a complete request body to its client-body temporary directory.
+  Configure the upstream HTTP version and upload body limits so large
+  multipart requests and chunk PATCH requests reach File Service
+  incrementally.
+- Swagger UI and the generated OpenAPI document are available at `/docs` and
+  `/openapi.json`, publicly mounted as `/f/docs` and `/f/openapi.json`.
+  Configuration exposes `api_docs.enabled`; when false, both documentation
+  routes return `404`; it defaults to `true`. The documentation routes require
+  a valid access token and use `/f`-prefixed public API URLs. Serve Swagger UI
+  assets locally instead of relying on a runtime CDN.
+- Browser requests over HTTPS use the existing `lite-nas-at` access cookie
+  managed by the web-gateway authentication flow. Nginx forwards that request
+  cookie to the service. File Service validates
+  the token through `auth.rpc.token.validate` and does not issue, refresh,
+  revoke, set, or weaken browser session cookies. Browsers do not send the
+  `Secure` cookie over HTTP.
+- NATS connections use the shared messaging configuration and the service's
+  dedicated client certificate identity, trusted CA, and private key. The
+  service can request only the NATS subjects required by its documented Auth
+  and RBAC contracts.
+- Configuration provides certificate paths using existing LiteNAS conventions
+  and validates required files and TLS setup at startup. Private keys are not
+  logged or copied into application config values unnecessarily.
+- Certificate ownership and permissions allow the non-root service account to
+  read only the certificates it needs, without granting access to CA private
+  keys or unrelated service identities.
+- Bootstrap, certificate issuance/rotation, NATS authorization, deployment
+  configuration, and package contents are updated for the new service identity
+  where required.
+
+### FR-001 Authenticate every protected transfer request
+
+The service MUST require a valid access token for upload and download
+operations, including upload creation, chunk transfer, resume/status, finalize,
+and download continuation requests.
+
+Acceptance criteria:
+
+- Missing, malformed, invalid, expired, or otherwise rejected tokens are denied
+  before file processing. An Auth RPC timeout, error, or invalid response also
+  denies the request.
+- The username comes from the successful Auth validation response, never from
+  request parameters or unverified claims. Token-provided roles or scopes
+  alone never grant file access.
+- The service obtains the RBAC subject UID for the authenticated username using
+  the existing subject-resolution contract.
+- Token verification and RBAC failures are handled as deny/error outcomes, not
+  as implicit allow.
+
+### FR-003 Authorize downloads through RBAC
+
+Before opening or reading a requested file, the service MUST ask RBAC whether
+the verified token owner can read the resolved path.
+
+Acceptance criteria:
+
+- The read decision uses the token owner's UID and the actual resolved target
+  path, not an untrusted client-supplied identity.
+- A deny or inability to get a trustworthy allow prevents opening/serving file
+  contents.
+- Each new request to resume or continue a download is authenticated and
+  authorized again.
+- Path traversal and alternate path encodings cannot bypass the configured
+  storage boundary or the RBAC decision.
+
+### FR-004 Authorize uploads through RBAC
+
+Before creating or replacing a destination, the service MUST request the
+corresponding RBAC `create` or `replace` decision for the verified token owner.
+The writer checks actual staged-file write access as that user.
+
+Acceptance criteria:
+
+- Upload authorization uses the token owner's UID and the final intended target
+  path.
+- Upload initialization, each resumed/chunk write, and finalization request a
+  fresh `create` or `replace` decision for the destination and deny on a
+  denied or unavailable result. A changed destination kind or identity is
+  rejected; earlier stage writes do not grant publication.
+- Client-provided filenames and paths are validated and safely resolved before
+  they can affect storage locations.
+- Uploads targeting a built-in or configured protected path are rejected
+  before accepting content and checked again before final publication. The
+  shared protected-path policy is `filesystem.protected_paths` and applies to
+  new-file creation, replacement, and deletion.
+- When the destination is an existing regular file, successful upload replaces
+  it atomically after full validation. The old file remains intact until the
+  replacement is ready; a failed upload or publish leaves it untouched.
+  Existing directories and symbolic links are rejected as upload targets and
+  are never followed or replaced.
+- A failed or interrupted upload cannot expose a partially written file as a
+  completed file.
+- The writer creates `.upload` exclusively and writes it as the authenticated
+  Unix user for both upload modes. That create is the Unix permission check;
+  a separate `touch` is insufficient and may change an existing file. The
+  service never writes directly into the completed
+  destination. A newly published file is owned by that user without a
+  post-upload `chown`. Its group, mode, and ACL follow the staged file, including
+  on overwrite. The previous file's permissions and ACL are not preserved or
+  copied onto the replacement.
+- All mutations must be within `filesystem.write_roots`, outside
+  `filesystem.protected_paths`, and allowed by RBAC. The default write root is
+  `/home`; explicitly configured ZFS mount paths may be added. Standard
+  OS/runtime paths remain non-writable.
+
+### FR-005 Support pausing and resuming uploads
+
+The service MUST let a client pause an upload and continue it later without
+requiring the client to resend already accepted bytes. A client disconnect or
+process interruption MUST leave the upload resumable when its state is valid.
+
+Acceptance criteria:
+
+- The upload protocol defines how a client starts an upload, identifies it on
+  continuation, explicitly pauses it, reports/query progress, submits remaining
+  content, and marks completion or cancellation.
+- The service detects invalid offsets, conflicting chunks, incomplete uploads,
+  and attempts to continue an unknown or expired upload, and returns a defined
+  failure outcome.
+- Resumed operations are bound to the authenticated owner and intended target;
+  another principal cannot continue or finalize an upload they do not own.
+- The service documents and enforces how long incomplete upload state is kept
+  and how it is cleaned up.
+- An upload becomes visible as a completed target only after successful
+  finalization.
+
+#### Upload modes
+
+The File Service MUST expose two upload modes with separate HTTP routes:
+
+- A conventional browser upload accepts `POST /upload` with
+  `multipart/form-data`, a `destination` field, and one `file` part. Nginx
+  exposes it publicly as `POST /f/upload`. It supports ordinary browser/form
+  clients and reports success or failure for that request. It replaces an
+  existing regular-file destination only after the full upload is received,
+  authorized, and validated. It uses the same destination-adjacent `.upload`
+  staging and final publication flow as resumable uploads. Parse the multipart
+  body incrementally and write its file part to `.upload` with bounded working
+  memory; do not use a parser that spools the complete large file to `/tmp` or
+  another service-local disk location. Define how the destination is supplied
+  before accepting file bytes so authorization and direct streaming are
+  possible. This mode does not promise resumability.
+- A LiteNAS app protocol provides resumable initialization, chunk upload, and
+  finalization operations under `/proprietary/upload`; Nginx exposes these as
+  `/f/proprietary/upload`. The later frontend app will implement this protocol;
+  its implementation is outside this service task.
+- The File Service exposes its generated OpenAPI document at `/openapi.json`
+  and Swagger UI at `/docs`, publicly mounted as `/f/openapi.json` and
+  `/f/docs`, respectively. A boolean `api_docs.enabled` setting controls both
+  routes; production configuration sets it to `false`, while development and
+  test configurations set it to `true`. Operators may override it. When
+  disabled both routes return `404`. Both routes require a valid access token.
+
+The resumable protocol MUST follow this lifecycle:
+
+1. `POST /proprietary/upload` creates an upload resource using JSON metadata that
+   includes the destination, original filename, total size, whole-file SHA-256,
+   supported file metadata, and a client `Idempotency-Key`. The service
+   validates the target and obtains
+   RBAC `create` or `replace` authorization before accepting the upload. It does not reserve a
+   chunk buffer; buffer capacity is reserved only while a chunk request is
+   processed. Success returns `201 Created` and a `Location` for the resource.
+   Retrying the same key and same metadata returns the existing upload resource;
+   reusing that key with different metadata returns `409 Conflict`.
+2. Creation returns an opaque upload ID, the next chunk index expected,
+   effective chunk size, maximum chunk size, and upload state. Chunk size is
+   configured for the service in the inclusive 1–16 MiB range, with a 1 MiB
+   default. Initialization records the effective size for that upload, so
+   resume keeps using it even if service configuration later changes. Only the
+   final chunk may be shorter. The client discovers existing progress through
+   the upload resource rather than repeating creation with the same metadata.
+3. `PATCH /proprietary/upload/{upload-id}` sends one raw next-chunk body with the committed
+   `Upload-Offset` header. Chunks are accepted in order, beginning at
+   index zero. A committed chunk returns `204 No Content` with the updated
+   `Upload-Offset` and `Upload-Next-Chunk-Index` response headers. A request
+   whose offset is not the current committed offset returns a conflict with
+   the current offset and next index. An identical replay of the last committed
+   chunk is acknowledged idempotently; a conflicting replay is rejected.
+4. `GET /proprietary/upload/{upload-id}` returns the authenticated owner's upload state
+   and progress as JSON. `HEAD /proprietary/upload/{upload-id}` returns upload length,
+   committed offset, next chunk index, and effective chunk size in headers with
+   no response body. Pausing is client-controlled: stop sending chunks, then
+   use GET or HEAD later to continue. `DELETE /proprietary/upload/{upload-id}` cancels and
+   removes the incomplete upload.
+5. `PUT /proprietary/upload/{upload-id}/completion` marks the upload complete. It succeeds
+   only after the declared size and whole-file SHA-256 match the staged bytes;
+   it rechecks RBAC `create` or `replace` permission and protected-path policy, then attempts
+   the same-directory atomic rename as the verified Unix user. If a regular
+   file already exists, successful publication replaces it atomically. A
+   failed user-scoped rename leaves the previous file intact, attempts removal
+   of `.upload`, and returns failure without claiming completion. Define
+   cleanup-failure and completion-retry responses before implementation.
+   Repeating a successful completion returns the same completed result.
+
+Authenticated `GET /proprietary/upload-window` returns JSON describing available
+chunk-buffer bytes and the maximum accepted chunk size. If a valid `PATCH`
+cannot reserve enough global buffer capacity, return `503 Service Unavailable`,
+`Retry-After`, and JSON with `error.code` `upload_window_full`. Accept no bytes
+and do not advance the committed offset. The client waits for the indicated interval and probes
+`GET /proprietary/upload-window` before retrying. Capacity may change between probe and
+PATCH, so the client must handle another 503. A chunk larger than its upload's
+configured chunk size is a permanent validation error, not an on-hold response.
+The service reserves each request's maximum chunk-buffer capacity after
+validating PATCH headers and before reading its body; Nginx streams PATCH bodies
+without fully buffering them ahead of the service's admission decision.
+
+Creation, progress, completion, and error responses use JSON. Creation reports
+`upload_id`, `next_chunk_index`, and effective chunk size; GET progress reports
+total size, acknowledged bytes, and next chunk index; HEAD carries equivalent
+progress in headers and has no response body. Completion reports the verified
+checksum and completed resource. Errors use a non-success HTTP status and JSON
+with a stable `error.code`. Chunk sequencing errors include the current
+committed offset and next chunk index. Retryable failures identify whether and
+when the client may retry. Errors must not expose host paths the caller cannot
+access. Define the complete error-code catalog and HTTP status mapping before
+implementation.
+
+Concurrency is limited by consumed chunk-buffer capacity rather than by a
+fixed number of uploads. The service MUST serialize writes per upload so
+concurrent requests cannot corrupt chunk order or metadata. Accepted chunks
+are appended sequentially to the destination-adjacent `.upload` file; the
+service MUST NOT rewrite the whole file for each chunk or append incomplete
+data to the completed destination.
+For each chunk, the service writes at the committed offset, makes the data
+durable, then atomically records the new committed byte offset/chunk index in
+metadata before acknowledging success. Metadata updates use a temporary file
+and atomic replacement in the private metadata directory. On recovery, bytes
+beyond the last committed offset are truncated before accepting more data. A
+failed partial write is truncated to that offset and the same chunk remains
+expected.
+An interrupted connection leaves only fully acknowledged chunks committed;
+reconnecting clients query or re-initialize to obtain the next expected index.
+The service reauthenticates and rechecks RBAC for every initialization, chunk,
+status, and finalize request.
+
+The service uses a dedicated 64 MiB size-limited tmpfs mount only for bounded
+in-flight upload buffers and metadata working copies, not accumulated file
+content. No upload mode requires free space for the whole file in `/tmp`, on
+the service host's SD card, or in tmpfs.
+Reserve 4 MiB for metadata files/working state and 60 MiB for concurrent
+incoming chunk buffers. The metadata reservation is a hard limit; reject new
+upload initialization when its bounded metadata would exceed 4 MiB, and release
+that reservation when the upload expires or is cancelled. Admit chunk requests
+using a weighted capacity limit based on the bytes each request may buffer;
+active buffered chunk requests MUST never reserve more than 60 MiB. The
+configured chunk size defaults to 1 MiB and may
+be set up to 16 MiB, so the theoretical concurrent receiving-request capacity
+is 60 requests at 1 MiB or 3 requests at 16 MiB, before implementation overhead
+and other limits. Paused uploads do not consume chunk-buffer capacity.
+
+For both upload modes, accumulated bytes are stored at the destination path
+plus `.upload`: for `/path/to/original/file.ext`, the incomplete file is
+`/path/to/original/file.ext.upload`. This keeps publication on the same
+filesystem and uses the destination pool's capacity for the upload. The
+`.upload` path is reserved for one active upload to that target.
+Create it exclusively as the verified Unix user after RBAC approval and write
+all conventional or resumable upload bytes as that same user. Reject an
+unrelated existing file or symlink rather than replacing it, and bind resumed
+requests to the recorded upload owner and target. Recheck its owner, identity,
+and completed content before publication; do not trust a path that another
+process could have replaced. The `.upload` file may be visible to other host
+filesystem clients before completion; it is never presented as the completed
+destination.
+
+Keep durable upload metadata in a private, permission-restricted service area,
+associated with the upload ID and canonical target. Do not create a
+`destination.ext.meta` sidecar beside the target. Durable metadata remains
+authoritative across process restart and reboot; the tmpfs metadata working
+copy is bounded by its 4 MiB reservation. Incomplete `.upload` files and
+metadata follow the documented expiration and cleanup policy. After full
+validation and a fresh authorization decision, attempt to atomically rename
+the `.upload` file to the destination as the verified Unix user. Unix
+directory and sticky-bit permissions may deny publication. On a failed rename,
+attempt to remove the stage and report failure; define cleanup recovery if
+removal also fails. Never remove or truncate an existing destination before its complete
+replacement is ready. Handle destination-pool quota or space exhaustion
+without publishing a partial file or claiming that the full declared size was
+reserved in advance.
+
+### FR-006 Support pausing and resuming downloads
+
+The service MUST let a client pause a download and continue it later from the
+last confirmed byte position or equivalent standard continuation mechanism.
+Pausing MUST stop further transfer work and release request-scoped resources.
+
+Acceptance criteria:
+
+- The transfer protocol unambiguously reports file length and the served byte
+  range/continuation position so the client can pause and resume reliably.
+- Implement ordinary HTTP `HEAD` and `GET` range behavior: advertise
+  `Accept-Ranges: bytes`, return a strong `ETag`, and answer one-range requests
+  with `206 Partial Content`, correct `Content-Range`, and range length.
+- After authentication and RBAC authorization, return the same file
+  `Content-Type`, `Content-Disposition`, and `X-Content-Type-Options: nosniff`
+  on `HEAD`, full `GET`, and partial `GET` responses within each mount. `HEAD`
+  has no response body; `Content-Length` describes the full representation on
+  `HEAD` and full `GET`, and the selected range on `206`.
+- Both `/f/{absolute-path...}` and `/d/{absolute-path...}` use the same
+  authentication, RBAC read check, file identity, strong ETag, and range
+  semantics. Each request is independently authorized, including requests
+  following a link from one mount to the other.
+- Accept multiple simultaneous independent range `GET`s for one file so a
+  download manager can fetch separate segments over the same REST file
+  resource. Do not add a download-session protocol or require a
+  `multipart/byteranges` response.
+- Require the client's strong `If-Match` validator on parallel segment requests.
+  Return `412 Precondition Failed` if the file was replaced or otherwise
+  changed, preventing a client from combining bytes from different versions.
+- Support a configurable per-principal/per-file cap of 16 simultaneous range
+  responses by default, subject to global resource limits. Return a documented
+  retryable response (`429 Too Many Requests` with `Retry-After`) when the
+  per-principal cap is reached.
+- Each request, including every parallel segment, independently validates the
+  token and repeats the RBAC read authorization before reading file data.
+- Invalid, unsatisfiable, or out-of-file continuation positions receive a
+  defined failure response.
+- The service authenticates and performs an RBAC read check before serving each
+  new, paused-and-resumed, or otherwise continued request.
+- Download continuation cannot change the requested file identity or bypass
+  path validation.
+
+### FR-007 Preserve arbitrary file formats
+
+The service MUST treat file content as opaque bytes so upload and download work
+for supported storage objects regardless of media format or filename extension.
+
+Acceptance criteria:
+
+- Upload and download do not transcode, rewrite, or reject content based only on
+  its media format or extension.
+- The service preserves the original bytes exactly across a completed upload
+  and subsequent download.
+- On `/f/`, reliably identified PDF, JPEG, PNG, GIF, and WebP files use the
+  matching media type and `Content-Disposition: inline` so browsers can offer
+  their built-in viewers. Use file-content identification for this inline
+  allowlist; a filename extension or client-supplied media type alone is not
+  sufficient.
+- On `/f/`, archives and content outside that inline allowlist use
+  `Content-Disposition: attachment` directly, without redirecting to `/d/`.
+  Use an accurate archive media type when reliably identified; otherwise use
+  `application/octet-stream`. Unknown or potentially active content, including
+  HTML and SVG, uses `application/octet-stream` and attachment.
+- On `/d/`, every file uses `Content-Type: application/octet-stream` and
+  `Content-Disposition: attachment`, including files that `/f/` could display
+  inline. The payload bytes are identical on both mounts.
+- Include a safe display filename in `Content-Disposition`, derived from the
+  authorized file's basename. Encode non-ASCII names according to HTTP header
+  rules and remove path components and header-control characters. Do not use
+  client-provided names or media types as trusted response metadata.
+- These headers describe the authorized, opened file and are not exposed on
+  denied requests. Media type and filename never grant access. `inline` and
+  `attachment` communicate the intended browser behavior; the browser makes
+  the final display decision.
+
+### FR-008 List authorized files and directories
+
+The service MUST provide public `GET /ls/{absolute-path...}` that returns only
+entries the authenticated token owner can access according to RBAC. For
+example, `/ls/abs/path` lists host directory `/abs/path`. The listing route is
+separate from the `/f/` file-operation mount.
+
+Acceptance criteria:
+
+- `recursive` and `files-only` are presence-based query flags: a present flag
+  enables the behavior and an absent flag disables it. For example,
+  `/ls/abs/path?recursive&files-only` enables both.
+- A directory is listable only when RBAC allows both read and execute/search
+  access to that directory for the token owner's UID, with execute/search
+  access on every ancestor from host root `/`.
+- Recursive traversal descends only into directories for which RBAC allows
+  read and execute/search access; traversal never passes through an
+  inaccessible directory.
+- A regular file is included only when RBAC allows read access to that file and
+  execute/search access to every ancestor. When `files-only` is present,
+  directory entries are omitted while authorized regular files in the selected
+  traversal scope remain eligible.
+- Symlink behavior is defined and RBAC checks the resolved absolute host path.
+- Denied entries and subtrees are omitted without exposing their names or
+  metadata. RBAC dependency/evaluation errors fail the listing closed rather
+  than returning a partial result as complete.
+- Every listing request validates the token and resolves the token owner's UID.
+- A successful response is JSON with top-level `files` and `directories` keys;
+  both values are arrays of absolute host paths. `files-only` returns an empty
+  `directories` array.
+- A listing failure returns a non-success HTTP status and JSON with a top-level
+  `error` key containing a documented stable error code. Error responses do not
+  disclose inaccessible paths or entry names.
+
+#### Notes
+
+The current RBAC RPC contracts provide separate read and execute path checks.
+Use execute permission as directory search/traversal permission and read
+permission for directory contents and file content. Do not treat the File
+Service process's own access as caller authorization.
+
+### FR-009 Delete authorized files outside protected paths
+
+The service MUST expose `DELETE /f/{absolute-path...}` for deleting an
+authorized regular file. Nginx strips the `/f` prefix before proxying, as for
+other file operations.
+
+Acceptance criteria:
+
+- Every delete request validates the token, resolves the token owner's UID,
+  checks `filesystem.write_roots` and `filesystem.protected_paths`, and obtains
+  a fresh RBAC delete allow for the resolved target before unlinking it.
+- If RBAC does not already define delete authorization, define and review that
+  contract with the RBAC service before implementing deletion. Do not infer
+  delete permission from upload/write permission.
+- Configuration key `filesystem.protected_paths` is a list of
+  canonical absolute paths for additional protected roots. It extends
+  non-removable built-in protected OS/runtime roots. Installed defaults include
+  `/etc` and platform-critical paths such as `/usr`, `/bin`, `/sbin`, `/lib`,
+  `/lib64`, `/boot`, `/proc`, `/sys`, `/dev`, `/run`, and `/var/lib` where
+  present.
+- A configured path and all descendants are protected using
+  component-boundary matching after safe normalization/resolution. Similar
+  sibling prefixes such as `/etc-backup` are not descendants of `/etc`.
+- Protected-path denial takes precedence over RBAC allow. Only regular files
+  may be deleted initially; directories and symbolic links are rejected and
+  never recursively removed or followed.
+- Authorize the target and required parent-directory operation according to
+  the agreed RBAC contract, then delete using race-resistant,
+  descriptor-relative filesystem operations.
+- Success returns `204 No Content`. Missing, unauthorized, protected, invalid,
+  and unsupported targets return documented non-success JSON errors with stable
+  codes and without sensitive host-path disclosure.
+- Cookie-authenticated DELETE requests pass the service's CSRF checks.
+
+### SR-001 Fail closed and protect file data
+
+The service MUST deny access on authentication/RBAC/path-resolution failures
+and MUST avoid disclosing protected file content or sensitive host paths in
+errors and logs.
+
+Acceptance criteria:
+
+- RBAC timeout, transport error, malformed response, or unavailable service
+  never permits an operation.
+- Transfer identifiers cannot be used as bearer credentials and are bound to
+  authenticated owner and target metadata.
+- Cookie-authenticated upload mutations enforce a documented CSRF defense at
+  the service boundary; `Secure`, `HttpOnly`, and `SameSite` cookie attributes
+  are defense in depth, not the entire CSRF policy.
+- Temporary upload data and transfer state are protected from unauthorized
+  reads and writes and are cleaned up according to the defined lifecycle.
+- The HTTP service runs with a nonzero effective UID and is not granted root,
+  broad `CAP_CHOWN`, or unrestricted host-file access. User-scoped file
+  operations require a narrowly scoped execution policy and repeat token and
+  RBAC checks for every protected request. The target Unix account must match
+  the verified username and resolved RBAC UID; a client cannot select it.
+- Keep virtual kernel interfaces outside normal file operations unless
+  explicitly supported. The service's private upload state remains accessible
+  only to the service, while staged content lives in the target directory.
+- Filesystem operations use safe descriptor-relative or equivalent
+  race-resistant path handling supported by the target Linux platform, and
+  completed uploads are published atomically where the filesystem permits.
+
+### RR-001 Handle interrupted transfers and dependency failures
+
+The service MUST leave filesystem state consistent when a client disconnects,
+the process stops, or a required dependency fails during a transfer.
+
+Acceptance criteria:
+
+- Interrupted uploads remain resumable only when their recorded state is
+  complete and valid; otherwise they are rejected or safely removed.
+- Client disconnects stop unnecessary I/O and do not mark a partial transfer as
+  complete.
+- Authentication/RBAC outages result in an explicit failure and do not
+  continue protected I/O.
+
+### TR-001 Keep transfer and authorization behavior testable
+
+Authentication, RBAC, storage, and transfer-state dependencies MUST be
+replaceable in tests so allow, deny, error, and interruption behavior can be
+verified without a live host account database or production storage.
+
+### TR-002 Verify transport and certificate configuration
+
+Transport security, service certificate configuration, and certificate access
+MUST be covered by automated or repeatable integration checks.
+
+Acceptance criteria:
+
+- Configuration tests cover valid TLS/NATS settings, missing or invalid
+  certificate paths, and startup failure when required transport security
+  cannot be configured.
+- An integration check verifies that the service connects to NATS using its
+  dedicated client identity and that the configured CA is trusted; missing,
+  untrusted, or mismatched credentials fail closed.
+- Tests or operational checks verify that NATS authorization grants only the
+  service's required Auth/RBAC subjects.
+- The selected HTTP exposure/TLS boundary is exercised by an integration or
+  system check, including a negative case for an unprotected network path when
+  the service is network-reachable directly.
+- Certificate bootstrap/rotation checks verify the service identity is
+  provisioned and that the non-root service can read only its required
+  certificate material.
+
+### OR-001 Integrate local build, deployment, and test workflows
+
+The service MUST be usable through LiteNAS's local build/deployment scripts and
+local test workflows.
+
+Acceptance criteria:
+
+- The service has dedicated build, deploy, and test scripts following existing
+  repository conventions.
+- Aggregate build and deployment scripts include the service and its required
+  configuration, certificate identity, runtime account, and dependencies.
+- The service test script runs its focused unit/integration tests and is wired
+  into the repository's aggregate local test and CI test workflows.
+- The service can be built, deployed, exercised, and removed/updated using the
+  established local workflows without manually assembling package contents.
+
+### OR-002 Include the service in Debian build and publishing
+
+The service MUST ship as part of LiteNAS's existing single Debian package and
+release workflow.
+
+Acceptance criteria:
+
+- Package build scripts include the service binary, configuration, systemd
+  unit, AppArmor policy, logrotate drop-in, and other required runtime files.
+- Package content analysis and Debian content validation assert that required
+  service artifacts are present and have expected permissions.
+- Pull-request package build/install validation covers the service being
+  installed and activated successfully.
+- Release workflows build the service for each supported architecture, include
+  it in the Debian package, and publish the resulting package through the
+  existing release process.
+- This work does not create a separate per-service Debian package.
+
+## Implementation Actions
+
+Complete these actions in order. Do not invent contracts at integration
+boundaries; inspect existing code and record unresolved decisions before
+implementing them.
+
+### Decisions required before file-operation implementation
+
+1. Complete the [writer task](../../apps/file-writer/task.md): define
+   its exact CLI/result contract, bind the verified username to the RBAC UID,
+   and prevent argument/path substitution and authorization-to-use races.
+   Sudoers must allow only the fixed writer executable as approved non-root
+   users. Its upload-stage operations cover exclusive `.upload` creation,
+   bounded streaming writes at the committed offset, durability before
+   acknowledgement, checksum verification, recovery truncation, final rename,
+   and cleanup. A separate `touch` cannot safely reserve an existing path.
+   Regular-file deletion remains a separate RBAC and execution decision.
+2. Apply the agreed overwrite rule: the `.upload` inode becomes the final inode
+   after rename, with its user UID, group, mode, and ACL. Do not copy metadata
+   from the old destination. Record how replacement behaves when the user can
+   write the old file but cannot replace its directory entry; RBAC and the
+   user-scoped rename must deny publication in that case.
+3. Settle the conventional multipart field order: require `destination`
+   before the `file` part, or define another bounded way to know and authorize
+   the destination before accepting file bytes. Do not spool a large request
+   body to discover its destination.
+4. Complete the RBAC create/replace/delete/traverse contracts in
+   [the RBAC task](../rbac/task.md) before relying on them. Define the full
+   HTTP error/status catalog, upload-state expiry, and supported upload
+   metadata fields before publishing the OpenAPI contract.
+5. Define how `lite-nas-fs-rd` receives file read and directory read/search
+   on existing storage, newly created user files, and newly created ZFS mounts
+   without a write grant. A user-created `0600` file will not become readable
+   to the service merely because it belongs to the read group. Specify the
+   storage roots excluded as system-critical and cleanup if the user-scoped
+   final rename or stage removal fails.
+
+6. Inspect Auth token validation, service-to-service NATS access, RBAC contract
+   registration, shared TLS/messaging configuration, certificate issuance and
+   rotation scripts, NATS authorization, service configuration, logging,
+   deployment, aggregate local build/deploy/test scripts, Debian packaging,
+   package validation, and release workflows.
+7. Identify existing reusable infrastructure needed by both File Service and
+   Stream Service, including token validation, RBAC subject/path checks, safe
+   path resolution, and file access. Reuse existing shared packages; if common
+   behavior is not already shared, define and implement the smallest shared
+   repository package needed by both services. Keep ownership and API explicit
+   and keep transfer-specific behavior local.
+8. Resolve the decisions above, then define the File Service's public HTTP
+   transport, Nginx mounts at `/f/` for
+   file operations and `/d/` for explicit downloads, and public
+   `GET /ls/{absolute-path...}` listing route.
+   Specify the loopback listener port, proxy path forwarding behavior, and
+   route ownership for `/f/`, `/f/docs`, `/f/openapi.json`, `/f/upload`,
+   `/f/proprietary/upload`, `/f/proprietary/upload-window`,
+   `DELETE /f/{absolute-path...}`, and `GET`/`HEAD /d/{absolute-path...}`.
+   Map the path suffix after `/f` or `/d` to the corresponding
+   absolute host path (for example, `/f/home/alice/photo.jpg` maps to
+   `/home/alice/photo.jpg`) and the suffix after `/ls` to the host directory to
+   list (for example, `/ls/abs/path` lists `/abs/path`). Validate
+   normalization and symlink resolution. Define presence semantics for both
+   query flags, the success JSON fields, stable error codes/status mapping, and
+   the transfer
+   protocol, including conventional multipart upload and resumable
+   initialization/chunk/status/finalize/cancel operations, download
+   pause/resume and continuation semantics, `ls` request/response fields and
+   `recursive`/`files-only` query behavior, JSON responses, error mapping,
+   transfer expiry, and
+   maximum size/part limits. Define generic `DELETE /f/{absolute-path...}` for
+   regular-file deletion, `filesystem.protected_paths` and
+   `filesystem.write_roots` defaults and override behavior, user-scoped
+   execution setup, protected descendant matching, stable error statuses,
+   and the required RBAC delete authorization contract. Compare the resumable app protocol with the
+   existing tus resumable-upload protocol and document why LiteNAS needs its
+   specified JSON/chunk-index flow or whether it can use tus before
+   implementation. Document the selected contract before implementation.
+9. Validate the presented access token on every protected HTTP request through
+   the existing `auth.rpc.token.validate` NATS contract. Use its verified
+   username for RBAC subject resolution and deny on any invalid, absent, or
+   failed Auth response. Document that the current Auth handler verifies token
+   validity and expiry but does not check an immediate access-token revocation
+   list. RBAC does not validate JWTs.
+10. Implement safe mapping from the `/f/` and `/d/` route suffixes to the
+   corresponding absolute host path. Validate path normalization and symlink
+   behavior, and ensure RBAC checks the actual resolved host path before it is
+   operated on.
+   Load and validate `filesystem.protected_paths`; reject mutation of a
+   configured root or descendant before any destructive filesystem operation.
+11. Define and implement the non-root HTTP runtime account, provisioned read
+   group, and invocation of `lite-nas-file-writer` for creating, writing,
+   publishing, and cleaning up `.upload` as the verified Unix user. Install
+   only the required sudoers/AppArmor rules through local deployment and Debian
+   install/upgrade flows. Do not grant unrestricted command paths, shell
+   execution, or arbitrary target users. Perform no post-upload ownership
+   assignment and grant the service account no general write access to host
+   files. Include temporary data,
+   including a bounded 64 MiB tmpfs with 4 MiB reserved for metadata working
+   files and 60 MiB for incoming chunk buffers, plus the destination-adjacent
+   `.upload` file for acknowledged bytes and protected durable resume metadata.
+   Write and enforce the separate File Service and writer AppArmor profiles,
+   including confinement across `sudo`. Document
+   installation/configuration requirements and prove expected access works
+   without running the service as root.
+12. Use native filesystem/process facilities and standard library support for
+   temporary upload data, durable transfer metadata if needed, safe file
+   operations, cleanup, and atomic completion. Introduce external dependencies
+   only with a documented need.
+13. For any capability not handled well by the standard library, select a simple,
+   mainstream Go library that fits the existing repository stack. Record why it
+   is needed and keep dependencies minimal.
+14. Add only the required service contracts/configuration and runtime wiring,
+   following existing service patterns. Validate all request inputs at the
+   service adapter boundary.
+15. Implement subject resolution and path read/write/execute checks through the
+    existing RBAC RPC contracts. Use read plus execute checks for directory
+    listing/traversal and read checks for files. Resolve the delete permission
+    contract with RBAC before implementing delete authorization; do not treat
+    write permission as delete permission without explicit contract semantics.
+    Treat every non-allow or dependency failure as denial.
+16. Implement download streaming on both `/f/` and `/d/` with pause/resume and
+   concurrent independent byte-range requests, including strong ETag
+   consistency checks and bounded per-principal/per-file concurrency. Apply
+   each mount's response-header policy without changing the file bytes.
+   Implement upload state/chunk handling with safe replacement, finalization,
+   and cleanup.
+17. Add focused service-local tests for authentication failures, RBAC allow/deny
+    and errors, paused/resumed transfers, concurrent byte ranges and
+    reassembly on both download mounts, their inline/attachment headers,
+    unsupported-content fallback, ETag mismatch after replacement,
+    concurrency limits, user-owned stage creation, user-scoped chunk writes,
+    user-scoped final rename and failed-rename cleanup, uploaded file UID/GID
+    ownership, and ownership isolation,
+   interruptions, finalization, `ls` query parameters, recursive traversal,
+   files-only filtering, inaccessible ancestors, exact successful listing JSON
+   fields/path values, JSON error shape/status, protected-delete path matching,
+   delete authorization and filesystem-race handling, and TLS/certificate
+   configuration and failures. Cover CSRF rejection for cookie-authenticated
+   upload and delete mutations. Test browser multipart upload separately from
+   resumable chunk sequencing, replay, reconnect, size/checksum mismatch,
+   weighted concurrency at 1 MiB and 16 MiB settings, tmpfs limits, replacement
+   of existing files in both upload modes, preservation of old content on
+   failure, and atomic publication,
+   and enabled/disabled Swagger UI plus OpenAPI proxy-prefix behavior.
+   Add system-level coverage for deployed certificate permissions and the
+   selected HTTP TLS boundary where applicable. Keep top-level `tests/` for
+   system-level HyperionTF tests only.
+18. Add/update dedicated and aggregate local build/deploy/test scripts, service
+   configuration, documentation, runtime integration, NATS authorization,
+    certificate bootstrap/rotation, and the shared LiteNAS logrotate
+    configuration for `/var/log/lite-nas/file-service.log`. Include the
+    AppArmor profile, account setup, and restricted user-scoped execution
+    policy in both deployment and package installation flows; load the profile
+    in enforce mode and validate the installed permissions and profile state.
+19. Integrate the service and `lite-nas-file-writer` binaries and runtime
+    artifacts into the single Debian package. Include the writer's restricted
+    sudoers configuration and AppArmor policy; it is a short-lived application
+    and needs no service or socket unit.
+    Update package analysis/content validation, install validation, and
+    architecture-specific PR/release workflows.
+20. Add the service's loopback-only HTTP listener and Nginx reverse-proxy mounts
+    at `/f/` and `/d/`. Verify proxy path forwarding, TLS
+    termination, and that direct non-loopback access to the service port is
+    unavailable. Verify the existing secure `lite-nas-at` cookie reaches the
+    service on the HTTPS mount and is not sent by browsers over HTTP.
+21. Run relevant service checks and repository CI checks; report executed
+    commands and any unavailable checks.
+
+## Completion Criteria
+
+- All requirements above have implementation and requirement-traceable tests.
+- No file read/write path bypasses authentication or RBAC.
+- Uploads and downloads can be explicitly paused and resumed under documented
+  continuation contracts.
+- The service is integrated with the repository's normal build and deployment
+  flows.
+- The installed service runs non-root and can complete authorized file
+  operations using its documented least-privilege filesystem access.
+- Its transport configuration, NATS certificate identity, authorization rules,
+  and certificate rotation/bootstrap are integrated with LiteNAS operations.
+- Local build/deploy/test workflows and the single Debian build, validation,
+  and publishing workflows include the service.
