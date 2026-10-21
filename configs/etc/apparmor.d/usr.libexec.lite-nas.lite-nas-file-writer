@@ -1,0 +1,35 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/lite-nas-file-writer flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+
+  /usr/libexec/lite-nas/lite-nas-file-writer mr,
+  /dev/stdin r,
+  /dev/stdout w,
+  /dev/stderr w,
+
+  # The writer's code only operates on identified .upload stages. Rename also
+  # needs permission on the destination path, which may have another owner.
+  /home/ r,
+  /home/** rw,
+  owner /home/**.upload k,
+
+  deny /boot/** w,
+  deny /bin/** w,
+  deny /dev/**.upload w,
+  deny /etc/** w,
+  deny /lib/** w,
+  deny /lib64/** w,
+  deny /proc/** w,
+  deny /run/** w,
+  deny /sbin/** w,
+  deny /sys/** w,
+  deny /usr/** w,
+  deny /var/lib/** w,
+
+  # File Service deployment adds explicit ZFS write roots here and reloads
+  # this profile when its allowed roots change.
+  include if exists <local/usr.libexec.lite-nas.lite-nas-file-writer>
+}

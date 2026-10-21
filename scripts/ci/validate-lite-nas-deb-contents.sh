@@ -103,8 +103,10 @@ assert_cmd "package architecture matches ${target_arch}" assert_control_contains
 assert_cmd "package name is lite-nas" assert_control_contains Package "lite-nas"
 assert_cmd "package depends on postfix" assert_depends_contains "postfix"
 assert_cmd "package depends on sudo" assert_depends_contains "sudo"
+assert_cmd "package depends on AppArmor" assert_depends_contains "apparmor"
 assert_cmd "package depends on aide" assert_depends_contains "aide"
 assert_cmd "package includes postinst maintainer script" test -f "$package_control/postinst"
+assert_cmd "postinst invokes package runtime" grep -Fq "\"\$DEPLOY_RUNTIME_SCRIPT\" --mode \"\$mode\" \"\$@\"" "$package_control/postinst"
 
 assert_cmd "auth-service binary packaged" assert_executable usr/libexec/lite-nas/auth-service
 assert_cmd "rbac-service binary packaged" assert_executable usr/libexec/lite-nas/rbac-service
@@ -125,13 +127,19 @@ assert_cmd "security-logging-manager-cli binary packaged" assert_executable usr/
 assert_cmd "system-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/system-metrics-cli
 assert_cmd "network-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/network-metrics-cli
 assert_cmd "zfs-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics-cli
+assert_cmd "file-writer binary packaged" assert_executable usr/libexec/lite-nas/lite-nas-file-writer
 assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/web-gateway
 
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
+assert_cmd "file-writer deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-writer.sh
+assert_cmd "file-writer deploy installs the AppArmor profile" assert_file_contains usr/libexec/lite-nas/scripts/deploy/file-writer.sh "LITE_NAS_FILE_WRITER_PROFILE_TARGET=\"\${LITE_NAS_FILE_WRITER_PROFILE_TARGET:-/etc/apparmor.d/usr.libexec.lite-nas.lite-nas-file-writer}\""
+assert_cmd "file-writer deploy reloads the AppArmor profile" assert_file_contains usr/libexec/lite-nas/scripts/deploy/file-writer.sh 'apparmor_parser -r'
+assert_cmd "file-writer deploy validates sudoers" assert_file_contains usr/libexec/lite-nas/scripts/deploy/file-writer.sh 'deploy.validateSudoersDropIn'
 assert_cmd "deploy configs entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/deploy-configs.sh
 assert_cmd "service-admin kill helper packaged" assert_executable usr/libexec/lite-nas/scripts/helpers/lite-nas-kill-pid.sh
 assert_cmd "deploy configs installs service-admin kill helper" assert_file_contains usr/libexec/lite-nas/scripts/deploy-configs.sh "kill_helper_target=\"\${LITE_NAS_KILL_HELPER_TARGET:-/usr/libexec/lite-nas/lite-nas-kill-pid}\""
 assert_cmd "package deploy applies configs with NATS preservation option" assert_file_contains usr/libexec/lite-nas/scripts/deploy/lite-nas.sh "\"\$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh\" \"\${config_deploy_args[@]}\""
+assert_cmd "package postinstall deploys file writer" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh "deploy.fileWriter.deploy \"\$PACKAGE_ROOT/lite-nas-file-writer\" \"\$load_writer_profile\""
 assert_cmd "NATS preservation skips only NATS config entries" assert_file_contains usr/libexec/lite-nas/scripts/deploy-configs.sh "[ \"\$config_name\" = \"nats-server.conf\" ]"
 assert_cmd "resources-monitor deploy script packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/resources-monitor.sh
 assert_cmd "etc permission normalizer packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/normalize-etc-permissions.sh
@@ -142,6 +150,7 @@ assert_cmd "security-logging-manager-cli symlink packaged" assert_symlink_target
 assert_cmd "system-metrics-cli symlink packaged" assert_symlink_target usr/bin/system-metrics-cli /usr/libexec/lite-nas/system-metrics-cli
 assert_cmd "network-metrics-cli symlink packaged" assert_symlink_target usr/bin/network-metrics-cli /usr/libexec/lite-nas/network-metrics-cli
 assert_cmd "zfs-metrics-cli symlink packaged" assert_symlink_target usr/bin/zfs-metrics-cli /usr/libexec/lite-nas/zfs-metrics-cli
+assert_cmd "file-writer symlink packaged" assert_symlink_target usr/bin/lite-nas-file-writer /usr/libexec/lite-nas/lite-nas-file-writer
 
 assert_cmd "packaged lite-nas config directory exists" assert_dir "$packaged_config_root/lite-nas"
 assert_cmd "auth.conf packaged" assert_file "$packaged_config_root/lite-nas/auth.conf"
@@ -203,6 +212,7 @@ assert_cmd "web-gateway AppArmor profile packaged" assert_file "$packaged_config
 assert_cmd "system-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-metrics-cli"
 assert_cmd "network-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.network-metrics-cli"
 assert_cmd "zfs-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.zfs-metrics-cli"
+assert_cmd "file-writer AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.lite-nas-file-writer"
 assert_cmd "system-logging-manager-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-logging-manager-cli"
 assert_cmd "security-logging-manager-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.security-logging-manager-cli"
 assert_cmd "nginx AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.sbin.nginx"
@@ -219,6 +229,8 @@ assert_cmd "auth unit makes PAM credential read capability effective" assert_fil
 assert_cmd "zfs admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-zfs-adm"
 assert_cmd "rbac sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-rbac"
 assert_cmd "litenas-integrity sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-integrity"
+assert_cmd "file-writer sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-file-writer"
+assert_cmd "file-writer sudoers excludes root" assert_file_contains "$packaged_config_root/sudoers.d/lite-nas-file-writer" 'ALL=(ALL,!root,!#0) NOPASSWD: /usr/libexec/lite-nas/lite-nas-file-writer *'
 
 assert_cmd "web-gateway index.html packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.html
 assert_cmd "web-gateway index.css packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.css

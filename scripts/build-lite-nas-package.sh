@@ -21,6 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 "$SCRIPT_DIR/build-system-metrics-cli-binary.sh"
 "$SCRIPT_DIR/build-network-metrics-cli-binary.sh"
 "$SCRIPT_DIR/build-zfs-metrics-cli-binary.sh"
+"$SCRIPT_DIR/build-file-writer-binary.sh"
 "$SCRIPT_DIR/build-web-gateway-binary.sh"
 "$SCRIPT_DIR/build-admin-panel.sh"
 "$SCRIPT_DIR/package/build-lite-nas-deb-from-source.sh" \

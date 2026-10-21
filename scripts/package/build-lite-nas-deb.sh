@@ -31,6 +31,7 @@ security_logging_manager_cli_binary_path=""
 system_metrics_cli_binary_path=""
 network_metrics_cli_binary_path=""
 zfs_metrics_cli_binary_path=""
+file_writer_binary_path=""
 web_gateway_binary_path=""
 resources_monitor_binary_path=""
 litenas_integrity_binary_path=""
@@ -68,6 +69,7 @@ Options:
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
   --network-metrics-cli-binary=PATH  Use an existing network-metrics-cli binary.
   --zfs-metrics-cli-binary=PATH      Use an existing zfs-metrics-cli binary.
+  --file-writer-binary=PATH          Use an existing lite-nas-file-writer binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
   --litenas-integrity-binary=PATH    Use an existing litenas-integrity binary.
@@ -78,8 +80,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -174,6 +176,11 @@ if args.has network-metrics-cli-binary && ! network_metrics_cli_binary_path="$(a
 fi
 if args.has zfs-metrics-cli-binary && ! zfs_metrics_cli_binary_path="$(args.require_arg zfs-metrics-cli-binary)"; then
 	log.error "Missing value for --zfs-metrics-cli-binary"
+	usage >&2
+	exit 64
+fi
+if args.has file-writer-binary && ! file_writer_binary_path="$(args.require_arg file-writer-binary)"; then
+	log.error "Missing value for --file-writer-binary"
 	usage >&2
 	exit 64
 fi
@@ -308,6 +315,11 @@ if [ -z "$zfs_metrics_cli_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-zfs-metrics-cli-binary.sh" \
 		"--output=${zfs_metrics_cli_binary_path}"
 fi
+if [ -z "$file_writer_binary_path" ]; then
+	file_writer_binary_path="$output_dir/${package_name}-${package_arch}/lite-nas-file-writer"
+	"$LITE_NAS_REPO_ROOT/scripts/build-file-writer-binary.sh" \
+		"--output=${file_writer_binary_path}"
+fi
 
 if [ -z "$web_gateway_binary_path" ]; then
 	web_gateway_binary_path="$output_dir/${package_name}-${package_arch}/web-gateway"
@@ -412,6 +424,10 @@ if [ ! -f "$zfs_metrics_cli_binary_path" ]; then
 	log.error "Missing zfs-metrics-cli binary: $zfs_metrics_cli_binary_path"
 	exit 1
 fi
+if [ ! -f "$file_writer_binary_path" ]; then
+	log.error "Missing file-writer binary: $file_writer_binary_path"
+	exit 1
+fi
 
 if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
@@ -497,6 +513,8 @@ install -D -m 0755 "$network_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/network-metrics-cli"
 install -D -m 0755 "$zfs_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli"
+install -D -m 0755 "$file_writer_binary_path" \
+	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer"
 install -d -m 0755 "$package_root/usr/bin"
 ln -sfn /usr/libexec/lite-nas/system-logging-manager-cli \
 	"$package_root/usr/bin/system-logging-manager-cli"
@@ -508,6 +526,8 @@ ln -sfn /usr/libexec/lite-nas/network-metrics-cli \
 	"$package_root/usr/bin/network-metrics-cli"
 ln -sfn /usr/libexec/lite-nas/zfs-metrics-cli \
 	"$package_root/usr/bin/zfs-metrics-cli"
+ln -sfn /usr/libexec/lite-nas/lite-nas-file-writer \
+	"$package_root/usr/bin/lite-nas-file-writer"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
 install -D -m 0755 "$resources_monitor_binary_path" \
@@ -545,6 +565,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/network-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli" \
+	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh" \

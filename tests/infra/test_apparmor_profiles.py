@@ -25,6 +25,11 @@ APPARMOR_PROFILE_CASES = [
     ),
     pytest.param("/usr/libexec/lite-nas/web-gateway", id="web-gateway-profile"),
     pytest.param("/usr/libexec/lite-nas/system-metrics-cli", id="system-metrics-cli-profile"),
+    pytest.param(
+        "/usr/libexec/lite-nas/lite-nas-file-writer",
+        marks=pytest.mark.FileWriter,
+        id="file-writer-profile",
+    ),
     pytest.param("/usr/libexec/lite-nas/zfs-metrics-cli", id="zfs-metrics-cli-profile"),
     pytest.param(
         "/usr/libexec/lite-nas/system-logging-manager-cli", id="system-logging-manager-cli-profile"

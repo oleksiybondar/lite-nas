@@ -45,6 +45,8 @@ source "$PACKAGE_ROOT/scripts/deploy/network-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/file-writer.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
@@ -72,6 +74,7 @@ MSG
 }
 
 deploy_runtime_files_without_start() {
+	local load_writer_profile="$1"
 	deploy.authService.deploy "$PACKAGE_ROOT/auth-service" 0
 	deploy.rbacService.deploy "$PACKAGE_ROOT/rbac-service" 0
 	deploy.systemLoggingManager.deploy "$PACKAGE_ROOT/system-logging-manager" 0
@@ -89,6 +92,7 @@ deploy_runtime_files_without_start() {
 	deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
 	deploy.networkMetricsCLI.deploy "$PACKAGE_ROOT/network-metrics-cli"
 	deploy.zfsMetricsCLI.deploy "$PACKAGE_ROOT/zfs-metrics-cli"
+	deploy.fileWriter.deploy "$PACKAGE_ROOT/lite-nas-file-writer" "$load_writer_profile"
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
 	deploy.liteNASIntegrity.deploy "$PACKAGE_ROOT/litenas-integrity" 0
@@ -150,6 +154,7 @@ deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
 deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
+deploy.fileWriter.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
@@ -159,7 +164,7 @@ if [ "$run_mode" = "validate" ]; then
 	export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
 	deploy.apparmor.deploy 0
 	deploy.postfix.deploy 0
-	deploy_runtime_files_without_start
+	deploy_runtime_files_without_start 0
 	deploy.normalizeEtcPermissions /etc
 	log.popTask
 	log.info "LiteNAS package runtime validation deployment completed."
@@ -173,7 +178,7 @@ log.popTask
 export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"
 
 log.pushTask "Deploying LiteNAS runtime files without service start"
-deploy_runtime_files_without_start
+deploy_runtime_files_without_start 1
 log.popTask
 
 log.pushTask "Normalizing deployed LiteNAS permissions"

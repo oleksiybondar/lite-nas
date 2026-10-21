@@ -31,6 +31,10 @@ SYSTEM_METRICS_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_METRICS_CLI_BINARY",
     "/usr/bin/system-metrics-cli",
 )
+FILE_WRITER_BINARY: str = os.environ.get(
+    "LITENAS_FILE_WRITER_BINARY",
+    "/usr/bin/lite-nas-file-writer",
+)
 SYSTEM_LOGGING_MANAGER_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY",
     "/usr/bin/system-logging-manager-cli",

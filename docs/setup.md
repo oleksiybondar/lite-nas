@@ -282,12 +282,11 @@ deploy flows, but they are not yet part of the packaged runtime path described
 in this section.
 
 The File Service and Stream Service are currently specified in
-`services/file-service/` and `services/stream-service/`; the dedicated
-`file-writer` application, installed as `lite-nas-file-writer`, is specified in
-`apps/file-writer/task.md`. They are not yet implemented or installed
-by the package. Their implementation plans require
-integration with the existing single-package build and release workflows when
-they are developed.
+`services/file-service/` and `services/stream-service/` and are not yet
+installed. The package includes `lite-nas-file-writer` for user-scoped upload
+stage creation, bounded writes, inspection, checksum, truncation, publication,
+and cleanup. Its command contract and remaining File Service integration work
+are documented in `apps/file-writer/README.md` and `apps/file-writer/task.md`.
 
 The planned services will listen on separate loopback-only HTTP(S) ports.
 Nginx will expose File Service at `/f/` for content/file operations and `/d/`

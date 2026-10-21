@@ -333,6 +333,13 @@ jobs:
               artifact_name: zfs-metrics-cli-linux
               build_script: scripts/build-zfs-metrics-cli-binary.sh
               output_path: .build/zfs-metrics-cli/linux-amd64/zfs-metrics-cli
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: File writer
+              artifact_name: lite-nas-file-writer-linux
+              build_script: scripts/build-file-writer-binary.sh
+              output_path: .build/lite-nas-file-writer/linux-amd64/lite-nas-file-writer
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -368,6 +375,13 @@ jobs:
               artifact_name: zfs-metrics-cli-linux
               build_script: scripts/build-zfs-metrics-cli-binary.sh
               output_path: .build/zfs-metrics-cli/linux-arm64/zfs-metrics-cli
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: File writer
+              artifact_name: lite-nas-file-writer-linux
+              build_script: scripts/build-file-writer-binary.sh
+              output_path: .build/lite-nas-file-writer/linux-arm64/lite-nas-file-writer
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -570,6 +584,12 @@ jobs:
         with:
           name: zfs-metrics-cli-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/zfs-metrics-cli
+
+      - name: Download file writer build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lite-nas-file-writer-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/lite-nas-file-writer
 
       - name: Download web gateway build artifact
         uses: actions/download-artifact@v4
