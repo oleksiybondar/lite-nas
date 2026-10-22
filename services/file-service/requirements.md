@@ -145,7 +145,7 @@ actual write access to the staged file.
 - Existing directories and symbolic links are not upload replacement targets;
   reject them without following or replacing them.
 - The destination-adjacent `.upload` file is created as the authenticated Unix
-  user by [lite-nas-file-writer](../../apps/file-writer/task.md) after
+  user by [lite-nas-file-writer](../../apps/file-writer/README.md) after
   RBAC approval. Both conventional and resumable upload bytes are written as
   that same user through the writer; the service account does not write or
   read the stage directly or require a host write group. A newly published

@@ -75,6 +75,16 @@ requirement-traceable tests. This task follows the classification in
   unless authentication, safe path resolution, and an RBAC allow decision
   succeed.
 
+## Moments integration
+
+Moments uses Stream Service for authorized media delivery, including HTTP
+range requests and Live Photo components. Keep album, tag, SQLite, and collage
+metadata ownership in the Moments Go service; do not duplicate those features
+here. Make the existing `/s/` media route reachable from both the admin-panel
+origin and the configured standalone `moments.<host>` origin so playback works
+in both embedding modes. Both routes must preserve the existing authorization,
+cookie, and Nginx path-forwarding requirements below.
+
 ## Requirements
 
 ### IR-001 Configure HTTP, Nginx, NATS, and service certificates

@@ -52,7 +52,7 @@ not close the broader acceptance and security verification below.
   RBAC still decides each caller's potential access; service group membership
   never authorizes a caller.
 - For uploads, the dedicated Go application
-  [lite-nas-file-writer](../../apps/file-writer/task.md) exclusively
+  [lite-nas-file-writer](../../apps/file-writer/README.md) exclusively
   creates `<destination>.upload`, writes conventional and resumable bytes,
   verifies/recovers the stage, and attempts the same-directory final rename as
   the verified Unix user after the relevant RBAC checks. File Service streams
@@ -724,3 +724,33 @@ as the source of truth while closing these verification items:
   and certificate rotation/bootstrap are integrated with LiteNAS operations.
 - Local build/deploy/test workflows and the single Debian build, validation,
   and publishing workflows include the service.
+
+## Additional work — per-user LiteNAS profile files
+
+The Admin Panel needs a user-owned `.lite-nas` directory in the user's home
+namespace for an avatar and preferred UI settings. Implement this through File
+Service so clients do not access host paths directly.
+
+1. Define and document the stable per-user profile directory and file naming
+   conventions with Admin Panel before implementation. The authenticated
+   identity, not a client-supplied username or arbitrary absolute path, selects
+   the user's profile location.
+2. Inspect existing listing, file read, conventional upload, user-scoped
+   writer, and RBAC contracts. Reuse existing operations when they support the
+   profile workflow safely.
+3. If the directory needs to be created on demand, define the smallest
+   validated File Service operation and corresponding user-scoped writer/RBAC
+   behavior that can create `.lite-nas` as the authenticated Unix user. Do not
+   create it as the File Service account or grant a general-purpose mkdir
+   capability. Update requirements and shared contracts before implementation;
+   do not guess a public DTO or route.
+4. Ensure profile file reads, avatar uploads/replacements, and settings writes
+   remain confined to the authenticated user's `.lite-nas` directory, use the
+   existing authentication and RBAC checks, and fail closed on policy or
+   filesystem errors.
+5. Document how the Admin Panel obtains and updates the avatar and preferred
+   UI settings through File Service. Keep the settings document schema owned by
+   the frontend contract and validate it before writes.
+6. Add focused tests for cross-user denial, path traversal, directory
+   provisioning, upload/replacement ownership, read authorization, and
+   dependency failures. Keep service-local tests in the File Service module.
