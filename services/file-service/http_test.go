@@ -42,7 +42,7 @@ func mustService(t *testing.T, root string, requester requestStub) *fileService 
 }
 
 // authorizedRequests grants Auth and RBAC while counting read decisions.
-func authorizedRequests(reads *int) requestStub {
+func authorizedRequests(reads *int, groups ...string) requestStub {
 	return func(_ context.Context, rpcSubject string, _ any, response any) error {
 		switch rpcSubject {
 		case authcontract.ValidateAccessTokenRPCSubject:
@@ -51,6 +51,7 @@ func authorizedRequests(reads *int) requestStub {
 			}
 		case rbaccontract.GetSubjectRolesRPCSubject:
 			response.(*rbaccontract.GetSubjectRolesResponse).UID = "1001"
+			response.(*rbaccontract.GetSubjectRolesResponse).Groups = groups
 		case rbaccontract.CanReadPathRPCSubject:
 			*reads++
 			response.(*rbaccontract.DecisionResponse).Allowed = true
@@ -58,6 +59,42 @@ func authorizedRequests(reads *int) requestStub {
 			return errors.New("unexpected RPC subject")
 		}
 		return nil
+	}
+}
+
+// TestOperatorReadRoutesHideSystemPaths covers file-service-svc/FR-003 and FR-008.
+func TestOperatorReadRoutesHideSystemPaths(t *testing.T) {
+	service := mustService(t, t.TempDir(), authorizedRequests(new(int), "lite-nas-operator"))
+	for _, test := range []struct {
+		path       string
+		wantStatus int
+	}{
+		{path: "/ls/", wantStatus: http.StatusOK},
+		{path: "/ls/etc", wantStatus: http.StatusForbidden},
+		{path: "/etc/passwd", wantStatus: http.StatusForbidden},
+	} {
+		request := httptest.NewRequest(http.MethodGet, test.path, nil)
+		request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "token"})
+		response := httptest.NewRecorder()
+		service.ServeHTTP(response, request)
+		if response.Code != test.wantStatus {
+			t.Errorf("GET %s = %d %q, want %d", test.path, response.Code, response.Body.String(), test.wantStatus)
+		}
+		if test.path == "/ls/" && strings.Contains(response.Body.String(), `"/etc"`) {
+			t.Error("operator root listing exposed /etc")
+		}
+	}
+}
+
+// TestAdministratorRootListingKeepsSystemPaths covers file-service-svc/FR-008.
+func TestAdministratorRootListingKeepsSystemPaths(t *testing.T) {
+	service := mustService(t, t.TempDir(), authorizedRequests(new(int), "sudo"))
+	request := httptest.NewRequest(http.MethodGet, "/ls/", nil)
+	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "token"})
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"/etc"`) {
+		t.Fatalf("administrator root listing = %d %q", response.Code, response.Body.String())
 	}
 }
 
@@ -77,6 +114,26 @@ func TestMissingTokenNeverReadsFile(t *testing.T) {
 	service.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized || strings.Contains(response.Body.String(), "secret") {
 		t.Fatalf("response = %d %q", response.Code, response.Body.String())
+	}
+}
+
+// TestMutationPolicyDenialsAreForbidden covers file-service-svc/FR-004.
+func TestMutationPolicyDenialsAreForbidden(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		err  error
+	}{
+		{name: "protected path", err: filesystem.ErrProtectedPath},
+		{name: "outside write roots", err: filesystem.ErrOutsideWriteRoots},
+		{name: "filesystem permission", err: os.ErrPermission},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			decisionError(response, test.err)
+			if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), `"code":"forbidden"`) {
+				t.Fatalf("policy denial = %d %q", response.Code, response.Body.String())
+			}
+		})
 	}
 }
 

@@ -20,6 +20,13 @@ CLI_DEFAULT_PROMPT_ENV = {
     "PROMPT": "hyperion$",
     "COLUMNS": "1024",
 }
+CLI_PAGER_ENV = {
+    "PAGER": "cat",
+    "MANPAGER": "cat",
+    "SYSTEMD_PAGER": "cat",
+    "GIT_PAGER": "cat",
+    "APT_PAGER": "cat",
+}
 CLI_DEFAULT_ARGS = ["--noprofile", "--norc"]
 CLI_DEFAULT_ENV = {
     "NO_COLOR": "1",
@@ -28,6 +35,7 @@ CLI_DEFAULT_ENV = {
     "FORCE_COLOR": "0",
     "TERM": "dumb",
     **CLI_DEFAULT_PROMPT_ENV,
+    **CLI_PAGER_ENV,
 }
 
 
@@ -36,16 +44,7 @@ def cli_client(request: pytest.FixtureRequest) -> Generator[CLIClient, None, Non
     """Create a stable shell-backed CLI client for infrastructure test cases."""
     client = CLIClient(
         shell_args=CLI_DEFAULT_ARGS,
-        env={
-            "NO_COLOR": "1",
-            "CLICOLOR": "0",
-            "CLICOLOR_FORCE": "0",
-            "FORCE_COLOR": "0",
-            "TERM": "dumb",
-            "PS1": "hyperion$",
-            "PROMPT": "hyperion$",
-            "COLUMNS": "1024",
-        },
+        env=CLI_DEFAULT_ENV,
     )
     client.start_session()
     request.addfinalizer(client.quit)
@@ -61,7 +60,7 @@ def authenticate_cli_client_as_user(
     cli_client.exec_interactive(f"su - {login}")
     cli_client.wait("Password:", timeout=5)
     cli_client.send_keys(password)
-    cli_client.wait("$")
+    cli_client.wait("$", timeout=10)
     replace_prompt(cli_client)
 
 
@@ -69,7 +68,7 @@ def replace_prompt(
     cli_client: CLIClient,
 ) -> None:
     """Replace the current CLI prompt with the provided string."""
-    for key, value in CLI_DEFAULT_PROMPT_ENV.items():
+    for key, value in {**CLI_DEFAULT_PROMPT_ENV, **CLI_PAGER_ENV}.items():
         cli_client.exec_interactive(f"export {key}={value!r}")
     cli_client.wait("$")
     cli_client.detect_action_prompt()

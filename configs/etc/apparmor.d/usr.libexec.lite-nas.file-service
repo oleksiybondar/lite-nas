@@ -21,6 +21,13 @@ profile /usr/libexec/lite-nas/file-service flags=(attach_disconnected,mediate_de
   /var/lib/lite-nas/file-service/** rwk,
   /run/lite-nas-file-service/ rw,
   /run/lite-nas-file-service/** rwk,
+  # Listing these directories needs read access to the directory itself.
+  / r,
+  /etc/ r,
+  /var/ r,
+  /var/log/ r,
+  /proc/ r,
+  /sys/ r,
   /home/ r,
   /home/** r,
   # These fixed commands may resolve to the installed alternative targets.

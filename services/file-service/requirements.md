@@ -85,6 +85,10 @@ owner may read the actual resolved target path.
 #### file-service-svc/FR-003 Acceptance Criteria
 
 - The read check uses `rbac.rpc.path.read.check` and the actual target path.
+- Before the RBAC check, non-administrators may read only within `/home`,
+  configured storage write roots, and mounted ZFS filesystems outside system directories.
+  Members of the `admin` or `sudo` group may request system paths, subject to
+  the same RBAC read check.
 - Denial, timeout, transport error, malformed response, or unresolved subject
   prevents file access.
 - Every new, resumed, or continued download request is authenticated and
@@ -392,8 +396,8 @@ independently of media format or filename extension.
 #### file-service-svc/FR-008 Description
 
 The service MUST provide an `ls` operation that filters directory results
-according to the authenticated token owner's effective path access as decided
-by RBAC.
+through a storage visibility boundary and the authenticated token owner's
+effective path access as decided by RBAC.
 
 #### file-service-svc/FR-008 Input
 
@@ -411,6 +415,10 @@ by RBAC.
 - The initial directory must pass RBAC read and execute/search checks, and all
   ancestor directories from host root `/` must pass
   execute/search checks.
+- Non-administrators may list `/home`, configured storage roots, mounted ZFS trees
+  outside system directories, and the ancestors needed to reach those trees.
+  Root listings omit system entries such as `/etc`, `/var`, `/sys`, and `/proc`.
+  Members of `admin` or `sudo` may list system paths when RBAC permits them.
 - A file is included only when RBAC allows read access to it and its ancestor
   directories from `/` are searchable by the subject.
 - A directory is included and traversed only when RBAC allows both read and

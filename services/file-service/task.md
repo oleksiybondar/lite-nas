@@ -183,6 +183,9 @@ Acceptance criteria:
 
 - The read decision uses the token owner's UID and the actual resolved target
   path, not an untrusted client-supplied identity.
+- For non-administrators, reads are limited to `/home`, configured storage roots, and
+  mounted ZFS trees outside system directories. Members of `admin` or `sudo`
+  may request system paths, subject to RBAC.
 - A deny or inability to get a trustworthy allow prevents opening/serving file
   contents.
 - Each new request to resume or continue a download is authenticated and
@@ -508,6 +511,11 @@ Acceptance criteria:
 - A directory is listable only when RBAC allows both read and execute/search
   access to that directory for the token owner's UID, with execute/search
   access on every ancestor from host root `/`.
+- Non-administrators see `/home`, configured storage roots, and mounted ZFS trees, with only the
+  ancestor directories needed to reach them. System directories such as
+  `/etc`, `/var`, `/sys`, and `/proc` are hidden from their root listing and
+  denied as direct listing targets. Admin and sudo groups retain RBAC-filtered
+  system listings.
 - Recursive traversal descends only into directories for which RBAC allows
   read and execute/search access; traversal never passes through an
   inaccessible directory.

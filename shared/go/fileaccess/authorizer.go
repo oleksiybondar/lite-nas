@@ -29,10 +29,11 @@ type Requester interface {
 	Request(context.Context, string, any, any) error
 }
 
-// Subject binds an Auth-verified username to the UID returned by RBAC.
+// Subject binds an Auth-verified username to the UID and groups returned by RBAC.
 type Subject struct {
 	Username string
 	UID      string
+	Groups   []string
 }
 
 // Authorizer sends every token and path decision to the owning services.
@@ -72,7 +73,7 @@ func (a *Authorizer) Resolve(ctx context.Context, token string) (Subject, error)
 	if err != nil || uid == 0 || strconv.FormatUint(uid, 10) != roles.UID {
 		return Subject{}, ErrSubjectUnavailable
 	}
-	return Subject{Username: validated.Username, UID: roles.UID}, nil
+	return Subject{Username: validated.Username, UID: roles.UID, Groups: append([]string(nil), roles.Groups...)}, nil
 }
 
 // Read asks RBAC to authorize reading an existing resolved file or directory.

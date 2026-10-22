@@ -7,15 +7,24 @@ from hyperiontf import RESTClient
 
 SESSION_COOKIE_VALUES = re.compile(r"(?i)(lite-nas-(?:at|rt)=)[^;\s,]+")
 REFRESH_VALUE_HEADER = re.compile(r"(?im)^(\s*Value:)\s*[^\n]+$")
+MAX_LOG_CHARS = 8192
 
 
 class RedactSessionCookies(logging.Filter):
-    """Remove session credentials from HyperionTF request and response logs."""
+    """Redact session credentials and bound transfer logs in HyperionTF reports."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Redact access and refresh values before a test report records them."""
+        """Redact cookies and bound large transfer bodies in the test report."""
         message = SESSION_COOKIE_VALUES.sub(r"\1[REDACTED]", record.getMessage())
-        record.msg = REFRESH_VALUE_HEADER.sub(r"\1 [REDACTED]", message)
+        message = REFRESH_VALUE_HEADER.sub(r"\1 [REDACTED]", message)
+        if len(message) > MAX_LOG_CHARS:
+            omitted = len(message) - MAX_LOG_CHARS
+            message = (
+                f"{message[: MAX_LOG_CHARS // 2]}\n"
+                f"[{omitted} transfer-log characters omitted]\n"
+                f"{message[-MAX_LOG_CHARS // 2 :]}"
+            )
+        record.msg = message
         record.args = ()
         return True
 

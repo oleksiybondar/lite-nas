@@ -94,6 +94,15 @@ func (s *fileService) download(writer http.ResponseWriter, request *http.Request
 		writeError(writer, http.StatusNotFound, "not_found")
 		return
 	}
+	scope, err := s.policy.ReadScope(subject.Groups)
+	if err != nil {
+		writeError(writer, http.StatusServiceUnavailable, "authorization_unavailable")
+		return
+	}
+	if !scope.AllowsFile(resolved) {
+		decisionError(writer, fileaccess.ErrDenied)
+		return
+	}
 	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
@@ -261,6 +270,15 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 		writeError(writer, http.StatusNotFound, "not_found")
 		return
 	}
+	scope, err := s.policy.ReadScope(subject.Groups)
+	if err != nil {
+		writeError(writer, http.StatusServiceUnavailable, "authorization_unavailable")
+		return
+	}
+	if !scope.AllowsDirectory(resolved) {
+		decisionError(writer, fileaccess.ErrDenied)
+		return
+	}
 	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
@@ -279,6 +297,13 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 				continue
 			}
 			path := filepath.Join(directory, entry.Name())
+			if entry.IsDir() {
+				if !scope.AllowsDirectory(path) {
+					continue
+				}
+			} else if !scope.AllowsFile(path) {
+				continue
+			}
 			if err := s.auth.Read(request.Context(), subject, path); err != nil {
 				if errors.Is(err, fileaccess.ErrDenied) {
 					continue

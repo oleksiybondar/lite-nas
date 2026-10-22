@@ -45,7 +45,9 @@ func TestResolveRequiresVerifiedTokenAndUID(t *testing.T) {
 					if request.(rbaccontract.GetSubjectRolesRequest).Username != "alice" {
 						t.Fatal("RBAC did not receive the verified username")
 					}
-					response.(*rbaccontract.GetSubjectRolesResponse).UID = test.uid
+					*response.(*rbaccontract.GetSubjectRolesResponse) = rbaccontract.GetSubjectRolesResponse{
+						UID: test.uid, Groups: []string{"lite-nas-operator"},
+					}
 				default:
 					t.Fatalf("unexpected RPC subject %q", subject)
 				}
@@ -58,7 +60,8 @@ func TestResolveRequiresVerifiedTokenAndUID(t *testing.T) {
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("Resolve error = %v, want %v", err, test.wantErr)
 			}
-			if test.wantErr == nil && subject != (Subject{Username: "alice", UID: "1001"}) {
+			if test.wantErr == nil && (subject.Username != "alice" || subject.UID != "1001" ||
+				len(subject.Groups) != 1 || subject.Groups[0] != "lite-nas-operator") {
 				t.Fatalf("Resolve subject = %+v", subject)
 			}
 			if test.wantErr == ErrUnauthenticated && calls != 1 {

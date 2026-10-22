@@ -1,22 +1,14 @@
 """Installed-system file access checks through Nginx's public mounts."""
 
-import os
-import shlex
-from collections.abc import Generator
-from http import HTTPStatus
-from uuid import uuid4
-
 import pytest
 from constants import (
     SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
-    SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
 )
-from hyperiontf import CLIClient, RESTClient, expect
+from hyperiontf import RESTClient, expect
+
+from .conftest import ACCESS_COOKIE
 
 pytestmark = [pytest.mark.api, pytest.mark.FileService, pytest.mark.Nginx]
-
-LOGIN_ENDPOINT = "/api/auth/login"
-ACCESS_COOKIE = "lite-nas-at"
 
 # Add paths here as installed-system coverage grows. The table deliberately
 # includes world-readable /etc/passwd: operator policy must still deny it.
@@ -38,55 +30,6 @@ OPERATOR_DENIED_LIST_PATHS = [
     pytest.param("/etc", id="system-configuration-directory"),
     pytest.param("/var/log", id="system-log-directory"),
 ]
-
-
-@pytest.fixture
-def operator_cookie(api_client: RESTClient) -> str:
-    """Log in through the admin-panel API and return its access cookie value."""
-    return login_cookie(
-        api_client,
-        SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
-        SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
-    )
-
-
-@pytest.fixture
-def admin_cookie(api_client: RESTClient) -> str:
-    """Require explicit credentials for the system-test admin account."""
-    login = os.getenv("LITENAS_FILE_SERVICE_ADMIN_LOGIN")
-    password = os.getenv("LITENAS_FILE_SERVICE_ADMIN_PASSWORD")
-    if not login or not password:
-        pytest.fail(
-            "Set LITENAS_FILE_SERVICE_ADMIN_LOGIN and "
-            "LITENAS_FILE_SERVICE_ADMIN_PASSWORD for File Service admin tests"
-        )
-    return login_cookie(api_client, login, password)
-
-
-def login_cookie(api_client: RESTClient, login: str, password: str) -> str:
-    """Use the browser-facing login endpoint and extract its access cookie."""
-    response = api_client.post(
-        path=LOGIN_ENDPOINT,
-        payload={"login": login, "password": password},
-    )
-    if response.status != HTTPStatus.OK or ACCESS_COOKIE not in response.cookies:
-        pytest.fail(f"login did not issue {ACCESS_COOKIE}: HTTP {response.status}")
-    return str(response.cookies[ACCESS_COOKIE])
-
-
-@pytest.fixture
-def operator_owned_file(operator_cli_client: CLIClient) -> Generator[str, None, None]:
-    """Create one private test file in the operator's home and remove it later."""
-    path = f"/home/{SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN}/.lite-nas-file-test-{uuid4().hex}"
-    quoted = shlex.quote(path)
-    operator_cli_client.execute(
-        f"printf 'operator-owned-file\\n' > {quoted} && chmod 0600 {quoted}"
-    )
-    operator_cli_client.assert_exit_code(0)
-    try:
-        yield path
-    finally:
-        operator_cli_client.execute(f"rm -f -- {quoted}")
 
 
 # Requirements: file-service-svc/FR-001 and file-service-svc/FR-003.

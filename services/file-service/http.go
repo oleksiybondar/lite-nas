@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"lite-nas/services/file-service/filesystem"
@@ -145,7 +146,10 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 // decisionError maps known authorization outcomes without exposing path details.
 func decisionError(writer http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, fileaccess.ErrDenied):
+	case errors.Is(err, fileaccess.ErrDenied),
+		errors.Is(err, filesystem.ErrOutsideWriteRoots),
+		errors.Is(err, filesystem.ErrProtectedPath),
+		errors.Is(err, os.ErrPermission):
 		writeError(writer, http.StatusForbidden, "forbidden")
 	case errors.Is(err, fileaccess.ErrInvalidPath):
 		writeError(writer, http.StatusBadRequest, "invalid_path")
