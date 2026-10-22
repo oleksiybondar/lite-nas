@@ -274,6 +274,7 @@ The `lite-nas` package currently installs:
 - `system-logging-manager-cli`
 - `security-logging-manager-cli`
 - `system-metrics-cli`
+- `lite-nas-file-writer`
 - `web-gateway`
 - packaged `admin-panel` assets
 
@@ -285,8 +286,11 @@ The File Service and Stream Service are currently specified in
 `services/file-service/` and `services/stream-service/` and are not yet
 installed. The package includes `lite-nas-file-writer` for user-scoped upload
 stage creation, bounded writes, inspection, checksum, truncation, publication,
-and cleanup. Its command contract and remaining File Service integration work
-are documented in `apps/file-writer/README.md` and `apps/file-writer/task.md`.
+and cleanup. Build it locally with `./scripts/build-file-writer-binary.sh`,
+or deploy it with `sudo ./scripts/deploy-file-writer.sh`. Its command contract,
+requirements, and remaining File Service integration work are documented in
+`apps/file-writer/README.md`, `apps/file-writer/requirements.md`, and
+`apps/file-writer/task.md`.
 
 The planned services will listen on separate loopback-only HTTP(S) ports.
 Nginx will expose File Service at `/f/` for content/file operations and `/d/`

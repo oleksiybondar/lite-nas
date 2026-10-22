@@ -5,6 +5,36 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.2.5 - File writer application
+
+### RL-0.2.5 Summary
+
+- Added the packaged `lite-nas-file-writer` command for user-owned upload
+  staging. File Service integration is still planned; the command does not
+  expose an HTTP endpoint or authorize uploads on its own.
+
+### RL-0.2.5 Added
+
+- Added exclusive stage creation, bounded writes, identity and size inspection,
+  SHA-256 checksums, recovery truncation, publication, and cleanup through a
+  JSON CLI contract.
+- Added a dedicated AppArmor profile, restricted sudoers rule, local build and
+  deploy scripts, Go unit tests, and installed-system CLI tests.
+
+### RL-0.2.5 Platform
+
+- Included the writer binary, `/usr/bin` convenience symlink, profile, and
+  sudoers rule in the single LiteNAS package and deployment flows.
+- Added writer builds and tests to local and CI checks for supported Linux
+  architectures.
+
+### RL-0.2.5 Notes
+
+- File Service must supply the verified non-root identity, enforce RBAC and
+  path policy, and control concurrent changes to upload directories before it
+  can use this writer for end-to-end uploads. Additional ZFS write roots also
+  require an AppArmor local include and profile reload.
+
 ## 0.2.1 - Email notification delivery
 
 ### RL-0.2.1 Summary

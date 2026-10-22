@@ -1,8 +1,11 @@
 # Release Notes
 
 Current platform state: the admin panel now surfaces system and security
-alert management plus system and ZFS metrics in the browser. The release
-entries below remain historical snapshots of when the platform slices landed.
+alert management plus system and ZFS metrics in the browser. A packaged
+file-writer command now provides user-scoped upload-stage operations for the
+planned File Service. The release entries below remain historical snapshots
+of when the platform slices landed. Current release changes are recorded in
+[RELEASE_NOTES.md](../RELEASE_NOTES.md).
 
 ## 0.2.1 - 2026-05-31
 

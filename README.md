@@ -8,7 +8,8 @@ The repository already contains an implemented platform slice:
 - shared Go modules for logging, configuration, messaging, and metrics support
 - backend services for system metrics, ZFS metrics, auth, RBAC, stateful
   alert management, resource monitoring, and email notification delivery
-- CLI apps for system metrics, ZFS metrics, and logging-manager operations
+- CLI apps for system metrics, ZFS metrics, and logging-manager operations,
+  plus a user-scoped file writer for future uploads
 - a browser-facing admin panel and gateway for alerts and telemetry
 - NATS-based internal communication between services and consumers
 - a web gateway that serves packaged frontend assets and adapts browser API
@@ -184,6 +185,12 @@ Current implemented focus:
   `system-email-notifier` and `security-email-notifier` consume alert events,
   render packaged HTML email templates, and deliver through local Postfix with
   support for authenticated upstream SMTP relay configuration.
+
+- **User-scoped upload staging**
+  `lite-nas-file-writer` performs bounded stage operations under a non-root
+  Unix identity. It is built and packaged with a restricted sudoers rule and
+  dedicated AppArmor profile. File Service integration is still planned, so
+  the writer does not yet provide an end-to-end upload API.
 
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
@@ -636,6 +643,10 @@ Useful starting points:
 - [`services/file-service/requirements.md`](services/file-service/requirements.md)
   Planned File Service requirements for RBAC-checked, resumable uploads and
   downloads.
+
+- [`apps/file-writer/requirements.md`](apps/file-writer/requirements.md) and
+  [`apps/file-writer/README.md`](apps/file-writer/README.md)
+  Requirements and CLI/deployment contract for the packaged upload-stage writer.
 
 - [`services/stream-service/requirements.md`](services/stream-service/requirements.md)
   Planned Stream Service requirements for authorized media delivery, seeking,
