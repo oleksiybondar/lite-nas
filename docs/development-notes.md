@@ -106,10 +106,10 @@ For the current use case, the important milestone is that resource and
 condition-change alerting now works through the real service boundaries that
 both CLI and UI consumers can reuse.
 
-## Planned file and media services
+## File Service and planned media service
 
-The File Service and Stream Service are specified as separate service
-boundaries:
+File Service is implemented and locally deployed. Stream Service remains a
+separate planned boundary:
 
 - File Service owns authenticated uploads/downloads, explicit pause/resume, and
   transfer state.
@@ -126,16 +126,15 @@ boundaries:
   `/d/home/alice/photo.jpg` map to `/home/alice/photo.jpg`, and
   `/s/media/movie.avi` maps to `/media/movie.avi`. RBAC checks the resolved
   host paths.
-- Both service logs are rotated by the packaged `/etc/logrotate.d/lite-nas`
-  policy at `/var/log/lite-nas/file-service.log` and
-  `/var/log/lite-nas/stream-service.log`, with daily rotation, seven retained
-  rotations, and compression.
+- The packaged `/etc/logrotate.d/lite-nas` policy rotates File Service's log at
+  `/var/log/lite-nas/file-service.log` daily, retaining seven compressed
+  rotations. Stream Service has a planned log path in the same policy.
 - Local deployment and Debian installation create the shared `lite-nas-fs-rd`
-  group idempotently. File Service and Stream Service use it for file read and
-  directory read plus search/traverse in provisioned file-backed storage
-  roots, with no write access. System-critical paths are excluded. Existing
-  content and new mounts need read/search group/ACL provisioning. Each service
-  has a dedicated AppArmor profile installed and loaded in enforce mode.
+  group idempotently. File Service uses it for file read and directory read
+  plus search/traverse in provisioned file-backed storage roots, with no write
+  access. Stream Service is designed to join it later. System-critical paths
+  are excluded. Existing content and new mounts need read/search group/ACL
+  provisioning. File Service has a dedicated enforce-mode AppArmor profile.
 - Browser requests use the gateway's existing `lite-nas-at` access cookie over
   the same HTTPS origin. Its `Secure`, `HttpOnly`, `SameSite=Lax`, and `Path=/`
   attributes allow both path mounts while keeping the token unavailable to
@@ -200,10 +199,17 @@ boundaries:
   depends on the playback client's codec support unless a documented conversion
   mode is provided.
 
-These services are currently requirements and implementation plans only. Their
-requirements and action lists are documented in
-`services/file-service/` and `services/stream-service/`; they are not yet
-installed or published by the current Debian package.
+File Service is wired into the local build and deployment flows and the
+single Debian package build. Its first-version reader uses fixed `/bin/cat`
+through `sudo -u` after RBAC allows the path. The non-root service unit grants
+`CAP_SETUID` and `CAP_SETGID` only within its capability bounding set; the
+AppArmor profile also permits those capabilities and sudo's PAM reads. The
+pathname replacement race and required follow-up tests remain documented in
+`services/file-service/READ_RACE_REVIEW.md`. The system test suite covers
+gateway-facing authentication and read/list access cases, while broader
+installed upload, package, and hardening verification remains open in
+`services/file-service/task.md`. Stream Service requirements and plan remain
+in `services/stream-service/`.
 
 ## Logging Manager Channel Split
 

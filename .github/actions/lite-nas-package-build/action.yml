@@ -99,6 +99,9 @@ runs:
       shell: bash
       run: scripts/ci/install-node-dependencies.sh
 
+    - name: "Prepare: setup Go for file-service package build"
+      uses: ./.github/actions/setup-go-job
+
     - name: "Prepare: package diagnostic log directory"
       shell: bash
       run: mkdir -p .build/package-ci-logs/${{ inputs.package_arch }}
@@ -123,6 +126,7 @@ runs:
         mkdir -p .artifacts/${{ inputs.package_arch }}/system-metrics-cli
         mkdir -p .artifacts/${{ inputs.package_arch }}/zfs-metrics-cli
         mkdir -p .artifacts/${{ inputs.package_arch }}/web-gateway
+        mkdir -p .artifacts/${{ inputs.package_arch }}/file-service
         mkdir -p .artifacts/${{ inputs.package_arch }}/resources-monitor
 
         cp "${{ inputs.auth_service_binary }}" .artifacts/${{ inputs.package_arch }}/auth-service/auth-service
@@ -133,6 +137,8 @@ runs:
         cp "${{ inputs.network_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/network-metrics-cli/network-metrics-cli
         cp "${{ inputs.system_metrics_cli_binary }}" .artifacts/${{ inputs.package_arch }}/system-metrics-cli/system-metrics-cli
         cp "${{ inputs.web_gateway_binary }}" .artifacts/${{ inputs.package_arch }}/web-gateway/web-gateway
+        GOARCH=${{ inputs.package_arch }} scripts/build-file-service-binary.sh \
+          --output=.artifacts/${{ inputs.package_arch }}/file-service/file-service
 
         if [ -n "${{ inputs.rbac_service_binary }}" ]; then
           cp "${{ inputs.rbac_service_binary }}" .artifacts/${{ inputs.package_arch }}/rbac-service/rbac-service

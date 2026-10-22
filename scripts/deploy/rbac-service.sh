@@ -7,6 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 readonly LITE_NAS_RBAC_SERVICE_NAME="${LITE_NAS_RBAC_SERVICE_NAME:-lite-nas-rbac}"
 readonly LITE_NAS_RBAC_RUNTIME_USER="${LITE_NAS_RBAC_RUNTIME_USER:-lite-nas-rbac}"
 readonly LITE_NAS_RBAC_RUNTIME_GROUP="${LITE_NAS_RBAC_RUNTIME_GROUP:-$LITE_NAS_RBAC_RUNTIME_USER}"
+readonly LITE_NAS_RBAC_READ_GROUP="lite-nas-fs-rd"
 readonly LITE_NAS_RBAC_CERT_USER="${LITE_NAS_RBAC_CERT_USER:-lite-nas-rbac-service}"
 readonly LITE_NAS_RBAC_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_RBAC_BINARY_TARGET="${LITE_NAS_RBAC_BINARY_TARGET:-/usr/libexec/lite-nas/rbac-service}"
@@ -70,6 +71,7 @@ deploy.rbacService.ensureGroup() {
 deploy.rbacService.ensureRuntimeUser() {
 	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_CONFIG_GROUP"
 	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_RUNTIME_GROUP"
+	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_READ_GROUP"
 	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_CERT_USER"
 
 	if ! id "$LITE_NAS_RBAC_RUNTIME_USER" >/dev/null 2>&1; then
@@ -80,7 +82,7 @@ deploy.rbacService.ensureRuntimeUser() {
 			--home-dir /nonexistent \
 			--shell /usr/sbin/nologin \
 			--gid "$LITE_NAS_RBAC_RUNTIME_GROUP" \
-			--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER" \
+			--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER,$LITE_NAS_RBAC_READ_GROUP" \
 			"$LITE_NAS_RBAC_RUNTIME_USER"
 		return 0
 	fi
@@ -89,7 +91,7 @@ deploy.rbacService.ensureRuntimeUser() {
 	usermod \
 		--gid "$LITE_NAS_RBAC_RUNTIME_GROUP" \
 		--append \
-		--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER" \
+		--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER,$LITE_NAS_RBAC_READ_GROUP" \
 		"$LITE_NAS_RBAC_RUNTIME_USER"
 }
 

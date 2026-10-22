@@ -156,3 +156,13 @@ HyperionTF logs therefore resolve predictably to `tests/logs`.
 
 The runner clears `tests/logs` once before the first category starts. CI uploads
 those logs as `system_tests_logs.zip` for post-failure review.
+
+## File Service API checks
+
+`api/test_file_service.py` logs in through `/api/auth/login` and sends all file
+requests through Nginx's `/f/` and `/ls/` mounts. Set
+`LITENAS_FILE_SERVICE_ADMIN_LOGIN` and `LITENAS_FILE_SERVICE_ADMIN_PASSWORD`
+to a dedicated admin test account before running the admin cases. The suite
+fails clearly when either value is missing rather than treating the default
+`testuser` account as an admin. REST client logs redact access and refresh
+cookie values before they are written to the HyperionTF report.

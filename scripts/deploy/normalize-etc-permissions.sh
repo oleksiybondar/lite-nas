@@ -219,6 +219,8 @@ deploy.normalizeNginx() {
 	deploy.normalizePath 0755 "$nginx_config_dir" "$owner"
 	deploy.normalizePath 0755 "$nginx_sites_available_dir" "$owner"
 	deploy.normalizePath 0755 "$nginx_sites_enabled_dir" "$owner"
+	deploy.normalizePath 0755 "$nginx_snippets_dir" "$owner"
+	deploy.normalizePath 0644 "$nginx_snippets_dir/lite-nas-file-service.conf" "$owner"
 
 	if [ -d "$nginx_sites_available_dir" ]; then
 		while IFS= read -r -d '' config_file; do
@@ -366,6 +368,7 @@ deploy.normalizeEtcPermissions() {
 	local nginx_config_dir="$target_dir/nginx"
 	local nginx_sites_available_dir="$nginx_config_dir/sites-available"
 	local nginx_sites_enabled_dir="$nginx_config_dir/sites-enabled"
+	local nginx_snippets_dir="$nginx_config_dir/snippets"
 	local systemd_dir="$target_dir/systemd"
 	local systemd_system_dir="$systemd_dir/system"
 	local config_file

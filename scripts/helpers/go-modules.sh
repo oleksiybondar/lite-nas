@@ -32,6 +32,9 @@ readonly LITE_NAS_ZFS_METRICS_CLI_APP_MODULE
 export LITE_NAS_FILE_WRITER_APP_MODULE="./apps/file-writer"
 readonly LITE_NAS_FILE_WRITER_APP_MODULE
 
+export LITE_NAS_FILE_SERVICE_MODULE="./services/file-service"
+readonly LITE_NAS_FILE_SERVICE_MODULE
+
 export LITE_NAS_SYSTEM_METRICS_CLI_APP_MODULE="./apps/system-metrics-cli"
 readonly LITE_NAS_SYSTEM_METRICS_CLI_APP_MODULE
 

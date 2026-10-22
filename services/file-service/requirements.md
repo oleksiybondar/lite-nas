@@ -91,6 +91,11 @@ owner may read the actual resolved target path.
   authorized again.
 - Client path traversal and encoding tricks cannot escape the configured
   storage boundary.
+- The first version may use fixed `/bin/cat` through `sudo -u` as the verified
+  non-root Unix user after RBAC allows the read. Its pathname replacement race
+  is explicitly accepted for this version and tracked in
+  [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md). This exception does not relax
+  token validation, RBAC checks, or storage-root checks.
 
 ### file-service-svc/FR-004 Authorize uploads through RBAC
 
@@ -175,8 +180,10 @@ resending bytes already accepted by the service.
   file. The conventional multipart mode parses parts incrementally with bounded
   working memory. Neither mode spools a complete upload to `/tmp`, the host SD
   card, or tmpfs before writing it to the destination filesystem. The multipart
-  contract must make the destination available before file content is accepted
-  so path validation and RBAC authorization precede direct streaming.
+  `destination` part precedes the `file` part so path validation and RBAC
+  authorization precede direct streaming. Conventional file content is limited
+  to 10 GiB. The proprietary mode has no configured whole-file size limit;
+  storage and 64-bit offsets impose practical bounds.
 - The resumable service routes are:
   - `POST /proprietary/upload` to create an upload resource.
   - `GET` and `HEAD /proprietary/upload/{upload-id}` to query progress.
@@ -253,7 +260,13 @@ resending bytes already accepted by the service.
   area associated with the upload ID and canonical destination. Do not create
   a `.meta` sidecar beside the target. Durable metadata remains authoritative
   across process restart and reboot; the tmpfs metadata reservation is only
-  for working copies.
+  for working copies. Each record stores the owner, canonical target, stage
+  identity, declared size and checksum, effective chunk size, committed offset
+  and index, idempotency key, and expiry. An incomplete upload expires 24 hours
+  after its last committed activity. A separate worker scans at startup and
+  every three hours using the shared timer infrastructure; it verifies stage
+  identity before cleaning expired content and metadata. Any in-memory index
+  is rebuilt from durable records after restart.
 - Each accepted chunk is appended at the committed offset to the `.upload`
   file by the user-scoped operation; the implementation does not rewrite all
   earlier bytes or append
@@ -696,7 +709,8 @@ access required to perform its service role.
   the destination-adjacent `.upload` file and committed metadata.
 - Host permissions do not replace the per-request RBAC allow decision.
 - Access uses race-resistant descriptor-relative or equivalent path handling
-  supported by the target Linux platform.
+  supported by the target Linux platform, except for the accepted first-version
+  raw `cat` read race documented in [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md).
 
 ### file-service-svc/OR-002 Integrate local build, test, deployment, and Debian
 

@@ -1,0 +1,45 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/file-service flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+  include <abstractions/authentication>
+
+  # The inherited sudo process drops to the RBAC-verified Unix account.
+  capability setgid,
+  capability setuid,
+
+  /usr/libexec/lite-nas/file-service mr,
+  /proc/*/stat r,
+  /etc/default/locale r,
+  /etc/lite-nas/file-service.conf r,
+  /proc/sys/net/core/somaxconn r,
+  /var/log/lite-nas/file-service.log rw,
+  /var/lib/lite-nas/file-service/ rw,
+  /var/lib/lite-nas/file-service/** rwk,
+  /run/lite-nas-file-service/ rw,
+  /run/lite-nas-file-service/** rwk,
+  /home/ r,
+  /home/** r,
+  # These fixed commands may resolve to the installed alternative targets.
+  /usr/bin/sudo ix,
+  /usr/lib/cargo/bin/sudo ix,
+  /usr/lib/sudo/** mr,
+  /usr/libexec/sudo/** mr,
+  /etc/sudo.conf r,
+  /etc/sudoers r,
+  /etc/sudoers.d/ r,
+  /etc/sudoers.d/** r,
+  /run/sudo/** rwk,
+  /var/db/sudo/** rwk,
+  /var/lib/sudo/** rwk,
+  /bin/cat ix,
+  /usr/lib/cargo/bin/coreutils/cat ix,
+  /bin/rm ix,
+  /usr/bin/gnurm ix,
+  /usr/libexec/lite-nas/lite-nas-file-writer Px,
+
+  include if exists <local/usr.libexec.lite-nas.file-service>
+}

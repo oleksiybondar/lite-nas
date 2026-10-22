@@ -125,6 +125,8 @@ jobs:
             dir: ./services/system-metrics
           - name: Web gateway service
             dir: ./services/web-gateway
+          - name: File service
+            dir: ./services/file-service
           - name: ZFS metrics service
             dir: ./services/zfs-metrics
           - name: Security logging manager CLI app
@@ -410,6 +412,15 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: File Service
+              artifact_name: file-service-linux
+              build_script: scripts/build-file-service-binary.sh
+              output_path: .build/file-service/linux-amd64/file-service
+              test_script: scripts/test-file-service.sh
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Web gateway
               artifact_name: web-gateway-linux
               build_script: scripts/build-web-gateway-binary.sh
@@ -532,6 +543,15 @@ jobs:
               build_script: scripts/build-system-metrics-binary.sh
               output_path: .build/system-metrics/linux-arm64/system-metrics
               test_script: scripts/test-system-metrics.sh --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: File Service
+              artifact_name: file-service-linux
+              build_script: scripts/build-file-service-binary.sh
+              output_path: .build/file-service/linux-arm64/file-service
+              test_script: scripts/test-file-service.sh
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -845,6 +865,12 @@ jobs:
           name: lite-nas-file-writer-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/lite-nas-file-writer
 
+      - name: Download File Service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: file-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/file-service
+
       - name: Download web gateway build artifact
         uses: actions/download-artifact@v4
         with:
@@ -947,8 +973,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

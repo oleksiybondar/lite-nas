@@ -1,0 +1,45 @@
+[Unit]
+Description=LiteNAS file service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-file-service
+Group=lite-nas-file-service
+SupplementaryGroups=lite-nas lite-nas-fs-rd
+ExecStart=/usr/libexec/lite-nas/file-service
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=no
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=full
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+# sudo must be able to become the RBAC-verified Unix user for file reads and writes.
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+UMask=0077
+TemporaryFileSystem=/run/lite-nas-file-service:rw,size=64M,mode=0700
+ReadWritePaths=/home /var/lib/lite-nas/file-service /var/log/lite-nas/file-service.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

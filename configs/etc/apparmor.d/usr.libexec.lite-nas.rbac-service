@@ -9,11 +9,17 @@ profile /usr/libexec/lite-nas/rbac-service flags=(attach_disconnected,mediate_de
   /usr/libexec/lite-nas/rbac-service mr,
   /etc/lite-nas/rbac-service.conf r,
   /var/log/lite-nas/rbac-service.log rw,
+  # RBAC must inspect home ACLs before deciding access for another service.
+  /home/ r,
+  /home/** r,
 
   /usr/bin/getent ix,
   /usr/bin/getfacl ix,
+  # Ubuntu alternatives may resolve these commands into the Cargo directory.
   /usr/bin/id ix,
+  /usr/lib/cargo/bin/coreutils/id ix,
   /usr/bin/sudo ix,
+  /usr/lib/cargo/bin/sudo ix,
   /usr/lib/sudo/** mr,
   /usr/libexec/sudo/** mr,
   /etc/sudo.conf r,

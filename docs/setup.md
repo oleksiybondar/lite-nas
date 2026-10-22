@@ -245,8 +245,8 @@ The package output currently contains one native-architecture package:
 
 The `lite-nas` package:
 
-- depends on `aide`, `libpam0g`, `zfsutils-linux`, `nats-server`, `nginx`,
-  `openssl`, `systemd`, and `ufw`
+- depends on `acl`, `aide`, `apparmor`, `libc6`, `libpam0g`, `postfix`, `sudo`,
+  `zfsutils-linux`, `nats-server`, `nginx`, `openssl`, `systemd`, and `ufw`
 - installs the AIDE binary as a platform dependency, but LiteNAS does not
   initialize an AIDE database or use the distribution default AIDE config during
   package installation
@@ -269,36 +269,45 @@ The `lite-nas` package currently installs:
 - `rbac-service`
 - `system-logging-manager`
 - `security-logging-manager`
+- `system-email-notifier`
+- `security-email-notifier`
+- `network-metrics`
+- `process-metrics`
+- `disk-metrics`
+- `service-metrics`
 - `system-metrics`
+- `zfs-metrics`
 - `resources-monitor`
+- `litenas-integrity`
 - `system-logging-manager-cli`
 - `security-logging-manager-cli`
 - `system-metrics-cli`
+- `network-metrics-cli`
+- `zfs-metrics-cli`
 - `lite-nas-file-writer`
+- `file-service`
 - `web-gateway`
 - packaged `admin-panel` assets
 
-`zfs-metrics` and `zfs-metrics-cli` already exist in the repository and local
-deploy flows, but they are not yet part of the packaged runtime path described
-in this section.
-
-The File Service and Stream Service are currently specified in
-`services/file-service/` and `services/stream-service/` and are not yet
-installed. The package includes `lite-nas-file-writer` for user-scoped upload
+File Service is implemented and available in local deployment and the
+single-package build. Deploy it with
+`sudo ./scripts/deploy-file-service.sh`; use `--skip-bootstrap` when refreshing
+an already bootstrapped system. The script builds the binary, installs its
+systemd unit, sudoers rule, AppArmor profile, and config, then restarts the
+service. It uses `lite-nas-file-writer` for user-scoped upload
 stage creation, bounded writes, inspection, checksum, truncation, publication,
-and cleanup. Build it locally with `./scripts/build-file-writer-binary.sh`,
-or deploy it with `sudo ./scripts/deploy-file-writer.sh`. Its command contract,
-requirements, and remaining File Service integration work are documented in
-`apps/file-writer/README.md`, `apps/file-writer/requirements.md`, and
-`apps/file-writer/task.md`.
+and cleanup. The writer's command contract is in
+`apps/file-writer/README.md` and `apps/file-writer/requirements.md`.
+Stream Service remains planned in `services/stream-service/`.
 
-The planned services will listen on separate loopback-only HTTP(S) ports.
-Nginx will expose File Service at `/f/` for content/file operations and `/d/`
-for explicit downloads, and Stream Service at `/s/`, while internal service
-calls continue to use NATS. For example,
+File Service listens on `127.0.0.1:8082`. Nginx includes its separate
+`lite-nas-file-service.conf` snippet in the LiteNAS server blocks and exposes
+`/f/` for content/file operations, `/d/` for explicit downloads, and `/ls/`
+for directory listings. Stream Service is planned for `/s/`. Internal service
+calls use NATS. For example,
 `/f/home/alice/photo.jpg` and `/d/home/alice/photo.jpg` map to
 `/home/alice/photo.jpg`, and `/s/media/movie.avi` maps to `/media/movie.avi`;
-RBAC checks the resolved host paths. File Service will also provide public
+RBAC checks the resolved host paths. File Service also provides public
 `GET /ls/{absolute-path...}`, separately from the `/f/` file-operation mount.
 For example, `/ls/abs/path?recursive&files-only` lists RBAC-authorized files
 below host `/abs/path`. Successful responses contain JSON `files` and
@@ -306,7 +315,7 @@ below host `/abs/path`. Successful responses contain JSON `files` and
 `directories` array. Errors use a non-success HTTP status and JSON with an
 `error` code.
 
-File Service will also support `DELETE /f/{absolute-path...}` for authorized
+File Service also supports `DELETE /f/{absolute-path...}` for authorized
 regular files. It checks an explicit RBAC delete decision and rejects targets
 inside protected system paths before changing the filesystem. Installed
 protected roots include `/etc` and platform-critical runtime directories; the
@@ -317,14 +326,14 @@ and symbolic-link deletion are outside the initial scope.
 File downloads use standard HTTP byte ranges. A regular browser download can
 resume or seek when its client uses `Range`; the future file-explorer download
 manager can fetch separate ranges concurrently (16 per file by default), then
-reassemble them locally. That accelerated mode is implemented in the client;
+reassemble them locally. That accelerated mode belongs in the future client;
 the service simply answers ordinary `HEAD` and `GET` requests. Strong ETags
 keep all segments tied to the same file version if an upload replaces it while
 the download is running. `/f/` uses inline headers for recognized PDFs/images
 and attachment headers for other content; `/d/` always uses
 `application/octet-stream` with attachment. Neither route redirects.
 
-The planned File Service supports ordinary browser/form uploads at `/f/upload`
+File Service supports ordinary browser/form uploads at `/f/upload`
 with `multipart/form-data` and a separate resumable protocol for the future
 LiteNAS frontend app under `/f/proprietary/upload`. Resumable chunks default to
 1 MiB and can be configured from 1 MiB through 16 MiB; the effective size is
@@ -344,8 +353,9 @@ triggers staged-file cleanup. Uploads and deletes are denied under built-in
 protected OS/runtime paths and
 operator-added `filesystem.protected_paths`.
 
-The File and Stream Services run non-root. `lite-nas-fs-rd` grants file read
-and directory read plus search/traverse in provisioned file-backed storage
+File Service runs non-root; Stream Service is designed to do the same.
+`lite-nas-fs-rd` grants file read and directory read plus search/traverse in
+provisioned file-backed storage
 roots, with no write permission. Neither service has a general host write
 group. System-critical paths are excluded, and existing content and new mounts
 need read/search group/ACL provisioning. RBAC still decides each requesting
@@ -353,14 +363,21 @@ user's potential access. The user owns the completed file because the writer
 creates and writes the stage under that identity; its group, mode, and ACL
 become the final file's metadata even on overwrite. The previous file's
 permissions and ACL are not copied. The writer has a separate enforce-mode
-AppArmor profile, and deployment must verify its confinement across sudo.
+AppArmor profile. File Service's systemd unit retains only `CAP_SETUID` and
+`CAP_SETGID` in its capability bounding set so its restricted `sudo -u` reader
+and writer can become the RBAC-verified Unix user. Its AppArmor profile permits
+those capabilities and the PAM configuration needed by sudo. If an authorized
+download returns `read_failed`, inspect `journalctl -u lite-nas-file-service`
+and AppArmor denials in `journalctl -k`; the HTTP error intentionally omits
+command details. The current private-file reader uses fixed `/bin/cat` through
+`sudo -u` and has the pathname replacement race recorded in
+`services/file-service/READ_RACE_REVIEW.md`.
 
-The service also exposes its authenticated Swagger UI at `/f/docs` and its
-OpenAPI document at `/f/openapi.json`. The `api_docs.enabled` setting can turn
-both off. Development and test configurations enable these routes; production
-configuration disables them.
+The service exposes its authenticated Swagger UI at `/f/docs` and its OpenAPI
+document at `/f/openapi.json` when `api_docs.enabled=true`. The packaged
+configuration sets this option to `false`; the service default is `true`.
 
-In the planned browser flow, both mounts use the existing `lite-nas-at` access
+In the browser flow, the file mounts use the existing `lite-nas-at` access
 cookie on the same HTTPS origin. The cookie is `Secure`, `HttpOnly`,
 `SameSite=Lax`, and scoped to `/`; Nginx forwards it to the matching service,
 which validates the token itself.

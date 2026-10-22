@@ -41,6 +41,8 @@ source "$ENTRYPOINT_DIR/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/file-writer.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/file-service.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
@@ -65,6 +67,7 @@ system_metrics_cli_binary=""
 network_metrics_cli_binary=""
 zfs_metrics_cli_binary=""
 file_writer_binary=""
+file_service_binary=""
 web_gateway_binary=""
 admin_panel_assets=""
 resources_monitor_binary=""
@@ -104,6 +107,7 @@ Options:
                                   Install an existing network-metrics-cli binary.
   --zfs-metrics-cli-binary PATH   Install an existing zfs-metrics-cli binary.
   --file-writer-binary PATH       Install an existing lite-nas-file-writer binary.
+  --file-service-binary PATH      Install an existing file-service binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
   --admin-panel-assets PATH       Install existing admin-panel Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
@@ -279,6 +283,15 @@ while [ "$#" -gt 0 ]; do
 		file_writer_binary="$2"
 		shift 2
 		;;
+	--file-service-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --file-service-binary"
+			usage >&2
+			exit 2
+		fi
+		file_service_binary="$2"
+		shift 2
+		;;
 	--web-gateway-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --web-gateway-binary"
@@ -358,12 +371,13 @@ deploy.systemMetricsCLI.requireTools
 deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.fileWriter.requireTools
+deploy.fileService.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -474,6 +488,12 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		file_writer_binary="$tmp_dir/lite-nas-file-writer"
 	fi
 
+	if [ -z "$file_service_binary" ]; then
+		build_args=("--output=$tmp_dir/file-service")
+		"$ENTRYPOINT_DIR/build-file-service-binary.sh" "${build_args[@]}"
+		file_service_binary="$tmp_dir/file-service"
+	fi
+
 	if [ -z "$web_gateway_binary" ]; then
 		build_args=("--output=$tmp_dir/web-gateway")
 		"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"
@@ -581,6 +601,10 @@ log.popTask
 
 log.pushTask "Deploying file-writer app"
 deploy.fileWriter.deploy "$file_writer_binary"
+log.popTask
+
+log.pushTask "Deploying file-service"
+deploy.fileService.deploy "$file_service_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying resources-monitor service"

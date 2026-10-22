@@ -13,6 +13,8 @@ profile /usr/libexec/lite-nas/litenas-integrity flags=(attach_disconnected,media
 
   /usr/bin/aide ix,
   /usr/bin/sudo ix,
+  # Ubuntu's sudo alternative can resolve to this executable.
+  /usr/lib/cargo/bin/sudo ix,
   /bin/mv ix,
   /usr/lib/sudo/** mr,
   /usr/libexec/sudo/** mr,

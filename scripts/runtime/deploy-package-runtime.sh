@@ -47,6 +47,8 @@ source "$PACKAGE_ROOT/scripts/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/file-writer.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/file-service.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
@@ -93,6 +95,7 @@ deploy_runtime_files_without_start() {
 	deploy.networkMetricsCLI.deploy "$PACKAGE_ROOT/network-metrics-cli"
 	deploy.zfsMetricsCLI.deploy "$PACKAGE_ROOT/zfs-metrics-cli"
 	deploy.fileWriter.deploy "$PACKAGE_ROOT/lite-nas-file-writer" "$load_writer_profile"
+	deploy.fileService.deploy "$PACKAGE_ROOT/file-service" 0
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
 	deploy.liteNASIntegrity.deploy "$PACKAGE_ROOT/litenas-integrity" 0
@@ -155,6 +158,7 @@ deploy.systemMetricsCLI.requireTools
 deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.fileWriter.requireTools
+deploy.fileService.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
@@ -202,6 +206,7 @@ deploy.diskMetrics.enableAndStart
 deploy.systemMetrics.enableAndStart
 deploy.zfsMetrics.enableAndStart
 deploy.webGateway.enableAndStart
+deploy.fileService.enableAndStart
 deploy.resourcesMonitor.enableAndStart
 deploy.liteNASIntegrity.enableAndStart
 log.popTask

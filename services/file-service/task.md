@@ -1,4 +1,4 @@
-# File Service — Implementation Task
+# File Service — Contract and Remaining Work
 
 ## Goal
 
@@ -12,6 +12,15 @@ source-qualified IDs (for example, `file-service-svc/FR-001`) in
 requirement-traceable tests. This task follows the classification in
 `requirements/requirement-types.md` and the boundaries in
 `requirements/rbac-service-boundaries.md`.
+
+## First-version status
+
+File Service, its user-scoped writer, the `/f/`, `/d/`, and `/ls/` Nginx mounts,
+Auth/RBAC NATS calls, certificate identity, non-root service unit, restricted
+sudoers rules, AppArmor profiles, local build/deploy scripts, and single-package
+Debian wiring are implemented. A browser download of an authorized user file
+through `/f/` has been confirmed on a local deployment. This confirmation does
+not close the broader acceptance and security verification below.
 
 ## Service Boundaries
 
@@ -100,6 +109,10 @@ Acceptance criteria:
   both mounts works through HTTPS; an HTTP request without a valid token is
   denied. Path forwarding preserves the suffix used to derive the absolute
   host path and does not collide with gateway/API routes.
+- Keep File Service proxy locations in a dedicated Nginx snippet included by
+  both LiteNAS server blocks; the web-gateway site contains only the include.
+  Local deployment and the Debian package install the snippet before Nginx
+  configuration validation or reload.
 - Nginx forwards `GET` and `HEAD /d/{absolute-path...}` to the File Service's
   explicit download handler. The `/d/` suffix identifies the same host file as
   the corresponding `/f/` suffix; `/d/` does not accept upload, delete, or
@@ -176,6 +189,11 @@ Acceptance criteria:
   authorized again.
 - Path traversal and alternate path encodings cannot bypass the configured
   storage boundary or the RBAC decision.
+- The first version may serve private files by invoking fixed `/bin/cat` with
+  `sudo -u` as the verified Unix user after the RBAC read allow. This has the
+  authorized-path-to-open race documented in
+  [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md); tests and a reader replacement
+  are required before claiming race-resistant download access.
 
 ### FR-004 Authorize uploads through RBAC
 
@@ -251,9 +269,10 @@ The File Service MUST expose two upload modes with separate HTTP routes:
   staging and final publication flow as resumable uploads. Parse the multipart
   body incrementally and write its file part to `.upload` with bounded working
   memory; do not use a parser that spools the complete large file to `/tmp` or
-  another service-local disk location. Define how the destination is supplied
-  before accepting file bytes so authorization and direct streaming are
-  possible. This mode does not promise resumability.
+  another service-local disk location. The `destination` part MUST precede the
+  `file` part so authorization finishes before file bytes are accepted. Reject
+  the opposite order. File content is limited to 10 GiB. This mode does not
+  promise resumability.
 - A LiteNAS app protocol provides resumable initialization, chunk upload, and
   finalization operations under `/proprietary/upload`; Nginx exposes these as
   `/f/proprietary/upload`. The later frontend app will implement this protocol;
@@ -281,7 +300,9 @@ The resumable protocol MUST follow this lifecycle:
    configured for the service in the inclusive 1–16 MiB range, with a 1 MiB
    default. Initialization records the effective size for that upload, so
    resume keeps using it even if service configuration later changes. Only the
-   final chunk may be shorter. The client discovers existing progress through
+   final chunk may be shorter. The proprietary protocol has no configured
+   whole-file size limit; the destination filesystem and 64-bit offsets are
+   its practical bounds. The client discovers existing progress through
    the upload resource rather than repeating creation with the same metadata.
 3. `PATCH /proprietary/upload/{upload-id}` sends one raw next-chunk body with the committed
    `Upload-Offset` header. Chunks are accepted in order, beginning at
@@ -380,8 +401,14 @@ Keep durable upload metadata in a private, permission-restricted service area,
 associated with the upload ID and canonical target. Do not create a
 `destination.ext.meta` sidecar beside the target. Durable metadata remains
 authoritative across process restart and reboot; the tmpfs metadata working
-copy is bounded by its 4 MiB reservation. Incomplete `.upload` files and
-metadata follow the documented expiration and cleanup policy. After full
+copy is bounded by its 4 MiB reservation. Each durable record includes the
+authenticated owner, canonical target, stage identity, declared size and
+checksum, effective chunk size, committed offset and chunk index, idempotency
+key, and expiry. Incomplete uploads expire 24 hours after the last committed
+activity. A separate cleanup worker uses the existing shared timer to scan at
+startup and every three hours, verifies stage identity, and removes expired
+stages and records. An in-memory index may speed lookups but is rebuilt from
+durable records after restart. After full
 validation and a fresh authorization decision, attempt to atomically rename
 the `.upload` file to the destination as the verified Unix user. Unix
 directory and sticky-bit permissions may deny publication. On a failed rename,
@@ -567,8 +594,10 @@ Acceptance criteria:
   explicitly supported. The service's private upload state remains accessible
   only to the service, while staged content lives in the target directory.
 - Filesystem operations use safe descriptor-relative or equivalent
-  race-resistant path handling supported by the target Linux platform, and
-  completed uploads are published atomically where the filesystem permits.
+  race-resistant path handling supported by the target Linux platform, except
+  for the accepted first-version raw `cat` read race documented in
+  [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md). Completed uploads are published
+  atomically where the filesystem permits.
 
 ### RR-001 Handle interrupted transfers and dependency failures
 
@@ -646,172 +675,32 @@ Acceptance criteria:
   existing release process.
 - This work does not create a separate per-service Debian package.
 
-## Implementation Actions
+## Remaining work
 
-Complete these actions in order. Do not invent contracts at integration
-boundaries; inspect existing code and record unresolved decisions before
-implementing them.
+The first-version implementation actions are complete and have been removed
+from this task list. Keep the detailed contract and acceptance criteria above
+as the source of truth while closing these verification items:
 
-### Decisions required before file-operation implementation
-
-1. Complete the [writer task](../../apps/file-writer/task.md): define
-   its exact CLI/result contract, bind the verified username to the RBAC UID,
-   and prevent argument/path substitution and authorization-to-use races.
-   Sudoers must allow only the fixed writer executable as approved non-root
-   users. Its upload-stage operations cover exclusive `.upload` creation,
-   bounded streaming writes at the committed offset, durability before
-   acknowledgement, checksum verification, recovery truncation, final rename,
-   and cleanup. A separate `touch` cannot safely reserve an existing path.
-   Regular-file deletion remains a separate RBAC and execution decision.
-2. Apply the agreed overwrite rule: the `.upload` inode becomes the final inode
-   after rename, with its user UID, group, mode, and ACL. Do not copy metadata
-   from the old destination. Record how replacement behaves when the user can
-   write the old file but cannot replace its directory entry; RBAC and the
-   user-scoped rename must deny publication in that case.
-3. Settle the conventional multipart field order: require `destination`
-   before the `file` part, or define another bounded way to know and authorize
-   the destination before accepting file bytes. Do not spool a large request
-   body to discover its destination.
-4. Complete the RBAC create/replace/delete/traverse contracts in
-   [the RBAC task](../rbac/task.md) before relying on them. Define the full
-   HTTP error/status catalog, upload-state expiry, and supported upload
-   metadata fields before publishing the OpenAPI contract.
-5. Define how `lite-nas-fs-rd` receives file read and directory read/search
-   on existing storage, newly created user files, and newly created ZFS mounts
-   without a write grant. A user-created `0600` file will not become readable
-   to the service merely because it belongs to the read group. Specify the
-   storage roots excluded as system-critical and cleanup if the user-scoped
-   final rename or stage removal fails.
-
-6. Inspect Auth token validation, service-to-service NATS access, RBAC contract
-   registration, shared TLS/messaging configuration, certificate issuance and
-   rotation scripts, NATS authorization, service configuration, logging,
-   deployment, aggregate local build/deploy/test scripts, Debian packaging,
-   package validation, and release workflows.
-7. Identify existing reusable infrastructure needed by both File Service and
-   Stream Service, including token validation, RBAC subject/path checks, safe
-   path resolution, and file access. Reuse existing shared packages; if common
-   behavior is not already shared, define and implement the smallest shared
-   repository package needed by both services. Keep ownership and API explicit
-   and keep transfer-specific behavior local.
-8. Resolve the decisions above, then define the File Service's public HTTP
-   transport, Nginx mounts at `/f/` for
-   file operations and `/d/` for explicit downloads, and public
-   `GET /ls/{absolute-path...}` listing route.
-   Specify the loopback listener port, proxy path forwarding behavior, and
-   route ownership for `/f/`, `/f/docs`, `/f/openapi.json`, `/f/upload`,
-   `/f/proprietary/upload`, `/f/proprietary/upload-window`,
-   `DELETE /f/{absolute-path...}`, and `GET`/`HEAD /d/{absolute-path...}`.
-   Map the path suffix after `/f` or `/d` to the corresponding
-   absolute host path (for example, `/f/home/alice/photo.jpg` maps to
-   `/home/alice/photo.jpg`) and the suffix after `/ls` to the host directory to
-   list (for example, `/ls/abs/path` lists `/abs/path`). Validate
-   normalization and symlink resolution. Define presence semantics for both
-   query flags, the success JSON fields, stable error codes/status mapping, and
-   the transfer
-   protocol, including conventional multipart upload and resumable
-   initialization/chunk/status/finalize/cancel operations, download
-   pause/resume and continuation semantics, `ls` request/response fields and
-   `recursive`/`files-only` query behavior, JSON responses, error mapping,
-   transfer expiry, and
-   maximum size/part limits. Define generic `DELETE /f/{absolute-path...}` for
-   regular-file deletion, `filesystem.protected_paths` and
-   `filesystem.write_roots` defaults and override behavior, user-scoped
-   execution setup, protected descendant matching, stable error statuses,
-   and the required RBAC delete authorization contract. Compare the resumable app protocol with the
-   existing tus resumable-upload protocol and document why LiteNAS needs its
-   specified JSON/chunk-index flow or whether it can use tus before
-   implementation. Document the selected contract before implementation.
-9. Validate the presented access token on every protected HTTP request through
-   the existing `auth.rpc.token.validate` NATS contract. Use its verified
-   username for RBAC subject resolution and deny on any invalid, absent, or
-   failed Auth response. Document that the current Auth handler verifies token
-   validity and expiry but does not check an immediate access-token revocation
-   list. RBAC does not validate JWTs.
-10. Implement safe mapping from the `/f/` and `/d/` route suffixes to the
-   corresponding absolute host path. Validate path normalization and symlink
-   behavior, and ensure RBAC checks the actual resolved host path before it is
-   operated on.
-   Load and validate `filesystem.protected_paths`; reject mutation of a
-   configured root or descendant before any destructive filesystem operation.
-11. Define and implement the non-root HTTP runtime account, provisioned read
-   group, and invocation of `lite-nas-file-writer` for creating, writing,
-   publishing, and cleaning up `.upload` as the verified Unix user. Install
-   only the required sudoers/AppArmor rules through local deployment and Debian
-   install/upgrade flows. Do not grant unrestricted command paths, shell
-   execution, or arbitrary target users. Perform no post-upload ownership
-   assignment and grant the service account no general write access to host
-   files. Include temporary data,
-   including a bounded 64 MiB tmpfs with 4 MiB reserved for metadata working
-   files and 60 MiB for incoming chunk buffers, plus the destination-adjacent
-   `.upload` file for acknowledged bytes and protected durable resume metadata.
-   Write and enforce the separate File Service and writer AppArmor profiles,
-   including confinement across `sudo`. Document
-   installation/configuration requirements and prove expected access works
-   without running the service as root.
-12. Use native filesystem/process facilities and standard library support for
-   temporary upload data, durable transfer metadata if needed, safe file
-   operations, cleanup, and atomic completion. Introduce external dependencies
-   only with a documented need.
-13. For any capability not handled well by the standard library, select a simple,
-   mainstream Go library that fits the existing repository stack. Record why it
-   is needed and keep dependencies minimal.
-14. Add only the required service contracts/configuration and runtime wiring,
-   following existing service patterns. Validate all request inputs at the
-   service adapter boundary.
-15. Implement subject resolution and path read/write/execute checks through the
-    existing RBAC RPC contracts. Use read plus execute checks for directory
-    listing/traversal and read checks for files. Resolve the delete permission
-    contract with RBAC before implementing delete authorization; do not treat
-    write permission as delete permission without explicit contract semantics.
-    Treat every non-allow or dependency failure as denial.
-16. Implement download streaming on both `/f/` and `/d/` with pause/resume and
-   concurrent independent byte-range requests, including strong ETag
-   consistency checks and bounded per-principal/per-file concurrency. Apply
-   each mount's response-header policy without changing the file bytes.
-   Implement upload state/chunk handling with safe replacement, finalization,
-   and cleanup.
-17. Add focused service-local tests for authentication failures, RBAC allow/deny
-    and errors, paused/resumed transfers, concurrent byte ranges and
-    reassembly on both download mounts, their inline/attachment headers,
-    unsupported-content fallback, ETag mismatch after replacement,
-    concurrency limits, user-owned stage creation, user-scoped chunk writes,
-    user-scoped final rename and failed-rename cleanup, uploaded file UID/GID
-    ownership, and ownership isolation,
-   interruptions, finalization, `ls` query parameters, recursive traversal,
-   files-only filtering, inaccessible ancestors, exact successful listing JSON
-   fields/path values, JSON error shape/status, protected-delete path matching,
-   delete authorization and filesystem-race handling, and TLS/certificate
-   configuration and failures. Cover CSRF rejection for cookie-authenticated
-   upload and delete mutations. Test browser multipart upload separately from
-   resumable chunk sequencing, replay, reconnect, size/checksum mismatch,
-   weighted concurrency at 1 MiB and 16 MiB settings, tmpfs limits, replacement
-   of existing files in both upload modes, preservation of old content on
-   failure, and atomic publication,
-   and enabled/disabled Swagger UI plus OpenAPI proxy-prefix behavior.
-   Add system-level coverage for deployed certificate permissions and the
-   selected HTTP TLS boundary where applicable. Keep top-level `tests/` for
-   system-level HyperionTF tests only.
-18. Add/update dedicated and aggregate local build/deploy/test scripts, service
-   configuration, documentation, runtime integration, NATS authorization,
-    certificate bootstrap/rotation, and the shared LiteNAS logrotate
-    configuration for `/var/log/lite-nas/file-service.log`. Include the
-    AppArmor profile, account setup, and restricted user-scoped execution
-    policy in both deployment and package installation flows; load the profile
-    in enforce mode and validate the installed permissions and profile state.
-19. Integrate the service and `lite-nas-file-writer` binaries and runtime
-    artifacts into the single Debian package. Include the writer's restricted
-    sudoers configuration and AppArmor policy; it is a short-lived application
-    and needs no service or socket unit.
-    Update package analysis/content validation, install validation, and
-    architecture-specific PR/release workflows.
-20. Add the service's loopback-only HTTP listener and Nginx reverse-proxy mounts
-    at `/f/` and `/d/`. Verify proxy path forwarding, TLS
-    termination, and that direct non-loopback access to the service port is
-    unavailable. Verify the existing secure `lite-nas-at` cookie reaches the
-    service on the HTTPS mount and is not sent by browsers over HTTP.
-21. Run relevant service checks and repository CI checks; report executed
-    commands and any unavailable checks.
+1. Run the full installed-system API table in `tests/api/test_file_service.py`
+   through Nginx. Confirm anonymous denial, operator access to a private owned
+   file and directory, denial of critical paths, and the configured admin
+   account's intended access. Resolve any mismatch between admin expectations
+   and the current Unix-UID-based RBAC/read model before calling these cases
+   complete; missing admin credentials must not silently pass the tests.
+2. Add requirement-traceable service and installed-system tests for both upload
+   modes, overwrite and failure cleanup, 24-hour expiry and three-hour cleanup,
+   concurrent destination protection, delete, listing flags, byte ranges and
+   ETags, documentation routes, and dependency-failure responses. Exercise
+   writer confinement and ownership with a deployed non-root service.
+3. Verify a freshly built Debian package on both supported architectures:
+   content validation, package installation, service activation, Nginx routing,
+   NATS certificate issuance/rotation, and AppArmor confinement. CI now builds
+   File Service and the file writer as separate artifacts and passes both to
+   the package job; the installed-system test gate still needs a full green run.
+4. Complete the reader race and private-directory review in
+   [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md). Until then, do not describe the
+   raw `sudo -u /bin/cat` path as race resistant or claim support for a private
+   `0700` parent directory whose ACL prevents File Service path resolution.
 
 ## Completion Criteria
 
