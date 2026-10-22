@@ -165,7 +165,7 @@ func extractACLEntryFields(line *gen.AclEntryLineContext) (string, string, Permi
 		return "", "", Permission{}, false, nil
 	}
 
-	permission, err := parsePermission(strings.TrimSpace(line.PERM().GetText()))
+	permission, err := parsePermission(strings.TrimSpace(line.PERM(0).GetText()))
 	if err != nil {
 		return "", "", Permission{}, false, err
 	}

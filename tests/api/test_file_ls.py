@@ -125,9 +125,10 @@ def listing_tree(
     direct_file = f"{root}/direct.txt"
     nested_file = f"{nested}/nested.txt"
     operator_cli_client.execute(
-        f"mkdir -m 0700 -p -- {shlex.quote(nested)} && "
+        f"mkdir -m 0750 -p -- {shlex.quote(nested)} && "
         f"printf direct > {shlex.quote(direct_file)} && "
-        f"printf nested > {shlex.quote(nested_file)}"
+        f"printf nested > {shlex.quote(nested_file)} && "
+        f"chmod 0640 -- {shlex.quote(direct_file)} {shlex.quote(nested_file)}"
     )
     operator_cli_client.assert_exit_code(0)
     try:

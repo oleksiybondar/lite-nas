@@ -20,7 +20,7 @@ commentLine
     ;
 
 aclEntryLine
-    : DEFAULT_PREFIX? tag COLON qualifier COLON PERM
+    : DEFAULT_PREFIX? tag COLON qualifier COLON PERM (HASH valueAtom COLON PERM)?
     ;
 
 headerKey

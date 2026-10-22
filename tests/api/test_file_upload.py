@@ -4,6 +4,7 @@ import hashlib
 import shlex
 from collections.abc import Generator
 from http import HTTPStatus
+from pwd import getpwnam
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -61,6 +62,22 @@ def multipart_body(destination: str, *, file_first: bool = False) -> tuple[bytes
     )
     parts = (file_part, destination_part) if file_first else (destination_part, file_part)
     return b"".join(parts) + f"--{boundary}--\r\n".encode(), boundary
+
+
+def upload_conventional(api_client: RESTClient, cookie: str, destination: str) -> None:
+    """Publish the small fixture file through the destination-first multipart route."""
+    body, boundary = multipart_body(destination)
+    response = api_client.post(
+        path="/f/upload",
+        payload=body,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Origin": ORIGIN,
+        },
+        cookies={ACCESS_COOKIE: cookie},
+    )
+    if response.status != HTTPStatus.CREATED:
+        pytest.fail(f"conventional upload failed: HTTP {response.status}")
 
 
 def start_upload(
@@ -171,20 +188,58 @@ def test_conventional_upload_publishes_file(
     Expected result:
     - The published file contains the uploaded bytes.
     """
-    body, boundary = multipart_body(upload_target)
-    response = api_client.post(
-        path="/f/upload",
-        payload=body,
-        headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "Origin": ORIGIN,
-        },
-        cookies={ACCESS_COOKIE: operator_cookie},
-    )
-    if response.status != HTTPStatus.CREATED:
-        pytest.fail(f"conventional upload failed: HTTP {response.status}")
+    upload_conventional(api_client, operator_cookie, upload_target)
     downloaded = api_client.get(path=f"/f{upload_target}", cookies={ACCESS_COOKIE: operator_cookie})
     expect(downloaded.raw_body).to_be(CONTENT.decode())
+
+
+# Requirements: file-service-svc/FR-004 and file-service-svc/TR-002.
+@pytest.mark.parametrize("upload_mode", ["conventional", "proprietary"])
+def test_uploaded_file_has_operator_permissions(
+    api_client: RESTClient,
+    operator_cli_client: CLIClient,
+    operator_cookie: str,
+    upload_target: str,
+    upload_mode: str,
+) -> None:
+    """Test case: either upload protocol publishes with the operator's private permissions.
+
+    Preparation:
+    - The operator is authenticated and has a unique destination in their home.
+
+    Action:
+    1. Upload a small file through the selected conventional or proprietary route.
+    2. Inspect the published file's Unix UID, GID, and mode with stat.
+
+    Expected result:
+    - The UID and GID match the operator's Unix identity and the mode is 0600.
+    """
+    if upload_mode == "conventional":
+        upload_conventional(api_client, operator_cookie, upload_target)
+    else:
+        upload_id, chunk_size = start_upload(api_client, operator_cookie, upload_target, CONTENT)
+        finished = False
+        try:
+            for offset in range(0, len(CONTENT), chunk_size):
+                send_chunk(
+                    api_client,
+                    operator_cookie,
+                    upload_id,
+                    CONTENT[offset : offset + chunk_size],
+                    offset,
+                )
+            complete_upload(api_client, operator_cookie, upload_id)
+            finished = True
+        finally:
+            if not finished:
+                cancel_upload(api_client, operator_cookie, upload_id)
+
+    operator_cli_client.execute(f"stat -c '%u:%g:%a' -- {shlex.quote(upload_target)}")
+    operator_cli_client.assert_exit_code(0)
+    operator = getpwnam(SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN)
+    expect(operator_cli_client.output.splitlines()[-1]).to_be(
+        f"{operator.pw_uid}:{operator.pw_gid}:600"
+    )
 
 
 # Requirements: file-service-svc/FR-005.

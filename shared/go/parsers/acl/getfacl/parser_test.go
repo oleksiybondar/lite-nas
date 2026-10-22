@@ -72,6 +72,27 @@ func TestParseReturnsErrorWhenOwnerGroupHeadersMissing(t *testing.T) {
 	}
 }
 
+func TestParseAcceptsGetfaclEffectivePermissionComments(t *testing.T) {
+	t.Parallel()
+
+	input := `# file: /home/testoperator/direct.txt
+# owner: testoperator
+# group: testoperator
+user::rw-
+group::r-x		#effective:r--
+group:lite-nas-fs-rd:r-x	#effective:r--
+mask::r--
+other::---
+`
+	document, err := Parse(input)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if !document.User.Read || document.User.Execute {
+		t.Fatalf("owner permission = %#v", document.User)
+	}
+}
+
 func validInputFixture() string {
 	return `# file: /etc/lite-nas/certificates
 # owner: root
