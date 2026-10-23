@@ -485,7 +485,7 @@ def test_admin_cannot_upload_into_critical_path(
     """Test case: admin read access does not permit uploads to critical paths.
 
     Preparation:
-    - The configured admin is authenticated and can read the installed critical files.
+    - The configured admin is authenticated with the File Service admin role.
 
     Action:
     1. POST proprietary upload metadata for a unique path in the critical tree.

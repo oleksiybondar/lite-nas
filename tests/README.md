@@ -166,7 +166,10 @@ and remove them afterward. Set
 `LITENAS_FILE_SERVICE_ADMIN_LOGIN` and `LITENAS_FILE_SERVICE_ADMIN_PASSWORD`
 to a dedicated admin test account before running the admin cases. The suite
 fails clearly when either value is missing rather than treating the default
-`testuser` account as an admin. Critical-path upload checks use the configured
-admin and operator accounts. REST client logs redact access and refresh cookie
+`testuser` account as an admin. CI provisions `testadmin` in the `admin` group
+through `scripts/ci/prepare-system-test-users.sh`; it remains a nonroot Unix
+account, so admin reads still obey Unix file and directory permissions.
+Critical-path upload checks use the configured admin and operator accounts.
+REST client logs redact access and refresh cookie
 values and shorten large transfer bodies before they are written to the
 HyperionTF report.

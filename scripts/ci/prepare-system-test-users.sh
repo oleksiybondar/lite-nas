@@ -8,11 +8,13 @@ source "$SCRIPT_DIR/../helpers/logger.sh"
 test_login="${LITENAS_API_LOGIN:-testuser}"
 operator_login="${LITENAS_OPERATOR_LOGIN:-testoperator}"
 security_login="${LITENAS_SECURITY_LOGIN:-testsecurityuser}"
+admin_login="${LITENAS_FILE_SERVICE_ADMIN_LOGIN:-testadmin}"
 
 default_password="${LITENAS_TEST_PASSWORD:-testpassword}"
 test_password="${LITENAS_API_PASSWORD:-$default_password}"
 operator_password="${LITENAS_OPERATOR_PASSWORD:-$default_password}"
 security_password="${LITENAS_SECURITY_PASSWORD:-$default_password}"
+admin_password="${LITENAS_FILE_SERVICE_ADMIN_PASSWORD:-$default_password}"
 
 test_optional_groups="${LITENAS_TESTUSER_OPTIONAL_GROUPS:-lite-nas}"
 operator_optional_groups="${LITENAS_TESTOPERATOR_OPTIONAL_GROUPS:-lite-nas-operator}"
@@ -120,6 +122,7 @@ attach_optional_groups() {
 log.requireCommand "id"
 log.requireCommand "getent"
 log.requireCommand "useradd"
+log.requireCommand "groupadd"
 log.requireCommand "usermod"
 log.requireCommand "chpasswd"
 log.requireCommand "grep"
@@ -132,16 +135,37 @@ fi
 require_safe_login "$test_login" "LITENAS_API_LOGIN"
 require_safe_login "$operator_login" "LITENAS_OPERATOR_LOGIN"
 require_safe_login "$security_login" "LITENAS_SECURITY_LOGIN"
+require_safe_login "$admin_login" "LITENAS_FILE_SERVICE_ADMIN_LOGIN"
+case "$admin_login" in
+*[!a-zA-Z0-9_.-]* | [-.]*)
+	log.error "LITENAS_FILE_SERVICE_ADMIN_LOGIN must be a Unix account name."
+	exit 64
+	;;
+esac
+if [ "$admin_login" = "$test_login" ] || [ "$admin_login" = "$operator_login" ] || [ "$admin_login" = "$security_login" ] || [ "$admin_login" = "${LITENAS_TESTSUDO_LOGIN:-testsudouser}" ]; then
+	log.error "The File Service admin test account must be separate from the other system-test users."
+	exit 64
+fi
+if [ "$admin_login" = root ] || { id -u "$admin_login" >/dev/null 2>&1 && [ "$(id -u "$admin_login")" -eq 0 ]; }; then
+	log.error "The File Service admin test account must be nonroot."
+	exit 64
+fi
 require_safe_password "$test_password" "LITENAS_API_PASSWORD/LITENAS_TEST_PASSWORD"
 require_safe_password "$operator_password" "LITENAS_OPERATOR_PASSWORD/LITENAS_TEST_PASSWORD"
 require_safe_password "$security_password" "LITENAS_SECURITY_PASSWORD/LITENAS_TEST_PASSWORD"
+require_safe_password "$admin_password" "LITENAS_FILE_SERVICE_ADMIN_PASSWORD/LITENAS_TEST_PASSWORD"
 
 log.pushTask "Preparing LiteNAS system-test users"
+if ! getent group admin >/dev/null 2>&1; then
+	run.asRoot groupadd --system admin
+fi
 ensure_user "$test_login" "$test_password"
 ensure_user "$operator_login" "$operator_password"
 ensure_user "$security_login" "$security_password"
+ensure_user "$admin_login" "$admin_password"
 
 attach_optional_groups "$test_login" "$test_optional_groups"
 attach_optional_groups "$operator_login" "$operator_optional_groups"
 attach_optional_groups "$security_login" "$security_optional_groups"
+ensure_user_in_group_if_group_exists "$admin_login" admin
 log.popTask

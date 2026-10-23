@@ -201,28 +201,50 @@ def test_operator_cannot_list_critical_directory(
 
 
 # Requirements: file-service-svc/FR-003.
-@pytest.mark.parametrize("host_path", CRITICAL_FILE_PATHS)
-def test_admin_can_read_critical_file(
-    api_client: RESTClient, admin_cookie: str, host_path: str
+def test_admin_can_read_unix_readable_system_file(
+    api_client: RESTClient, admin_cookie: str
 ) -> None:
-    """Test case: the configured admin can read critical system files.
+    """Test case: the configured admin can read a Unix-readable system file.
 
     Preparation:
     - The configured admin account has logged in through the admin-panel API.
-    - The installed system provides the parametrized critical file.
+    - The installed system provides /etc/passwd with Unix read permission.
 
     Action:
-    - Request one byte through Nginx's /f mount.
+    - Request one byte of /etc/passwd through Nginx's /f mount.
 
     Expected result:
     - File Service returns partial content for the requested file.
     """
     response = api_client.get(
-        path=f"/f{host_path}",
+        path="/f/etc/passwd",
         headers={"Range": "bytes=0-0"},
         cookies={ACCESS_COOKIE: admin_cookie},
     )
     expect(response.status).to_be(206)
+
+
+# Requirements: file-service-svc/FR-003.
+def test_admin_cannot_read_unix_private_system_file(
+    api_client: RESTClient, admin_cookie: str
+) -> None:
+    """Test case: admin policy does not override Unix file permissions.
+
+    Preparation:
+    - The configured nonroot admin is logged in and /etc/shadow is private.
+
+    Action:
+    - Request one byte through Nginx's /f mount.
+
+    Expected result:
+    - File Service denies the read with 403.
+    """
+    response = api_client.get(
+        path="/f/etc/shadow",
+        headers={"Range": "bytes=0-0"},
+        cookies={ACCESS_COOKIE: admin_cookie},
+    )
+    expect(response.status).to_be(403)
 
 
 # Requirements: file-service-svc/FR-008.
@@ -246,10 +268,10 @@ def test_admin_can_list_critical_directory(
 
 
 # Requirements: file-service-svc/FR-003.
-def test_admin_can_read_operator_file(
+def test_admin_cannot_read_operator_private_file(
     api_client: RESTClient, admin_cookie: str, operator_owned_file: str
 ) -> None:
-    """Test case: the configured admin can read another user's private file.
+    """Test case: the configured admin cannot read another user's private file.
 
     Preparation:
     - The operator owns a private file and the admin has logged in.
@@ -258,11 +280,11 @@ def test_admin_can_read_operator_file(
     - Request one byte through Nginx's /f mount with the admin cookie.
 
     Expected result:
-    - File Service returns partial content for the operator-owned file.
+    - File Service denies the read with 403 under Unix permissions.
     """
     response = api_client.get(
         path=f"/f{operator_owned_file}",
         headers={"Range": "bytes=0-0"},
         cookies={ACCESS_COOKIE: admin_cookie},
     )
-    expect(response.status).to_be(206)
+    expect(response.status).to_be(403)

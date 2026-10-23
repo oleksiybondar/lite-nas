@@ -998,6 +998,7 @@ jobs:
           id testoperator
           id testsecurity
           id testsudouser
+          id testadmin
 
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
@@ -1014,6 +1015,8 @@ jobs:
         env:
           LITENAS_API_LOGIN: testuser
           LITENAS_API_PASSWORD: testpassword
+          LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
+          LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
         run: scripts/test-python.sh
 
       - name: Archive system test logs
