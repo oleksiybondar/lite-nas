@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,6 +25,10 @@ type fileService struct {
 	ranges *rangeLimiter
 	window *chunkWindow
 	logger sharedlogger.Logger
+	// Command functions are service-owned so request tests can exercise workflows without host sudo.
+	writerCommand func(context.Context, fileaccess.Subject, string, *uploadRecord, []byte) (writerResult, error)
+	userCommand   func(context.Context, fileaccess.Subject, string, ...string) error
+	readerCommand func(context.Context, fileaccess.Subject, string) (io.ReadCloser, error)
 }
 
 // newFileService prepares durable upload state before accepting HTTP traffic.
@@ -34,6 +40,7 @@ func newFileService(cfg serviceConfig, policy filesystem.Policy, auth *fileacces
 	service := &fileService{
 		cfg: cfg, policy: policy, auth: auth, store: store,
 		ranges: newRangeLimiter(16), window: &chunkWindow{},
+		writerCommand: invokeWriter, userCommand: runUserCommand, readerCommand: openCat,
 	}
 	service.jobs = newOperationManager(service)
 	return service, nil

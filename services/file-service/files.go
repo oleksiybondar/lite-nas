@@ -8,12 +8,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"lite-nas/services/file-service/filesystem"
 	rbaccontract "lite-nas/shared/contracts/rbac"
@@ -78,25 +79,34 @@ func hostPath(request *http.Request, prefix string) (string, error) {
 	return path, nil
 }
 
+// resolveReadScope validates a requested path and obtains its caller-specific read scope.
+func (s *fileService) resolveReadScope(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject, prefix string) (string, filesystem.ReadScope, bool) {
+	requested, err := hostPath(request, prefix)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, "invalid_path")
+		return "", filesystem.ReadScope{}, false
+	}
+	resolved, err := fileaccess.ResolveExisting(requested)
+	if err != nil {
+		writeError(writer, http.StatusNotFound, "not_found")
+		return "", filesystem.ReadScope{}, false
+	}
+	scope, err := s.policy.ReadScope(subject.Groups)
+	if err != nil {
+		writeError(writer, http.StatusServiceUnavailable, "authorization_unavailable")
+		return "", filesystem.ReadScope{}, false
+	}
+	return resolved, scope, true
+}
+
 // download authenticates and authorizes a new full or one-range file response.
 func (s *fileService) download(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject, attachment bool) {
 	prefix := ""
 	if attachment {
 		prefix = "/download"
 	}
-	requested, err := hostPath(request, prefix)
-	if err != nil {
-		writeError(writer, http.StatusBadRequest, "invalid_path")
-		return
-	}
-	resolved, err := fileaccess.ResolveExisting(requested)
-	if err != nil {
-		writeError(writer, http.StatusNotFound, "not_found")
-		return
-	}
-	scope, err := s.policy.ReadScope(subject.Groups)
-	if err != nil {
-		writeError(writer, http.StatusServiceUnavailable, "authorization_unavailable")
+	resolved, scope, ok := s.resolveReadScope(writer, request, subject, prefix)
+	if !ok {
 		return
 	}
 	if !scope.AllowsFile(resolved) {
@@ -144,7 +154,7 @@ func (s *fileService) download(writer http.ResponseWriter, request *http.Request
 	var stream io.ReadCloser
 	var first [1]byte
 	if request.Method == http.MethodGet {
-		stream, err = openCat(request.Context(), subject, resolved)
+		stream, err = s.readerCommand(request.Context(), subject, resolved)
 		if err != nil {
 			if s.logger != nil {
 				s.logger.Warn("file reader start failed", "cause", err)
@@ -258,21 +268,44 @@ func safeContentType(path string, attachment bool) string {
 	}
 }
 
+// listingEntry describes one authorized filesystem child with nullable metadata.
+type listingEntry struct {
+	Path         string  `json:"path"`
+	Name         string  `json:"name"`
+	Kind         string  `json:"kind"`
+	Size         *int64  `json:"size"`
+	Owner        *string `json:"owner"`
+	Group        *string `json:"group"`
+	Permissions  *string `json:"permissions"`
+	LastModified *string `json:"last_modified"`
+}
+
+// describeEntry reads ls-style metadata without changing listing authorization.
+func describeEntry(path string, kind string, entry os.DirEntry) listingEntry {
+	item := listingEntry{Path: path, Name: entry.Name(), Kind: kind}
+	info, err := entry.Info()
+	if err != nil {
+		return item
+	}
+	size := info.Size()
+	permissions := info.Mode().String()[1:]
+	modified := info.ModTime().UTC().Format(time.RFC3339)
+	item.Size, item.Permissions, item.LastModified = &size, &permissions, &modified
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		if owner, err := user.LookupId(strconv.FormatUint(uint64(stat.Uid), 10)); err == nil {
+			item.Owner = &owner.Username
+		}
+		if group, err := user.LookupGroupId(strconv.FormatUint(uint64(stat.Gid), 10)); err == nil {
+			item.Group = &group.Name
+		}
+	}
+	return item
+}
+
 // list returns only entries whose paths receive a fresh RBAC read allow.
 func (s *fileService) list(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject) {
-	requested, err := hostPath(request, "/ls")
-	if err != nil {
-		writeError(writer, http.StatusBadRequest, "invalid_path")
-		return
-	}
-	resolved, err := fileaccess.ResolveExisting(requested)
-	if err != nil {
-		writeError(writer, http.StatusNotFound, "not_found")
-		return
-	}
-	scope, err := s.policy.ReadScope(subject.Groups)
-	if err != nil {
-		writeError(writer, http.StatusServiceUnavailable, "authorization_unavailable")
+	resolved, scope, ok := s.resolveReadScope(writer, request, subject, "/ls")
+	if !ok {
 		return
 	}
 	if !scope.AllowsDirectory(resolved) {
@@ -283,7 +316,7 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 		decisionError(writer, err)
 		return
 	}
-	files, directories := make([]string, 0), make([]string, 0)
+	listing := make([]listingEntry, 0)
 	recursive := request.URL.Query().Has("recursive")
 	filesOnly := request.URL.Query().Has("files-only")
 	var visit func(string) error
@@ -312,7 +345,7 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 			}
 			if entry.IsDir() {
 				if !filesOnly {
-					directories = append(directories, path)
+					listing = append(listing, describeEntry(path, "directory", entry))
 				}
 				if recursive {
 					if err := visit(path); err != nil {
@@ -320,7 +353,7 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 					}
 				}
 			} else if entry.Type().IsRegular() {
-				files = append(files, path)
+				listing = append(listing, describeEntry(path, "file", entry))
 			}
 		}
 		return nil
@@ -329,7 +362,7 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 		writeError(writer, http.StatusServiceUnavailable, "listing_failed")
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"files": files, "directories": directories})
+	writeJSON(writer, http.StatusOK, listing)
 }
 
 // deleteFile checks policy and RBAC before one user-scoped regular-file removal.
@@ -371,14 +404,11 @@ func (s *fileService) deleteFile(writer http.ResponseWriter, request *http.Reque
 		writeJSON(writer, http.StatusAccepted, job)
 		return
 	}
-	username, err := filesystem.VerifyUnixIdentity(subject)
-	if err != nil {
-		writeError(writer, http.StatusForbidden, "identity_mismatch")
-		return
-	}
-	command := exec.CommandContext(request.Context(), "/usr/bin/sudo", "-n", "-u", username,
-		"--", "/bin/rm", "--", resolved)
-	if err := command.Run(); err != nil {
+	if err := s.userCommand(request.Context(), subject, "/bin/rm", resolved); err != nil {
+		if errors.Is(err, filesystem.ErrUnixIdentityMismatch) {
+			writeError(writer, http.StatusForbidden, "identity_mismatch")
+			return
+		}
 		writeError(writer, http.StatusConflict, "delete_failed")
 		return
 	}

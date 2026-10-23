@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -95,6 +96,51 @@ func TestAdministratorRootListingKeepsSystemPaths(t *testing.T) {
 	service.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"/etc"`) {
 		t.Fatalf("administrator root listing = %d %q", response.Code, response.Body.String())
+	}
+}
+
+// TestListingReturnsMetadataAndKeepsFlags covers file-service-svc/FR-008.
+func TestListingReturnsMetadataAndKeepsFlags(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "report.txt")
+	if err := os.WriteFile(file, []byte("hello"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "folder"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	service := mustService(t, root, authorizedRequests(new(int), "sudo"))
+	for _, test := range []struct {
+		query       string
+		wantEntries int
+	}{
+		{query: "", wantEntries: 2},
+		{query: "?files-only", wantEntries: 1},
+	} {
+		request := httptest.NewRequest(http.MethodGet, "/ls"+root+test.query, nil)
+		request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "token"})
+		response := httptest.NewRecorder()
+		service.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("listing = %d %q", response.Code, response.Body.String())
+		}
+		var entries []listingEntry
+		if err := json.Unmarshal(response.Body.Bytes(), &entries); err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != test.wantEntries {
+			t.Fatalf("listing entries = %d, want %d", len(entries), test.wantEntries)
+		}
+		for _, entry := range entries {
+			if entry.Kind == "directory" && test.query != "" {
+				t.Fatal("files-only returned a directory")
+			}
+			if entry.Path == file && (entry.Name != "report.txt" || entry.Size == nil || *entry.Size != 5 ||
+				entry.Owner == nil || entry.Group == nil || entry.Permissions == nil || *entry.Permissions != "rw-r-----" ||
+				entry.LastModified == nil) {
+				t.Fatalf("file metadata = %+v", entry)
+			}
+		}
 	}
 }
 

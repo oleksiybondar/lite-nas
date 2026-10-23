@@ -157,21 +157,32 @@
         }
       },
       "Listing": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ListingEntry"
+        }
+      },
+      "ListingEntry": {
         "type": "object",
-        "required": ["files", "directories"],
+        "required": [
+          "path",
+          "name",
+          "kind",
+          "size",
+          "owner",
+          "group",
+          "permissions",
+          "last_modified"
+        ],
         "properties": {
-          "files": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HostPath"
-            }
-          },
-          "directories": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/HostPath"
-            }
-          }
+          "path": { "$ref": "#/components/schemas/HostPath" },
+          "name": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "enum": ["file", "directory"] },
+          "size": { "type": ["integer", "null"], "format": "int64", "minimum": 0 },
+          "owner": { "type": ["string", "null"] },
+          "group": { "type": ["string", "null"] },
+          "permissions": { "type": ["string", "null"], "pattern": "^[rwxstST-]{9}$" },
+          "last_modified": { "type": ["string", "null"], "format": "date-time" }
         }
       },
       "CreateDirectory": {
@@ -510,7 +521,7 @@
           {
             "name": "files-only",
             "in": "query",
-            "description": "If present, omit directory entries from the response.",
+            "description": "If present, omit directory objects from the response.",
             "schema": {
               "type": "boolean"
             }
@@ -518,7 +529,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Allowed absolute child paths.",
+            "description": "Authorized file and directory objects with nullable filesystem metadata.",
             "content": {
               "application/json": {
                 "schema": {

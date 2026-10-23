@@ -122,13 +122,17 @@ function DirectoryRows({
   open: (entry: FileEntry) => void;
 }): ReactElement {
   return (
-    <List aria-label={`Files and directories in ${directory}`} onKeyDown={moveEntryFocus}>
+    <List
+      aria-label={`Files and directories in ${directory}`}
+      onKeyDown={moveEntryFocus}
+      sx={{ py: 0 }}
+    >
       {parent !== null && (
-        <ListItemButton onClick={() => navigate(panel, parent)}>
-          <ListItemIcon>
+        <ListItemButton onClick={() => navigate(panel, parent)} sx={{ py: 0.5 }}>
+          <ListItemIcon sx={{ minWidth: 40 }}>
             <ArrowUpwardIcon />
           </ListItemIcon>
-          <ListItemText primary=".." secondary="Parent directory" />
+          <ListItemText primary=".." secondary="Parent directory" sx={{ my: 0.25 }} />
         </ListItemButton>
       )}
       {entries.map((entry) => (
@@ -174,7 +178,7 @@ export function ExplorerPanel({ panel, refresh }: { panel: 0 | 1; refresh: numbe
         overflow: "hidden",
       }}
     >
-      <Stack spacing={1} sx={{ p: 2 }}>
+      <Stack spacing={0.5} sx={{ p: 1, height: "100%", minHeight: 0 }}>
         <PanelHeader
           directory={directory}
           selectedCount={selected.length}
@@ -251,7 +255,7 @@ function PanelDirectory({
 }): ReactElement {
   const { entries, loading, error } = useDirectoryListing(directory);
   return (
-    <>
+    <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <DirectoryStatus loading={loading} error={error} />
       {!loading && !error && (
         <>
@@ -270,6 +274,6 @@ function PanelDirectory({
           )}
         </>
       )}
-    </>
+    </Box>
   );
 }

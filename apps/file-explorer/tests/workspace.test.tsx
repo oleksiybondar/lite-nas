@@ -8,6 +8,7 @@ import { FileEntryItem } from "../src/FileEntryItem";
 import { FileExplorerProvider } from "../src/FileExplorerContext";
 import { FileExplorerWorkspace } from "../src/FileExplorerWorkspace";
 import { NewFolderDialog } from "../src/NewFolderDialog";
+import { listingEntry } from "./listing-fixture";
 
 afterEach(() => {
   cleanup();
@@ -51,10 +52,13 @@ async function renderTransferWorkspace() {
   const requests: Array<{ url: string; method: string; body?: string }> = [];
   const responses: Record<string, () => Response> = {
     "/ls/": () =>
-      new Response(JSON.stringify({ files: ["/a.txt"], directories: ["/dest"] }), {
-        status: 200,
-      }),
-    "/ls/dest": () => new Response(JSON.stringify({ files: [], directories: [] }), { status: 200 }),
+      new Response(
+        JSON.stringify([listingEntry("/a.txt", "file"), listingEntry("/dest", "directory")]),
+        {
+          status: 200,
+        },
+      ),
+    "/ls/dest": () => new Response(JSON.stringify([]), { status: 200 }),
     "/f/copy": () => new Response(JSON.stringify(transferJob), { status: 202 }),
     "/f/move": () => new Response(JSON.stringify(transferJob), { status: 202 }),
     "/f/a.txt": () => new Response(null, { status: 204 }),
@@ -155,7 +159,7 @@ describe("File Explorer controls", () => {
     const onOpen = vi.fn();
     renderThemed(
       <FileEntryItem
-        entry={{ kind: "file", path: "/report.pdf" }}
+        entry={listingEntry("/report.pdf", "file")}
         selected={false}
         onSelect={onSelect}
         onOpen={onOpen}
@@ -179,7 +183,7 @@ describe("File Explorer controls", () => {
     const onOpen = vi.fn();
     renderThemed(
       <FileEntryItem
-        entry={{ kind: "file", path: "/report.pdf" }}
+        entry={listingEntry("/report.pdf", "file")}
         selected={false}
         onSelect={onSelect}
         onOpen={onOpen}
@@ -238,7 +242,7 @@ describe("File Explorer workspace", () => {
           new Response(
             JSON.stringify(
               url === "/ls/"
-                ? { files: [], directories: ["/blocked"] }
+                ? [listingEntry("/blocked", "directory")]
                 : { error: { code: "permission_denied" } },
             ),
             { status: url === "/ls/" ? 200 : 403 },
@@ -283,9 +287,12 @@ describe("File Explorer workspace", () => {
       "fetch",
       vi.fn().mockImplementation(
         async () =>
-          new Response(JSON.stringify({ files: ["/a.txt", "/b.pdf"], directories: [] }), {
-            status: 200,
-          }),
+          new Response(
+            JSON.stringify([listingEntry("/a.txt", "file"), listingEntry("/b.pdf", "file")]),
+            {
+              status: 200,
+            },
+          ),
       ),
     );
     await act(async () => {
@@ -304,7 +311,6 @@ describe("File Explorer workspace", () => {
     fireEvent.click(await within(panels[1]).findByText("a.txt"), { detail: 1 });
     expect(within(panels[1]).getByText("1 selected")).toBeInTheDocument();
     expect(within(panels[0]).getByText("2 selected")).toBeInTheDocument();
-    expect(screen.getByText(/Right panel selected/)).toBeInTheDocument();
   });
 
   test("file-explorer-app/FR-006 copies the selected file into the other panel directory", async () => {
@@ -347,16 +353,19 @@ describe("File Explorer workspace", () => {
     fetchMock.mockImplementationOnce(async (url: string, init?: RequestInit) => {
       requests.push({ url, method: init?.method ?? "GET", body: init?.body as string | undefined });
       if (url === "/f/mkdir") return new Response(null, { status: 204 });
-      return new Response(JSON.stringify({ files: ["/a.txt"], directories: ["/dest"] }), {
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify([listingEntry("/a.txt", "file"), listingEntry("/dest", "directory")]),
+        {
+          status: 200,
+        },
+      );
     });
     fireEvent.click(screen.getByTestId("file-explorer-new-folder-button"));
     fireEvent.change(screen.getByLabelText("Folder name"), { target: { value: "new" } });
     fireEvent.click(screen.getByTestId("file-explorer-new-folder-submit"));
     await waitFor(() => expect(requests.some((request) => request.url === "/f/mkdir")).toBe(true));
     expect(requests.find((request) => request.url === "/f/mkdir")?.body).toBe(
-      JSON.stringify({ path: "/new" }),
+      JSON.stringify({ path: "/dest/new" }),
     );
   });
 });

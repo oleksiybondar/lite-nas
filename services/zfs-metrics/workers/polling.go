@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -160,6 +161,9 @@ func runZpoolCommand(ctx context.Context, zpoolPath string, args ...string) (str
 	if err != nil {
 		return "", err
 	}
+	if err := validateZpoolArguments(args); err != nil {
+		return "", err
+	}
 
 	cmdCtx, cancel := context.WithTimeout(ctx, zpoolCommandTimeout)
 	defer cancel()
@@ -174,6 +178,16 @@ func runZpoolCommand(ctx context.Context, zpoolPath string, args ...string) (str
 		return "", fmt.Errorf("zpool command failed: %s %s: %w", resolvedPath, strings.Join(args, " "), err)
 	}
 	return string(output), nil
+}
+
+// validateZpoolArguments permits only the three read-only polling commands.
+func validateZpoolArguments(args []string) error {
+	if slices.Equal(args, []string{"status", "-P", "-L"}) ||
+		slices.Equal(args, []string{"list", "-H", "-p", "-o", strings.Join(listparser.DefaultHeaders, ",")}) ||
+		slices.Equal(args, []string{"iostat", "-H", "-p"}) {
+		return nil
+	}
+	return errors.New("unsupported zpool arguments")
 }
 
 // validateZpoolPath validates path shape and allowlist policy for zpool binary.

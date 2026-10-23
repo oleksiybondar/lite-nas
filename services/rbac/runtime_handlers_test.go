@@ -54,8 +54,8 @@ func (runner scriptedRunner) Run(_ context.Context, name string, args ...string)
 
 	result, ok := runner.results[key]
 	if !ok {
-		if name == "getfacl" && len(args) == 2 && args[0] == "-p" {
-			if info, err := os.Stat(args[1]); err == nil && info.IsDir() {
+		if name == "getfacl" && len(args) == 3 && args[0] == "-p" && args[1] == "--" {
+			if info, err := os.Stat(args[2]); err == nil && info.IsDir() {
 				return []byte("# owner: root\n# group: root\nuser::rwx\ngroup::--x\nother::--x\n"), nil
 			}
 		}
@@ -202,15 +202,15 @@ func mustRegisterHandlersWithFixtures(t *testing.T) (*rpcTestServer, string) {
 		rbaccache.NewStore(make(chan struct{}, 1)),
 		scriptedRunner{
 			results: map[string]scriptedResult{
-				"id\x001002": {output: "uid=1002(testuser) gid=100(testgroup) groups=100(testgroup),10(wheel)\n"},
-				"getfacl\x00-p\x00" + filepath.Dir(resolvedPath): {
+				"id\x00--\x001002": {output: "uid=1002(testuser) gid=100(testgroup) groups=100(testgroup),10(wheel)\n"},
+				"getfacl\x00-p\x00--\x00" + filepath.Dir(resolvedPath): {
 					output: "# owner: testuser\n# group: testgroup\nuser::rwx\ngroup::--x\nother::--x\n",
 				},
-				"getfacl\x00-p\x00" + resolvedPath: {
+				"getfacl\x00-p\x00--\x00" + resolvedPath: {
 					output: "# owner: root\n# group: testgroup\nuser::rwx\ngroup::r--\nother::---\n",
 				},
-				"sudo\x00-n\x00-l\x00-U\x00testuser\x00/usr/bin/zfs": {output: "ok\n"},
-				"getent\x00passwd\x001002":                           {output: "testuser:x:1002:100::/home/testuser:/bin/bash\n"},
+				"sudo\x00-n\x00-l\x00-U\x00testuser\x00--\x00/usr/bin/zfs": {output: "ok\n"},
+				"getent\x00passwd\x001002":                                 {output: "testuser:x:1002:100::/home/testuser:/bin/bash\n"},
 			},
 		},
 		time.Hour,

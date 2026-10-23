@@ -411,8 +411,8 @@ effective path access as decided by RBAC.
 
 #### file-service-svc/FR-008 Output
 
-- Authorized directory entries encoded as JSON `files` and `directories`
-  arrays of absolute host paths, or an error JSON response
+- Authorized directory entries encoded as a JSON array of objects, or an error
+  JSON response
 
 #### file-service-svc/FR-008 Acceptance Criteria
 
@@ -439,9 +439,11 @@ effective path access as decided by RBAC.
 - Presence of `recursive` or `files-only` enables that flag; absence disables
   it. `/ls/abs/path?recursive&files-only` enables both on the public listing
   route, separately from the `/f/` file-operation mount.
-- A successful response is JSON with `files` and `directories` arrays. Both
-  contain absolute host paths; `files-only` returns an empty `directories`
-  array.
+- A successful response is a JSON array. Each object has `path` (absolute host
+  path), `name` (single child name), `kind` (`file` or `directory`), `size`
+  (bytes), `owner`, `group`, `permissions` (nine symbolic mode characters), and
+  `last_modified` (UTC RFC 3339). Unavailable metadata is `null`; `path`,
+  `name`, and `kind` are always present. `files-only` omits directory objects.
 - A failed request returns a non-success HTTP status and a JSON object with an
   `error` key containing a documented stable code. Error output does not reveal
   denied paths or entry names.

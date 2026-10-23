@@ -40,6 +40,7 @@ export function FileEntryItem({
   return (
     <ListItemButton
       selected={selected}
+      sx={{ py: 0.5 }}
       onClick={handleClick}
       onDoubleClick={onOpen}
       onKeyDown={(event) => {
@@ -53,10 +54,10 @@ export function FileEntryItem({
       data-test-class="file-explorer-entry"
       data-test-path={entry.path}
     >
-      <ListItemIcon>
+      <ListItemIcon sx={{ minWidth: 40 }}>
         <FileEntryIcon kind={entry.kind} name={name} />
       </ListItemIcon>
-      <ListItemText primary={name} secondary={typeLabel(entry)} />
+      <ListItemText primary={name} secondary={typeLabel(entry)} sx={{ my: 0.25 }} />
     </ListItemButton>
   );
 }

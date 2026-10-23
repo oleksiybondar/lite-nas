@@ -76,8 +76,10 @@ readability, maintenance, and consistent review quality.
 
 - Prefer requirement-traceable tests; use source-qualified IDs such as
   `system-metrics-svc/FR-001`.
-- Prefer small, single-purpose tests. A test should usually verify one
-  behavior and use at most 2-3 closely related assertions.
+- Keep each test to one verification point and one assertion. When the same
+  rule needs several input variants, use separate parameterized cases. Move
+  shared preparation and expected successful actions into fixtures or
+  `must...` helpers instead of asserting several outcomes in one test.
 - When a matching requirement exists, annotate the test with the requirement
   identifier in a short comment directly above the test.
 - Requirement references in tests should use a source-qualified form so the ID

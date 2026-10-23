@@ -14,6 +14,7 @@ import {
   newFolderNameSchema,
   operationJobSchema,
 } from "../src/schemas";
+import { listingEntry } from "./listing-fixture";
 
 const job = {
   job_id: "a".repeat(48),
@@ -27,7 +28,7 @@ const job = {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("file-explorer-app/FR-001 validates paths and listing children", async () => {
+test("file-explorer-app/IR-001 validates host paths", () => {
   expect(displayName("/")).toBe("/");
   expect(displayName("/some/thing.txt")).toBe("thing.txt");
   expect(parentPath("/")).toBeNull();
@@ -46,22 +47,37 @@ test("file-explorer-app/FR-001 validates paths and listing children", async () =
   ]) {
     expect(hostPathSchema.safeParse(path).success).toBe(false);
   }
-  const fetchMock = vi.fn().mockResolvedValue(
-    new Response(
-      JSON.stringify({
-        files: ["/root/file10.txt", "/root/file2.txt"],
-        directories: ["/root/dir10", "/root/dir2"],
-      }),
-      { status: 200 },
-    ),
-  );
+});
+
+test("file-explorer-app/FR-001 sorts listing children and retains metadata", async () => {
+  const fileWithMetadata = {
+    ...listingEntry("/root/file2.txt", "file"),
+    size: 42,
+    owner: "alice",
+    group: "users",
+    permissions: "rw-r-----",
+    last_modified: "2026-10-23T07:00:00Z",
+  };
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          listingEntry("/root/file10.txt", "file"),
+          fileWithMetadata,
+          listingEntry("/root/dir10", "directory"),
+          listingEntry("/root/dir2", "directory"),
+        ]),
+        { status: 200 },
+      ),
+    );
   vi.stubGlobal("fetch", fetchMock);
   const signal = new AbortController().signal;
   expect(await listDirectory("/root", signal)).toEqual([
-    { kind: "directory", path: "/root/dir2" },
-    { kind: "directory", path: "/root/dir10" },
-    { kind: "file", path: "/root/file2.txt" },
-    { kind: "file", path: "/root/file10.txt" },
+    listingEntry("/root/dir2", "directory"),
+    listingEntry("/root/dir10", "directory"),
+    fileWithMetadata,
+    listingEntry("/root/file10.txt", "file"),
   ]);
   expect(fetchMock).toHaveBeenCalledWith("/ls/root", { credentials: "same-origin", signal });
 });
@@ -72,13 +88,7 @@ test("file-explorer-app/FR-001 rejects unrelated children and service errors", a
     vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            files: ["/elsewhere/file"],
-            directories: [],
-          }),
-          { status: 200 },
-        ),
+        new Response(JSON.stringify([listingEntry("/elsewhere/file", "file")]), { status: 200 }),
       )
       .mockResolvedValueOnce(
         new Response(
@@ -95,6 +105,18 @@ test("file-explorer-app/FR-001 rejects unrelated children and service errors", a
   await expect(listDirectory("/root", new AbortController().signal)).rejects.toThrow(
     "permission denied",
   );
+});
+
+test("file-explorer-app/IR-001 rejects malformed listing metadata", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ ...listingEntry("/root/a", "file"), size: -1 }]), {
+        status: 200,
+      }),
+    ),
+  );
+  await expect(listDirectory("/root", new AbortController().signal)).rejects.toThrow();
 });
 
 test("file-explorer-app/FR-005 creates a directory at the requested path", async () => {
@@ -134,7 +156,7 @@ test("file-explorer-app/FR-007 returns the job for directory deletion", async ()
   const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(job), { status: 202 }));
   vi.stubGlobal("fetch", fetchMock);
   expect(await deleteEntry({ kind: "directory", path: "/root/a" })).toEqual(job);
-  expect(fetchMock.mock.calls[0][0]).toBe("/f/rmdir");
+  expect(fetchMock.mock.calls[0][0]).toBe("/f/root/a");
 });
 
 test("file-explorer-app/FR-009 retrieves a server operation job", async () => {

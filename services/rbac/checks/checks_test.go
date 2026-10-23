@@ -49,7 +49,7 @@ func TestCanSudoExecReturnsTrueOnSuccess(t *testing.T) {
 	t.Parallel()
 
 	runner := newScriptedRunner(append(identityCalls("1002", "testuser", "testgroup", "testgroup wheel"),
-		scriptedCall{name: "sudo", args: []string{"-n", "-l", "-U", "testuser", "/usr/bin/zfs"}},
+		scriptedCall{name: "sudo", args: []string{"-n", "-l", "-U", "testuser", "--", "/usr/bin/zfs"}},
 	))
 
 	assertCanSudoExecAllowed(t, runner, true)
@@ -59,7 +59,7 @@ func TestCanSudoExecReturnsFalseOnExitError(t *testing.T) {
 	t.Parallel()
 
 	runner := newScriptedRunner(append(identityCalls("1002", "testuser", "testgroup", "testgroup wheel"),
-		scriptedCall{name: "sudo", args: []string{"-n", "-l", "-U", "testuser", "/usr/bin/zfs"}, err: &exec.ExitError{}},
+		scriptedCall{name: "sudo", args: []string{"-n", "-l", "-U", "testuser", "--", "/usr/bin/zfs"}, err: &exec.ExitError{}},
 	))
 
 	assertCanSudoExecAllowed(t, runner, false)
@@ -70,7 +70,7 @@ func TestCanSudoExecReturnsErrorOnRunnerFailure(t *testing.T) {
 
 	wantErr := errors.New("runner unavailable")
 	runner := newScriptedRunner(append(identityCalls("1002", "testuser", "testgroup", "testgroup wheel"),
-		scriptedCall{name: "sudo", args: []string{"-n", "-l", "-U", "testuser", "/usr/bin/zfs"}, err: wantErr},
+		scriptedCall{name: "sudo", args: []string{"-n", "-l", "-U", "testuser", "--", "/usr/bin/zfs"}, err: wantErr},
 	))
 
 	assertCanSudoExecFails(t, runner)
@@ -115,7 +115,7 @@ func identityCalls(uid string, username string, primaryGroup string, groups stri
 	return []scriptedCall{
 		{
 			name: "id",
-			args: []string{uid},
+			args: []string{"--", uid},
 			output: "uid=" + uid + "(" + username + ") " +
 				"gid=" + uid + "(" + primaryGroup + ") " +
 				"groups=" + groupEntries + "\n",

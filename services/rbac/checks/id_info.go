@@ -11,7 +11,10 @@ import (
 
 // ResolveIdentityByUID resolves identity information for one UID.
 func ResolveIdentityByUID(ctx context.Context, runner Runner, uid string) (idparser.Identity, error) {
-	idOutput, err := runner.Run(ctx, "id", uid)
+	if err := ValidateIdentityOperand(uid); err != nil {
+		return idparser.Identity{}, err
+	}
+	idOutput, err := runner.Run(ctx, "id", "--", uid)
 	if err != nil {
 		return idparser.Identity{}, fmt.Errorf("id failed: %w", err)
 	}
@@ -26,7 +29,10 @@ func ResolveIdentityByUID(ctx context.Context, runner Runner, uid string) (idpar
 
 // readACLForResolvedPath reads the access ACL of an already resolved inode.
 func readACLForResolvedPath(ctx context.Context, runner Runner, resolvedPath string) (getfaclparser.Document, error) {
-	output, err := runner.Run(ctx, "getfacl", "-p", resolvedPath)
+	if err := validateACLPath(resolvedPath); err != nil {
+		return getfaclparser.Document{}, err
+	}
+	output, err := runner.Run(ctx, "getfacl", "-p", "--", resolvedPath)
 	if err != nil {
 		return getfaclparser.Document{}, fmt.Errorf("getfacl failed: %w", err)
 	}

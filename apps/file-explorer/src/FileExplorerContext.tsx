@@ -34,6 +34,7 @@ export interface FileExplorerContextValue {
   doublePanel: boolean;
   queue: ExplorerQueuedAction[];
   enqueueActions: (tasks: ExplorerActionTask[]) => Promise<void>;
+  clearQueue: () => void;
   setActivePanel: (panel: 0 | 1) => void;
   toggleView: () => void;
   navigate: (panel: 0 | 1, directory: string) => void;
@@ -181,16 +182,21 @@ function useQueuePolling(
 }
 
 /** Owns queue state, persistence, polling, and sequential action submission. */
-function useActionQueue(): Pick<FileExplorerContextValue, "queue" | "enqueueActions"> {
+function useActionQueue(): Pick<
+  FileExplorerContextValue,
+  "queue" | "enqueueActions" | "clearQueue"
+> {
   const [queue, setQueue] = useState<ExplorerQueuedAction[]>(initialQueue);
   useQueueCache(queue);
   useQueuePolling(queue, setQueue);
   const enqueueActions = async (tasks: ExplorerActionTask[]): Promise<void> => {
+    setQueue([]);
     for (const task of tasks) {
       await enqueueAction(task, setQueue);
     }
   };
-  return { queue, enqueueActions };
+  const clearQueue = (): void => setQueue([]);
+  return { queue, enqueueActions, clearQueue };
 }
 
 /** Replaces one panel while retaining the other panel's independent state. */

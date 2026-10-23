@@ -17,6 +17,39 @@ import (
 
 const writerBinary = "/usr/libexec/lite-nas/lite-nas-file-writer"
 
+// validateWriterArguments restricts the writer invocation to supported operations and paths.
+func validateWriterArguments(operation string, record *uploadRecord, data []byte) error {
+	switch operation {
+	case "create", "write", "stat", "checksum", "truncate", "publish", "cleanup":
+	default:
+		return errors.New("unsupported writer operation")
+	}
+	if record == nil || fileaccess.ValidateHostPath(record.Target) != nil ||
+		fileaccess.ValidateHostPath(record.Target+".upload") != nil {
+		return fileaccess.ErrInvalidPath
+	}
+	if (operation == "write" || operation == "truncate") && record.Offset < 0 {
+		return errors.New("invalid writer offset")
+	}
+	if len(data) > 16*1024*1024 {
+		return errors.New("writer input exceeds maximum length")
+	}
+	return nil
+}
+
+// validateUserCommandArguments restricts user-scoped operations to fixed binaries and host paths.
+func validateUserCommandArguments(binary string, paths []string) error {
+	switch binary {
+	case "/bin/mkdir", "/bin/rm", "/bin/rmdir":
+	default:
+		return errors.New("unsupported user command")
+	}
+	if len(paths) != 1 {
+		return errors.New("user command requires one path")
+	}
+	return fileaccess.ValidateHostPath(paths[0])
+}
+
 // writerResult mirrors the installed file-writer's bounded JSON result.
 type writerResult struct {
 	Operation    string `json:"operation"`
@@ -31,6 +64,9 @@ type writerResult struct {
 
 // invokeWriter runs one fixed operation as the verified non-root Unix user.
 func invokeWriter(ctx context.Context, subject fileaccess.Subject, operation string, record *uploadRecord, data []byte) (writerResult, error) {
+	if err := validateWriterArguments(operation, record, data); err != nil {
+		return writerResult{}, err
+	}
 	username, err := filesystem.VerifyUnixIdentity(subject)
 	if err != nil {
 		return writerResult{}, err
@@ -75,6 +111,9 @@ func invokeWriter(ctx context.Context, subject fileaccess.Subject, operation str
 // openCat streams one authorized host path through the user's Unix permissions.
 // The accepted pathname race is recorded in READ_RACE_REVIEW.md.
 func openCat(ctx context.Context, subject fileaccess.Subject, path string) (io.ReadCloser, error) {
+	if err := fileaccess.ValidateHostPath(path); err != nil {
+		return nil, err
+	}
 	username, err := filesystem.VerifyUnixIdentity(subject)
 	if err != nil {
 		return nil, err

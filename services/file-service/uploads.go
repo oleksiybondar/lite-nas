@@ -190,14 +190,14 @@ func (s *fileService) createUpload(writer http.ResponseWriter, request *http.Req
 		Expires: time.Now().Add(s.cfg.UploadTTL), DestinationExists: exists,
 		DestinationDevice: device, DestinationInode: inode,
 	}
-	result, err := invokeWriter(request.Context(), subject, "create", record, nil)
+	result, err := s.writerCommand(request.Context(), subject, "create", record, nil)
 	if err != nil {
 		writeError(writer, http.StatusForbidden, "stage_create_failed")
 		return
 	}
 	record.StageDevice, record.StageInode, record.StageUID = result.Device, result.Inode, result.UID
 	if strconv.FormatUint(uint64(result.UID), 10) != subject.UID || s.store.persist(record) != nil {
-		_, _ = invokeWriter(request.Context(), subject, "cleanup", record, nil)
+		_, _ = s.writerCommand(request.Context(), subject, "cleanup", record, nil)
 		writeError(writer, http.StatusServiceUnavailable, "upload_state_failed")
 		return
 	}
@@ -333,7 +333,7 @@ func (s *fileService) patchUpload(writer http.ResponseWriter, request *http.Requ
 		}
 		return
 	}
-	result, err := invokeWriter(request.Context(), subject, "write", record, data)
+	result, err := s.writerCommand(request.Context(), subject, "write", record, data)
 	if err != nil || result.NextOffset != offset+int64(len(data)) {
 		writeError(writer, http.StatusServiceUnavailable, "stage_write_failed")
 		return
@@ -394,7 +394,7 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 		DestinationExists: exists, DestinationDevice: device, DestinationInode: inode,
 		IdempotencyKey: id,
 	}
-	result, err := invokeWriter(request.Context(), subject, "create", record, nil)
+	result, err := s.writerCommand(request.Context(), subject, "create", record, nil)
 	if err != nil {
 		s.store.mu.Unlock()
 		writeError(writer, http.StatusForbidden, "stage_create_failed")
@@ -403,7 +403,7 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 	record.StageDevice, record.StageInode, record.StageUID = result.Device, result.Inode, result.UID
 	if s.store.persist(record) != nil {
 		s.store.mu.Unlock()
-		_, _ = invokeWriter(context.Background(), subject, "cleanup", record, nil)
+		_, _ = s.writerCommand(context.Background(), subject, "cleanup", record, nil)
 		writeError(writer, http.StatusServiceUnavailable, "upload_state_failed")
 		return
 	}
@@ -411,7 +411,7 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 	s.store.mu.Unlock()
 	defer func() {
 		if record.State != "completed" {
-			if _, err := invokeWriter(context.Background(), subject, "cleanup", record, nil); err != nil {
+			if _, err := s.writerCommand(context.Background(), subject, "cleanup", record, nil); err != nil {
 				return // Keep durable metadata and the target reservation for the expiry worker.
 			}
 		}
@@ -439,12 +439,12 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 		writeError(writer, http.StatusConflict, "destination_changed")
 		return
 	}
-	checksum, err := invokeWriter(request.Context(), subject, "checksum", record, nil)
+	checksum, err := s.writerCommand(request.Context(), subject, "checksum", record, nil)
 	if err != nil || checksum.Size != record.Offset {
 		writeError(writer, http.StatusServiceUnavailable, "checksum_failed")
 		return
 	}
-	if _, err := invokeWriter(request.Context(), subject, "publish", record, nil); err != nil {
+	if _, err := s.writerCommand(request.Context(), subject, "publish", record, nil); err != nil {
 		writeError(writer, http.StatusConflict, "publish_failed")
 		return
 	}
@@ -466,7 +466,7 @@ func (s *fileService) writeMultipartFile(ctx context.Context, subject fileaccess
 			if record.Offset+int64(count) > maxBrowserUpload {
 				return errUploadTooLarge
 			}
-			result, writeErr := invokeWriter(ctx, subject, "write", record, buffer[:count])
+			result, writeErr := s.writerCommand(ctx, subject, "write", record, buffer[:count])
 			if writeErr != nil || result.NextOffset != record.Offset+int64(count) {
 				return errors.New("writer failed")
 			}
@@ -510,13 +510,13 @@ func (s *fileService) completeUpload(writer http.ResponseWriter, request *http.R
 		writeError(writer, http.StatusConflict, "upload_incomplete")
 		return
 	}
-	checksum, err := invokeWriter(request.Context(), subject, "checksum", record, nil)
+	checksum, err := s.writerCommand(request.Context(), subject, "checksum", record, nil)
 	if err != nil || checksum.Size != record.Size || checksum.SHA256 != record.SHA256 {
 		writeError(writer, http.StatusConflict, "checksum_mismatch")
 		return
 	}
-	if _, err := invokeWriter(request.Context(), subject, "publish", record, nil); err != nil {
-		_, _ = invokeWriter(request.Context(), subject, "cleanup", record, nil)
+	if _, err := s.writerCommand(request.Context(), subject, "publish", record, nil); err != nil {
+		_, _ = s.writerCommand(request.Context(), subject, "cleanup", record, nil)
 		writeError(writer, http.StatusConflict, "publish_failed")
 		return
 	}
@@ -538,7 +538,7 @@ func (s *fileService) cancelUpload(writer http.ResponseWriter, request *http.Req
 		writeError(writer, http.StatusConflict, "already_completed")
 		return
 	}
-	if _, err := invokeWriter(request.Context(), subject, "cleanup", record, nil); err != nil {
+	if _, err := s.writerCommand(request.Context(), subject, "cleanup", record, nil); err != nil {
 		writeError(writer, http.StatusServiceUnavailable, "cleanup_failed")
 		return
 	}
@@ -590,7 +590,7 @@ func (s *fileService) cleanupExpired(ctx context.Context) {
 			_ = s.store.remove(record)
 		} else {
 			subject := fileaccess.Subject{Username: record.Owner, UID: record.UID}
-			if _, err := invokeWriter(ctx, subject, "cleanup", record, nil); err == nil {
+			if _, err := s.writerCommand(ctx, subject, "cleanup", record, nil); err == nil {
 				_ = s.store.remove(record)
 			}
 		}

@@ -201,7 +201,7 @@ func (s *fileService) createDirectory(writer http.ResponseWriter, request *http.
 		decisionError(writer, err)
 		return
 	}
-	if err := runUserCommand(request.Context(), subject, "/bin/mkdir", path); err != nil {
+	if err := s.userCommand(request.Context(), subject, "/bin/mkdir", path); err != nil {
 		writeError(writer, http.StatusConflict, "mkdir_failed")
 		return
 	}
@@ -325,6 +325,9 @@ func (s *fileService) allowDestination(ctx context.Context, subject fileaccess.S
 
 // runUserCommand invokes only a fixed binary as the verified non-root Unix user.
 func runUserCommand(ctx context.Context, subject fileaccess.Subject, binary string, paths ...string) error {
+	if err := validateUserCommandArguments(binary, paths); err != nil {
+		return err
+	}
 	username, err := filesystem.VerifyUnixIdentity(subject)
 	if err != nil {
 		return err
@@ -417,7 +420,7 @@ func (s *fileService) runOperation(ctx context.Context, job *operationJob, updat
 					return err
 				}
 				if _, err := os.Lstat(resolved); errors.Is(err, os.ErrNotExist) {
-					if err := runUserCommand(ctx, job.subject, "/bin/mkdir", resolved); err != nil {
+					if err := s.userCommand(ctx, job.subject, "/bin/mkdir", resolved); err != nil {
 						return err
 					}
 				}
@@ -449,7 +452,7 @@ func (s *fileService) runOperation(ctx context.Context, job *operationJob, updat
 			if entry.directory {
 				binary = "/bin/rmdir"
 			}
-			if err := runUserCommand(ctx, job.subject, binary, entry.path); err != nil {
+			if err := s.userCommand(ctx, job.subject, binary, entry.path); err != nil {
 				return err
 			}
 			updates <- operationUpdate{id: job.ID, items: 1}
@@ -486,13 +489,13 @@ func (s *fileService) copyFile(ctx context.Context, job *operationJob, source, d
 		record.DestinationExists = true
 		record.DestinationDevice, record.DestinationInode = fileIdentity(info)
 	}
-	created, err := invokeWriter(ctx, job.subject, "create", record, nil)
+	created, err := s.writerCommand(ctx, job.subject, "create", record, nil)
 	if err != nil {
 		return err
 	}
 	record.StageDevice, record.StageInode, record.StageUID = created.Device, created.Inode, created.UID
-	defer func() { _, _ = invokeWriter(ctx, job.subject, "cleanup", record, nil) }()
-	reader, err := openCat(ctx, job.subject, source)
+	defer func() { _, _ = s.writerCommand(ctx, job.subject, "cleanup", record, nil) }()
+	reader, err := s.readerCommand(ctx, job.subject, source)
 	if err != nil {
 		return err
 	}
@@ -506,7 +509,7 @@ func (s *fileService) copyFile(ctx context.Context, job *operationJob, source, d
 			if _, err := hash.Write(chunk); err != nil {
 				return err
 			}
-			result, err := invokeWriter(ctx, job.subject, "write", record, chunk)
+			result, err := s.writerCommand(ctx, job.subject, "write", record, chunk)
 			if err != nil || result.BytesWritten != int64(count) {
 				return errors.New("copy write failed")
 			}
@@ -520,11 +523,11 @@ func (s *fileService) copyFile(ctx context.Context, job *operationJob, source, d
 			return readErr
 		}
 	}
-	staged, err := invokeWriter(ctx, job.subject, "checksum", record, nil)
+	staged, err := s.writerCommand(ctx, job.subject, "checksum", record, nil)
 	if err != nil || staged.SHA256 != hex.EncodeToString(hash.Sum(nil)) {
 		return errors.New("copy checksum failed")
 	}
-	if _, err := invokeWriter(ctx, job.subject, "publish", record, nil); err != nil {
+	if _, err := s.writerCommand(ctx, job.subject, "publish", record, nil); err != nil {
 		return err
 	}
 	return nil

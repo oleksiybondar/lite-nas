@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { fileServicePath, parentPath } from "./paths";
 import {
   createDirectorySchema,
+  type directoryEntrySchema,
   directoryListingSchema,
   fileServiceErrorSchema,
   hostPathSchema,
@@ -12,11 +13,8 @@ import {
 /** Validated server-side operation status. */
 export type OperationJob = z.infer<typeof operationJobSchema>;
 
-/** One validated direct child presented by the File Explorer. */
-export interface FileEntry {
-  kind: "directory" | "file";
-  path: string;
-}
+/** One validated direct child and its nullable filesystem metadata. */
+export type FileEntry = z.infer<typeof directoryEntrySchema>;
 
 /** True when File Service serves this file type inline for a modal preview. */
 export function canPreviewFile(entry: FileEntry): boolean {
@@ -78,7 +76,9 @@ export async function transferEntry(
 }
 
 /** Deletes a file immediately or starts a server job for a directory. */
-export async function deleteEntry(entry: FileEntry): Promise<OperationJob | null> {
+export async function deleteEntry(
+  entry: Pick<FileEntry, "path" | "kind">,
+): Promise<OperationJob | null> {
   hostPathSchema.parse(entry.path);
   const response = await fetch(fileServicePath("/f", entry.path), {
     method: "DELETE",
@@ -111,12 +111,14 @@ export async function listDirectory(path: string, signal: AbortSignal): Promise<
   }
 
   const listing = directoryListingSchema.parse(await response.json());
-  const entries: FileEntry[] = [
-    ...listing.directories.map((entry) => ({ kind: "directory" as const, path: entry })),
-    ...listing.files.map((entry) => ({ kind: "file" as const, path: entry })),
-  ];
-  if (entries.some((entry) => parentPath(entry.path) !== path)) {
+  if (
+    listing.some(
+      (entry) =>
+        parentPath(entry.path) !== path ||
+        entry.name !== entry.path.slice(entry.path.lastIndexOf("/") + 1),
+    )
+  ) {
     throw new Error("File Service returned an invalid directory listing.");
   }
-  return entries.sort(compareEntries);
+  return listing.sort(compareEntries);
 }

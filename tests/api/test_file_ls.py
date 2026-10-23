@@ -16,6 +16,11 @@ pytestmark = [pytest.mark.api, pytest.mark.FileService, pytest.mark.Nginx]
 SYSTEM_DIRECTORIES = {"/boot", "/dev", "/etc", "/proc", "/run", "/sys", "/usr", "/var"}
 
 
+def listed_paths(body: list[dict[str, object]], kind: str) -> set[str]:
+    """Return the authorized paths of one entry kind from a listing response."""
+    return {str(entry["path"]) for entry in body if entry["kind"] == kind}
+
+
 # Requirements: file-service-svc/FR-001 and file-service-svc/FR-008.
 def test_anonymous_root_listing_is_denied(api_client: RESTClient) -> None:
     """Test case: an anonymous caller cannot enumerate filesystem roots.
@@ -68,7 +73,7 @@ def test_non_admin_root_listing_contains_home_and_pools(
     cookie = request.getfixturevalue(f"{account}_cookie")
     response = api_client.get(path="/ls/", cookies={ACCESS_COOKIE: cookie})
     expect(response.status).to_be(200)
-    expect({"/home", *zfs_root_mounts} <= set(response.body["directories"])).to_be(True)
+    expect({"/home", *zfs_root_mounts} <= listed_paths(response.body, "directory")).to_be(True)
 
 
 # Requirements: file-service-svc/FR-008.
@@ -91,7 +96,7 @@ def test_non_admin_root_listing_omits_system_directories(
     cookie = request.getfixturevalue(f"{account}_cookie")
     response = api_client.get(path="/ls/", cookies={ACCESS_COOKIE: cookie})
     expect(response.status).to_be(200)
-    expect(SYSTEM_DIRECTORIES.isdisjoint(response.body["directories"])).to_be(True)
+    expect(SYSTEM_DIRECTORIES.isdisjoint(listed_paths(response.body, "directory"))).to_be(True)
 
 
 # Requirements: file-service-svc/FR-008.
@@ -112,7 +117,7 @@ def test_admin_root_listing_contains_system_directories(
     """
     response = api_client.get(path="/ls/", cookies={ACCESS_COOKIE: admin_cookie})
     expect(response.status).to_be(200)
-    expect(SYSTEM_DIRECTORIES.issubset(response.body["directories"])).to_be(True)
+    expect(SYSTEM_DIRECTORIES.issubset(listed_paths(response.body, "directory"))).to_be(True)
 
 
 @pytest.fixture
@@ -154,7 +159,34 @@ def test_listing_returns_direct_children_only(
     """
     root, direct_file, _ = listing_tree
     response = api_client.get(path=f"/ls{root}", cookies={ACCESS_COOKIE: operator_cookie})
-    expect(response.body).to_be({"files": [direct_file], "directories": [f"{root}/nested"]})
+    expect(listed_paths(response.body, "file")).to_be({direct_file})
+    expect(listed_paths(response.body, "directory")).to_be({f"{root}/nested"})
+
+
+# Requirements: file-service-svc/FR-008.
+def test_listing_returns_file_metadata(
+    api_client: RESTClient, operator_cookie: str, listing_tree: tuple[str, str, str]
+) -> None:
+    """Test case: an authorized file has ls-style metadata in its listing entry.
+
+    Preparation:
+    - The operator owns a six-byte file with mode 0640 in a private directory.
+
+    Action:
+    - List the parent directory through the public /ls mount.
+
+    Expected result:
+    - The file entry has its name, byte size, owner, group, permissions, and UTC modification time.
+    """
+    root, direct_file, _ = listing_tree
+    response = api_client.get(path=f"/ls{root}", cookies={ACCESS_COOKIE: operator_cookie})
+    file_entry = next(entry for entry in response.body if entry["path"] == direct_file)
+    expect(file_entry["name"]).to_be("direct.txt")
+    expect(file_entry["size"]).to_be(6)
+    expect(file_entry["owner"]).to_be(SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN)
+    expect(bool(file_entry["group"])).to_be(True)
+    expect(file_entry["permissions"]).to_be("rw-r-----")
+    expect(file_entry["last_modified"].endswith("Z")).to_be(True)
 
 
 # Requirements: file-service-svc/FR-008.
@@ -174,9 +206,8 @@ def test_recursive_listing_returns_entire_tree(
     """
     root, direct_file, nested_file = listing_tree
     response = api_client.get(path=f"/ls{root}?recursive", cookies={ACCESS_COOKIE: operator_cookie})
-    expect(response.body).to_be(
-        {"files": [direct_file, nested_file], "directories": [f"{root}/nested"]}
-    )
+    expect(listed_paths(response.body, "file")).to_be({direct_file, nested_file})
+    expect(listed_paths(response.body, "directory")).to_be({f"{root}/nested"})
 
 
 # Requirements: file-service-svc/FR-008.
@@ -198,7 +229,8 @@ def test_files_only_lists_direct_files(
     response = api_client.get(
         path=f"/ls{root}?files-only", cookies={ACCESS_COOKIE: operator_cookie}
     )
-    expect(response.body).to_be({"files": [direct_file], "directories": []})
+    expect(listed_paths(response.body, "file")).to_be({direct_file})
+    expect(listed_paths(response.body, "directory")).to_be(set())
 
 
 # Requirements: file-service-svc/FR-008.
@@ -221,7 +253,8 @@ def test_recursive_files_only_lists_all_files(
         path=f"/ls{root}?recursive&files-only",
         cookies={ACCESS_COOKIE: operator_cookie},
     )
-    expect(response.body).to_be({"files": [direct_file, nested_file], "directories": []})
+    expect(listed_paths(response.body, "file")).to_be({direct_file, nested_file})
+    expect(listed_paths(response.body, "directory")).to_be(set())
 
 
 # Requirements: file-service-svc/FR-008.

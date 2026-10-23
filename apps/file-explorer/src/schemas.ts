@@ -23,11 +23,27 @@ export const hostPathSchema = z
     );
   });
 
-/** Direct children returned by GET /ls/{absolute-path...}. */
-export const directoryListingSchema = z.object({
-  files: z.array(hostPathSchema),
-  directories: z.array(hostPathSchema),
+/** One authorized entry and its nullable filesystem metadata from File Service. */
+export const directoryEntrySchema = z.object({
+  path: hostPathSchema,
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((name) => !/[\\/\0]/.test(name)),
+  kind: z.enum(["file", "directory"]),
+  size: z.number().int().nonnegative().nullable(),
+  owner: z.string().nullable(),
+  group: z.string().nullable(),
+  permissions: z
+    .string()
+    .regex(/^[rwxstST-]{9}$/)
+    .nullable(),
+  last_modified: z.iso.datetime({ offset: true }).nullable(),
 });
+
+/** Authorized entries returned by GET /ls/{absolute-path...}. */
+export const directoryListingSchema = z.array(directoryEntrySchema);
 
 /** Stable error envelope returned by File Service. */
 export const fileServiceErrorSchema = z.object({

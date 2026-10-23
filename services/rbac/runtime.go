@@ -112,7 +112,8 @@ func newGetSubjectRolesHandler(
 ) func(context.Context, messaging.Envelope) (any, error) {
 	return func(ctx context.Context, envelope messaging.Envelope) (any, error) {
 		var request rbaccontract.GetSubjectRolesRequest
-		if !decodeRPCRequest(envelope, &request, requestValidator) {
+		if !decodeRPCRequest(envelope, &request, requestValidator) ||
+			rbacchecks.ValidateIdentityOperand(request.Username) != nil {
 			return rbaccontract.GetSubjectRolesResponse{}, nil
 		}
 
@@ -156,7 +157,8 @@ func newCanSudoExecHandler(
 ) func(context.Context, messaging.Envelope) (any, error) {
 	return func(ctx context.Context, envelope messaging.Envelope) (any, error) {
 		var request rbaccontract.CheckSudoExecRequest
-		if !decodeRPCRequest(envelope, &request, requestValidator) {
+		if !decodeRPCRequest(envelope, &request, requestValidator) ||
+			rbacchecks.ValidateSudoArguments(request.UID, request.Command) != nil {
 			return rbaccontract.DecisionResponse{Allowed: false}, nil
 		}
 		return rbaccontract.DecisionResponse{

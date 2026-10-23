@@ -26,19 +26,19 @@ func (runner pathFixtureRunner) Run(_ context.Context, name string, args ...stri
 	if uid == "" {
 		uid = "1002"
 	}
-	if name == "id" && len(args) == 1 && args[0] == uid {
+	if name == "id" && len(args) == 2 && args[0] == "--" && args[1] == uid {
 		return []byte("uid=" + uid + "(testuser) gid=1002(testgroup) groups=1002(testgroup)\n"), nil
 	}
-	if name != "getfacl" || len(args) != 2 || args[0] != "-p" {
+	if name != "getfacl" || len(args) != 3 || args[0] != "-p" || args[1] != "--" {
 		return nil, errors.New("unexpected command")
 	}
-	if args[1] == runner.fail {
+	if args[2] == runner.fail {
 		return nil, errors.New("ACL unavailable")
 	}
-	if acl, ok := runner.acls[args[1]]; ok {
+	if acl, ok := runner.acls[args[2]]; ok {
 		return []byte(acl), nil
 	}
-	if args[1] == runner.leaf {
+	if args[2] == runner.leaf {
 		return []byte(runner.leafACL), nil
 	}
 	return []byte(directoryACL), nil

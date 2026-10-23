@@ -12,6 +12,8 @@ it has no independent login or enable/disable setting.
 The app MUST start each panel at host `/` and request direct children from
 `GET /ls/{absolute-path...}`. It MUST show directories before files, sort
 names consistently, and provide a parent-directory entry outside `/`. It MUST
+validate each returned object's absolute `path`, child `name`, `kind`, and
+nullable `size`, `owner`, `group`, `permissions`, and `last_modified` metadata. It MUST
 show loading, empty, and File Service error states. A denied listing at `/`
 MUST show the error; it MUST NOT silently choose another starting directory.
 The Back control MUST remain available after a failed listing when panel

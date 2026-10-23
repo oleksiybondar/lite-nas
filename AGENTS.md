@@ -77,6 +77,13 @@ branch or otherwise provides a pushed source branch.
 - Report validation performed and any commands that could not be run.
 - Validate every user-facing or service-facing input boundary before doing
   further message processing or invoking business logic.
+- Before adding or changing an external command invocation, review whether it
+  invokes a shell and whether any executable or argument is influenced by
+  external input. Pass arguments separately without a shell. Validate each
+  variable argument against the invoked program's specific operand and option
+  rules before execution, and use an end-of-options delimiter where supported.
+  Do not rely on shell-character filtering or argument counts as validation;
+  test option-shaped and malformed inputs for commands that accept them.
 - Use Huma DTO validation for HTTP and HTTPS routes. Use
   `go-playground/validator/v10` by default for non-HTTP Go boundaries such as
   CLI inputs, NATS RPC handlers, NATS subscription handlers, and other
@@ -91,6 +98,10 @@ branch or otherwise provides a pushed source branch.
   service-owned request structs into lower-level services.
 - When tests repeat the same setup within a package, prefer package-local
   fixtures and helper files instead of copying the setup into each test.
+- Keep each unit test to one verification point and one assertion. Use
+  separate parameterized cases when checking several inputs against the same
+  rule, and move shared preparation and expected successful actions into
+  fixtures or `must...` helpers.
 - Treat test duplication as repository-wide maintenance debt, not as a
   package-local issue only. Reuse that crosses Go module boundaries should move
   into shared test helpers instead of being copied.

@@ -147,7 +147,12 @@ def test_operator_can_list_own_file(
         path=f"/ls/home/{SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN}",
         cookies={ACCESS_COOKIE: operator_cookie},
     )
-    expect(operator_owned_file in response.body["files"]).to_be(True)
+    expect(
+        any(
+            entry["path"] == operator_owned_file and entry["kind"] == "file"
+            for entry in response.body
+        )
+    ).to_be(True)
 
 
 # Requirements: file-service-svc/FR-003.

@@ -529,9 +529,10 @@ Acceptance criteria:
   metadata. RBAC dependency/evaluation errors fail the listing closed rather
   than returning a partial result as complete.
 - Every listing request validates the token and resolves the token owner's UID.
-- A successful response is JSON with top-level `files` and `directories` keys;
-  both values are arrays of absolute host paths. `files-only` returns an empty
-  `directories` array.
+- A successful response is a JSON array of objects with absolute `path`, child
+  `name`, `kind` (`file` or `directory`), and nullable `size` (bytes), `owner`,
+  `group`, `permissions` (nine symbolic mode characters), and `last_modified`
+  (UTC RFC 3339). `files-only` omits directory objects.
 - A listing failure returns a non-success HTTP status and JSON with a top-level
   `error` key containing a documented stable error code. Error responses do not
   disclose inaccessible paths or entry names.

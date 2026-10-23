@@ -8,6 +8,9 @@ import (
 
 // IsInteractiveUser reports whether one UID appears to be an interactive user.
 func IsInteractiveUser(ctx context.Context, runner Runner, uid string) (bool, error) {
+	if err := validateNumericUID(uid); err != nil {
+		return false, err
+	}
 	output, err := runner.Run(ctx, "getent", "passwd", uid)
 	if err != nil {
 		return false, fmt.Errorf("getent passwd failed: %w", err)

@@ -1,15 +1,10 @@
 import { UploadDialog } from "@lite-nas/file-upload";
-import SplitscreenIcon from "@mui/icons-material/Splitscreen";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 import {
   Box,
-  Button,
   Container,
   Dialog,
   DialogContent,
   DialogTitle,
-  IconButton,
   Stack,
   Typography,
 } from "@mui/material";
@@ -62,6 +57,17 @@ interface WorkspaceOverlaysProps {
   onConfirmAction: () => Promise<void>;
   onClosePreview: () => void;
 }
+
+/** Keeps the workspace panels scroll-bounded while the action bar remains visible. */
+const workspaceContainerSx = {
+  height: "100dvh",
+  boxSizing: "border-box",
+  p: 2,
+  display: "flex",
+  flexDirection: "column",
+  gap: 1.5,
+  overflow: "hidden",
+} as const;
 
 /** Builds a stable action snapshot when the current selection can be acted on. */
 function preparePendingAction({
@@ -123,41 +129,14 @@ function useCompletedActionRefresh(
   }, [queue, setRefresh]);
 }
 
-/** Displays the app title, active panel, upload, and view controls. */
-function WorkspaceHeader({
-  doublePanel,
-  activePanel,
-  onUpload,
-  onToggleView,
-}: {
-  doublePanel: boolean;
-  activePanel: 0 | 1;
-  onUpload: () => void;
-  onToggleView: () => void;
-}): ReactElement {
+/** Displays the app title and any active action queue in the fixed header. */
+function WorkspaceHeader(): ReactElement {
   return (
     <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
-      <Box>
-        <Typography variant="h1" data-testid="file-explorer-title">
-          File Explorer
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {doublePanel ? "Two panels" : "One panel"} · {activePanel === 0 ? "Left" : "Right"} panel
-          selected
-        </Typography>
-      </Box>
-      <Stack direction="row" alignItems="center" gap={1}>
-        <Button startIcon={<UploadFileIcon />} onClick={onUpload}>
-          Upload
-        </Button>
-        <IconButton
-          aria-label={doublePanel ? "Show one panel" : "Show two panels"}
-          onClick={onToggleView}
-          data-testid="file-explorer-view-toggle"
-        >
-          {doublePanel ? <ViewAgendaIcon /> : <SplitscreenIcon />}
-        </IconButton>
-      </Stack>
+      <Typography variant="h1" data-testid="file-explorer-title">
+        File Explorer
+      </Typography>
+      <ExplorerActionQueue />
     </Stack>
   );
 }
@@ -339,26 +318,28 @@ export function FileExplorerWorkspace(): ReactElement {
   const controls = useWorkspaceControls(explorer, selected, setRefresh);
 
   return (
-    <Container component="main" maxWidth={false} sx={{ py: 3 }} data-testid="file-explorer-page">
-      <Stack spacing={2}>
-        <WorkspaceHeader
-          doublePanel={explorer.doublePanel}
-          activePanel={explorer.activePanel}
-          onUpload={() => controls.setUploadOpen(true)}
-          onToggleView={explorer.toggleView}
-        />
+    <Container
+      component="main"
+      maxWidth={false}
+      sx={workspaceContainerSx}
+      data-testid="file-explorer-page"
+    >
+      <WorkspaceHeader />
+      <Box sx={{ flex: 1, minHeight: 0 }}>
         <PanelPair doublePanel={explorer.doublePanel} refresh={refresh} />
+      </Box>
+      <Box sx={{ flex: "0 0 auto" }}>
         <WorkspaceActions
           doublePanel={explorer.doublePanel}
           selected={selected}
           previewable={previewable}
+          onToggleView={explorer.toggleView}
           onPrepare={controls.prepare}
           onPreview={() => controls.setPreviewPath(selected[0]?.path ?? null)}
           onUpload={() => controls.setUploadOpen(true)}
           onNewFolder={() => controls.setFolderOpen(true)}
         />
-        <ExplorerActionQueue />
-      </Stack>
+      </Box>
       <WorkspaceOverlays
         directory={explorer.panels[explorer.activePanel].directory}
         uploadOpen={controls.uploadOpen}
@@ -377,7 +358,7 @@ export function FileExplorerWorkspace(): ReactElement {
   );
 }
 
-/** Displays both panels and the active panel's shared action bar. */
+/** Displays both panels in the flexible region above the fixed action bar. */
 function PanelPair({
   doublePanel,
   refresh,
@@ -386,7 +367,12 @@ function PanelPair({
   refresh: number;
 }): ReactElement {
   return (
-    <Stack direction={{ xs: "column", md: "row" }} gap={2} alignItems="stretch">
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      gap={1.5}
+      alignItems="stretch"
+      sx={{ height: "100%", minHeight: 0 }}
+    >
       <ExplorerPanel panel={0} refresh={refresh} />
       {doublePanel && <ExplorerPanel panel={1} refresh={refresh} />}
     </Stack>
@@ -398,6 +384,7 @@ function WorkspaceActions({
   doublePanel,
   selected,
   previewable,
+  onToggleView,
   onPrepare,
   onPreview,
   onUpload,
@@ -406,6 +393,7 @@ function WorkspaceActions({
   doublePanel: boolean;
   selected: FileEntry[];
   previewable: boolean;
+  onToggleView: () => void;
   onPrepare: (kind: PendingAction["kind"]) => void;
   onPreview: () => void;
   onUpload: () => void;
@@ -417,6 +405,7 @@ function WorkspaceActions({
       hasSelection={selected.length > 0}
       canPreview={previewable}
       canDelete={selected.length > 0}
+      onToggleView={onToggleView}
       onCopy={() => onPrepare("copy")}
       onMove={() => onPrepare("move")}
       onPreview={onPreview}

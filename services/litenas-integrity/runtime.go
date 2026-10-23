@@ -313,6 +313,9 @@ func (service *integrityService) runIntegrityCheck(ctx context.Context) checkRes
 // runAIDECommand invokes AIDE through passwordless sudo under the service's
 // dedicated host identity.
 func (service *integrityService) runAIDECommand(ctx context.Context, subcommand string) ([]byte, error) {
+	if subcommand != "--check" && subcommand != "--init" {
+		return nil, errors.New("unsupported AIDE subcommand")
+	}
 	return service.runner.CombinedOutput(ctx, sudoBinary, aideBinary, subcommand)
 }
 
