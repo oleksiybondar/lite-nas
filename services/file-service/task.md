@@ -709,7 +709,7 @@ The first-version implementation actions are complete and have been removed
 from this task list. Keep the detailed contract and acceptance criteria above
 as the source of truth while closing these verification items:
 
-1. Run the full installed-system API table in `tests/api/test_file_service.py`
+1. Run the full installed-system API table in `tests/api/file_service/test_file_service.py`
    through Nginx. Confirm anonymous denial, operator access to a private owned
    file and directory, denial of critical paths, and the configured admin
    account's intended access. Resolve any mismatch between admin expectations

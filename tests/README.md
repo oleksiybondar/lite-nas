@@ -159,10 +159,10 @@ those logs as `system_tests_logs.zip` for post-failure review.
 
 ## File Service API checks
 
-`api/test_file_service.py`, `api/test_file_upload.py`, and `api/test_file_ls.py`
-log in through `/api/auth/login` and send file requests through Nginx's `/f/`
-and `/ls/` mounts. Upload and listing tests create unique paths in the test
-operator's home directory and remove them afterward. Set
+The `api/file_service/` suites log in through `/api/auth/login` and send file
+requests through Nginx's `/f/`, `/d/`, and `/ls/` mounts. Upload, operation,
+and listing tests create unique paths in the test operator's home directory
+and remove them afterward. Set
 `LITENAS_FILE_SERVICE_ADMIN_LOGIN` and `LITENAS_FILE_SERVICE_ADMIN_PASSWORD`
 to a dedicated admin test account before running the admin cases. The suite
 fails clearly when either value is missing rather than treating the default
