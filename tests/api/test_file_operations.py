@@ -1,7 +1,6 @@
 """Installed-system authorization checks for File Service mutations and jobs."""
 
 import shlex
-import time
 from collections.abc import Generator
 from http import HTTPStatus
 from urllib.parse import urlsplit
@@ -11,7 +10,7 @@ import pytest
 from constants import API_BASE_URL, SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN
 from hyperiontf import CLIClient, RESTClient, expect
 
-from .conftest import ACCESS_COOKIE
+from .conftest import ACCESS_COOKIE, must_finished_job
 
 pytestmark = [pytest.mark.api, pytest.mark.FileService, pytest.mark.Nginx]
 
@@ -33,21 +32,6 @@ def operation_tree(operator_cli_client: CLIClient) -> Generator[tuple[str, str],
         yield root, source
     finally:
         operator_cli_client.execute(f"rm -rf -- {shlex.quote(root)}")
-
-
-def must_finished_job(api_client: RESTClient, cookie: str, job_id: str) -> None:
-    """Wait for a submitted short operation or fail with its reported state."""
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        response = api_client.get(path=f"/f/jobs/{job_id}", cookies={ACCESS_COOKIE: cookie})
-        if response.status != HTTPStatus.OK:
-            pytest.fail(f"job lookup failed: HTTP {response.status}")
-        if response.body["state"] == "done":
-            return
-        if response.body["state"] == "error":
-            pytest.fail(f"job failed: {response.body.get('error_code')}")
-        time.sleep(0.1)
-    pytest.fail("job did not finish within 20 seconds")
 
 
 # Requirements: file-service-svc/FR-010.

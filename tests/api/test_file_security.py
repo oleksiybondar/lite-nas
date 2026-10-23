@@ -10,7 +10,7 @@ import pytest
 from constants import API_BASE_URL, SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN
 from hyperiontf import CLIClient, RESTClient, expect
 
-from .conftest import ACCESS_COOKIE
+from .conftest import ACCESS_COOKIE, injection_name
 
 pytestmark = [pytest.mark.api, pytest.mark.FileService, pytest.mark.Nginx]
 
@@ -232,10 +232,7 @@ def test_url_command_substitution_remains_literal(
     - The shell syntax never creates the sentinel file.
     """
     sentinel = f"{security_path}.sentinel"
-    # Expand the slash from HOME only if a shell mistakenly interprets the operand.
-    target = (
-        f"{security_path}$(touch${{IFS}}${{HOME}}${{HOME%%home*}}{sentinel.rsplit('/', 1)[-1]})"
-    )
+    target = f"{security_path}{injection_name(sentinel)}"
     operator_cli_client.execute(f"printf safe > {shlex.quote(target)}")
     operator_cli_client.assert_exit_code(0)
     try:

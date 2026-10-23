@@ -2,8 +2,10 @@
 
 import os
 import shlex
+import time
 from collections.abc import Generator
 from http import HTTPStatus
+from pathlib import PurePosixPath
 from uuid import uuid4
 
 import pytest
@@ -19,12 +21,34 @@ ACCESS_COOKIE = "lite-nas-at"
 LOGIN_ENDPOINT = "/api/auth/login"
 
 
+def injection_name(sentinel: str) -> str:
+    """Return a literal path segment that would touch sentinel if sent to a shell."""
+    name = PurePosixPath(sentinel).name
+    # HOME%%home* expands to a slash only when a shell interprets the operand.
+    return f"$(touch${{IFS}}${{HOME}}${{HOME%%home*}}{name})"
+
+
 def login_cookie(api_client: RESTClient, login: str, password: str) -> str:
     """Log in through the browser API and return the access cookie value."""
     response = api_client.post(path=LOGIN_ENDPOINT, payload={"login": login, "password": password})
     if response.status != HTTPStatus.OK or ACCESS_COOKIE not in response.cookies:
         pytest.fail(f"login did not issue {ACCESS_COOKIE}: HTTP {response.status}")
     return str(response.cookies[ACCESS_COOKIE])
+
+
+def must_finished_job(api_client: RESTClient, cookie: str, job_id: str) -> None:
+    """Wait for a short File Service job or fail with its reported error."""
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        response = api_client.get(path=f"/f/jobs/{job_id}", cookies={ACCESS_COOKIE: cookie})
+        if response.status != HTTPStatus.OK:
+            pytest.fail(f"job lookup failed: HTTP {response.status}")
+        if response.body["state"] == "done":
+            return
+        if response.body["state"] == "error":
+            pytest.fail(f"job failed: {response.body.get('error_code')}")
+        time.sleep(0.1)
+    pytest.fail("job did not finish within 20 seconds")
 
 
 @pytest.fixture

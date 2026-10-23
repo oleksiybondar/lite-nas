@@ -16,7 +16,7 @@ from constants import (
 )
 from hyperiontf import CLIClient, RESTClient, expect
 
-from .conftest import ACCESS_COOKIE
+from .conftest import ACCESS_COOKIE, injection_name
 
 pytestmark = [pytest.mark.api, pytest.mark.FileService, pytest.mark.Nginx]
 
@@ -536,3 +536,114 @@ def test_other_user_cannot_access_resumable_upload(
         expect(response.status).to_be(HTTPStatus.NOT_FOUND)
     finally:
         cancel_upload(api_client, operator_cookie, upload_id)
+
+
+# Requirements: file-service-svc/FR-004, FR-005, and SR-001.
+@pytest.mark.parametrize("upload_mode", ["conventional", "proprietary"])
+def test_upload_destination_treats_shell_syntax_as_filename(
+    api_client: RESTClient,
+    operator_cli_client: CLIClient,
+    operator_cookie: str,
+    upload_target: str,
+    upload_mode: str,
+) -> None:
+    """Test case: an upload destination remains a literal writer operand.
+
+    Preparation:
+    - The operator has a unique destination and a separate absent sentinel.
+
+    Action:
+    - Publish a file through the selected protocol with shell syntax in its path.
+
+    Expected result:
+    - The destination is published without creating the sentinel.
+    """
+    sentinel = f"{upload_target}.sentinel"
+    target = f"{upload_target}{injection_name(sentinel)}"
+    try:
+        if upload_mode == "conventional":
+            upload_conventional(api_client, operator_cookie, target)
+        else:
+            upload_id, chunk_size = start_upload(api_client, operator_cookie, target, CONTENT)
+            completed = False
+            try:
+                for offset in range(0, len(CONTENT), chunk_size):
+                    send_chunk(
+                        api_client,
+                        operator_cookie,
+                        upload_id,
+                        CONTENT[offset : offset + chunk_size],
+                        offset,
+                    )
+                complete_upload(api_client, operator_cookie, upload_id)
+                completed = True
+            finally:
+                if not completed:
+                    cancel_upload(api_client, operator_cookie, upload_id)
+        operator_cli_client.execute(f"test ! -e {shlex.quote(sentinel)}")
+        operator_cli_client.assert_exit_code(0)
+    finally:
+        operator_cli_client.execute(
+            f"rm -f -- {shlex.quote(target)} {shlex.quote(target + '.upload')} "
+            f"{shlex.quote(sentinel)}"
+        )
+
+
+# Requirements: file-service-svc/FR-005 and SR-001.
+@pytest.mark.parametrize("upload_mode", ["conventional", "proprietary"])
+def test_upload_filename_metadata_does_not_execute_shell_syntax(
+    api_client: RESTClient,
+    operator_cli_client: CLIClient,
+    operator_cookie: str,
+    upload_target: str,
+    upload_mode: str,
+) -> None:
+    """Test case: a multipart or JSON filename is treated as untrusted metadata.
+
+    Preparation:
+    - The operator has an unused destination and an absent execution sentinel.
+
+    Action:
+    - Submit the selected upload with shell syntax in its filename field.
+
+    Expected result:
+    - File Service accepts the literal filename without creating the sentinel.
+    """
+    sentinel = f"{upload_target}.sentinel"
+    filename = injection_name(sentinel)
+    upload_id: str | None = None
+    try:
+        if upload_mode == "conventional":
+            body, boundary = multipart_body(upload_target)
+            body = body.replace(b'filename="sample.txt"', f'filename="{filename}"'.encode())
+            response = api_client.post(
+                path="/f/upload",
+                payload=body,
+                headers={
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                    "Origin": ORIGIN,
+                },
+                cookies={ACCESS_COOKIE: operator_cookie},
+            )
+        else:
+            response = api_client.post(
+                path=UPLOAD_ENDPOINT,
+                payload={
+                    "destination": upload_target,
+                    "filename": filename,
+                    "size": len(CONTENT),
+                    "sha256": hashlib.sha256(CONTENT).hexdigest(),
+                },
+                headers={"Origin": ORIGIN, "Idempotency-Key": uuid4().hex},
+                cookies={ACCESS_COOKIE: operator_cookie},
+            )
+        if response.status != HTTPStatus.CREATED:
+            pytest.fail(f"upload filename was rejected: HTTP {response.status}")
+        if upload_mode == "proprietary":
+            upload_id = str(response.body["upload_id"])
+        operator_cli_client.execute(f"test ! -e {shlex.quote(sentinel)}")
+        operator_cli_client.assert_exit_code(0)
+    finally:
+        if upload_id is not None:
+            cancel_upload(api_client, operator_cookie, upload_id)
+        operator_cli_client.execute(f"rm -f -- {shlex.quote(sentinel)}")
