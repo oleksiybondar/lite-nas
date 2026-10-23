@@ -19,6 +19,16 @@ MUST show the error; it MUST NOT silently choose another starting directory.
 The Back control MUST remain available after a failed listing when panel
 history contains an earlier directory.
 
+Each entry MUST be presented in a horizontally scrollable details grid with
+Name, Size, File type, Permissions, Owner, Group, and Last modified columns.
+Column headers MUST remain aligned with their entry values while scrolling.
+Missing metadata MUST display as an em dash. Size MUST use the shared
+`@lite-nas/formatting` byte-size formatter, using binary 1024-byte units and
+the labels B, KB, MB, GB, and TB, with at most one fractional digit.
+Permissions MUST be displayed as a four-digit octal mode, including special
+permission bits when present. Last modified values MUST use the browser's
+local time zone.
+
 ### file-explorer-app/FR-002 Present one or two independent panels
 
 The default view MUST have two independently navigable panels and highlight
@@ -32,10 +42,21 @@ two-panel view and use the other panel's current directory as the target.
 A single click MUST select one file or directory. Ctrl-click or Command-click
 and Space MUST toggle items in a multi-selection; arrow keys MUST navigate
 entry focus. Each row MUST show an icon, name, and type detail. The icon set
-MUST distinguish folders, PDFs, images, videos, archives, text, and other
-files. Double-clicking a directory MUST enter it. Double-clicking a file MUST
-open its `/f/{absolute-path...}` resource in a new tab. A Preview action MUST
-open an inline preview only for file types that File Service serves inline.
+MUST distinguish folders, PDFs, common image formats, audio, video, archives,
+structured data, markup, code, and other files. Double-clicking a directory
+MUST enter it. Double-clicking a file MUST open its `/f/{absolute-path...}`
+resource in a new tab. Preview MUST show supported images and PDFs inline,
+provide native HTML audio or video controls for supported media, and display
+supported text, markup, data, and source files as escaped plain text with an
+extension label. Text previews MUST NOT execute markup or source code.
+Unsupported file types MUST NOT offer Preview.
+
+Names beginning with `.` MUST be treated as hidden files or folders. The
+workspace MUST provide a Show hidden files toggle beside the panel-view toggle.
+The toggle MUST use distinct visible and crossed-out eye states. Show hidden
+files MUST be enabled by default; disabling it hides dot-prefixed entries from
+both panels and removes hidden entries from the active selection and its
+available actions.
 
 ### file-explorer-app/FR-004 Upload through the shared dialog
 
@@ -117,6 +138,13 @@ The app MUST use Material UI and the shared `@lite-nas/theme` package. It MUST
 read the admin panel's preferred theme from the same-origin preference key and
 keep File Explorer-specific UI preferences separate from shared theme data.
 
+### file-explorer-app/IR-003 Reuse byte-size formatting
+
+The app MUST format file sizes through the shared `@lite-nas/formatting`
+package so other browser UI apps can use the same byte-size display contract.
+The formatter MUST accept nullable byte counts, display null as an em dash,
+and use binary unit steps with B, KB, MB, GB, and TB labels.
+
 ### file-explorer-app/OR-001 Build and serve the static app
 
 The app MUST have a local build script producing static assets and an Nginx
@@ -135,8 +163,11 @@ gateway proxying the static app.
 
 The UI MUST support verification of denied root listing, failed-listing Back
 navigation, independent panel histories, view switching, active selection,
-keyboard multi-selection, file opening and preview, folder creation, upload,
-confirmation gating, copy and move destination paths, file and directory
-delete responses, queue progress, and job restoration after browser reload.
-Build and deployment checks MUST verify the Nginx mount, admin-panel embed,
-shared theme, and deployed static assets.
+keyboard multi-selection, metadata grid values and horizontal scrolling,
+hidden-file visibility and selection behavior, file opening, image/PDF/media/
+text previews, escaped text rendering, folder creation, upload, confirmation
+gating, copy and move destination paths, file and directory delete responses,
+queue progress, and job restoration after browser reload. Size formatting MUST
+be covered for null, byte, and supported unit boundaries. Build and deployment
+checks MUST verify the Nginx mount, admin-panel embed, shared theme, shared
+formatting package, and deployed static assets.

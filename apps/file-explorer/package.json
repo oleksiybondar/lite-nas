@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.14.1",
     "@lite-nas/theme": "file:../../shared/ts/theme",
     "@lite-nas/file-upload": "file:../../shared/ts/file-upload",
+    "@lite-nas/formatting": "file:../../shared/ts/formatting",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "react": "^18.3.1",

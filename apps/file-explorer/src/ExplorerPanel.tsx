@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
 import { FileEntryItem } from "./FileEntryItem";
 import { useFileExplorer } from "./FileExplorerContext";
 import type { FileEntry } from "./file-service";
-import { listDirectory } from "./file-service";
+import { listDirectory, visibleFileEntries } from "./file-service";
 import { fileServicePath, parentPath } from "./paths";
 
 interface DirectoryListing {
@@ -149,9 +149,18 @@ function DirectoryRows({
 }
 
 /** Independently browsable panel with navigation controls outside its error state. */
-export function ExplorerPanel({ panel, refresh }: { panel: 0 | 1; refresh: number }): ReactElement {
+export function ExplorerPanel({
+  panel,
+  refresh,
+  showHidden,
+}: {
+  panel: 0 | 1;
+  refresh: number;
+  showHidden: boolean;
+}): ReactElement {
   const { panels, activePanel, setActivePanel, navigate, back, select } = useFileExplorer();
   const { directory, history, selected } = panels[panel];
+  const visibleSelected = visibleFileEntries(selected, showHidden);
   const [localRefresh, setLocalRefresh] = useState(0);
   const parent = parentPath(directory);
 
@@ -181,7 +190,7 @@ export function ExplorerPanel({ panel, refresh }: { panel: 0 | 1; refresh: numbe
       <Stack spacing={0.5} sx={{ p: 1, height: "100%", minHeight: 0 }}>
         <PanelHeader
           directory={directory}
-          selectedCount={selected.length}
+          selectedCount={visibleSelected.length}
           canGoBack={history.length > 0}
           onBack={() => back(panel)}
           onRefresh={() => setLocalRefresh((value) => value + 1)}
@@ -191,7 +200,8 @@ export function ExplorerPanel({ panel, refresh }: { panel: 0 | 1; refresh: numbe
           panel={panel}
           directory={directory}
           parent={parent}
-          selected={selected}
+          selected={visibleSelected}
+          showHidden={showHidden}
           navigate={navigate}
           select={select}
           open={open}
@@ -241,6 +251,7 @@ function PanelDirectory({
   directory,
   parent,
   selected,
+  showHidden,
   navigate,
   select,
   open,
@@ -249,30 +260,53 @@ function PanelDirectory({
   directory: string;
   parent: string | null;
   selected: FileEntry[];
+  showHidden: boolean;
   navigate: (panel: 0 | 1, directory: string) => void;
   select: (panel: 0 | 1, entry: FileEntry, multiple: boolean) => void;
   open: (entry: FileEntry) => void;
 }): ReactElement {
   const { entries, loading, error } = useDirectoryListing(directory);
+  const visibleEntries = visibleFileEntries(entries, showHidden);
   return (
-    <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+    <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
       <DirectoryStatus loading={loading} error={error} />
       {!loading && !error && (
-        <>
+        <Box sx={{ minWidth: 1040 }}>
+          <Box
+            role="row"
+            aria-label="File details"
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "minmax(260px, 2fr) 100px 130px 100px 130px 130px 190px",
+              px: 2,
+              py: 0.75,
+              color: "text.secondary",
+              borderBottom: 1,
+              borderColor: "divider",
+            }}
+          >
+            {["Name", "Size", "File type", "Permissions", "Owner", "Group", "Last modified"].map(
+              (label) => (
+                <Typography key={label} variant="caption" fontWeight="bold">
+                  {label}
+                </Typography>
+              ),
+            )}
+          </Box>
           <DirectoryRows
             panel={panel}
             directory={directory}
             parent={parent}
-            entries={entries}
+            entries={visibleEntries}
             selected={selected}
             navigate={navigate}
             select={select}
             open={open}
           />
-          {entries.length === 0 && (
+          {visibleEntries.length === 0 && (
             <Typography color="text.secondary">This directory is empty.</Typography>
           )}
-        </>
+        </Box>
       )}
     </Box>
   );

@@ -12,9 +12,12 @@ admin-panel utility and is not a standalone product.
 - Start at host `/` and use the File Service `GET /ls/{absolute-path...}`
   contract. If the user cannot list `/`, show the service error on the page.
 - Show directories first and files below them. Include a `..` entry when the
-  current location has a parent the user may access.
-- Use a folder icon for directories. Use recognizable icons for PDFs, video,
-  images, archives, and text; use a generic binary-file icon for other types.
+  current location has a parent the user may access. Present entries in a
+  horizontally scrollable grid with name, size, file type, octal permissions,
+  owner, group, and local last-modified columns.
+- Use recognizable MUI icons for folders, PDFs, images, audio, video, archives,
+  structured data, markup, and supported code file types; use a generic icon
+  for other types.
 - Double-clicking a directory navigates into it. Double-clicking a file opens
   the File Service `/f/{absolute-path...}` URL in a new browser tab so the
   service's content headers determine inline rendering or download behavior.
@@ -29,6 +32,12 @@ admin-panel utility and is not a standalone product.
   two panels. Highlight the active panel. A single click selects an item;
   Ctrl or Command click and Space toggle a multi-selection, and arrow keys
   move keyboard focus. Keep a Back control visible after listing errors.
+- Put a Show hidden files eye toggle alongside the panel-view switch. Start with
+  hidden files visible; when hidden files are turned off, remove dot-prefixed
+  entries from both panels and from available actions.
+- Preview supported images and PDFs inline, use native HTML controls for audio
+  and video, and show supported text, markup, data, and code as escaped text
+  with an extension label. Never execute previewed file contents.
 - Show Copy, Move, Preview, Delete, Upload, and New folder in the bottom action
   bar. Copy and Move use the opposite panel as their destination and appear in
   two-panel mode. Copy, Move, and Delete require typing `yes` in a reusable
@@ -63,7 +72,9 @@ admin-panel utility and is not a standalone product.
 - `deploy-all` always installs the File Explorer assets and Nginx mount.
 - Directory navigation uses `/ls/`; file activation opens the corresponding
   `/f/` resource in a new tab.
-- Directory and file sorting and icon categories follow the behavior above.
+- Directory and file sorting, metadata grid columns, size formatting, hidden
+  file behavior, icon categories, and preview renderers follow the behavior
+  above. Size values use the shared `@lite-nas/formatting` package.
 - Authentication is provided by the shared secure browser cookie; no duplicate
   token storage is introduced.
 - Build/deploy/package integration gives File Explorer a separate Debian

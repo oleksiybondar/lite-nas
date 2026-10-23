@@ -16,12 +16,82 @@ export type OperationJob = z.infer<typeof operationJobSchema>;
 /** One validated direct child and its nullable filesystem metadata. */
 export type FileEntry = z.infer<typeof directoryEntrySchema>;
 
-/** True when File Service serves this file type inline for a modal preview. */
+/** Preview renderer selected from the allowlisted file extension. */
+export type FilePreviewKind = "image" | "pdf" | "media" | "text";
+
+const previewKindByExtension: Record<string, FilePreviewKind> = {
+  jpg: "image",
+  jpeg: "image",
+  png: "image",
+  gif: "image",
+  webp: "image",
+  pdf: "pdf",
+  mp4: "media",
+  m4v: "media",
+  mov: "media",
+  avi: "media",
+  mkv: "media",
+  webm: "media",
+  ogg: "media",
+  ogv: "media",
+  mp3: "media",
+  wav: "media",
+  m4a: "media",
+  aac: "media",
+  flac: "media",
+  txt: "text",
+  xml: "text",
+  md: "text",
+  json: "text",
+  yaml: "text",
+  yml: "text",
+  csv: "text",
+  log: "text",
+  html: "text",
+  css: "text",
+  js: "text",
+  jsx: "text",
+  ts: "text",
+  tsx: "text",
+  mjs: "text",
+  cjs: "text",
+  py: "text",
+  go: "text",
+  rs: "text",
+  java: "text",
+  c: "text",
+  h: "text",
+  cpp: "text",
+  hpp: "text",
+  sh: "text",
+  bash: "text",
+  sql: "text",
+  toml: "text",
+  ini: "text",
+  conf: "text",
+  diff: "text",
+};
+
+/** Returns the safe built-in preview renderer for a supported file entry. */
+export function filePreviewKind(entry: Pick<FileEntry, "kind" | "path">): FilePreviewKind | null {
+  if (entry.kind !== "file") return null;
+  const extension = entry.path.slice(entry.path.lastIndexOf(".") + 1).toLowerCase();
+  return previewKindByExtension[extension] ?? null;
+}
+
+/** True when a file has a safe built-in inline preview renderer. */
 export function canPreviewFile(entry: FileEntry): boolean {
-  if (entry.kind !== "file") {
-    return false;
-  }
-  return /\.(txt|jpe?g|png|gif|webp|pdf)$/i.test(entry.path);
+  return filePreviewKind(entry) !== null;
+}
+
+/** Identifies dot-prefixed direct children that the UI can hide on request. */
+export function isHiddenFileEntry(entry: Pick<FileEntry, "name">): boolean {
+  return entry.name.startsWith(".");
+}
+
+/** Filters dot-prefixed entries when Show hidden files is disabled. */
+export function visibleFileEntries(entries: FileEntry[], showHidden: boolean): FileEntry[] {
+  return showHidden ? entries : entries.filter((entry) => !isHiddenFileEntry(entry));
 }
 
 const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });

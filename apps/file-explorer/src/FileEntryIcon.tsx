@@ -1,9 +1,15 @@
 import ArchiveIcon from "@mui/icons-material/Archive";
+import CodeIcon from "@mui/icons-material/Code";
+import CssIcon from "@mui/icons-material/Css";
+import DataObjectIcon from "@mui/icons-material/DataObject";
 import DescriptionIcon from "@mui/icons-material/Description";
 import FolderIcon from "@mui/icons-material/Folder";
+import HtmlIcon from "@mui/icons-material/Html";
 import ImageIcon from "@mui/icons-material/Image";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import JavascriptIcon from "@mui/icons-material/Javascript";
 import MovieIcon from "@mui/icons-material/Movie";
+import MusicNoteIcon from "@mui/icons-material/MusicNote";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import type { ReactElement } from "react";
 
@@ -15,6 +21,13 @@ const fileIcons: Record<string, ReactElement> = {
   avi: <MovieIcon color="secondary" />,
   mkv: <MovieIcon color="secondary" />,
   webm: <MovieIcon color="secondary" />,
+  ogv: <MovieIcon color="secondary" />,
+  mp3: <MusicNoteIcon color="secondary" />,
+  wav: <MusicNoteIcon color="secondary" />,
+  m4a: <MusicNoteIcon color="secondary" />,
+  aac: <MusicNoteIcon color="secondary" />,
+  flac: <MusicNoteIcon color="secondary" />,
+  ogg: <MusicNoteIcon color="secondary" />,
   jpg: <ImageIcon color="success" />,
   jpeg: <ImageIcon color="success" />,
   png: <ImageIcon color="success" />,
@@ -35,16 +48,31 @@ const fileIcons: Record<string, ReactElement> = {
   txt: <DescriptionIcon color="info" />,
   md: <DescriptionIcon color="info" />,
   csv: <DescriptionIcon color="info" />,
-  json: <DescriptionIcon color="info" />,
+  json: <DataObjectIcon color="info" />,
   xml: <DescriptionIcon color="info" />,
   yaml: <DescriptionIcon color="info" />,
   yml: <DescriptionIcon color="info" />,
   log: <DescriptionIcon color="info" />,
-  js: <DescriptionIcon color="info" />,
-  ts: <DescriptionIcon color="info" />,
-  py: <DescriptionIcon color="info" />,
-  go: <DescriptionIcon color="info" />,
-  sh: <DescriptionIcon color="info" />,
+  html: <HtmlIcon color="info" />,
+  htm: <HtmlIcon color="info" />,
+  css: <CssIcon color="info" />,
+  js: <JavascriptIcon color="info" />,
+  jsx: <JavascriptIcon color="info" />,
+  mjs: <JavascriptIcon color="info" />,
+  cjs: <JavascriptIcon color="info" />,
+  ts: <CodeIcon color="info" />,
+  tsx: <CodeIcon color="info" />,
+  py: <CodeIcon color="info" />,
+  go: <CodeIcon color="info" />,
+  rs: <CodeIcon color="info" />,
+  java: <CodeIcon color="info" />,
+  c: <CodeIcon color="info" />,
+  h: <CodeIcon color="info" />,
+  cpp: <CodeIcon color="info" />,
+  hpp: <CodeIcon color="info" />,
+  sh: <CodeIcon color="info" />,
+  bash: <CodeIcon color="info" />,
+  sql: <DataObjectIcon color="info" />,
 };
 
 /** Recognizable file category icon selected from a File Service path. */

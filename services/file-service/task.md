@@ -475,11 +475,13 @@ Acceptance criteria:
   its media format or extension.
 - The service preserves the original bytes exactly across a completed upload
   and subsequent download.
-- On `/f/`, reliably identified PDF, JPEG, PNG, GIF, and WebP files use the
-  matching media type and `Content-Disposition: inline` so browsers can offer
-  their built-in viewers. Use file-content identification for this inline
-  allowlist; a filename extension or client-supplied media type alone is not
-  sufficient.
+- On `/f/`, PDF, JPEG, PNG, GIF, and WebP files use the matching media type and
+  `Content-Disposition: inline` so browsers can offer their built-in viewers.
+  Supported passive audio and video formats (`mp4`, `m4v`, `mov`, `avi`,
+  `mkv`, `webm`, `ogv`, `mp3`, `wav`, `m4a`, `aac`, `flac`, and `ogg`) also
+  use their matching media type
+  and inline disposition so browser media controls can request byte ranges.
+  Active document formats such as HTML and SVG remain attachments.
 - On `/f/`, archives and content outside that inline allowlist use
   `Content-Disposition: attachment` directly, without redirecting to `/d/`.
   Use an accurate archive media type when reliably identified; otherwise use

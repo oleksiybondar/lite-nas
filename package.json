@@ -6,7 +6,8 @@
     "apps/admin-panel",
     "apps/file-explorer",
     "shared/ts/theme",
-    "shared/ts/file-upload"
+    "shared/ts/file-upload",
+    "shared/ts/formatting"
   ],
   "scripts": {
     "ci:analysis": "scripts/run-ci-analysis.sh",

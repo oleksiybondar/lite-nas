@@ -374,10 +374,13 @@ independently of media format or filename extension.
 - Content is not rejected or transformed solely because its format or
   extension is unfamiliar.
 - Completed upload and subsequent download preserve bytes exactly.
-- On `/f/`, reliably identified PDF, JPEG, PNG, GIF, and WebP content uses its
-  matching media type and `Content-Disposition: inline`. The inline decision
-  requires file-content identification; the extension or a client-supplied
-  media type alone cannot make content inline.
+- On `/f/`, PDF, JPEG, PNG, GIF, and WebP content uses its matching media type
+  and `Content-Disposition: inline`. Supported passive audio and video formats
+  (`mp4`, `m4v`, `mov`, `avi`, `mkv`, `webm`, `ogv`, `mp3`, `wav`, `m4a`,
+  `aac`, `flac`, and `ogg`) use
+  their matching media type and `Content-Disposition: inline` so browser media
+  controls can request byte ranges. The extension allowlist does not include
+  active document formats such as HTML or SVG.
 - On `/f/`, archives and content outside that inline allowlist use
   `Content-Disposition: attachment` without redirecting to `/d/`. An archive
   uses its accurate media type when reliably identified; otherwise the
@@ -943,10 +946,12 @@ production Auth/RBAC instances.
   publish-only-after-finalize behavior. Download tests cover HEAD metadata,
   valid/invalid ranges, concurrent segments, matching and changed ETags, the
   concurrency cap, complete reassembly of one file version, and equal file
-  bytes with the same ETag on `/f/` and `/d/`. Tests verify inline PDF/image
-  headers on `/f/`, attachment headers for unsupported content on `/f/`,
-  unconditional octet-stream attachments on `/d/`, and denial of mutation
-  methods on `/d/`. Tests verify existing-file replacement for both upload
+  bytes with the same ETag on `/f/` and `/d/`. Tests verify inline `/f/`
+  headers for PDF, images, and supported audio/video, including matching media
+  types and inline disposition on full and byte-range responses. They verify
+  attachment headers for unsupported content on `/f/`, unconditional
+  octet-stream attachments on `/d/`, and denial of mutation methods on `/d/`.
+  Tests verify existing-file replacement for both upload
   modes, atomic visibility, preservation of old content after failed
   uploads/publish, and rejection of protected, directory, or symlink targets.
   Upload tests also verify user-owned stage creation, user-scoped chunk writes,

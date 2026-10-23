@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
@@ -8,7 +9,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["tests/setup.ts"],
     coverage: {
-      include: ["src/**/*.{ts,tsx}"],
+      allowExternal: true,
+      include: [resolve("src/**/*.{ts,tsx}"), resolve("../../shared/ts/formatting/index.ts")],
       thresholds: { branches: 75, functions: 75, lines: 75, statements: 75 },
     },
   },
