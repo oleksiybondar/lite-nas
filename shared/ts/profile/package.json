@@ -7,6 +7,7 @@
     ".": "./index.ts"
   },
   "peerDependencies": {
+    "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "react": "^18.3.1",
     "zod": "^4.4.3"

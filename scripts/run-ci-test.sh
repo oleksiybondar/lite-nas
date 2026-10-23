@@ -22,7 +22,9 @@ scripts/test-file-writer.sh --with-coverage
 scripts/test-file-service.sh --with-coverage
 scripts/test-shared.sh --with-coverage
 scripts/test-web-gateway.sh
+scripts/ci/go-test-module.sh ./services/moments
 scripts/test-admin-panel.sh --with-coverage
 scripts/test-file-explorer.sh --with-coverage
+npm --prefix apps/moments run test:unit
 scripts/test-python.sh
 log.popTask

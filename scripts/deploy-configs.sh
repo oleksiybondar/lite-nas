@@ -115,6 +115,10 @@ validate_sudoers_drop_ins() {
 }
 
 log.pushTask "Deploying etc configs"
+old_moments_link=/usr/share/lite-nas/nginx/moments.conf
+if [ "$target_dir" = "/etc" ] && [ -L "$old_moments_link" ] && [ "$(readlink "$old_moments_link")" = "/usr/share/lite-nas/moments/nginx/moments.conf" ]; then
+	rm -f "$old_moments_link"
+fi
 config_entries=("$source_dir"/*)
 for config_entry in "${config_entries[@]}"; do
 	[ -e "$config_entry" ] || [ -L "$config_entry" ] || continue

@@ -1,0 +1,17 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/moments flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+  include <abstractions/lite-nas-auth-client>
+
+  /usr/libexec/lite-nas/moments mr,
+  /etc/lite-nas/moments.conf r,
+  /etc/lite-nas/certificates/auth/token-signing.crt r,
+  /proc/sys/net/core/somaxconn r,
+  /var/log/lite-nas/moments.log rw,
+
+  include if exists <local/usr.libexec.lite-nas.moments>
+}

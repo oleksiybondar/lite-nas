@@ -25,6 +25,8 @@ profile /usr/sbin/nginx flags=(attach_disconnected,mediate_deleted) {
   /etc/default/nginx r,
   /etc/lite-nas/certificates/nginx/server.crt r,
   /etc/lite-nas/certificates/nginx/server.key r,
+  /etc/lite-nas/certificates/nginx/moments.crt r,
+  /etc/lite-nas/certificates/nginx/moments.key r,
   /proc/sys/net/core/somaxconn r,
   /run/nginx.pid rwk,
   /run/nginx/** rwk,
@@ -39,6 +41,8 @@ profile /usr/sbin/nginx flags=(attach_disconnected,mediate_deleted) {
   /usr/share/lite-nas/web-gateway/** r,
   /usr/share/lite-nas/file-explorer/ r,
   /usr/share/lite-nas/file-explorer/** r,
+  /usr/share/lite-nas/moments/ r,
+  /usr/share/lite-nas/moments/** r,
   /usr/share/lite-nas/nginx/ r,
   /usr/share/lite-nas/nginx/** r,
 

@@ -45,6 +45,8 @@ source "$ENTRYPOINT_DIR/deploy/file-service.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/moments.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/file-explorer.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
@@ -71,6 +73,8 @@ zfs_metrics_cli_binary=""
 file_writer_binary=""
 file_service_binary=""
 web_gateway_binary=""
+moments_binary=""
+moments_assets=""
 admin_panel_assets=""
 file_explorer_assets=""
 resources_monitor_binary=""
@@ -112,6 +116,8 @@ Options:
   --file-writer-binary PATH       Install an existing lite-nas-file-writer binary.
   --file-service-binary PATH      Install an existing file-service binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
+  --moments-binary PATH           Install an existing Moments binary.
+  --moments-assets PATH           Install existing Moments Vite build output.
   --admin-panel-assets PATH       Install existing admin-panel Vite build output.
   --file-explorer-assets PATH     Install existing File Explorer Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
@@ -305,6 +311,22 @@ while [ "$#" -gt 0 ]; do
 		web_gateway_binary="$2"
 		shift 2
 		;;
+	--moments-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --moments-binary"
+			exit 2
+		fi
+		moments_binary="$2"
+		shift 2
+		;;
+	--moments-assets)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --moments-assets"
+			exit 2
+		fi
+		moments_assets="$2"
+		shift 2
+		;;
 	--admin-panel-assets)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --admin-panel-assets"
@@ -390,7 +412,7 @@ deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -512,6 +534,14 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"
 		web_gateway_binary="$tmp_dir/web-gateway"
 	fi
+	if [ -z "$moments_binary" ]; then
+		"$ENTRYPOINT_DIR/build-moments-binary.sh" --output="$tmp_dir/moments"
+		moments_binary="$tmp_dir/moments"
+	fi
+	if [ -z "$moments_assets" ]; then
+		"$ENTRYPOINT_DIR/build-moments.sh" --output-dir="$tmp_dir/moments-assets"
+		moments_assets="$tmp_dir/moments-assets"
+	fi
 
 	if [ -z "$admin_panel_assets" ]; then
 		"$ENTRYPOINT_DIR/build-admin-panel.sh" --output-dir="$tmp_dir/admin-panel-assets"
@@ -598,6 +628,10 @@ log.popTask
 log.pushTask "Deploying web-gateway service"
 export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$admin_panel_assets"
 deploy.webGateway.deploy "$web_gateway_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying Moments service and frontend"
+deploy.moments.deploy "$moments_binary" "$moments_assets" "$should_start"
 log.popTask
 
 log.pushTask "Deploying system-logging-manager-cli app"

@@ -1,0 +1,34 @@
+[Unit]
+Description=LiteNAS Moments service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-moments
+Group=lite-nas-moments
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/moments
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas /usr/share/lite-nas/moments
+ReadWritePaths=/var/log/lite-nas/moments.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

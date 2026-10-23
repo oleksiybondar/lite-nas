@@ -74,6 +74,19 @@ func newAuthControllerWithLoginResult() AuthController {
 	return NewAuthController(stubAuthService{loginResult: authSessionFixture()})
 }
 
+// Requirements: browserauth/FR-003
+func TestLoginUsesConfiguredCookieDomain(t *testing.T) {
+	t.Parallel()
+	controller := NewAuthController(stubAuthService{loginResult: authSessionFixture()}, "example.com")
+	output, err := controller.Login(context.Background(), authLoginInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output.SetCookie[0].Domain != "example.com" {
+		t.Fatalf("cookie domain = %q, want example.com", output.SetCookie[0].Domain)
+	}
+}
+
 func newAuthControllerWithRefreshResult() AuthController {
 	return NewAuthController(stubAuthService{refreshResult: authSessionFixture()})
 }

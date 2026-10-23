@@ -61,6 +61,7 @@ export const loadSharedUiPreference = async (
 };
 
 export { ProfilePreferencesPanel } from "./ProfilePreferencesPanel";
+export { UserMenu } from "./UserMenu";
 
 /** Reads a profile JSON file through an app-supplied authenticated request pipeline. */
 export const readProfileDocument = async <T>(

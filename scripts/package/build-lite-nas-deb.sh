@@ -34,6 +34,8 @@ zfs_metrics_cli_binary_path=""
 file_writer_binary_path=""
 file_service_binary_path=""
 web_gateway_binary_path=""
+moments_binary_path=""
+moments_assets_path=""
 resources_monitor_binary_path=""
 litenas_integrity_binary_path=""
 admin_panel_assets_path=""
@@ -73,6 +75,8 @@ Options:
   --file-writer-binary=PATH          Use an existing lite-nas-file-writer binary.
   --file-service-binary=PATH         Use an existing file-service binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
+  --moments-binary=PATH              Use an existing Moments binary.
+  --moments-assets=PATH              Use an existing Moments Vite build output.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
   --litenas-integrity-binary=PATH    Use an existing litenas-integrity binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
@@ -82,8 +86,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary web-gateway-binary resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -196,6 +200,16 @@ if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg 
 	usage >&2
 	exit 64
 fi
+if args.has moments-binary && ! moments_binary_path="$(args.require_arg moments-binary)"; then
+	log.error "Missing value for --moments-binary"
+	usage >&2
+	exit 64
+fi
+if args.has moments-assets && ! moments_assets_path="$(args.require_arg moments-assets)"; then
+	log.error "Missing value for --moments-assets"
+	usage >&2
+	exit 64
+fi
 if args.has resources-monitor-binary && ! resources_monitor_binary_path="$(args.require_arg resources-monitor-binary)"; then
 	log.error "Missing value for --resources-monitor-binary"
 	usage >&2
@@ -223,6 +237,7 @@ if [ -z "$package_version" ]; then
 fi
 
 package.requireBuildCommands
+log.requireCommand realpath "Install coreutils and retry."
 package_arch="$(package.resolveArchitecture)"
 
 if [ -z "$auth_service_binary_path" ]; then
@@ -339,6 +354,15 @@ if [ -z "$web_gateway_binary_path" ]; then
 		"--output=${web_gateway_binary_path}"
 fi
 
+if [ -z "$moments_binary_path" ]; then
+	moments_binary_path="$output_dir/${package_name}-${package_arch}/moments"
+	"$LITE_NAS_REPO_ROOT/scripts/build-moments-binary.sh" "--output=${moments_binary_path}"
+fi
+if [ -z "$moments_assets_path" ]; then
+	moments_assets_path="$output_dir/${package_name}-${package_arch}/moments-assets"
+	"$LITE_NAS_REPO_ROOT/scripts/build-moments.sh" "--output-dir=${moments_assets_path}"
+fi
+
 if [ -z "$resources_monitor_binary_path" ]; then
 	resources_monitor_binary_path="$output_dir/${package_name}-${package_arch}/resources-monitor"
 	"$LITE_NAS_REPO_ROOT/scripts/build-resources-monitor-binary.sh" \
@@ -449,6 +473,12 @@ if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
 	exit 1
 fi
+if [ ! -f "$moments_binary_path" ] || [ ! -f "$moments_assets_path/index.html" ] || [ ! -d "$moments_assets_path/assets" ]; then
+	log.error "Missing Moments binary or frontend assets."
+	exit 1
+fi
+moments_binary_path="$(realpath -- "$moments_binary_path")"
+moments_assets_path="$(realpath -- "$moments_assets_path")"
 
 if [ ! -f "$resources_monitor_binary_path" ]; then
 	log.error "Missing resources-monitor binary: $resources_monitor_binary_path"
@@ -548,6 +578,10 @@ ln -sfn /usr/libexec/lite-nas/lite-nas-file-writer \
 	"$package_root/usr/bin/lite-nas-file-writer"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
+install -D -m 0755 "$moments_binary_path" \
+	"$package_root/usr/libexec/lite-nas/moments"
+package.copyTree "$moments_assets_path" \
+	"$package_root/usr/libexec/lite-nas/moments-assets"
 install -D -m 0755 "$resources_monitor_binary_path" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor"
 install -D -m 0755 "$litenas_integrity_binary_path" \
@@ -586,6 +620,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer" \
 	"$package_root/usr/libexec/lite-nas/file-service" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
+	"$package_root/usr/libexec/lite-nas/moments" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh" \

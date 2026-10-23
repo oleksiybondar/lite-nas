@@ -1,6 +1,7 @@
 package config
 
 import (
+	"lite-nas/shared/browserauth"
 	"lite-nas/shared/config"
 	"lite-nas/shared/fileio"
 )
@@ -9,14 +10,16 @@ import (
 //
 // It groups configuration by domain to reflect service responsibilities:
 //   - HTTP: browser-facing HTTP listener settings
+//   - CookieDomain: optional shared DNS parent for browser session cookies
 //   - Messaging: internal messaging system connectivity
 //   - AuthTokens: access-token verification policy
 //   - Logging: application logging behavior
 type Config struct {
-	HTTP       config.HTTPConfig
-	Messaging  config.MessagingConfig
-	AuthTokens config.AuthTokenConfig
-	Logging    config.LoggingConfig
+	HTTP         config.HTTPConfig
+	CookieDomain string
+	Messaging    config.MessagingConfig
+	AuthTokens   config.AuthTokenConfig
+	Logging      config.LoggingConfig
 }
 
 // LoadConfig reads gateway configuration from a file abstraction and returns a
@@ -46,11 +49,16 @@ func LoadConfig(reader fileio.Reader) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	cookieDomain := cfgFile.Section("http").Key("cookie_domain").String()
+	if err := browserauth.ValidateCookieDomain(cookieDomain); err != nil {
+		return Config{}, err
+	}
 
 	return Config{
-		HTTP:       httpConfig,
-		Messaging:  sharedCfg.Messaging,
-		AuthTokens: sharedCfg.AuthTokens,
-		Logging:    sharedCfg.Logging,
+		HTTP:         httpConfig,
+		CookieDomain: cookieDomain,
+		Messaging:    sharedCfg.Messaging,
+		AuthTokens:   sharedCfg.AuthTokens,
+		Logging:      sharedCfg.Logging,
 	}, nil
 }

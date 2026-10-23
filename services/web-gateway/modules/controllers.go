@@ -32,9 +32,14 @@ func NewControllersModule(
 	staticFiles controllers.StaticFiles,
 	log sharedlogger.Logger,
 	services Services,
+	cookieDomain ...string,
 ) Controllers {
+	domain := ""
+	if len(cookieDomain) > 0 {
+		domain = cookieDomain[0]
+	}
 	return Controllers{
-		Auth:           controllers.NewAuthController(services.Auth),
+		Auth:           controllers.NewAuthController(services.Auth, domain),
 		Static:         controllers.NewStaticController(staticFiles, log),
 		SystemAlerts:   controllers.NewSystemAlertsController(services.SystemAlerts),
 		SecurityAlerts: controllers.NewSecurityAlertsController(services.SecurityAlerts),

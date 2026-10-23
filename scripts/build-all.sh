@@ -69,11 +69,13 @@ log.pushTask "Building deployable binaries for linux/${target_arch}"
 "$SCRIPT_DIR/build-resources-monitor-binary.sh" --output="$output_dir/resources-monitor"
 "$SCRIPT_DIR/build-litenas-integrity-binary.sh" --output="$output_dir/litenas-integrity"
 "$SCRIPT_DIR/build-web-gateway-binary.sh" --output="$output_dir/web-gateway"
+"$SCRIPT_DIR/build-moments-binary.sh" --output="$output_dir/moments"
 log.popTask
 
 log.pushTask "Building admin-panel frontend assets"
 "$SCRIPT_DIR/build-admin-panel.sh" --output-dir="$output_dir/admin-panel"
 "$SCRIPT_DIR/build-file-explorer.sh" --output-dir="$output_dir/file-explorer"
+"$SCRIPT_DIR/build-moments.sh" --output-dir="$output_dir/moments-assets"
 log.popTask
 
 log.info "Built deployable artifacts in: $output_dir"

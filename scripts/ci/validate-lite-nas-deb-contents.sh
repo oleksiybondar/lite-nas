@@ -130,6 +130,8 @@ assert_cmd "zfs-metrics-cli binary packaged" assert_executable usr/libexec/lite-
 assert_cmd "file-writer binary packaged" assert_executable usr/libexec/lite-nas/lite-nas-file-writer
 assert_cmd "file-service binary packaged" assert_executable usr/libexec/lite-nas/file-service
 assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/web-gateway
+assert_cmd "Moments binary packaged" assert_executable usr/libexec/lite-nas/moments
+assert_cmd "Moments frontend packaged" assert_file usr/libexec/lite-nas/moments-assets/index.html
 
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
 assert_cmd "file-writer deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-writer.sh
@@ -182,6 +184,12 @@ assert_cmd "disk metrics rule packaged" assert_file "$packaged_config_root/lite-
 assert_cmd "zfs metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/zfs-metrics.json"
 assert_cmd "service metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/service-metrics.json"
 assert_cmd "web-gateway.conf packaged" assert_file "$packaged_config_root/lite-nas/web-gateway.conf"
+assert_cmd "moments.conf packaged" assert_file "$packaged_config_root/lite-nas/moments.conf"
+assert_cmd "Moments Nginx host packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-moments.conf"
+assert_cmd "Moments embedded Nginx mount packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-moments-embedded.conf"
+assert_cmd "admin Nginx site includes Moments mount" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" 'include /etc/nginx/snippets/lite-nas-moments-embedded.conf;'
+assert_cmd "Moments AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.moments"
+assert_cmd "Moments unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-moments.service"
 assert_cmd "file-service.conf packaged" assert_file "$packaged_config_root/lite-nas/file-service.conf"
 
 assert_cmd "resources-monitor unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-resources-monitor.service"

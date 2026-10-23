@@ -44,6 +44,9 @@ readonly LITE_NAS_NETWORK_METRICS_CLI_APP_MODULE
 export LITE_NAS_WEB_GATEWAY_MODULE="./services/web-gateway"
 readonly LITE_NAS_WEB_GATEWAY_MODULE
 
+export LITE_NAS_MOMENTS_MODULE="./services/moments"
+readonly LITE_NAS_MOMENTS_MODULE
+
 export LITE_NAS_AUTH_SERVICE_MODULE="./services/auth"
 readonly LITE_NAS_AUTH_SERVICE_MODULE
 

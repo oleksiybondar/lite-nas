@@ -50,7 +50,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	controllerModule := modules.NewControllersModule(fileModule.Static, infra.Logger, serviceModule)
+	controllerModule := modules.NewControllersModule(fileModule.Static, infra.Logger, serviceModule, infra.Config.CookieDomain)
 
 	handler := routes.NewRouter(
 		serviceName,
@@ -59,6 +59,7 @@ func run(ctx context.Context) error {
 		middlewares.AuthenticationOptions{
 			AccessCookieName:  services.AccessTokenCookieName,
 			RefreshCookieName: services.RefreshTokenCookieName,
+			CookieDomain:      infra.Config.CookieDomain,
 			Verifier:          authVerifier,
 		},
 	)

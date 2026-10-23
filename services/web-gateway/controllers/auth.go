@@ -11,6 +11,8 @@ import (
 	"lite-nas/services/web-gateway/services"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"lite-nas/shared/browserauth"
 )
 
 // AuthService defines the auth behavior required by the browser-facing auth
@@ -25,15 +27,20 @@ type AuthService interface {
 // AuthController translates auth HTTP requests into service calls and shapes
 // the browser-facing responses.
 type AuthController struct {
-	service AuthService
+	service      AuthService
+	cookieDomain string
 }
 
 // NewAuthController creates an AuthController.
 //
 // Parameters:
 //   - service: auth service implementation used to execute auth flows
-func NewAuthController(service AuthService) AuthController {
-	return AuthController{service: service}
+func NewAuthController(service AuthService, cookieDomain ...string) AuthController {
+	controller := AuthController{service: service}
+	if len(cookieDomain) > 0 {
+		controller.cookieDomain = cookieDomain[0]
+	}
+	return controller
 }
 
 // Login authenticates the submitted credentials and returns session metadata
@@ -53,8 +60,8 @@ func (c AuthController) Login(
 
 	return &authdto.SessionOutput{
 		SetCookie: []http.Cookie{
-			services.AccessCookie(session),
-			services.RefreshCookie(session),
+			browserauth.AccessCookie(session, c.cookieDomain),
+			browserauth.RefreshCookie(session, c.cookieDomain),
 		},
 		Body: buildSessionBody(now, session),
 	}, nil
@@ -81,8 +88,8 @@ func (c AuthController) Refresh(
 
 	return &authdto.SessionOutput{
 		SetCookie: []http.Cookie{
-			services.AccessCookie(session),
-			services.RefreshCookie(session),
+			browserauth.AccessCookie(session, c.cookieDomain),
+			browserauth.RefreshCookie(session, c.cookieDomain),
 		},
 		Body: buildSessionBody(now, session),
 	}, nil
@@ -110,8 +117,8 @@ func (c AuthController) Logout(
 
 	return &authdto.LogoutOutput{
 		SetCookie: []http.Cookie{
-			services.ClearAccessCookie(session.AccessExpires),
-			services.ClearRefreshCookie(session.RefreshExpiry),
+			browserauth.ClearAccessCookie(session.AccessExpires, c.cookieDomain),
+			browserauth.ClearRefreshCookie(session.RefreshExpiry, c.cookieDomain),
 		},
 		Body: authdto.NewLogoutBody(now, true, "logged out"),
 	}, nil

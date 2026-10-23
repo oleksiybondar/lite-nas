@@ -30,6 +30,7 @@ type AccessTokenVerifier interface {
 type AuthenticationOptions struct {
 	AccessCookieName  string
 	RefreshCookieName string
+	CookieDomain      string
 	Verifier          AccessTokenVerifier
 }
 
@@ -254,6 +255,8 @@ func hasExpiredAuthentication(ctx context.Context) bool {
 func clearAuthCookies(ctx huma.Context, options AuthenticationOptions, now time.Time) {
 	accessCookie := httpcookie.Expired(options.AccessCookieName, now)
 	refreshCookie := httpcookie.Expired(options.RefreshCookieName, now)
+	accessCookie.Domain = options.CookieDomain
+	refreshCookie.Domain = options.CookieDomain
 	ctx.AppendHeader("Set-Cookie", accessCookie.String())
 	ctx.AppendHeader("Set-Cookie", refreshCookie.String())
 }

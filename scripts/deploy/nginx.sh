@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ -n "${LITE_NAS_NGINX_DEPLOY_LOADED:-}" ]; then
+	return 0
+fi
+readonly LITE_NAS_NGINX_DEPLOY_LOADED=1
+
 DEPLOY_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
@@ -10,6 +15,10 @@ readonly LITE_NAS_NGINX_SITE_NAME="${LITE_NAS_NGINX_SITE_NAME:-lite-nas-web-gate
 readonly LITE_NAS_NGINX_SITE_SOURCE="${LITE_NAS_NGINX_SITE_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/sites-available/$LITE_NAS_NGINX_SITE_NAME}"
 readonly LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE="${LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/snippets/lite-nas-file-service.conf}"
 readonly LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_TARGET="${LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_TARGET:-$LITE_NAS_NGINX_CONFIG_ROOT/snippets/lite-nas-file-service.conf}"
+readonly LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE="${LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/snippets/lite-nas-moments-embedded.conf}"
+readonly LITE_NAS_NGINX_MOMENTS_SNIPPET_TARGET="${LITE_NAS_NGINX_MOMENTS_SNIPPET_TARGET:-$LITE_NAS_NGINX_CONFIG_ROOT/snippets/lite-nas-moments-embedded.conf}"
+readonly LITE_NAS_NGINX_MOMENTS_SITE_SOURCE="${LITE_NAS_NGINX_MOMENTS_SITE_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/sites-available/lite-nas-moments.conf}"
+readonly LITE_NAS_NGINX_MOMENTS_SITE_TARGET="${LITE_NAS_NGINX_MOMENTS_SITE_TARGET:-$LITE_NAS_NGINX_CONFIG_ROOT/sites-available/lite-nas-moments.conf}"
 readonly LITE_NAS_NGINX_SITES_AVAILABLE_DIR="${LITE_NAS_NGINX_SITES_AVAILABLE_DIR:-$LITE_NAS_NGINX_CONFIG_ROOT/sites-available}"
 readonly LITE_NAS_NGINX_SITES_ENABLED_DIR="${LITE_NAS_NGINX_SITES_ENABLED_DIR:-$LITE_NAS_NGINX_CONFIG_ROOT/sites-enabled}"
 readonly LITE_NAS_NGINX_SITE_TARGET="${LITE_NAS_NGINX_SITE_TARGET:-$LITE_NAS_NGINX_SITES_AVAILABLE_DIR/$LITE_NAS_NGINX_SITE_NAME}"
@@ -18,6 +27,8 @@ readonly LITE_NAS_NGINX_DEFAULT_SITE_SYMLINK="${LITE_NAS_NGINX_DEFAULT_SITE_SYML
 readonly LITE_NAS_NGINX_CERTIFICATE_DIR="${LITE_NAS_NGINX_CERTIFICATE_DIR:-/etc/lite-nas/certificates/nginx}"
 readonly LITE_NAS_NGINX_CERTIFICATE_FILE="${LITE_NAS_NGINX_CERTIFICATE_FILE:-$LITE_NAS_NGINX_CERTIFICATE_DIR/server.crt}"
 readonly LITE_NAS_NGINX_CERTIFICATE_KEY_FILE="${LITE_NAS_NGINX_CERTIFICATE_KEY_FILE:-$LITE_NAS_NGINX_CERTIFICATE_DIR/server.key}"
+readonly LITE_NAS_NGINX_MOMENTS_CERTIFICATE_FILE="${LITE_NAS_NGINX_MOMENTS_CERTIFICATE_FILE:-$LITE_NAS_NGINX_CERTIFICATE_DIR/moments.crt}"
+readonly LITE_NAS_NGINX_MOMENTS_CERTIFICATE_KEY_FILE="${LITE_NAS_NGINX_MOMENTS_CERTIFICATE_KEY_FILE:-$LITE_NAS_NGINX_CERTIFICATE_DIR/moments.key}"
 
 deploy.nginx.requireTools() {
 	local tool
@@ -34,6 +45,8 @@ deploy.nginx.requireTools() {
 }
 
 deploy.nginx.installSiteConfig() {
+	local old_moments_link=/usr/share/lite-nas/nginx/moments.conf
+
 	if [ ! -f "$LITE_NAS_NGINX_SITE_SOURCE" ]; then
 		log.error "Missing LiteNAS nginx site config source: $LITE_NAS_NGINX_SITE_SOURCE"
 		exit 1
@@ -42,10 +55,19 @@ deploy.nginx.installSiteConfig() {
 		log.error "Missing LiteNAS file-service nginx snippet: $LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE"
 		exit 1
 	fi
+	if [ ! -f "$LITE_NAS_NGINX_MOMENTS_SITE_SOURCE" ] || [ ! -f "$LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE" ]; then
+		log.error "Missing Moments nginx site or embedded mount source."
+		exit 1
+	fi
+	if [ -L "$old_moments_link" ] && [ "$(readlink "$old_moments_link")" = "/usr/share/lite-nas/moments/nginx/moments.conf" ]; then
+		rm -f "$old_moments_link"
+	fi
 
 	install -d -m 0755 "$LITE_NAS_NGINX_SITES_AVAILABLE_DIR" "$LITE_NAS_NGINX_SITES_ENABLED_DIR"
 	install -m 0644 "$LITE_NAS_NGINX_SITE_SOURCE" "$LITE_NAS_NGINX_SITE_TARGET"
+	install -m 0644 "$LITE_NAS_NGINX_MOMENTS_SITE_SOURCE" "$LITE_NAS_NGINX_MOMENTS_SITE_TARGET"
 	install -D -m 0644 "$LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE" "$LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_TARGET"
+	install -D -m 0644 "$LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE" "$LITE_NAS_NGINX_MOMENTS_SNIPPET_TARGET"
 }
 
 deploy.nginx.ensureCertificateAssets() {
@@ -53,6 +75,8 @@ deploy.nginx.ensureCertificateAssets() {
 	local required_files=(
 		"$LITE_NAS_NGINX_CERTIFICATE_FILE"
 		"$LITE_NAS_NGINX_CERTIFICATE_KEY_FILE"
+		"$LITE_NAS_NGINX_MOMENTS_CERTIFICATE_FILE"
+		"$LITE_NAS_NGINX_MOMENTS_CERTIFICATE_KEY_FILE"
 	)
 
 	for required_file in "${required_files[@]}"; do

@@ -5,6 +5,7 @@
   "workspaces": [
     "apps/admin-panel",
     "apps/file-explorer",
+    "apps/moments",
     "shared/ts/theme",
     "shared/ts/profile",
     "shared/ts/settings",

@@ -13,6 +13,7 @@ import MonitorHeartRoundedIcon from "@mui/icons-material/MonitorHeartRounded";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import PaletteRoundedIcon from "@mui/icons-material/PaletteRounded";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
@@ -71,22 +72,25 @@ const denyAllNavigationRbac: AppNavigationRbac = {
  * Material-only draft can be replaced by `DashboardLayout` later without
  * changing route ownership.
  */
-export const buildAppNavigationItems = ({
-  requireOperator,
-  requireSecurity,
-}: AppNavigationRbac): AppNavigationItem[] => {
+export const buildAppNavigationItems = (
+  { requireOperator, requireSecurity }: AppNavigationRbac,
+  momentsAvailable = false,
+): AppNavigationItem[] => {
   return [
     buildDashboardNavigationItem(),
-    buildApplicationsNavigationItem(),
+    buildApplicationsNavigationItem(momentsAvailable),
     ...buildAlertsNavigationItems({ requireOperator, requireSecurity }),
     buildSystemNavigationItem(),
   ];
 };
 
-/** Adds the installed File Explorer under the Applications category. */
-const buildApplicationsNavigationItem = (): AppNavigationItem => ({
+/** Adds separately served applications under the Applications category. */
+const buildApplicationsNavigationItem = (momentsAvailable: boolean): AppNavigationItem => ({
   children: [
     { icon: <FolderOpenIcon />, path: "/applications/file-explorer", title: "File Explorer" },
+    ...(momentsAvailable
+      ? [{ icon: <PhotoLibraryIcon />, path: "/applications/moments", title: "Moments" }]
+      : []),
   ],
   icon: <AppsRoundedIcon />,
   path: "/applications",
@@ -344,16 +348,17 @@ export const preferencesNavigationItems: AppNavigationItem[] = [
 export const resolveNavigationItems = (
   pathname: string,
   rbac: AppNavigationRbac = denyAllNavigationRbac,
+  momentsAvailable = false,
 ): AppNavigationItem[] => {
   if (pathname === "/preferences" || pathname.startsWith("/preferences/")) {
     return preferencesNavigationItems;
   }
 
-  if (!rbac.requireOperator() && !rbac.requireSecurity()) {
+  if (!momentsAvailable && !rbac.requireOperator() && !rbac.requireSecurity()) {
     return appNavigationItems;
   }
 
-  return buildAppNavigationItems(rbac);
+  return buildAppNavigationItems(rbac, momentsAvailable);
 };
 
 /**

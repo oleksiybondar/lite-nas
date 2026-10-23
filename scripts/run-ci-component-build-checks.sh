@@ -30,6 +30,8 @@ scripts/build-zfs-metrics-cli.sh
 scripts/build-file-writer-binary.sh
 scripts/build-shared.sh
 scripts/build-web-gateway.sh
+scripts/ci/go-build-module.sh ./services/moments
 scripts/build-admin-panel.sh
 scripts/build-file-explorer.sh
+scripts/build-moments.sh
 log.popTask

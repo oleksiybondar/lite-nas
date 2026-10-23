@@ -1,18 +1,12 @@
 package services
 
-import "errors"
+import "lite-nas/shared/browserauth"
 
-// ErrUnauthorized indicates that the caller did not provide a valid auth token.
-var ErrUnauthorized = errors.New("unauthorized")
+// ErrUnauthorized indicates that a caller did not provide a valid auth token.
+var ErrUnauthorized = browserauth.ErrUnauthorized
 
-// ErrMissingRefreshToken indicates that a required refresh token was not
-// provided to the auth service skeleton.
-func ErrMissingRefreshToken() error {
-	return errMissingRefreshToken
-}
+// ErrMissingRefreshToken identifies an absent refresh credential.
+func ErrMissingRefreshToken() error { return browserauth.ErrMissingRefreshToken() }
 
-// ErrMissingCredentials indicates that required login credentials were not
-// provided to the auth service skeleton.
-func ErrMissingCredentials() error {
-	return errMissingCredentials
-}
+// ErrMissingCredentials identifies absent login credentials.
+func ErrMissingCredentials() error { return browserauth.ErrMissingCredentials() }

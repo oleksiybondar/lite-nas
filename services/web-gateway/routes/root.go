@@ -6,6 +6,7 @@ import (
 
 	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/modules"
+	"lite-nas/shared/browserauth"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -42,7 +43,7 @@ func NewRouter(
 	root.Mount("/api", apiRouter)
 	mountIndexRouter(root, controllerModule)
 
-	return root
+	return browserauth.SameOrigin(root)
 }
 
 func apiConfig(serviceName string, version string) huma.Config {

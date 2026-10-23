@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -82,6 +83,27 @@ func TestLoadConfigRejectsInvalidHTTPValues(t *testing.T) {
 	)
 }
 
+// Requirements: browserauth/FR-002
+func TestLoadConfigRejectsInvalidCookieDomain(t *testing.T) {
+	t.Parallel()
+	_, err := LoadConfig(fileiotest.Reader{Data: loadConfigData("example.com/evil")})
+	if err == nil || !strings.Contains(err.Error(), "cookie domain") {
+		t.Fatalf("LoadConfig() error = %v, want cookie domain error", err)
+	}
+}
+
+// Requirements: browserauth/FR-002
+func TestLoadConfigAcceptsParentCookieDomain(t *testing.T) {
+	t.Parallel()
+	cfg, err := LoadConfig(fileiotest.Reader{Data: loadConfigData("example.com")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.CookieDomain != "example.com" {
+		t.Fatalf("CookieDomain = %q, want example.com", cfg.CookieDomain)
+	}
+}
+
 // Requirements: web-gateway/OR-001
 func TestLoadConfigRejectsInvalidLoggingValues(t *testing.T) {
 	t.Parallel()
@@ -99,33 +121,37 @@ func TestLoadConfigRejectsInvalidLoggingValues(t *testing.T) {
 func loadConfigFixture(t *testing.T) Config {
 	t.Helper()
 
-	cfg, err := LoadConfig(fileiotest.Reader{
-		Data: []byte(
-			"[http]\n" +
-				"address=127.0.0.1:9191\n" +
-				"[messaging]\n" +
-				"url=tls://127.0.0.1:4222\n" +
-				"client_name=web-gateway\n" +
-				"ca=/etc/lite-nas/certificates/transport/root-ca.crt\n" +
-				"cert=/etc/lite-nas/certificates/transport/lite-nas-web-gateway/client.crt\n" +
-				"key=/etc/lite-nas/certificates/transport/lite-nas-web-gateway/client.key\n" +
-				"timeout=5s\n" +
-				"[auth_tokens]\n" +
-				"issuer=lite-nas-auth\n" +
-				"audience=lite-nas-management-api\n" +
-				"access_lifetime=15m\n" +
-				"clock_skew=30s\n" +
-				"verification_cert=/etc/lite-nas/certificates/auth/token-signing.crt\n" +
-				"[logging]\n" +
-				"level=info\n" +
-				"format=rfc5424\n" +
-				"output=file\n" +
-				"file_path=/var/log/lite-nas/web-gateway.log\n",
-		),
-	})
+	cfg, err := LoadConfig(fileiotest.Reader{Data: loadConfigData("")})
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
 
 	return cfg
+}
+
+// loadConfigData builds a valid gateway config with the requested cookie scope.
+func loadConfigData(cookieDomain string) []byte {
+	return []byte(
+		"[http]\n" +
+			"address=127.0.0.1:9191\n" +
+			"cookie_domain=" + cookieDomain + "\n" +
+			"[messaging]\n" +
+			"url=tls://127.0.0.1:4222\n" +
+			"client_name=web-gateway\n" +
+			"ca=/etc/lite-nas/certificates/transport/root-ca.crt\n" +
+			"cert=/etc/lite-nas/certificates/transport/lite-nas-web-gateway/client.crt\n" +
+			"key=/etc/lite-nas/certificates/transport/lite-nas-web-gateway/client.key\n" +
+			"timeout=5s\n" +
+			"[auth_tokens]\n" +
+			"issuer=lite-nas-auth\n" +
+			"audience=lite-nas-management-api\n" +
+			"access_lifetime=15m\n" +
+			"clock_skew=30s\n" +
+			"verification_cert=/etc/lite-nas/certificates/auth/token-signing.crt\n" +
+			"[logging]\n" +
+			"level=info\n" +
+			"format=rfc5424\n" +
+			"output=file\n" +
+			"file_path=/var/log/lite-nas/web-gateway.log\n",
+	)
 }

@@ -1,4 +1,4 @@
-/var/log/lite-nas/file-service.log /var/log/lite-nas/stream-service.log {
+/var/log/lite-nas/file-service.log /var/log/lite-nas/stream-service.log /var/log/lite-nas/moments.log {
 	daily
 	rotate 7
 	missingok

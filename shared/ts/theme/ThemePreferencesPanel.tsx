@@ -23,6 +23,8 @@ export interface ThemePreferencesPanelProps {
   onModeChange: (mode: ThemeMode) => void;
   onSourceChange: (source: ThemeSource) => void;
   onTemplateChange: (name: ThemeTemplateName) => void;
+  /** Hides app-specific source and template choices when only shared mode is stored. */
+  showSourceAndTemplate?: boolean;
 }
 
 /** Reusable appearance settings screen; persistence remains with the host app. */
@@ -39,6 +41,7 @@ export const ThemePreferencesPanel = ({
   onModeChange,
   onSourceChange,
   onTemplateChange,
+  showSourceAndTemplate = true,
 }: ThemePreferencesPanelProps): ReactElement => (
   <Stack data-testid="preferences-theme-settings-page" maxWidth="720px" spacing={3}>
     <Stack data-testid="preferences-theme-settings-header" spacing={1}>
@@ -68,14 +71,18 @@ export const ThemePreferencesPanel = ({
             this browser as a fallback.
           </Typography>
         </Stack>
-        <ThemeSourceSelector onChange={onSourceChange} value={source} />
+        {showSourceAndTemplate ? (
+          <ThemeSourceSelector onChange={onSourceChange} value={source} />
+        ) : null}
         <ThemeModeToggle mode={mode} onChange={onModeChange} source={source} />
-        <ThemeTemplateSelector
-          availableTemplates={availableTemplates}
-          onChange={onTemplateChange}
-          source={source}
-          value={templateName}
-        />
+        {showSourceAndTemplate ? (
+          <ThemeTemplateSelector
+            availableTemplates={availableTemplates}
+            onChange={onTemplateChange}
+            source={source}
+            value={templateName}
+          />
+        ) : null}
         {isChanged ? (
           <Stack
             data-testid="theme-preferences-actions"

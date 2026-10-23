@@ -51,6 +51,8 @@ source "$PACKAGE_ROOT/scripts/deploy/file-service.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/moments.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/litenas-integrity.sh"
@@ -97,6 +99,7 @@ deploy_runtime_files_without_start() {
 	deploy.fileWriter.deploy "$PACKAGE_ROOT/lite-nas-file-writer" "$load_writer_profile"
 	deploy.fileService.deploy "$PACKAGE_ROOT/file-service" 0
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
+	deploy.moments.deploy "$PACKAGE_ROOT/moments" "$PACKAGE_ROOT/moments-assets" 0
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
 	deploy.liteNASIntegrity.deploy "$PACKAGE_ROOT/litenas-integrity" 0
 }
@@ -206,6 +209,7 @@ deploy.diskMetrics.enableAndStart
 deploy.systemMetrics.enableAndStart
 deploy.zfsMetrics.enableAndStart
 deploy.webGateway.enableAndStart
+deploy.moments.enableAndStart
 deploy.fileService.enableAndStart
 deploy.resourcesMonitor.enableAndStart
 deploy.liteNASIntegrity.enableAndStart
