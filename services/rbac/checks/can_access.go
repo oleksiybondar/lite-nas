@@ -56,7 +56,7 @@ func CheckPathOperation(ctx context.Context, runner Runner, uid string, path str
 	if err != nil {
 		return false, err
 	}
-	if !targetInfo.Mode().IsRegular() {
+	if !targetInfo.Mode().IsRegular() && !(operation == "delete" && targetInfo.IsDir()) {
 		return false, nil
 	}
 	if parentInfo.Mode()&os.ModeSticky != 0 {

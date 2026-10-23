@@ -1,0 +1,14 @@
+{
+  "name": "@lite-nas/theme",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./manager/resolveThemeSettings": "./manager/resolveThemeSettings.ts",
+    "./manager/storage": "./manager/storage.ts"
+  },
+  "peerDependencies": {
+    "@mui/material": "^7.3.9"
+  }
+}

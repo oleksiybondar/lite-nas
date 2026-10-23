@@ -6,11 +6,12 @@ implementation changes can trace back to their source.
 
 ## Overview
 
-The File Service provides authenticated file upload and download, including
-explicitly pausing and resuming either direction. It validates the caller's
-LiteNAS access token and delegates every caller-specific filesystem permission
-decision to RBAC. It runs as a non-root service and uses shared LiteNAS
-infrastructure and native Linux/Unix facilities where appropriate.
+The File Service provides authenticated file browsing, upload, download,
+directory creation, copy, move, and deletion, including resumable transfers.
+It validates the caller's LiteNAS access token and delegates every
+caller-specific filesystem permission decision to RBAC. It runs as a non-root
+service and uses shared LiteNAS infrastructure and native Linux/Unix
+facilities where appropriate.
 
 ## Functional Requirements
 
@@ -19,7 +20,8 @@ infrastructure and native Linux/Unix facilities where appropriate.
 #### file-service-svc/FR-001 Description
 
 The service MUST require a valid access token for every operation that creates,
-queries, pauses, resumes, writes, finalizes, cancels, or downloads a transfer.
+queries, pauses, resumes, writes, finalizes, cancels, or downloads a transfer,
+lists a directory, mutates a file or directory, or reads a job.
 
 #### file-service-svc/FR-001 Input
 
@@ -196,15 +198,17 @@ resending bytes already accepted by the service.
   - `DELETE /proprietary/upload/{upload-id}` to cancel it.
   Nginx exposes these under `/f/` by preserving the suffix after `/f`.
 - `POST /proprietary/upload` creates an upload resource using destination, original
-  filename, total size, whole-file SHA-256, supported file metadata, and a
+  filename, total size, whole-file SHA-256, supported file metadata, an optional
+  `chunk_size` in bytes from 1 MiB through 16 MiB, and a
   client `Idempotency-Key`. Success returns `201 Created` and `Location`.
   Repeating the same key and metadata returns the existing resource with
   `200 OK`; reusing that key with different metadata returns `409 Conflict`.
   Creation validates the destination, rejects protected paths, and obtains RBAC
   `create` or `replace` authorization before accepting the upload.
 - Resumable data uses `PATCH /proprietary/upload/{upload-id}` with ordered chunks and the
-  committed byte offset in `Upload-Offset`. The service chunk-size setting defaults to 1 MiB and is configurable
-  from 1 MiB through 16 MiB. Initialization records and returns the effective
+  committed byte offset in `Upload-Offset`. When creation omits `chunk_size`,
+  the service setting applies; it defaults to 1 MiB and is configurable from
+  1 MiB through 16 MiB. Initialization records and returns the effective
   chunk size for that upload; resume uses the recorded size even after
   configuration changes. Every non-final chunk equals the recorded size; only
   the final chunk may be shorter. Success returns `204 No Content` and the
@@ -450,13 +454,13 @@ contents and file content, and evaluate ancestor directory execute access as
 well as the leaf path. The service process's own permissions are not evidence
 of caller access.
 
-### file-service-svc/FR-009 Delete authorized files outside protected paths
+### file-service-svc/FR-009 Delete authorized files and directories outside protected paths
 
 #### file-service-svc/FR-009 Description
 
-The service MUST allow an authenticated user to delete a file only when RBAC
-authorizes the token owner to delete it and the target is outside all configured
-protected path trees.
+The service MUST allow an authenticated user to delete a file or directory
+only when RBAC authorizes the token owner to delete it and the target is
+outside all configured protected path trees.
 
 #### file-service-svc/FR-009 Input
 
@@ -466,7 +470,8 @@ protected path trees.
 
 #### file-service-svc/FR-009 Output
 
-- `204 No Content` after successful deletion, or a non-success JSON error
+- `204 No Content` for a regular file, or `202 Accepted` with a job ID for a
+  directory
 
 #### file-service-svc/FR-009 Acceptance Criteria
 
@@ -494,12 +499,12 @@ protected path trees.
 - Protected-path denial takes precedence over RBAC allow. Neither a successful
   RBAC decision nor service-process filesystem permissions can override the
   protected list.
-- Initial scope is regular files only. Directories and symbolic links are not
-  followed or recursively removed; requests for them return a documented
-  non-success JSON error.
+- Directories are removed recursively by an in-memory job after each descendant
+  receives policy and RBAC authorization. Symbolic links and special files are
+  rejected and never followed.
 - The implementation authorizes the target and required parent-directory
   operation according to the agreed RBAC contract, then removes the entry
-  using race-resistant, descriptor-relative filesystem operations.
+  through fixed user-scoped commands.
 - Missing paths, paths outside service policy, RBAC denial/errors, protected
   paths, and unsupported file types return documented stable JSON error codes
   with non-success HTTP statuses and do not disclose protected host details.
@@ -508,8 +513,82 @@ protected path trees.
 #### file-service-svc/FR-009 Notes
 
 The RBAC `delete` operation checks parent write/search and sticky-directory
-rules for an existing regular file. File Service enforces protected paths and
-performs the unlink through its own race-resistant workflow.
+rules for an existing file or directory. File Service enforces protected paths.
+
+### file-service-svc/FR-010 Create directories and transfer trees
+
+#### file-service-svc/FR-010 Description
+
+The service MUST create authorized directories and recursively copy or move
+authorized files and directory trees. Existing destination directories are
+merged and existing regular files are replaced.
+
+#### file-service-svc/FR-010 Input
+
+- `POST /f/mkdir` with `{ "path": "/absolute/new-directory" }`
+- `POST /f/copy` or `POST /f/move` with
+  `{ "source": "/absolute/source", "destination": "/absolute/target" }`
+- Authenticated subject resolved through Auth and RBAC
+
+#### file-service-svc/FR-010 Output
+
+- `201 Created` with the created path for `mkdir`
+- `202 Accepted` with a job ID and initial progress for copy or move
+- Stable non-success JSON error for invalid or denied requests
+
+#### file-service-svc/FR-010 Acceptance Criteria
+
+- `destination` names the complete target path, including the copied entry's
+  filename or directory name. Source and destination paths are clean absolute
+  host paths. The source MUST exist and MUST be a regular file or directory;
+  symlink and special-file sources are rejected.
+- `mkdir` MUST create exactly one absent directory. Copy and move MUST
+  recurse through directories, merge existing destination directories, and
+  replace existing regular files. File-versus-directory type conflicts and
+  copying or moving a directory into itself MUST fail.
+- Before mutation, the service MUST enforce write-root and protected-path
+  policy, caller read permission on every copied source entry, the appropriate
+  RBAC create or replace decision for destination entries, and delete
+  permission on entries removed by Move. A policy or RBAC failure MUST NOT be
+  treated as permission to continue.
+- Copied file bytes MUST be written as the verified non-root Unix user through
+  the staged writer, checked for byte integrity, and atomically published.
+  Existing destination content MUST remain in place until publication.
+- Move MUST copy the complete source tree before removing source entries from
+  leaves to root. A partial failure MUST be reported by the job and MUST NOT
+  claim an atomic whole-tree move.
+
+### file-service-svc/FR-011 Report queued operation progress
+
+#### file-service-svc/FR-011 Description
+
+The service MUST execute copy, move, and recursive directory deletion as
+server-side jobs that continue after the initiating browser request ends.
+
+#### file-service-svc/FR-011 Input
+
+- An accepted copy, move, or directory-delete operation
+- `GET /f/jobs/{id}` by an authenticated caller
+
+#### file-service-svc/FR-011 Output
+
+- `202 Accepted` with `job_id`, `state`, `percent`, `completed_bytes`,
+  `total_bytes`, `completed_items`, and `total_items`
+- Current status from `GET /f/jobs/{id}`, including `error_code` on failure
+
+#### file-service-svc/FR-011 Acceptance Criteria
+
+- States MUST distinguish pending, running, done, and error. Percent MUST
+  reflect server-side completed bytes and items and reach 100 on success.
+  Large file copies MUST advance byte progress as chunks finish.
+- The service MUST queue jobs in memory and process them sequentially with Go
+  goroutines and input/output channels. An accepted job MUST continue after a
+  browser reload or client disconnect while File Service remains running.
+- Job lookup MUST require a fresh authenticated subject and disclose a job
+  only to its submitting username and UID. A missing job ID MUST return a
+  stable non-success response.
+- In-memory jobs do not survive a File Service restart. Clients MUST be able
+  to distinguish a missing job from a still-running job.
 
 ## Interface Requirements
 
@@ -537,7 +616,8 @@ and transfer continuation.
 - The contract supports upload create/chunk/pause/resume/status/finalize/cancel,
   download pause/resume/continuation and concurrent byte-range downloads, and
   `ls` with `recursive` and `files-only` query parameters without treating
-  transfer IDs as credentials.
+  transfer or job IDs as credentials. It also defines `mkdir`, `copy`, `move`,
+  file and directory deletion, and job progress lookup.
 - Each download mount uses the same resource URL for `HEAD` metadata and `GET`
   requests. Parallel segments are separate single-range `GET`s; the API does
   not require a download-session endpoint or multipart-range response.
@@ -559,7 +639,7 @@ and transfer continuation.
   empty `directories` with `files-only`, and non-success status plus an `error`
   code for failures without leaking denied paths or entry names.
 - Public `GET /f/docs` serves Swagger UI and `GET /f/openapi.json` serves the
-  generated OpenAPI document. The service routes are `/docs` and
+  maintained OpenAPI document. The service routes are `/docs` and
   `/openapi.json`; Nginx strips `/f` when forwarding. `api_docs.enabled`
   controls both routes. Production configuration sets it to `false`; development
   and test configurations set it to `true`. Operators may override it. When
@@ -570,10 +650,16 @@ and transfer continuation.
   does not depend on a third-party CDN.
 - The public `ls` route is `GET /ls/{absolute-path...}`; for example,
   `/ls/abs/path` lists host directory `/abs/path`. It is not prefixed by `/f/`.
+- The public mutation routes are `POST /f/mkdir` with `{path}` and
+  `POST /f/copy` or `POST /f/move` with `{source,destination}`. The latter
+  return `202` and a job status body. `DELETE /f/{absolute-path...}` returns
+  `204` for a regular file and `202` with a job body for a directory.
+  `GET /f/jobs/{id}` returns the submitting owner's current job status.
 - The public HTTP paths are mounted by Nginx at `/f/` and `/d/`; path forwarding
   and mapping each route suffix to the same absolute host path are documented.
   Nginx forwards `/f/docs`, `/f/openapi.json`, `/f/upload`,
-  `/f/proprietary/upload...`, `/f/proprietary/upload-window`, and generic
+  `/f/proprietary/upload...`, `/f/proprietary/upload-window`, `/f/mkdir`,
+  `/f/copy`, `/f/move`, `/f/jobs/{id}`, and generic
   `DELETE /f/{absolute-path...}` requests to their matching service routes
   after stripping the `/f` prefix. Explicit API routes take precedence over the
   generic file-path handler.
@@ -649,9 +735,14 @@ shutdown, or dependency failure.
 #### file-service-svc/RR-002 Acceptance Criteria
 
 - Partial uploads are not marked complete.
-- Client disconnects stop unnecessary reads/writes and release resources.
+- Client disconnects stop request-scoped reads/writes and release resources;
+  already accepted server-side jobs continue under File Service ownership.
 - Incomplete transfer metadata and temporary data follow the documented
   expiration and cleanup policy.
+- Accepted in-memory copy, move, and directory-delete jobs continue after
+  client disconnect. A service restart loses their status and does not claim
+  they completed; copied files already published remain subject to normal
+  filesystem state.
 
 ## Operational Requirements
 
@@ -698,11 +789,12 @@ access required to perform its service role.
   the repository's managed AppArmor profile loader.
   The profile limits access to the service's configured logs, certificates,
   tmpfs and durable staging, and host file paths needed for authorized
-  operations. The writer has its own enforce-mode profile at
+  operations. Fixed user-scoped remove and directory commands use a confined
+  child profile; the writer has its own enforce-mode profile at
   `configs/etc/apparmor.d/usr.libexec.lite-nas.lite-nas-file-writer` and the
   transition through `sudo` must keep it confined. The service invokes only
-  the fixed writer executable as the verified non-root Unix user, without a
-  shell; a restricted sudoers rule is not a substitute for writer path checks.
+  fixed commands as the verified non-root Unix user, without a shell; a
+  restricted sudoers rule is not a substitute for path and policy checks.
 - Deployment provides a 64 MiB bounded tmpfs available only to the service
   account, with 4 MiB reserved for metadata working files and 60 MiB for
   incoming chunk buffers. Use size-limited `tmpfs` rather than unbounded
@@ -716,9 +808,11 @@ access required to perform its service role.
   The service never acknowledges a chunk that has not been persisted to
   the destination-adjacent `.upload` file and committed metadata.
 - Host permissions do not replace the per-request RBAC allow decision.
-- Access uses race-resistant descriptor-relative or equivalent path handling
-  supported by the target Linux platform, except for the accepted first-version
-  raw `cat` read race documented in [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md).
+- Staged file publication uses the writer's descriptor-relative checks.
+  Fixed user-scoped read and directory commands still use pathnames; File
+  Service applies policy and RBAC checks before invoking them. The accepted
+  first-version `cat` pathname race is documented in
+  [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md).
 
 ### file-service-svc/OR-002 Integrate local build, test, deployment, and Debian
 
@@ -763,6 +857,8 @@ temporary content, and protected host path details.
 - Tokens, private key material, and file contents are not written to logs.
 - Transfer identifiers do not independently authorize access and are bound to
   owner and target metadata.
+- Job identifiers do not independently authorize access; job lookup requires
+  authentication and ownership checks.
 - Cookie-authenticated upload and delete mutations enforce a documented CSRF
   defense at the service boundary; cookie attributes provide defense in depth.
 - Temporary upload data and metadata are protected from unrelated users and
@@ -856,9 +952,17 @@ production Auth/RBAC instances.
   matches the RBAC subject UID. Group/mode/ACL follow the chosen creation and
   replacement policy. Tests cover delete RBAC allow/deny and
   dependency failures, protected-root and descendant matching, similar-prefix
-  siblings, path races, missing targets, directories and symlinks, stable error
+  siblings, path races, missing targets, directory jobs and symlink rejection,
+  stable error
   responses, and DELETE CSRF handling. Tests also cover enabled and disabled
   API docs routes, token enforcement, and `/f` prefix handling in Swagger UI.
+- Operation coverage verifies `mkdir` path and RBAC validation; recursive
+  copy and move of files and directories; existing-directory merge and
+  existing-file replacement; type conflicts, symlinks, protected paths, and
+  self-descendant destinations; byte preservation and staged publication;
+  recursive deletion with `202` versus regular-file deletion with `204`;
+  pending/running/done/error job transitions; byte and item progress; job
+  ownership; and continued execution after client disconnect.
 - Dependencies can be controlled or replaced in tests.
 
 ### file-service-svc/TR-002 Verify transport, certificates, and runtime access
@@ -888,6 +992,9 @@ integration coverage.
   JavaScript.
 - Deployment checks verify the non-root account can access required files and
   certificates, but not unrelated certificate material.
+- Host-access checks verify that directory creation, removal, and staged
+  copies execute as the verified non-root Unix user under their AppArmor
+  profiles, while the File Service account cannot directly mutate host files.
 - Listing tests cover allowed/denied files and directories, ancestor search
   permissions, recursive traversal, `files-only`, symlinks, and RBAC failures.
 - Cookie-authenticated upload and DELETE mutation tests cover accepted

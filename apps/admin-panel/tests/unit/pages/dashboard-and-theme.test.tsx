@@ -17,6 +17,7 @@ import { SystemProcessesLandingPage } from "@pages/SystemProcessesLandingPage";
 import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
+import { router } from "@routes/router";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
@@ -318,7 +319,12 @@ describe("theme creation", () => {
 });
 
 describe("application providers", () => {
+  beforeEach(() => {
+    vi.spyOn(router, "navigate").mockResolvedValue(undefined);
+  });
+
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 

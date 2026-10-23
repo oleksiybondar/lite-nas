@@ -339,6 +339,11 @@ func (s *fileService) deleteFile(writer http.ResponseWriter, request *http.Reque
 		writeError(writer, http.StatusBadRequest, "invalid_path")
 		return
 	}
+	requestedInfo, err := os.Lstat(requested)
+	if err == nil && requestedInfo.Mode()&os.ModeSymlink != 0 {
+		writeError(writer, http.StatusBadRequest, "unsupported_target")
+		return
+	}
 	resolved, err := fileaccess.ResolveExisting(requested)
 	if err != nil {
 		writeError(writer, http.StatusNotFound, "not_found")
@@ -349,12 +354,21 @@ func (s *fileService) deleteFile(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	info, err := os.Lstat(resolved)
-	if err != nil || !info.Mode().IsRegular() {
+	if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
 		writeError(writer, http.StatusBadRequest, "unsupported_target")
 		return
 	}
 	if err := s.auth.Operation(request.Context(), subject, resolved, rbaccontract.PathOperationDelete); err != nil {
 		decisionError(writer, err)
+		return
+	}
+	if info.IsDir() {
+		job, err := s.jobs.enqueue(subject, "delete", resolved, "")
+		if err != nil {
+			writeError(writer, http.StatusServiceUnavailable, "queue_unavailable")
+			return
+		}
+		writeJSON(writer, http.StatusAccepted, job)
 		return
 	}
 	username, err := filesystem.VerifyUnixIdentity(subject)

@@ -221,6 +221,11 @@ Build the current LiteNAS package set:
 ./scripts/package/build-all-debs.sh --version=0.2.0~alpha.1
 ```
 
+This creates the main `lite-nas` package and a separate
+`lite-nas-file-explorer` package. The latter contains the static app and its
+Nginx location snippet. The main package requires the matching File Explorer
+package, so both are installed together.
+
 Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
@@ -238,10 +243,12 @@ By default this writes the Vite build output to `.build/admin-panel`. The
 gateway deploy and package flows normalize that output into the flat static
 asset layout served from `/usr/share/lite-nas/web-gateway/assets`.
 
-The package output currently contains one native-architecture package:
+The package output contains one native-architecture base package and one
+architecture-independent File Explorer package:
 
 - `lite-nas`: bootstrap/profile package that bundles the currently packaged
   LiteNAS services, CLIs, and web assets
+- `lite-nas-file-explorer`: separately packaged Nginx-served File Explorer app
 
 The `lite-nas` package:
 
@@ -382,16 +389,16 @@ cookie on the same HTTPS origin. The cookie is `Secure`, `HttpOnly`,
 `SameSite=Lax`, and scoped to `/`; Nginx forwards it to the matching service,
 which validates the token itself.
 
-Install a built package with dependency resolution:
+Install the matching built packages with dependency resolution:
 
 ```bash
-sudo ./scripts/package/install-lite-nas-deb.sh --package .build/packages/lite-nas_0.2.0_amd64.deb
+sudo ./scripts/package/install-lite-nas-deb.sh
 ```
 
-For local testing, prefer `apt-get install <package.deb>` or the helper above
-instead of `dpkg -i`. The package already declares dependencies such as
-`zfsutils-linux` and `nats-server`, but `dpkg` does not resolve or install
-them automatically.
+For local installation, use the helper or pass both matching local `.deb`
+files to `apt-get install`. The package declares dependencies such as
+`zfsutils-linux`, `nats-server`, and `lite-nas-file-explorer`; `dpkg -i` does
+not resolve or install them automatically.
 
 Lint a built package with:
 

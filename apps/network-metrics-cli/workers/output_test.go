@@ -9,7 +9,7 @@ import (
 	"lite-nas/shared/metrics"
 )
 
-// Requirements: network-metrics-cli/FR-002, network-metrics-cli/FR-003, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-002
 func TestOutputWriterWritesCurrentSnapshotInHumanReadableFormat(t *testing.T) {
 	t.Parallel()
 
@@ -26,7 +26,7 @@ func TestOutputWriterWritesCurrentSnapshotInHumanReadableFormat(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/FR-003, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-003
 func TestOutputWriterWritesOnlySelectedCurrentSection(t *testing.T) {
 	t.Parallel()
 
@@ -43,7 +43,7 @@ func TestOutputWriterWritesOnlySelectedCurrentSection(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/FR-002, network-metrics-cli/FR-003, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-002
 func TestOutputWriterCurrentSnapshotIncludesExpectedSections(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +60,7 @@ func TestOutputWriterCurrentSnapshotIncludesExpectedSections(t *testing.T) {
 	assertContains(t, output, "Pressure\n----\nNET_RX Total: 10\nNET_TX Total: 20")
 }
 
-// Requirements: network-metrics-cli/FR-005, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-005
 func TestOutputWriterWritesHistoryAsIndentedJSON(t *testing.T) {
 	t.Parallel()
 

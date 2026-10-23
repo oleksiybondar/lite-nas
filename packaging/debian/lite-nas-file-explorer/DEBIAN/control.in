@@ -1,0 +1,10 @@
+Package: lite-nas-file-explorer
+Version: @PACKAGE_VERSION@
+Section: web
+Priority: optional
+Architecture: all
+Maintainer: Oleksiy Bondar <bondaroleksiyandroyovich@gmail.com>
+Depends: nginx
+Description: LiteNAS File Explorer static application
+ Installs the separately built File Explorer web application and its
+ same-origin Nginx mount.

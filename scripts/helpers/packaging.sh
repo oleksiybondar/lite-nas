@@ -22,7 +22,8 @@ package.copyTree() {
 	local destination_dir="$2"
 
 	mkdir -p "$destination_dir"
-	cp -a "$source_dir/." "$destination_dir/"
+	# Package builders set final file modes below; host ACLs must not enter the package root.
+	cp -R "$source_dir/." "$destination_dir/"
 }
 
 package.prepareRoot() {

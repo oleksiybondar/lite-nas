@@ -29,10 +29,7 @@ import { Outlet, useLocation } from "react-router-dom";
 export const AppDashboardLayout = (): ReactElement => {
   const { pathname } = useLocation();
   const { requireOperator, requireSecurity } = useRbac();
-  const navigationItems = resolveNavigationItems(pathname, {
-    requireOperator,
-    requireSecurity,
-  });
+  const navigationItems = resolveNavigationItems(pathname, { requireOperator, requireSecurity });
   const selectedPath = resolveSelectedNavigationPath(pathname, navigationItems);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);

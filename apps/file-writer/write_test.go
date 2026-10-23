@@ -40,6 +40,39 @@ func TestRunShowsHelp(t *testing.T) {
 	}
 }
 
+// TestInvocationRejectsInvalidFlags verifies malformed CLI requests stop before filesystem work.
+// Requirements: file-writer/FR-005.
+func TestInvocationRejectsInvalidFlags(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{name: "unknown command", args: []string{"unknown", "--target", "/tmp/a.upload"}},
+		{name: "unknown flag", args: []string{"create", "--target", "/tmp/a.upload", "--bogus"}},
+		{name: "relative target", args: []string{"create", "--target", "a.upload"}},
+		{name: "unclean target", args: []string{"create", "--target", "/tmp/../tmp/a.upload"}},
+		{name: "wrong suffix", args: []string{"create", "--target", "/tmp/a"}},
+		{name: "missing identity", args: []string{"stat", "--target", "/tmp/a.upload"}},
+		{name: "missing write length", args: []string{"write", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1", "--offset", "0"}},
+		{name: "missing truncate offset", args: []string{"truncate", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1"}},
+		{name: "missing destination mode", args: []string{"publish", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1"}},
+		{name: "partial destination identity", args: []string{"publish", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1", "--destination-device", "1"}},
+		{name: "disallowed flag", args: []string{"create", "--target", "/tmp/a.upload", "--offset", "0"}},
+		{name: "extra argument", args: []string{"create", "--target", "/tmp/a.upload", "extra"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := parseInvocation(tc.args); err == nil {
+				t.Fatalf("accepted invalid invocation: %v", tc.args)
+			}
+		})
+	}
+	if got := (&operationError{Message: "publication failed"}).Error(); got != "publication failed" {
+		t.Fatalf("operation error = %q", got)
+	}
+}
+
 // TestCreateReturnsIdentity verifies creation reports the effective owner's new inode.
 // Requirements: file-writer/FR-001.
 func TestCreateReturnsIdentity(t *testing.T) {
@@ -248,10 +281,37 @@ func TestWriteRejectsGap(t *testing.T) {
 	}
 }
 
-// TestPublishFailureCleansStage verifies a changed destination is preserved and cleanup is reported.
-// Requirements: file-writer/FR-006, file-writer/FR-007.
+// TestPublishRejectsChangedDestination verifies publication leaves a changed destination untouched.
+// Requirements: file-writer/FR-006.
+func TestPublishRejectsChangedDestination(t *testing.T) {
+	t.Parallel()
+	destination, _, err := runPublishWithChangedDestination(t)
+	if err == nil {
+		t.Fatal("publish error = nil, want destination state mismatch")
+	}
+	if got := string(mustReadFile(t, destination)); got != "old" {
+		t.Fatalf("destination changed: %q", got)
+	}
+}
+
+// TestPublishFailureCleansStage verifies a failed publication removes the identified stage.
+// Requirements: file-writer/FR-007.
 func TestPublishFailureCleansStage(t *testing.T) {
 	t.Parallel()
+	_, stage, err := runPublishWithChangedDestination(t)
+	var failure *operationError
+	if !errors.As(err, &failure) || failure.Cleanup != "succeeded" {
+		t.Fatalf("publish failure = %v, want successful cleanup", err)
+	}
+	if _, err := os.Lstat(stage); !os.IsNotExist(err) {
+		t.Fatalf("stage remains after failed publish: %v", err)
+	}
+}
+
+// runPublishWithChangedDestination creates an identified stage and a destination that
+// appears after the stage was created, then returns the failed publication result.
+func runPublishWithChangedDestination(t *testing.T) (string, string, error) {
+	t.Helper()
 	directory := t.TempDir()
 	stage := filepath.Join(directory, "target.upload")
 	destination := filepath.Join(directory, "target")
@@ -262,16 +322,7 @@ func TestPublishFailureCleansStage(t *testing.T) {
 	args := append([]string{"publish", "--target", stage, "--destination-absent"}, identity...)
 	var output bytes.Buffer
 	err := run(args, nil, &output)
-	var failure *operationError
-	if !errors.As(err, &failure) || failure.Cleanup != "succeeded" {
-		t.Fatalf("publish failure = %v, want successful cleanup", err)
-	}
-	if _, err := os.Lstat(stage); !os.IsNotExist(err) {
-		t.Fatalf("stage remains after failed publish: %v", err)
-	}
-	if got := string(mustReadFile(t, destination)); got != "old" {
-		t.Fatalf("destination changed: %q", got)
-	}
+	return destination, stage, err
 }
 
 // TestPublishReportsCleanupFailure verifies a failed removal has its own response code.

@@ -188,6 +188,7 @@ deploy.webGateway.deploy() {
 	deploy.nginx.deploy 0
 
 	if [ "$should_start" = "1" ]; then
+		deploy.nginx.validateConfig
 		deploy.webGateway.enableAndStart
 		deploy.nginx.enableAndStart
 		return 0

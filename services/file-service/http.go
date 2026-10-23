@@ -19,6 +19,7 @@ type fileService struct {
 	policy filesystem.Policy
 	auth   *fileaccess.Authorizer
 	store  *uploadStore
+	jobs   *operationManager
 	ranges *rangeLimiter
 	window *chunkWindow
 	logger sharedlogger.Logger
@@ -30,15 +31,17 @@ func newFileService(cfg serviceConfig, policy filesystem.Policy, auth *fileacces
 	if err != nil {
 		return nil, err
 	}
-	return &fileService{
+	service := &fileService{
 		cfg: cfg, policy: policy, auth: auth, store: store,
 		ranges: newRangeLimiter(16), window: &chunkWindow{},
-	}, nil
+	}
+	service.jobs = newOperationManager(service)
+	return service, nil
 }
 
 // ServeHTTP authenticates every protected request before dispatching its route.
 func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	if request.URL.Path == "/docs" || request.URL.Path == "/openapi.json" {
+	if request.URL.Path == "/docs" || strings.HasPrefix(request.URL.Path, "/docs/") || request.URL.Path == "/openapi.json" {
 		if !s.cfg.DocsEnabled {
 			writeError(writer, http.StatusNotFound, "not_found")
 			return
@@ -62,10 +65,16 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	}
 	path := request.URL.Path
 	switch {
-	case path == "/docs" || path == "/openapi.json":
+	case path == "/docs" || strings.HasPrefix(path, "/docs/") || path == "/openapi.json":
 		s.serveDocs(writer, request)
 	case path == "/upload" && request.Method == http.MethodPost:
 		s.conventionalUpload(writer, request, subject)
+	case path == "/mkdir" && request.Method == http.MethodPost:
+		s.createDirectory(writer, request, subject)
+	case (path == "/copy" || path == "/move") && request.Method == http.MethodPost:
+		s.createTransfer(writer, request, subject)
+	case strings.HasPrefix(path, "/jobs/") && request.Method == http.MethodGet:
+		s.getJob(writer, request, subject)
 	case path == "/proprietary/upload-window" && request.Method == http.MethodGet:
 		s.uploadWindow(writer)
 	case path == "/proprietary/upload" && request.Method == http.MethodPost:

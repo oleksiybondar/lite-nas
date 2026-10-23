@@ -48,6 +48,7 @@ done
 
 sudo.guard.requireRoot "scripts/package/install-lite-nas-deb.sh"
 log.requireCommand "apt-get" "Install apt-get and retry."
+log.requireCommand "dpkg-deb" "Install Debian packaging tools and retry."
 
 if [ -z "$package_path" ]; then
 	package_path="$(find "$LITE_NAS_REPO_ROOT/.build/packages" -maxdepth 1 -type f -name 'lite-nas_*.deb' | LC_ALL=C sort | tail -n1)"
@@ -59,14 +60,21 @@ if [ -z "$package_path" ] || [ ! -f "$package_path" ]; then
 fi
 
 package_path="$(realpath "$package_path")"
+package_version="$(dpkg-deb -f "$package_path" Version)"
+file_explorer_package="$(dirname "$package_path")/lite-nas-file-explorer_${package_version}_all.deb"
+if [ ! -f "$file_explorer_package" ]; then
+	log.error "Matching File Explorer package not found: $file_explorer_package"
+	exit 1
+fi
 
-log.pushTask "Installing LiteNAS package with apt dependency resolution"
+log.pushTask "Installing LiteNAS and File Explorer packages with apt dependency resolution"
 apt_args=()
 if [ "$install_recommends" -eq 0 ]; then
 	apt_args+=(--no-install-recommends)
 fi
 apt-get update
-apt-get install "${apt_args[@]}" -y "$package_path"
+apt-get install "${apt_args[@]}" -y "$package_path" "$file_explorer_package"
 log.popTask
 
 log.info "Installed package: $package_path"
+log.info "Installed package: $file_explorer_package"

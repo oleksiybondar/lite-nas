@@ -238,6 +238,9 @@ jobs:
       - name: Build admin-panel
         run: scripts/build-admin-panel.sh
 
+      - name: Build File Explorer
+        run: scripts/build-file-explorer.sh
+
       - name: Verify admin-panel asset output
         run: |
           test -f .build/admin-panel/index.html
@@ -249,6 +252,14 @@ jobs:
         with:
           name: admin-panel-assets
           path: .build/admin-panel
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload File Explorer asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-explorer-assets
+          path: .build/file-explorer
           if-no-files-found: error
           retention-days: 1
 
@@ -269,6 +280,9 @@ jobs:
 
       - name: Test admin-panel
         run: scripts/test-admin-panel.sh --with-coverage
+
+      - name: Test File Explorer
+        run: scripts/test-file-explorer.sh --with-coverage
 
   shared-go-build-and-test:
     name: Shared Go build and test (${{ matrix.arch }})
@@ -416,7 +430,7 @@ jobs:
               artifact_name: file-service-linux
               build_script: scripts/build-file-service-binary.sh
               output_path: .build/file-service/linux-amd64/file-service
-              test_script: scripts/test-file-service.sh
+              test_script: scripts/test-file-service.sh --with-coverage
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -551,7 +565,7 @@ jobs:
               artifact_name: file-service-linux
               build_script: scripts/build-file-service-binary.sh
               output_path: .build/file-service/linux-arm64/file-service
-              test_script: scripts/test-file-service.sh
+              test_script: scripts/test-file-service.sh --with-coverage
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -651,7 +665,7 @@ jobs:
               artifact_name: lite-nas-file-writer-linux
               build_script: scripts/build-file-writer-binary.sh
               output_path: .build/lite-nas-file-writer/linux-amd64/lite-nas-file-writer
-              test_script: scripts/test-file-writer.sh
+              test_script: scripts/test-file-writer.sh --with-coverage
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -699,7 +713,7 @@ jobs:
               artifact_name: lite-nas-file-writer-linux
               build_script: scripts/build-file-writer-binary.sh
               output_path: .build/lite-nas-file-writer/linux-arm64/lite-nas-file-writer
-              test_script: scripts/test-file-writer.sh
+              test_script: scripts/test-file-writer.sh --with-coverage
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -883,6 +897,13 @@ jobs:
           name: admin-panel-assets
           path: .artifacts/admin-panel
 
+      - name: Download File Explorer asset artifact
+        if: ${{ matrix.arch == 'amd64' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: file-explorer-assets
+          path: .artifacts/file-explorer
+
       - name: Prepare package job dependencies
         run: scripts/ci/install-debian-packaging-dependencies.sh
 
@@ -899,6 +920,14 @@ jobs:
             --version=${{ steps.package-version.outputs.value }} \
             --output-dir=.build/packages/${{ matrix.arch }} \
             2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/build-package.log
+
+      - name: Build File Explorer Debian package
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          scripts/package/build-file-explorer-deb.sh \
+            --assets-dir=.artifacts/file-explorer \
+            --version=${{ steps.package-version.outputs.value }} \
+            --output-dir=.build/packages/${{ matrix.arch }}
 
       - name: Lint LiteNAS Debian package
         run: |

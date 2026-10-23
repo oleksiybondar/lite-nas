@@ -17,29 +17,30 @@ const maxMetadataBytes = 4 << 20
 
 // uploadRecord is the durable authority for one resumable staged upload.
 type uploadRecord struct {
-	ID                string     `json:"id"`
-	Owner             string     `json:"owner"`
-	UID               string     `json:"uid"`
-	Target            string     `json:"target"`
-	Filename          string     `json:"filename"`
-	Size              int64      `json:"size"`
-	SHA256            string     `json:"sha256"`
-	ContentType       string     `json:"content_type,omitempty"`
-	ChunkSize         int64      `json:"chunk_size"`
-	Offset            int64      `json:"offset"`
-	NextIndex         int64      `json:"next_chunk_index"`
-	StageDevice       uint64     `json:"stage_device"`
-	StageInode        uint64     `json:"stage_inode"`
-	StageUID          uint32     `json:"stage_uid"`
-	DestinationExists bool       `json:"destination_exists"`
-	DestinationDevice uint64     `json:"destination_device,omitempty"`
-	DestinationInode  uint64     `json:"destination_inode,omitempty"`
-	LastChunkSHA256   string     `json:"last_chunk_sha256,omitempty"`
-	LastChunkSize     int64      `json:"last_chunk_size,omitempty"`
-	IdempotencyKey    string     `json:"idempotency_key"`
-	State             string     `json:"state"`
-	Expires           time.Time  `json:"expires"`
-	mu                sync.Mutex `json:"-"`
+	ID                 string     `json:"id"`
+	Owner              string     `json:"owner"`
+	UID                string     `json:"uid"`
+	Target             string     `json:"target"`
+	Filename           string     `json:"filename"`
+	Size               int64      `json:"size"`
+	SHA256             string     `json:"sha256"`
+	ContentType        string     `json:"content_type,omitempty"`
+	ChunkSize          int64      `json:"chunk_size"`
+	RequestedChunkSize int64      `json:"requested_chunk_size,omitempty"`
+	Offset             int64      `json:"offset"`
+	NextIndex          int64      `json:"next_chunk_index"`
+	StageDevice        uint64     `json:"stage_device"`
+	StageInode         uint64     `json:"stage_inode"`
+	StageUID           uint32     `json:"stage_uid"`
+	DestinationExists  bool       `json:"destination_exists"`
+	DestinationDevice  uint64     `json:"destination_device,omitempty"`
+	DestinationInode   uint64     `json:"destination_inode,omitempty"`
+	LastChunkSHA256    string     `json:"last_chunk_sha256,omitempty"`
+	LastChunkSize      int64      `json:"last_chunk_size,omitempty"`
+	IdempotencyKey     string     `json:"idempotency_key"`
+	State              string     `json:"state"`
+	Expires            time.Time  `json:"expires"`
+	mu                 sync.Mutex `json:"-"`
 }
 
 // uploadStore maps opaque IDs and canonical destinations to durable records.

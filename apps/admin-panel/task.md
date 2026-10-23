@@ -10,10 +10,9 @@ while making the shared user preference available to embedded applications.
 
 ## Required behavior
 
-- Add an Applications navigation area. File Explorer is enabled by default
-  and can be disabled independently; Moments is shown only when its app/service
-  is enabled in LiteNAS configuration. Do not infer availability from a failed
-  browser request.
+- Add an Applications navigation area. File Explorer is always deployed and
+  listed. Moments is shown only when its app/service is enabled in LiteNAS
+  configuration. Do not infer availability from a failed browser request.
 - Embed each app at its Nginx path under `/apps/`; the app may also be opened
   directly in a new tab where its deployment supports that mode.
 - Keep the current admin-panel theme as an app-specific setting. Persist the
@@ -51,8 +50,7 @@ while making the shared user preference available to embedded applications.
 
 ## Acceptance criteria
 
-- File Explorer is listed by default, can be disabled independently, and opens
-  at `/apps/file-explorer` when enabled.
+- File Explorer is always listed and opens at `/apps/file-explorer`.
 - Moments is listed and opens at `/apps/moments` only when enabled.
 - Avatar and preferred UI settings persist in the authenticated user's
   `.lite-nas` directory through File Service.

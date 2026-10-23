@@ -45,6 +45,8 @@ source "$ENTRYPOINT_DIR/deploy/file-service.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/file-explorer.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/litenas-integrity.sh"
@@ -70,6 +72,7 @@ file_writer_binary=""
 file_service_binary=""
 web_gateway_binary=""
 admin_panel_assets=""
+file_explorer_assets=""
 resources_monitor_binary=""
 litenas_integrity_binary=""
 should_bootstrap=1
@@ -110,6 +113,7 @@ Options:
   --file-service-binary PATH      Install an existing file-service binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
   --admin-panel-assets PATH       Install existing admin-panel Vite build output.
+  --file-explorer-assets PATH     Install existing File Explorer Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
   --litenas-integrity-binary PATH Install an existing litenas-integrity binary.
   --no-start                      Install files but do not enable or start services.
@@ -310,6 +314,15 @@ while [ "$#" -gt 0 ]; do
 		admin_panel_assets="$2"
 		shift 2
 		;;
+	--file-explorer-assets)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --file-explorer-assets"
+			usage >&2
+			exit 2
+		fi
+		file_explorer_assets="$2"
+		shift 2
+		;;
 	--resources-monitor-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --resources-monitor-binary"
@@ -377,7 +390,7 @@ deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -504,6 +517,10 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		"$ENTRYPOINT_DIR/build-admin-panel.sh" --output-dir="$tmp_dir/admin-panel-assets"
 		admin_panel_assets="$tmp_dir/admin-panel-assets"
 	fi
+	if [ -z "$file_explorer_assets" ]; then
+		"$ENTRYPOINT_DIR/build-file-explorer.sh" --output-dir="$tmp_dir/file-explorer-assets"
+		file_explorer_assets="$tmp_dir/file-explorer-assets"
+	fi
 
 	if [ -z "$resources_monitor_binary" ]; then
 		build_args=("--output=$tmp_dir/resources-monitor")
@@ -572,6 +589,10 @@ log.popTask
 
 log.pushTask "Deploying zfs-metrics service"
 deploy.zfsMetrics.deploy "$zfs_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Configuring File Explorer static app"
+deploy.fileExplorer.deploy "$file_explorer_assets"
 log.popTask
 
 log.pushTask "Deploying web-gateway service"

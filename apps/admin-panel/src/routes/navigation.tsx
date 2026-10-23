@@ -1,8 +1,10 @@
 import type { RbacContextValue } from "@dto/rbac/rbac";
+import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MemoryIcon from "@mui/icons-material/Memory";
 import MemoryRoundedIcon from "@mui/icons-material/MemoryRounded";
@@ -75,10 +77,21 @@ export const buildAppNavigationItems = ({
 }: AppNavigationRbac): AppNavigationItem[] => {
   return [
     buildDashboardNavigationItem(),
+    buildApplicationsNavigationItem(),
     ...buildAlertsNavigationItems({ requireOperator, requireSecurity }),
     buildSystemNavigationItem(),
   ];
 };
+
+/** Adds the installed File Explorer under the Applications category. */
+const buildApplicationsNavigationItem = (): AppNavigationItem => ({
+  children: [
+    { icon: <FolderOpenIcon />, path: "/applications/file-explorer", title: "File Explorer" },
+  ],
+  icon: <AppsRoundedIcon />,
+  path: "/applications",
+  title: "Applications",
+});
 
 /**
  * Builds the dashboard root navigation entry.

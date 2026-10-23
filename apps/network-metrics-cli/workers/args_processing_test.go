@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Requirements: network-metrics-cli/FR-001, network-metrics-cli/FR-003, network-metrics-cli/IR-001
+// Requirements: network-metrics-cli/FR-001
 func TestArgsProcessorDefaultsToCurrentMode(t *testing.T) {
 	t.Parallel()
 
@@ -21,7 +21,7 @@ func TestArgsProcessorDefaultsToCurrentMode(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/FR-001, network-metrics-cli/FR-003, network-metrics-cli/IR-001
+// Requirements: network-metrics-cli/FR-003
 func TestArgsProcessorDefaultsToAllSections(t *testing.T) {
 	t.Parallel()
 
@@ -38,7 +38,7 @@ func TestArgsProcessorDefaultsToAllSections(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/FR-004, network-metrics-cli/IR-001
+// Requirements: network-metrics-cli/FR-004
 func TestArgsProcessorParsesHistoryMode(t *testing.T) {
 	t.Parallel()
 
@@ -54,7 +54,7 @@ func TestArgsProcessorParsesHistoryMode(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/IR-001
+// Requirements: network-metrics-cli/OR-001
 func TestArgsProcessorParsesExplicitConfigPath(t *testing.T) {
 	t.Parallel()
 

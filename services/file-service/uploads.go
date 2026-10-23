@@ -25,6 +25,8 @@ import (
 
 const (
 	chunkBudget      = 60 << 20
+	minChunkSize     = 1 << 20
+	maxChunkSize     = 16 << 20
 	maxBrowserUpload = 10 << 30
 )
 
@@ -66,6 +68,7 @@ type createInput struct {
 	Size        int64  `json:"size" minimum:"0"`
 	SHA256      string `json:"sha256" pattern:"^[0-9a-fA-F]{64}$"`
 	ContentType string `json:"content_type,omitempty" maxLength:"255"`
+	ChunkSize   *int64 `json:"chunk_size,omitempty" minimum:"1048576" maximum:"16777216"`
 }
 
 // validateCreateDTO applies the repository's Huma schema at the JSON boundary.
@@ -90,7 +93,8 @@ func validateCreateDTO(body []byte, input *createInput) bool {
 func validateCreateInput(input createInput) bool {
 	if fileaccess.ValidateHostPath(input.Destination) != nil || input.Filename == "" ||
 		filepath.Base(input.Filename) != input.Filename || strings.ContainsAny(input.Filename, "\r\n\x00") ||
-		input.Size < 0 || len(input.SHA256) != 64 || len(input.ContentType) > 255 {
+		input.Size < 0 || len(input.SHA256) != 64 || len(input.ContentType) > 255 ||
+		(input.ChunkSize != nil && (*input.ChunkSize < minChunkSize || *input.ChunkSize > maxChunkSize)) {
 		return false
 	}
 	checksum, err := hex.DecodeString(input.SHA256)
@@ -144,12 +148,19 @@ func (s *fileService) createUpload(writer http.ResponseWriter, request *http.Req
 		decisionError(writer, err)
 		return
 	}
+	requestedChunkSize := int64(0)
+	effectiveChunkSize := s.cfg.ChunkSize
+	if input.ChunkSize != nil {
+		requestedChunkSize = *input.ChunkSize
+		effectiveChunkSize = requestedChunkSize
+	}
 	s.store.mu.Lock()
 	defer s.store.mu.Unlock()
 	if id := s.store.keys[subject.Username+"\x00"+key]; id != "" {
 		record := s.store.records[id]
 		if record != nil && record.Target == target && record.Filename == input.Filename &&
-			record.Size == input.Size && record.SHA256 == input.SHA256 && record.ContentType == input.ContentType {
+			record.Size == input.Size && record.SHA256 == input.SHA256 && record.ContentType == input.ContentType &&
+			record.RequestedChunkSize == requestedChunkSize {
 			writer.Header().Set("Location", "/f/proprietary/upload/"+id)
 			writeJSON(writer, http.StatusOK, progress(record))
 			return
@@ -174,7 +185,8 @@ func (s *fileService) createUpload(writer http.ResponseWriter, request *http.Req
 		ID: id, Owner: subject.Username, UID: subject.UID,
 		Target: target, Filename: input.Filename, Size: input.Size,
 		SHA256: strings.ToLower(input.SHA256), ContentType: input.ContentType,
-		ChunkSize: s.cfg.ChunkSize, IdempotencyKey: key, State: "active",
+		ChunkSize: effectiveChunkSize, RequestedChunkSize: requestedChunkSize,
+		IdempotencyKey: key, State: "active",
 		Expires: time.Now().Add(s.cfg.UploadTTL), DestinationExists: exists,
 		DestinationDevice: device, DestinationInode: inode,
 	}
@@ -200,7 +212,7 @@ func progress(record *uploadRecord) map[string]any {
 		"upload_id": record.ID, "state": record.State,
 		"total_size": record.Size, "acknowledged_bytes": record.Offset,
 		"next_chunk_index": record.NextIndex, "chunk_size": record.ChunkSize,
-		"maximum_chunk_size": 16 << 20,
+		"maximum_chunk_size": maxChunkSize,
 	}
 }
 
@@ -541,7 +553,7 @@ func (s *fileService) cancelUpload(writer http.ResponseWriter, request *http.Req
 func (s *fileService) uploadWindow(writer http.ResponseWriter) {
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"available_buffer_bytes": s.window.available(),
-		"maximum_chunk_size":     16 << 20,
+		"maximum_chunk_size":     maxChunkSize,
 	})
 }
 

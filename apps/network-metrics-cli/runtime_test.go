@@ -64,7 +64,7 @@ func (w *stubOutputWriter) WriteHistory(_ io.Writer, history []metrics.NetworkMe
 	return nil
 }
 
-// Requirements: network-metrics-cli/FR-001, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-001
 func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -77,7 +77,7 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/FR-001, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-003
 func TestExecuteCommandPassesCurrentSelection(t *testing.T) {
 	t.Parallel()
 
@@ -89,7 +89,7 @@ func TestExecuteCommandPassesCurrentSelection(t *testing.T) {
 	}
 }
 
-// Requirements: network-metrics-cli/FR-004, network-metrics-cli/IR-002
+// Requirements: network-metrics-cli/FR-004
 func TestExecuteCommandRequestsHistory(t *testing.T) {
 	t.Parallel()
 

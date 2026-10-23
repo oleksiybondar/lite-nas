@@ -2,6 +2,12 @@
   "name": "lite-nas",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/admin-panel",
+    "apps/file-explorer",
+    "shared/ts/theme",
+    "shared/ts/file-upload"
+  ],
   "scripts": {
     "ci:analysis": "scripts/run-ci-analysis.sh",
     "ci:build": "scripts/run-ci-build.sh",

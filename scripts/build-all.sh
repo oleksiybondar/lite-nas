@@ -73,6 +73,7 @@ log.popTask
 
 log.pushTask "Building admin-panel frontend assets"
 "$SCRIPT_DIR/build-admin-panel.sh" --output-dir="$output_dir/admin-panel"
+"$SCRIPT_DIR/build-file-explorer.sh" --output-dir="$output_dir/file-explorer"
 log.popTask
 
 log.info "Built deployable artifacts in: $output_dir"

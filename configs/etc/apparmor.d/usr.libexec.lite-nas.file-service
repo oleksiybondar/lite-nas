@@ -44,9 +44,30 @@ profile /usr/libexec/lite-nas/file-service flags=(attach_disconnected,mediate_de
   /var/lib/sudo/** rwk,
   /bin/cat ix,
   /usr/lib/cargo/bin/coreutils/cat ix,
-  /bin/rm ix,
-  /usr/bin/gnurm ix,
+  /bin/rm Cx -> file-operations,
+  /usr/bin/gnurm Cx -> file-operations,
+  /bin/mkdir Cx -> file-operations,
+  /bin/rmdir Cx -> file-operations,
+  /usr/lib/cargo/bin/coreutils/mkdir Cx -> file-operations,
+  /usr/lib/cargo/bin/coreutils/rmdir Cx -> file-operations,
   /usr/libexec/lite-nas/lite-nas-file-writer Px,
+
+  # Only user-scoped fixed commands receive host mutation access.
+  profile file-operations {
+    include <abstractions/base>
+    include <abstractions/nameservice>
+
+    /bin/rm mr,
+    /usr/bin/gnurm mr,
+    /bin/mkdir mr,
+    /bin/rmdir mr,
+    /usr/lib/cargo/bin/coreutils/mkdir mr,
+    /usr/lib/cargo/bin/coreutils/rmdir mr,
+    /home/ r,
+    /home/** rw,
+    # Deployment may grant configured storage roots in this local profile.
+    include if exists <local/usr.libexec.lite-nas.file-operations>
+  }
 
   include if exists <local/usr.libexec.lite-nas.file-service>
 }

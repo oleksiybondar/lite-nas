@@ -18,10 +18,11 @@ scripts/test-system-metrics.sh --with-coverage
 scripts/test-system-metrics-cli.sh
 scripts/test-network-metrics-cli.sh
 scripts/test-zfs-metrics-cli.sh
-scripts/test-file-writer.sh
-scripts/test-file-service.sh
+scripts/test-file-writer.sh --with-coverage
+scripts/test-file-service.sh --with-coverage
 scripts/test-shared.sh --with-coverage
 scripts/test-web-gateway.sh
 scripts/test-admin-panel.sh --with-coverage
+scripts/test-file-explorer.sh --with-coverage
 scripts/test-python.sh
 log.popTask

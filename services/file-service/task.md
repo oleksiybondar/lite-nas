@@ -129,7 +129,7 @@ Acceptance criteria:
   Configure the upstream HTTP version and upload body limits so large
   multipart requests and chunk PATCH requests reach File Service
   incrementally.
-- Swagger UI and the generated OpenAPI document are available at `/docs` and
+- Swagger UI and the maintained OpenAPI document are available at `/docs` and
   `/openapi.json`, publicly mounted as `/f/docs` and `/f/openapi.json`.
   Configuration exposes `api_docs.enabled`; when false, both documentation
   routes return `404`; it defaults to `true`. The documentation routes require
@@ -280,7 +280,7 @@ The File Service MUST expose two upload modes with separate HTTP routes:
   finalization operations under `/proprietary/upload`; Nginx exposes these as
   `/f/proprietary/upload`. The later frontend app will implement this protocol;
   its implementation is outside this service task.
-- The File Service exposes its generated OpenAPI document at `/openapi.json`
+- The File Service exposes its OpenAPI document at `/openapi.json`
   and Swagger UI at `/docs`, publicly mounted as `/f/openapi.json` and
   `/f/docs`, respectively. A boolean `api_docs.enabled` setting controls both
   routes; production configuration sets it to `false`, while development and
@@ -299,9 +299,10 @@ The resumable protocol MUST follow this lifecycle:
    Retrying the same key and same metadata returns the existing upload resource;
    reusing that key with different metadata returns `409 Conflict`.
 2. Creation returns an opaque upload ID, the next chunk index expected,
-   effective chunk size, maximum chunk size, and upload state. Chunk size is
-   configured for the service in the inclusive 1–16 MiB range, with a 1 MiB
-   default. Initialization records the effective size for that upload, so
+   effective chunk size, maximum chunk size, and upload state. The client may
+   request a chunk size in the inclusive 1–16 MiB range when creating the
+   upload. Clients that omit it use the service's configured size, which has
+   a 1 MiB default. Initialization records the effective size for that upload, so
    resume keeps using it even if service configuration later changes. Only the
    final chunk may be shorter. The proprietary protocol has no configured
    whole-file size limit; the destination filesystem and 64-bit offsets are
@@ -542,11 +543,11 @@ Use execute permission as directory search/traversal permission and read
 permission for directory contents and file content. Do not treat the File
 Service process's own access as caller authorization.
 
-### FR-009 Delete authorized files outside protected paths
+### FR-009 Delete authorized files and directories outside protected paths
 
 The service MUST expose `DELETE /f/{absolute-path...}` for deleting an
-authorized regular file. Nginx strips the `/f` prefix before proxying, as for
-other file operations.
+authorized regular file or directory tree. Nginx strips the `/f` prefix before
+proxying, as for other file operations.
 
 Acceptance criteria:
 
@@ -565,16 +566,33 @@ Acceptance criteria:
 - A configured path and all descendants are protected using
   component-boundary matching after safe normalization/resolution. Similar
   sibling prefixes such as `/etc-backup` are not descendants of `/etc`.
-- Protected-path denial takes precedence over RBAC allow. Only regular files
-  may be deleted initially; directories and symbolic links are rejected and
-  never recursively removed or followed.
+- Protected-path denial takes precedence over RBAC allow. Directory deletion
+  checks each descendant and removes children before parents. Symbolic links
+  and special files are rejected and never followed.
 - Authorize the target and required parent-directory operation according to
-  the agreed RBAC contract, then delete using race-resistant,
-  descriptor-relative filesystem operations.
-- Success returns `204 No Content`. Missing, unauthorized, protected, invalid,
+  the agreed RBAC contract, then delete through fixed user-scoped commands.
+- Regular-file success returns `204 No Content`. Directory requests return
+  `202 Accepted` with an in-memory job ID; poll `GET /f/jobs/{id}` for progress.
+  Missing, unauthorized, protected, invalid,
   and unsupported targets return documented non-success JSON errors with stable
   codes and without sensitive host-path disclosure.
 - Cookie-authenticated DELETE requests pass the service's CSRF checks.
+
+### FR-010 Create directories and queue recursive transfers
+
+`POST /f/mkdir` accepts `{ "path": "/absolute/new-directory" }` and returns
+`201 Created`. `POST /f/copy` and `POST /f/move` accept complete paths in
+`{ "source": "/absolute/source", "destination": "/absolute/target" }`.
+Copy and move return `202 Accepted` with `job_id`, `state`, `percent`,
+`completed_bytes`, `total_bytes`, `completed_items`, and `total_items`.
+`GET /f/jobs/{id}` returns the current state to the authenticated owner.
+The service queues operations sequentially in memory using a Go worker and
+progress channel. Jobs survive browser reload while the service stays running;
+they do not survive a service restart. Existing destination directories are
+merged and existing regular files are replaced. A directory cannot be copied
+or moved into itself. All source tree entries and destination paths are checked
+against RBAC and storage policy. Copy uses the user-scoped staged writer and
+reports progress after each chunk. Move copies and then removes the source tree.
 
 ### SR-001 Fail closed and protect file data
 

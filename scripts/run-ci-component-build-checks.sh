@@ -31,4 +31,5 @@ scripts/build-file-writer-binary.sh
 scripts/build-shared.sh
 scripts/build-web-gateway.sh
 scripts/build-admin-panel.sh
+scripts/build-file-explorer.sh
 log.popTask

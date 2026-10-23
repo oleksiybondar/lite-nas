@@ -8,7 +8,7 @@ import (
 	"lite-nas/shared/metrics"
 )
 
-// Requirements: system-metrics-cli/FR-002, system-metrics-cli/FR-003, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-002
 func TestOutputWriterWritesCurrentSnapshotInHumanReadableFormat(t *testing.T) {
 	t.Parallel()
 
@@ -38,7 +38,7 @@ func TestOutputWriterWritesCurrentSnapshotInHumanReadableFormat(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-003, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-003
 func TestOutputWriterWritesOnlySelectedCurrentSection(t *testing.T) {
 	t.Parallel()
 
@@ -63,7 +63,7 @@ func TestOutputWriterWritesOnlySelectedCurrentSection(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-005, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-005
 func TestOutputWriterWritesHistoryAsIndentedJSON(t *testing.T) {
 	t.Parallel()
 
