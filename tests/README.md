@@ -18,10 +18,12 @@ System tests are grouped into four top-level categories:
 - `ui/`
   Browser UI, visual, and end-to-end administration flows.
 
-Test files inside each category should represent suites for a focused feature
-or workflow, for example `api/test_auth.py` or `infra/test_services.py`.
-UI page objects are stored under `ui/page_objects/` and are imported by UI test
-suites in `ui/`.
+Within `api/`, `cli/`, and `ui/`, service or app suites live in named folders,
+for example `api/web_gateway/test_auth.py`, `api/file_service/`,
+`cli/file_writer/`, and `ui/admin_panel/`. Shared logging manager and email
+notifier CLI suites cover both system and security variants in their family
+folders. Cross-service host checks remain directly under `infra/`.
+UI page objects stay under `ui/page_objects/` and are imported by the UI suites.
 
 The Python test runner executes categories in this fast-fail order:
 

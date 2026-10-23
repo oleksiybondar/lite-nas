@@ -140,8 +140,9 @@ readability, maintenance, and consistent review quality.
   Python HyperionTF suite by default so infra, CLI, API, UI, and visual checks
   share one logging and execution ecosystem.
 - Keep system tests grouped by category under `tests/infra`, `tests/cli`,
-  `tests/api`, and `tests/ui`. Test files inside those folders should be
-  focused suites for one feature, service, or workflow.
+  `tests/api`, and `tests/ui`. Group service and app suites in named folders
+  within their category; keep cross-service infrastructure suites under
+  `tests/infra`. Each test file should cover one focused feature or workflow.
 - Store HyperionTF UI page objects under `tests/ui/page_objects`. UI tests
   should import those page objects instead of declaring browser locators inline.
 - Model UI page-object composition as a hierarchy that follows the real
