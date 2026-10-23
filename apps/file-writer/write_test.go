@@ -58,6 +58,8 @@ func TestInvocationRejectsInvalidFlags(t *testing.T) {
 		{name: "missing truncate offset", args: []string{"truncate", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1"}},
 		{name: "missing destination mode", args: []string{"publish", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1"}},
 		{name: "partial destination identity", args: []string{"publish", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1", "--destination-device", "1"}},
+		{name: "invalid publication mode", args: []string{"publish", "--target", "/tmp/a.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1", "--destination-absent", "--mode", "0777"}},
+		{name: "mode on create", args: []string{"create", "--target", "/tmp/a.upload", "--mode", "0664"}},
 		{name: "disallowed flag", args: []string{"create", "--target", "/tmp/a.upload", "--offset", "0"}},
 		{name: "extra argument", args: []string{"create", "--target", "/tmp/a.upload", "extra"}},
 	} {
@@ -353,6 +355,35 @@ func mustStageFixture(t *testing.T) (string, []string) {
 	t.Helper()
 	stage := filepath.Join(t.TempDir(), "target.upload")
 	return stage, identityArgs(mustRun(t, []string{"create", "--target", stage}, nil))
+}
+
+// TestPublishAppliesSelectedMode covers file-writer/FR-003 publication permissions.
+func TestPublishAppliesSelectedMode(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		mode string
+		want os.FileMode
+	}{
+		{name: "default shared", want: 0o664},
+		{name: "shared", mode: "0664", want: 0o664},
+		{name: "private", mode: "0660", want: 0o660},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stage, identity := mustStageFixture(t)
+			args := []string{"publish", "--target", stage, "--destination-absent"}
+			if test.mode != "" {
+				args = append(args, "--mode", test.mode)
+			}
+			mustRun(t, append(args, identity...), nil)
+			info, err := os.Stat(strings.TrimSuffix(stage, ".upload"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := info.Mode().Perm(); got != test.want {
+				t.Fatalf("mode = %04o, want %04o", got, test.want)
+			}
+		})
+	}
 }
 
 // identityArgs passes a created stage's filesystem identity into a later operation.

@@ -73,6 +73,7 @@ export const createUploadSchema = z.object({
   size: z.number().int().nonnegative(),
   sha256: z.string().regex(/^[0-9a-f]{64}$/i),
   content_type: z.string().max(255),
+  private: z.boolean(),
   chunk_size: z
     .number()
     .int()

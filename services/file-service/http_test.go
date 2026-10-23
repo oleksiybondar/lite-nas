@@ -299,6 +299,7 @@ func TestCreateMetadataValidation(t *testing.T) {
 		{name: "missing filename", body: `{"destination":"/home/alice/photo.jpg","size":0,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`},
 		{name: "negative size", body: `{"destination":"/home/alice/photo.jpg","filename":"photo.jpg","size":-1,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`},
 		{name: "unknown field", body: strings.TrimSuffix(valid, "}") + `,"mode":"unsafe"}`},
+		{name: "invalid private", body: strings.TrimSuffix(valid, "}") + `,"private":"yes"}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var input createInput

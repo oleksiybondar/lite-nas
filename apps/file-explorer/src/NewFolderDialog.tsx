@@ -1,34 +1,85 @@
 import {
   Alert,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import type { ReactElement } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { newFolderNameSchema } from "./schemas";
 
 /** Creates one validated folder name and returns any displayable service error. */
 async function createFolder(
   name: string,
-  onCreate: (name: string) => Promise<void>,
+  privateDirectory: boolean,
+  onCreate: (name: string, privateDirectory: boolean) => Promise<void>,
 ): Promise<string | null> {
   const parsed = newFolderNameSchema.safeParse(name);
   if (!parsed.success) {
     return "Enter a folder name without path separators.";
   }
   try {
-    await onCreate(parsed.data);
+    await onCreate(parsed.data, privateDirectory);
     return null;
   } catch (caught) {
     return caught instanceof Error ? caught.message : "Could not create the folder.";
   }
+}
+
+/** Lets a user decide whether others can access a newly created folder. */
+function FolderVisibilityControl({
+  privateDirectory,
+  busy,
+  onChange,
+}: {
+  privateDirectory: boolean;
+  busy: boolean;
+  onChange: (value: boolean) => void;
+}): ReactElement {
+  return (
+    <FormControlLabel
+      control={
+        <Checkbox
+          checked={!privateDirectory}
+          disabled={busy}
+          onChange={(_, checked) => onChange(!checked)}
+        />
+      }
+      label="Allow other users to access this folder"
+    />
+  );
+}
+
+/** Edits the single child name and submits it when Enter is pressed. */
+function FolderNameInput({
+  name,
+  onChange,
+  onSubmit,
+}: {
+  name: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+}): ReactElement {
+  return (
+    <TextField
+      autoFocus
+      label="Folder name"
+      value={name}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") onSubmit();
+      }}
+      data-testid="file-explorer-new-folder-name"
+    />
+  );
 }
 
 /** Requests a validated name for one directory in the active panel. */
@@ -41,23 +92,28 @@ export function NewFolderDialog({
   open: boolean;
   directory: string;
   onClose: () => void;
-  onCreate: (name: string) => Promise<void>;
+  onCreate: (name: string, privateDirectory: boolean) => Promise<void>;
 }): ReactElement {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [privateDirectory, setPrivateDirectory] = useState(false);
+  useEffect(() => {
+    if (!open) setPrivateDirectory(false);
+  }, [open]);
 
   /** Validates the input before invoking the File Service action. */
   const submit = async (): Promise<void> => {
     setBusy(true);
     setError("");
-    const creationError = await createFolder(name, onCreate);
+    const creationError = await createFolder(name, privateDirectory, onCreate);
     setBusy(false);
     if (creationError !== null) {
       setError(creationError);
       return;
     }
     setName("");
+    setPrivateDirectory(false);
     onClose();
   };
 
@@ -75,17 +131,11 @@ export function NewFolderDialog({
           <Typography variant="body2" color="text.secondary">
             Create in {directory}
           </Typography>
-          <TextField
-            autoFocus
-            label="Folder name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                void submit();
-              }
-            }}
-            data-testid="file-explorer-new-folder-name"
+          <FolderNameInput name={name} onChange={setName} onSubmit={() => void submit()} />
+          <FolderVisibilityControl
+            privateDirectory={privateDirectory}
+            busy={busy}
+            onChange={setPrivateDirectory}
           />
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>

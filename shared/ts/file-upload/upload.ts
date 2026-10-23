@@ -291,13 +291,23 @@ async function waitForRetry(response: Response, signal: AbortSignal): Promise<vo
   });
 }
 
+/** Inputs for one browser file upload and its selected visibility. */
+interface UploadFileOptions {
+  file: File;
+  directory: string;
+  signal: AbortSignal;
+  onProgress: (progress: FileUploadProgress) => void;
+  privateUpload: boolean;
+}
+
 /** Uploads one file with File Service's create, chunk, and completion protocol. */
-export async function uploadFile(
-  file: File,
-  directory: string,
-  signal: AbortSignal,
-  onProgress: (progress: FileUploadProgress) => void,
-): Promise<void> {
+export async function uploadFile({
+  file,
+  directory,
+  signal,
+  onProgress,
+  privateUpload,
+}: UploadFileOptions): Promise<void> {
   const destination = destinationFor(directory, file.name);
   const checksum = await hashFile(file, signal, onProgress);
   const metadata = createUploadSchema.parse({
@@ -307,6 +317,7 @@ export async function uploadFile(
     sha256: checksum,
     content_type: file.type,
     chunk_size: chunkSizeFor(file.size),
+    private: privateUpload,
   });
   const created = await fetch(uploadRoot, {
     method: "POST",

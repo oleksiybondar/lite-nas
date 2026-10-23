@@ -232,6 +232,30 @@ func TestCreateUploadHandlesIdempotency(t *testing.T) {
 	}
 }
 
+// TestCreateUploadPersistsPrivateChoice covers file-service-svc/FR-004 privacy metadata.
+func TestCreateUploadPersistsPrivateChoice(t *testing.T) {
+	root := t.TempDir()
+	service, _ := mustWorkflowService(t, root)
+	target := filepath.Join(root, "private.txt")
+	sum := sha256.Sum256([]byte("hello"))
+	metadata := fmt.Sprintf(`{"destination":%q,"filename":"private.txt","size":5,"sha256":%q,"private":true}`,
+		target, hex.EncodeToString(sum[:]))
+	response := mustWorkflowRequest(t, service, http.MethodPost, "/proprietary/upload", metadata,
+		map[string]string{"Idempotency-Key": "private-request-123"})
+	if response.Code != http.StatusCreated {
+		t.Fatalf("create = %d %s", response.Code, response.Body.String())
+	}
+	var progress struct {
+		UploadID string `json:"upload_id"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &progress); err != nil {
+		t.Fatal(err)
+	}
+	if !service.store.records[progress.UploadID].Private {
+		t.Fatal("private choice was not stored")
+	}
+}
+
 // TestCreateUploadRejectsReservedTarget covers a new key for an occupied target.
 func TestCreateUploadRejectsReservedTarget(t *testing.T) {
 	service, metadata := mustExistingUploadFixture(t)

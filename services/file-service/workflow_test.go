@@ -50,7 +50,14 @@ func (writer *memoryWriter) command(_ context.Context, _ fileaccess.Subject, ope
 		result.Size = int64(len(content))
 		result.SHA256 = hex.EncodeToString(sum[:])
 	case "publish":
-		if err := os.WriteFile(record.Target, writer.contents[record.Target], 0o600); err != nil {
+		mode := os.FileMode(0o664)
+		if record.Private {
+			mode = 0o660
+		}
+		if err := os.WriteFile(record.Target, writer.contents[record.Target], mode); err != nil {
+			return writerResult{}, err
+		}
+		if err := os.Chmod(record.Target, mode); err != nil {
 			return writerResult{}, err
 		}
 	case "cleanup":
@@ -201,6 +208,25 @@ func mustConventionalUpload(t *testing.T, service *fileService, target string) {
 	}
 }
 
+// TestConventionalUploadAcceptsPrivateField covers file-service-svc/FR-005 multipart privacy.
+func TestConventionalUploadAcceptsPrivateField(t *testing.T) {
+	root := t.TempDir()
+	service, _ := mustWorkflowService(t, root)
+	target := filepath.Join(root, "photo.jpg")
+	body, contentType := multipartFields(t, [][2]string{{"destination", target}, {"private", "true"}, {"file", "hello"}})
+	response := mustWorkflowRequest(t, service, http.MethodPost, "/upload", body, map[string]string{"Content-Type": contentType})
+	if response.Code != http.StatusCreated {
+		t.Fatalf("upload = %d %s", response.Code, response.Body.String())
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o660 {
+		t.Fatalf("mode = %04o", got)
+	}
+}
+
 // TestConventionalUploadPublishesMultipartFile covers the destination-first upload flow.
 func TestConventionalUploadPublishesMultipartFile(t *testing.T) {
 	root := t.TempDir()
@@ -250,7 +276,7 @@ func TestUserScopedDirectoryCreation(t *testing.T) {
 	service.userCommand = func(_ context.Context, _ fileaccess.Subject, binary string, paths ...string) error {
 		switch binary {
 		case "/bin/mkdir":
-			return os.Mkdir(paths[0], 0o700)
+			return os.Mkdir(paths[1], 0o700)
 		case "/bin/rm":
 			return os.Remove(paths[0])
 		default:
@@ -261,6 +287,25 @@ func TestUserScopedDirectoryCreation(t *testing.T) {
 	created := mustWorkflowRequest(t, service, http.MethodPost, "/mkdir", fmt.Sprintf(`{"path":%q}`, directory), nil)
 	if created.Code != http.StatusCreated {
 		t.Fatalf("mkdir = %d %s", created.Code, created.Body.String())
+	}
+}
+
+// TestUserScopedDirectoryCreationUsesPrivateMode covers file-service-svc/FR-010.
+func TestUserScopedDirectoryCreationUsesPrivateMode(t *testing.T) {
+	root := t.TempDir()
+	service, _ := mustWorkflowService(t, root)
+	var mode string
+	service.userCommand = func(_ context.Context, _ fileaccess.Subject, _ string, paths ...string) error {
+		mode = paths[0]
+		return os.Mkdir(paths[1], 0o700)
+	}
+	response := mustWorkflowRequest(t, service, http.MethodPost, "/mkdir",
+		fmt.Sprintf(`{"path":%q,"private":true}`, filepath.Join(root, "private")), nil)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("mkdir = %d %s", response.Code, response.Body.String())
+	}
+	if mode != "0770" {
+		t.Fatalf("mkdir mode = %q", mode)
 	}
 }
 
@@ -332,7 +377,7 @@ func mustMoveDirectoryTree(t *testing.T) (string, string) {
 	service.readerCommand = openWorkflowFile
 	service.userCommand = func(_ context.Context, _ fileaccess.Subject, binary string, paths ...string) error {
 		if binary == "/bin/mkdir" {
-			return os.Mkdir(paths[0], 0o700)
+			return os.Mkdir(paths[1], 0o700)
 		}
 		return os.Remove(paths[0])
 	}

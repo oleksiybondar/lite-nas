@@ -24,7 +24,8 @@ import (
 
 // pathInput is the validated body for creating one directory.
 type pathInput struct {
-	Path string `json:"path" minLength:"1" maxLength:"4096"`
+	Path    string `json:"path" minLength:"1" maxLength:"4096"`
+	Private bool   `json:"private,omitempty"`
 }
 
 // transferInput names an existing source and the complete destination path.
@@ -201,7 +202,7 @@ func (s *fileService) createDirectory(writer http.ResponseWriter, request *http.
 		decisionError(writer, err)
 		return
 	}
-	if err := s.userCommand(request.Context(), subject, "/bin/mkdir", path); err != nil {
+	if err := s.userCommand(request.Context(), subject, "/bin/mkdir", s.policy.DirectoryMode(path, input.Private), path); err != nil {
 		writeError(writer, http.StatusConflict, "mkdir_failed")
 		return
 	}
@@ -262,6 +263,10 @@ func (s *fileService) createTransfer(writer http.ResponseWriter, request *http.R
 		return
 	}
 	if request.URL.Path == "/move" {
+		if err := s.policy.AllowSubject(source, subject.Groups); err != nil {
+			decisionError(writer, err)
+			return
+		}
 		if err := s.policy.AllowMutation(source); err != nil {
 			decisionError(writer, err)
 			return
@@ -307,6 +312,9 @@ func (s *fileService) allowDestination(ctx context.Context, subject fileaccess.S
 	if err := s.policy.AllowMutation(path); err != nil {
 		return err
 	}
+	if err := s.policy.AllowSubject(path, subject.Groups); err != nil {
+		return err
+	}
 	info, err := os.Lstat(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -332,7 +340,12 @@ func runUserCommand(ctx context.Context, subject fileaccess.Subject, binary stri
 	if err != nil {
 		return err
 	}
-	arguments := append([]string{"-n", "-u", username, "--", binary, "--"}, paths...)
+	arguments := []string{"-n", "-u", username, "--", binary}
+	if binary == "/bin/mkdir" {
+		arguments = append(arguments, "-m", paths[0], "--", paths[1])
+	} else {
+		arguments = append(arguments, "--", paths[0])
+	}
 	return exec.CommandContext(ctx, "/usr/bin/sudo", arguments...).Run()
 }
 
@@ -371,6 +384,9 @@ func (s *fileService) runOperation(ctx context.Context, job *operationJob, updat
 			}
 		}
 		if job.kind == "move" || job.kind == "delete" {
+			if err := s.policy.AllowSubject(path, job.subject.Groups); err != nil {
+				return err
+			}
 			if err := s.policy.AllowMutation(path); err != nil {
 				return err
 			}
@@ -420,7 +436,7 @@ func (s *fileService) runOperation(ctx context.Context, job *operationJob, updat
 					return err
 				}
 				if _, err := os.Lstat(resolved); errors.Is(err, os.ErrNotExist) {
-					if err := s.userCommand(ctx, job.subject, "/bin/mkdir", resolved); err != nil {
+					if err := s.userCommand(ctx, job.subject, "/bin/mkdir", s.policy.DirectoryMode(resolved, false), resolved); err != nil {
 						return err
 					}
 				}
@@ -481,7 +497,8 @@ func (s *fileService) copyFile(ctx context.Context, job *operationJob, source, d
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	record := &uploadRecord{Target: destination}
+	// Copy has no visibility choice; keep it outside the shared-upload default.
+	record := &uploadRecord{Target: destination, Private: true}
 	if err == nil {
 		if !info.Mode().IsRegular() {
 			return fileaccess.ErrInvalidPath

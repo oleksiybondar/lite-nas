@@ -44,6 +44,12 @@ func validateUserCommandArguments(binary string, paths []string) error {
 	default:
 		return errors.New("unsupported user command")
 	}
+	if binary == "/bin/mkdir" {
+		if len(paths) != 2 || (paths[0] != "0770" && paths[0] != "0771" && paths[0] != "0775") {
+			return errors.New("mkdir requires an allowed mode and one path")
+		}
+		return fileaccess.ValidateHostPath(paths[1])
+	}
 	if len(paths) != 1 {
 		return errors.New("user command requires one path")
 	}
@@ -88,6 +94,11 @@ func invokeWriter(ctx context.Context, subject fileaccess.Subject, operation str
 	case "truncate":
 		args = append(args, "--offset", strconv.FormatInt(record.Offset, 10))
 	case "publish":
+		mode := "0664"
+		if record.Private {
+			mode = "0660"
+		}
+		args = append(args, "--mode", mode)
 		if record.DestinationExists {
 			args = append(args, "--destination-device", strconv.FormatUint(record.DestinationDevice, 10),
 				"--destination-inode", strconv.FormatUint(record.DestinationInode, 10))

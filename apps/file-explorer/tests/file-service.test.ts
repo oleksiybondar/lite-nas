@@ -128,7 +128,7 @@ test("file-explorer-app/FR-005 creates a directory at the requested path", async
   expect({
     url: fetchMock.mock.calls[0][0],
     body: JSON.parse(fetchMock.mock.calls[0][1].body),
-  }).toEqual({ url: "/f/mkdir", body: { path: "/root/new" } });
+  }).toEqual({ url: "/f/mkdir", body: { path: "/root/new", private: false } });
 });
 
 test.each([

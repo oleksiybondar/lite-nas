@@ -42,7 +42,7 @@ func run(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	policy, err := filesystem.NewPolicy(cfg.WriteRoots, cfg.ProtectedPaths)
+	policy, err := filesystem.NewPolicy(cfg.WriteRoots, cfg.ProtectedPaths, cfg.ReadRules)
 	if err != nil {
 		return err
 	}

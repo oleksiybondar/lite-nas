@@ -115,8 +115,8 @@ async function mutationError(response: Response): Promise<Error> {
 }
 
 /** Creates one directory under the File Service's user-scoped policy. */
-export async function createDirectory(path: string): Promise<void> {
-  const body = createDirectorySchema.parse({ path });
+export async function createDirectory(path: string, privateDirectory = false): Promise<void> {
+  const body = createDirectorySchema.parse({ path, private: privateDirectory });
   const response = await fetch("/f/mkdir", {
     method: "POST",
     credentials: "same-origin",

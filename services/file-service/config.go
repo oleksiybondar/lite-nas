@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"lite-nas/services/file-service/filesystem"
 	sharedconfig "lite-nas/shared/config"
 	"lite-nas/shared/fileaccess"
 	"lite-nas/shared/fileio"
@@ -20,6 +21,7 @@ type serviceConfig struct {
 	Logging        sharedconfig.LoggingConfig
 	WriteRoots     []string
 	ProtectedPaths []string
+	ReadRules      filesystem.ReadRules
 	MetadataDir    string
 	ChunkSize      int64
 	DocsEnabled    bool
@@ -62,11 +64,26 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 	if fileaccess.ValidateHostPath(metadataDir) != nil {
 		return serviceConfig{}, errors.New("metadata_dir must be a clean absolute path")
 	}
-	writeRoots := configPaths(file.Section("filesystem").Key("write_roots").MustString("/home"))
+	writeRoots := configPaths(file.Section("filesystem").Key("write_roots").String())
+	readRoots := configPaths(file.Section("filesystem").Key("read_roots").String())
 	protected := configPaths(file.Section("filesystem").Key("protected_paths").String())
-	for _, root := range append(append([]string(nil), writeRoots...), protected...) {
+	readRules := filesystem.ReadRules{
+		NonAdminDenied:       configPaths(file.Section("filesystem").Key("non_admin_denied_paths").String()),
+		AllDenied:            configPaths(file.Section("filesystem").Key("all_denied_paths").String()),
+		KnownPathDirectories: configPaths(file.Section("filesystem").Key("known_path_directories").String()),
+	}
+	if len(writeRoots) == 0 {
+		return serviceConfig{}, errors.New("filesystem.write_roots is required")
+	}
+	readRules.ReadRoots = readRoots
+	for _, root := range append(append(append([]string(nil), writeRoots...), readRoots...), protected...) {
 		if fileaccess.ValidateHostPath(root) != nil || filepath.Clean(root) != root {
 			return serviceConfig{}, errors.New("filesystem roots must be clean absolute paths")
+		}
+	}
+	for _, pattern := range append(append(append([]string{}, readRules.NonAdminDenied...), readRules.AllDenied...), readRules.KnownPathDirectories...) {
+		if err := filesystem.ValidatePathMask(pattern); err != nil {
+			return serviceConfig{}, err
 		}
 	}
 	docsEnabled := true
@@ -79,6 +96,7 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 	return serviceConfig{
 		Address: address, Messaging: messaging, Logging: logging,
 		WriteRoots: writeRoots, ProtectedPaths: protected,
+		ReadRules:   readRules,
 		MetadataDir: metadataDir, ChunkSize: int64(chunkMiB) << 20,
 		DocsEnabled: docsEnabled,
 		UploadTTL:   24 * time.Hour, CleanupEvery: 3 * time.Hour,

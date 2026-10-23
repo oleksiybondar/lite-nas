@@ -39,6 +39,9 @@ func TestValidateUserCommandArgumentsRejectsUnexpectedOperands(t *testing.T) {
 		{binary: "/bin/sh", paths: []string{"/tmp/file"}},
 		{binary: "/bin/rm", paths: []string{"-rf"}},
 		{binary: "/bin/rm", paths: []string{"/tmp/one", "/tmp/two"}},
+		{binary: "/bin/mkdir", paths: []string{"-m", "/tmp/folder"}},
+		{binary: "/bin/mkdir", paths: []string{"0777", "/tmp/folder"}},
+		{binary: "/bin/mkdir", paths: []string{"0775", "--help"}},
 	}
 	for _, test := range tests {
 		if err := validateUserCommandArguments(test.binary, test.paths); err == nil {

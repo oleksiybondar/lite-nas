@@ -325,10 +325,21 @@ below host `/abs/path`. Successful responses contain JSON `files` and
 File Service also supports `DELETE /f/{absolute-path...}` for authorized
 regular files. It checks an explicit RBAC delete decision and rejects targets
 inside protected system paths before changing the filesystem. Installed
-protected roots include `/etc` and platform-critical runtime directories; the
-`filesystem.protected_paths` setting lets operators add protected trees.
-Built-in OS/runtime roots cannot be removed through configuration. Directory
-and symbolic-link deletion are outside the initial scope.
+protected roots include `/etc` and platform-critical runtime directories in
+the packaged `filesystem.protected_paths` setting. Operators can edit that
+list without rebuilding File Service.
+The same `/etc/lite-nas/file-service.conf` file has separate
+`filesystem.non_admin_denied_paths` and
+`filesystem.all_denied_paths` lists, plus
+`filesystem.read_roots` for additional non-admin storage roots and
+`filesystem.known_path_directories` for traverse-only (`0771`) creation.
+Entries in those lists can use a whole-component `*`, such as
+`/home/*/.litenas`. Edit the file and restart File Service to apply policy
+changes. Mode rules do not alter existing directories.
+For a shared file under `/home/<user>/.litenas`, every ancestor, including
+`/home/<user>`, must permit traversal by the intended readers. A known-path
+directory permits traversal without listing its contents.
+Directory and symbolic-link deletion are outside the initial scope.
 
 File downloads use standard HTTP byte ranges. A regular browser download can
 resume or seek when its client uses `Range`; the future file-explorer download
@@ -356,9 +367,8 @@ the Unix permission check; no preliminary `touch` is needed. After size and
 SHA-256 verification and a fresh RBAC decision, the writer attempts the
 final rename as the verified Unix user. A successful upload atomically replaces
 an existing regular file; a failed rename leaves the old file intact and
-triggers staged-file cleanup. Uploads and deletes are denied under built-in
-protected OS/runtime paths and
-operator-added `filesystem.protected_paths`.
+triggers staged-file cleanup. Uploads and deletes are denied under configured
+`filesystem.protected_paths`.
 
 File Service runs non-root; Stream Service is designed to do the same.
 `lite-nas-fs-rd` grants file read and directory read plus search/traverse in

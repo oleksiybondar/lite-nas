@@ -67,7 +67,9 @@ The dialog MUST be the shared `@lite-nas/file-upload` component so the admin
 panel and Moments can use the same interaction. It MUST accept selected files
 and drag-and-drop files, submit them through File Service's proprietary upload
 protocol, and show upload progress and service errors. File Service MUST decide
-create and replace permissions. The initial chunk-size map based on original
+create and replace permissions. The dialog MUST default to "Readable by other
+users" and send the inverse as a validated `private` boolean. The initial
+chunk-size map based on original
 file size MUST be: up to 8 MiB, 1 MiB chunks; above 8 MiB through 256 MiB,
 4 MiB chunks; above 256 MiB through 2 GiB, 8 MiB chunks; and above 2 GiB,
 16 MiB chunks. The final chunk may be shorter.
@@ -75,7 +77,10 @@ file size MUST be: up to 8 MiB, 1 MiB chunks; above 8 MiB through 256 MiB,
 ### file-explorer-app/FR-005 Create folders
 
 New folder MUST request a validated single child name in the active panel
-and send `POST /f/mkdir` with `{ "path": "/absolute/child" }`. A successful
+and send `POST /f/mkdir` with an absolute path and validated `private` boolean.
+The dialog MUST default to allowing other users access and allow a private folder.
+A configured known-path mask may select traverse-only mode for a non-private
+request. A successful
 request MUST refresh the directory listing. Invalid names, including path
 separators and `.` or `..`, MUST be rejected before submission.
 

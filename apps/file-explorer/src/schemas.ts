@@ -58,7 +58,7 @@ export const newFolderNameSchema = z
   .refine((value) => value !== "." && value !== ".." && !/[\\/\r\n\0]/.test(value));
 
 /** Body sent to the File Service create-directory route. */
-export const createDirectorySchema = z.object({ path: hostPathSchema });
+export const createDirectorySchema = z.object({ path: hostPathSchema, private: z.boolean() });
 
 /** Body sent to the File Service copy and move routes. */
 export const transferEntrySchema = z.object({

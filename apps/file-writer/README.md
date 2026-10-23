@@ -38,7 +38,8 @@ prefix. `stat` reports size. `checksum` reports SHA-256. `truncate`
 discards an uncommitted tail and syncs it. `cleanup` removes only the matching
 stage. File Service must not infer authorization from any writer result.
 
-`publish` checks an expected absent or regular destination and atomically
+`publish` accepts `--mode 0664` (the default) or `--mode 0660`, checks an
+expected absent or regular destination, and atomically
 renames the stage in the same directory. `--destination-absent` uses
 `RENAME_NOREPLACE`. Existing-file replacement checks its device and inode
 immediately before rename. Linux does not offer an atomic compare-and-replace
@@ -48,7 +49,13 @@ The stage pathname is also rechecked before rename or cleanup, but another
 process with write access to its directory can replace that entry immediately
 after the check. Linux provides no descriptor-based rename or unlink for that
 entry; File Service must control concurrent access to the upload directory.
-The stage's UID, group, mode, and ACL become those of the published file.
+The stage stays `0600` through rename, preventing group writes after checksum
+verification. The writer then sets the selected mode on the open published
+inode and syncs it. Its UID, group, final mode, and ACL become those of the
+published file. Until that mode change completes, the new destination is
+temporarily private. A mode failure after rename reports
+`publish_mode_failed` with `cleanup:"not_possible"` because the destination
+has already changed.
 
 Success prints one JSON object on stdout with `operation`, `device`, `inode`,
 `uid`, `size`, `bytes_written`, and `next_offset`. `checksum` also returns

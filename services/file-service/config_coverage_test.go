@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -42,6 +43,32 @@ func TestLoadServiceConfigAcceptsPackagedAddress(t *testing.T) {
 	}
 }
 
+// TestPackagedConfigDefinesProtectedPaths covers the configuration-owned mutation restrictions.
+func TestPackagedConfigDefinesProtectedPaths(t *testing.T) {
+	config := mustLoadPackagedConfig(t)
+	want := []string{"/bin", "/boot", "/dev", "/etc", "/lib", "/lib64", "/proc", "/root", "/run", "/sbin", "/sys", "/usr", "/var/lib"}
+	if !slices.Equal(config.ProtectedPaths, want) {
+		t.Fatalf("protected paths = %v, want %v", config.ProtectedPaths, want)
+	}
+}
+
+// TestPackagedConfigDefinesNonAdminPaths covers the configuration-owned read exclusions.
+func TestPackagedConfigDefinesNonAdminPaths(t *testing.T) {
+	config := mustLoadPackagedConfig(t)
+	want := []string{"/bin", "/boot", "/dev", "/etc", "/lib", "/lib64", "/proc", "/root", "/run", "/sbin", "/snap", "/sys", "/usr", "/var"}
+	if !slices.Equal(config.ReadRules.NonAdminDenied, want) {
+		t.Fatalf("non-admin denied paths = %v, want %v", config.ReadRules.NonAdminDenied, want)
+	}
+}
+
+// TestPackagedConfigDefinesReadAndWriteRoots covers explicit storage roots.
+func TestPackagedConfigDefinesReadAndWriteRoots(t *testing.T) {
+	config := mustLoadPackagedConfig(t)
+	if !slices.Equal(config.WriteRoots, []string{"/home"}) || !slices.Equal(config.ReadRules.ReadRoots, []string{"/home"}) {
+		t.Fatalf("storage roots = write %v, read %v", config.WriteRoots, config.ReadRules.ReadRoots)
+	}
+}
+
 // TestLoadServiceConfigRejectsUnsafeOverrides covers service config input validation.
 func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 	payload, err := os.ReadFile("../../configs/etc/lite-nas/file-service.conf")
@@ -60,6 +87,10 @@ func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 		{name: "large chunk", old: "chunk_size_mib=1", new: "chunk_size_mib=17"},
 		{name: "relative metadata", old: "metadata_dir=/var/lib/lite-nas/file-service/uploads", new: "metadata_dir=relative"},
 		{name: "relative root", old: "write_roots=/home", new: "write_roots=relative"},
+		{name: "missing write roots", old: "write_roots=/home", new: "write_roots="},
+		{name: "relative read root", old: "read_roots=/home", new: "read_roots=relative"},
+		{name: "relative protected root", old: "protected_paths=/bin", new: "protected_paths=relative"},
+		{name: "malformed mask", old: "known_path_directories=/home/*/.litenas", new: "known_path_directories=/home/**/.litenas"},
 		{name: "invalid docs switch", old: "enabled=false", new: "enabled=maybe"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

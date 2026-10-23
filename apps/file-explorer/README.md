@@ -9,6 +9,9 @@ opens files through `/f/` in a new tab, and uploads to the current directory
 through the shared `@lite-nas/file-upload` dialog. A denied root listing is
 shown as a File Service error. File Service enforces read, create, and replace
 permissions.
+Uploads default to files readable by other users and offer a private option.
+New folders default to allowing other users access and offer a private option;
+File Service may create configured known-path folders with traverse-only access.
 
 Directory entries appear in a horizontally scrollable details grid with size,
 type, octal permissions, owner, group, and local last-modified time. Size

@@ -55,6 +55,11 @@ owner, group, mode, and ACL. Linux cannot atomically compare the existing
 destination inode while replacing it, so a concurrent directory-entry change
 after the check remains possible; File Service must treat this as a concurrent
 mutation risk.
+The stage MUST remain `0600` through rename so another group member cannot
+alter its bytes after checksum verification. The writer MUST accept only
+`0664` or `0660` as the final mode, apply it to the opened published inode,
+and sync it before reporting success. A mode or sync failure after rename
+MUST report that cleanup is not possible.
 
 ### file-writer/FR-007 Clean up a stage
 

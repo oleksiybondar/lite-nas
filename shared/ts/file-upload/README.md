@@ -6,6 +6,9 @@ dialog accepts multiple selected or dropped files and uploads them one at a
 time through File Service's `/f/proprietary/upload` protocol. File Service
 authorizes create or replace at each operation; the dialog reports permission
 errors from the service. Existing regular files may be replaced.
+The checked-by-default "Readable by other users" option sends `private:false`;
+unchecking it sends `private:true`. The service publishes shared files as
+`0664` and private files as `0660`.
 
 The browser sends the same-origin `lite-nas-at` cookie automatically. The
 package does not handle or persist tokens. File content is hashed and sent in

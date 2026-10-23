@@ -160,7 +160,7 @@ separate planned boundary:
   separate AppArmor profile must remain enforced across sudo. A failed rename
   leaves the old destination intact and
   triggers staged-file cleanup. Successful uploads atomically replace existing
-  regular files. Built-in and configured `filesystem.protected_paths` are
+  regular files. Configured `filesystem.protected_paths` are
   excluded from uploads and deletes.
 - Its authenticated Swagger UI is available at `/f/docs`, with the OpenAPI
   document at `/f/openapi.json`; development and test configurations enable
@@ -175,8 +175,8 @@ separate planned boundary:
   RBAC read and execute/search decisions for the subject, including ancestor
   directories.
 - File Service supports `DELETE /f/{absolute-path...}` for regular files when
-  RBAC explicitly authorizes deletion. Built-in protected OS/runtime paths
-  (including `/etc`) are always denied; operators can add more roots with
+  RBAC explicitly authorizes deletion. The packaged configuration protects
+  OS/runtime paths including `/etc`; operators can edit
   `filesystem.protected_paths`. Directory and symlink deletion are not
   part of the initial scope.
 - File downloads use ordinary HTTP byte ranges. The future file-explorer UI can
@@ -191,6 +191,10 @@ separate planned boundary:
   upload creation, writes, and final publication. Completed uploads retain that user's
   UID. The stage's group, mode, and ACL become the final file's metadata even
   on overwrite; the old file's permissions and ACL are not copied.
+  The stage stays `0600` through rename; publication then applies `0664`
+  for shared uploads or `0660` for private uploads. Directory
+  creation defaults to `0775`, with `0770` for private requests and `0771`
+  for configured known-path directories.
 - The design favors native Unix facilities, the Go standard library, and small
   mainstream Go libraries. Media is delivered in original formats by default;
   where playback requires codec processing, the Stream Service prefers

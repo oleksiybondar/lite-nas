@@ -131,8 +131,8 @@ actual write access to the staged file.
 - Denial, timeout, transport error, malformed response, or unresolved subject
   prevents file writes.
 - Client paths and filenames are validated before affecting storage paths.
-- Upload creation and finalization also reject targets in built-in or
-  configured protected path trees. Check protection before accepting upload
+- Upload creation and finalization also reject targets in configured
+  protected path trees. Check protection before accepting upload
   data and recheck immediately before publishing, so configuration or path
   changes cannot expose a protected target to overwrite.
 - Mutation targets MUST be beneath `filesystem.write_roots` as well as outside
@@ -155,6 +155,10 @@ actual write access to the staged file.
   post-upload ownership change. Its group, mode, and ACL come from the stage,
   including when an existing file is replaced. Do not copy the old file's
   permissions or ACL onto the replacement.
+- Both upload modes accept an optional boolean `private`, defaulting to false.
+  Published shared files use mode `0664`; private files use `0660`. This mode
+  applies to replacements too. The upload stage remains `0600` through rename;
+  the writer sets final mode on the published inode before reporting success.
 
 ### file-service-svc/FR-005 Support pausing and resuming uploads
 
@@ -201,6 +205,10 @@ resending bytes already accepted by the service.
   filename, total size, whole-file SHA-256, supported file metadata, an optional
   `chunk_size` in bytes from 1 MiB through 16 MiB, and a
   client `Idempotency-Key`. Success returns `201 Created` and `Location`.
+  The optional `private` value participates in idempotency comparison and is
+  retained in durable resume metadata. Conventional multipart upload accepts
+  an optional literal `true` or `false` `private` field between `destination`
+  and `file`.
   Repeating the same key and metadata returns the existing resource with
   `200 OK`; reusing that key with different metadata returns `409 Conflict`.
   Creation validates the destination, rejects protected paths, and obtains RBAC
@@ -487,13 +495,12 @@ outside all configured protected path trees.
   token owner's UID and resolved target. Upload/write permission does not
   authorize deletion.
 - The configured protected path list is read from
-  `filesystem.protected_paths`, contains canonical absolute paths, and
-  lets operators add protected roots. It applies to upload creation, upload
-  publication/replacement, and deletion. Operator configuration MUST NOT remove
-  built-in protected OS/runtime roots. Installed defaults MUST include `/etc`
-  and platform-critical paths such as `/usr`, `/bin`, `/sbin`, `/lib`, `/lib64`,
-  `/boot`, `/proc`, `/sys`, `/dev`, `/run`, and `/var/lib` where present.
-- `filesystem.write_roots` is a canonical absolute-path allowlist for all
+  `filesystem.protected_paths` and contains clean absolute paths. It applies
+  to upload creation, upload publication/replacement, and deletion. The
+  packaged config MUST include `/etc` and platform-critical paths such as
+  `/usr`, `/bin`, `/sbin`, `/lib`, `/lib64`, `/boot`, `/proc`, `/sys`, `/dev`,
+  `/run`, and `/var/lib`. File Service MUST NOT add hidden protected roots.
+- `filesystem.write_roots` is a required canonical absolute-path allowlist for all
   service mutations, including uploads, replacements, and deletes. Its default
   includes `/home`; ZFS mount paths must be explicitly configured. The service
   denies writes outside this list even when RBAC allows them.
@@ -504,6 +511,17 @@ outside all configured protected path trees.
 - Protected-path denial takes precedence over RBAC allow. Neither a successful
   RBAC decision nor service-process filesystem permissions can override the
   protected list.
+- `filesystem.non_admin_denied_paths` denies specified trees to non-admin
+  callers, and `filesystem.all_denied_paths` denies specified trees to
+  everyone through File Service, including admins. These separate lists apply
+  to reads, listings, and mutations. Entries may contain a whole-component
+  `*` mask, and matches include descendants. `filesystem.protected_paths`
+  retains its mutation-only meaning for all callers.
+- `filesystem.read_roots` supplies additional non-admin storage roots; the
+  packaged value is `/home`. Packaged `filesystem.non_admin_denied_paths`
+  includes the prior system read exclusions such as `/etc`, `/usr`, and `/var`.
+  File Service MUST obtain these paths from configuration rather than adding
+  hardcoded read or write roots and deny lists.
 - Directories are removed recursively by an in-memory job after each descendant
   receives policy and RBAC authorization. Symbolic links and special files are
   rejected and never followed.
@@ -530,7 +548,7 @@ merged and existing regular files are replaced.
 
 #### file-service-svc/FR-010 Input
 
-- `POST /f/mkdir` with `{ "path": "/absolute/new-directory" }`
+- `POST /f/mkdir` with an absolute `path` and optional boolean `private`
 - `POST /f/copy` or `POST /f/move` with
   `{ "source": "/absolute/source", "destination": "/absolute/target" }`
 - Authenticated subject resolved through Auth and RBAC
@@ -551,6 +569,11 @@ merged and existing regular files are replaced.
   recurse through directories, merge existing destination directories, and
   replace existing regular files. File-versus-directory type conflicts and
   copying or moving a directory into itself MUST fail.
+- New directories use `0775` by default or `0770` when `private` is true.
+  A non-private path matching `filesystem.known_path_directories` uses `0771`,
+  permitting access by known path without listing. A `*` mask matches exactly
+  one path component, as in `/home/*/.litenas`. These rules do not change
+  existing directories or their ancestors.
 - Before mutation, the service MUST enforce write-root and protected-path
   policy, caller read permission on every copied source entry, the appropriate
   RBAC create or replace decision for destination entries, and delete
@@ -559,6 +582,8 @@ merged and existing regular files are replaced.
 - Copied file bytes MUST be written as the verified non-root Unix user through
   the staged writer, checked for byte integrity, and atomically published.
   Existing destination content MUST remain in place until publication.
+  Copy and Move have no visibility input; their published file mode is `0660`
+  so a copy does not become readable to the Unix others class by default.
 - Move MUST copy the complete source tree before removing source entries from
   leaves to root. A partial failure MUST be reported by the job and MUST NOT
   claim an atomic whole-tree move.

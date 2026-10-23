@@ -163,6 +163,7 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 func decisionError(writer http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, fileaccess.ErrDenied),
+		errors.Is(err, filesystem.ErrDeniedPath),
 		errors.Is(err, filesystem.ErrOutsideWriteRoots),
 		errors.Is(err, filesystem.ErrProtectedPath),
 		errors.Is(err, os.ErrPermission):

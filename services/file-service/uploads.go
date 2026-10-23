@@ -69,6 +69,7 @@ type createInput struct {
 	SHA256      string `json:"sha256" pattern:"^[0-9a-fA-F]{64}$"`
 	ContentType string `json:"content_type,omitempty" maxLength:"255"`
 	ChunkSize   *int64 `json:"chunk_size,omitempty" minimum:"1048576" maximum:"16777216"`
+	Private     bool   `json:"private,omitempty"`
 }
 
 // validateCreateDTO applies the repository's Huma schema at the JSON boundary.
@@ -108,6 +109,9 @@ func (s *fileService) uploadPermission(ctx context.Context, subject fileaccess.S
 		return "", false, 0, 0, err
 	}
 	if err := s.policy.AllowMutation(target); err != nil {
+		return "", false, 0, 0, err
+	}
+	if err := s.policy.AllowSubject(target, subject.Groups); err != nil {
 		return "", false, 0, 0, err
 	}
 	info, err := os.Lstat(target)
@@ -160,7 +164,7 @@ func (s *fileService) createUpload(writer http.ResponseWriter, request *http.Req
 		record := s.store.records[id]
 		if record != nil && record.Target == target && record.Filename == input.Filename &&
 			record.Size == input.Size && record.SHA256 == input.SHA256 && record.ContentType == input.ContentType &&
-			record.RequestedChunkSize == requestedChunkSize {
+			record.RequestedChunkSize == requestedChunkSize && record.Private == input.Private {
 			writer.Header().Set("Location", "/f/proprietary/upload/"+id)
 			writeJSON(writer, http.StatusOK, progress(record))
 			return
@@ -186,6 +190,7 @@ func (s *fileService) createUpload(writer http.ResponseWriter, request *http.Req
 		Target: target, Filename: input.Filename, Size: input.Size,
 		SHA256: strings.ToLower(input.SHA256), ContentType: input.ContentType,
 		ChunkSize: effectiveChunkSize, RequestedChunkSize: requestedChunkSize,
+		Private:        input.Private,
 		IdempotencyKey: key, State: "active",
 		Expires: time.Now().Add(s.cfg.UploadTTL), DestinationExists: exists,
 		DestinationDevice: device, DestinationInode: inode,
@@ -232,6 +237,10 @@ func (s *fileService) uploadResource(writer http.ResponseWriter, request *http.R
 	}
 	record.mu.Lock()
 	defer record.mu.Unlock()
+	if err := s.policy.AllowSubject(record.Target, subject.Groups); err != nil {
+		decisionError(writer, err)
+		return
+	}
 	if time.Now().After(record.Expires) && record.State != "completed" {
 		writeError(writer, http.StatusGone, "upload_expired")
 		return
@@ -371,6 +380,25 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 		writeError(writer, http.StatusBadRequest, "invalid_destination")
 		return
 	}
+	private := false
+	part, err := multipartReader.NextPart()
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, "file_part_required")
+		return
+	}
+	if part.FormName() == "private" {
+		value, readErr := io.ReadAll(io.LimitReader(part, 6))
+		if readErr != nil || (string(value) != "true" && string(value) != "false") {
+			writeError(writer, http.StatusBadRequest, "invalid_private")
+			return
+		}
+		private = string(value) == "true"
+		part, err = multipartReader.NextPart()
+		if err != nil {
+			writeError(writer, http.StatusBadRequest, "file_part_required")
+			return
+		}
+	}
 	target, exists, device, inode, err := s.uploadPermission(request.Context(), subject, string(destinationBytes))
 	if err != nil {
 		decisionError(writer, err)
@@ -392,7 +420,7 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 		ID: id, Owner: subject.Username, UID: subject.UID, Target: target,
 		ChunkSize: s.cfg.ChunkSize, State: "active", Expires: time.Now().Add(s.cfg.UploadTTL),
 		DestinationExists: exists, DestinationDevice: device, DestinationInode: inode,
-		IdempotencyKey: id,
+		IdempotencyKey: id, Private: private,
 	}
 	result, err := s.writerCommand(request.Context(), subject, "create", record, nil)
 	if err != nil {
@@ -417,8 +445,8 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 		}
 		_ = s.store.remove(record)
 	}()
-	filePart, err := multipartReader.NextPart()
-	if err != nil || filePart.FormName() != "file" {
+	filePart := part
+	if filePart.FormName() != "file" {
 		writeError(writer, http.StatusBadRequest, "file_part_required")
 		return
 	}

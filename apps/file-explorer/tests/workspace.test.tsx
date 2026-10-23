@@ -1,3 +1,4 @@
+import { UploadDialog } from "@lite-nas/file-upload";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import {
   act,
@@ -32,7 +33,9 @@ function renderThemed(element: React.ReactElement) {
 }
 
 /** Opens the new-folder dialog with observable creation and close callbacks. */
-function renderNewFolderDialog(onCreate: (name: string) => Promise<void> = vi.fn()) {
+function renderNewFolderDialog(
+  onCreate: (name: string, privateDirectory: boolean) => Promise<void> = vi.fn(),
+) {
   const onClose = vi.fn();
   renderThemed(<NewFolderDialog open directory="/media" onClose={onClose} onCreate={onCreate} />);
   return { onCreate, onClose };
@@ -275,7 +278,31 @@ describe("File Explorer controls", () => {
     renderNewFolderDialog(onCreate);
     fireEvent.change(screen.getByLabelText("Folder name"), { target: { value: "photos" } });
     fireEvent.click(screen.getByTestId("file-explorer-new-folder-submit"));
-    await waitFor(() => expect(onCreate.mock.calls).toEqual([["photos"]]));
+    await waitFor(() => expect(onCreate.mock.calls).toEqual([["photos", false]]));
+  });
+
+  test("file-explorer-app/FR-005 submits a private folder choice", async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    renderNewFolderDialog(onCreate);
+    fireEvent.change(screen.getByLabelText("Folder name"), { target: { value: "private" } });
+    fireEvent.click(screen.getByLabelText("Allow other users to access this folder"));
+    fireEvent.click(screen.getByTestId("file-explorer-new-folder-submit"));
+    await waitFor(() => expect(onCreate.mock.calls).toEqual([["private", true]]));
+  });
+
+  test("file-explorer-app/FR-004 defaults uploads to readable by others", () => {
+    renderThemed(<UploadDialog open directory="/media" onClose={vi.fn()} />);
+    expect((screen.getByLabelText("Readable by other users") as HTMLInputElement).checked).toBe(
+      true,
+    );
+  });
+
+  test("file-explorer-app/FR-004 allows private uploads", () => {
+    renderThemed(<UploadDialog open directory="/media" onClose={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText("Readable by other users"));
+    expect((screen.getByLabelText("Readable by other users") as HTMLInputElement).checked).toBe(
+      false,
+    );
   });
 
   test("file-explorer-app/FR-003 selects and toggles an entry with click and Space", () => {
@@ -656,7 +683,10 @@ describe("File Explorer workspace", () => {
     expect({
       requestSubmitted: mkdirRequest !== undefined,
       requestBody: mkdirRequest?.body,
-    }).toEqual({ requestSubmitted: true, requestBody: JSON.stringify({ path: "/dest/new" }) });
+    }).toEqual({
+      requestSubmitted: true,
+      requestBody: JSON.stringify({ path: "/dest/new", private: false }),
+    });
   });
 });
 

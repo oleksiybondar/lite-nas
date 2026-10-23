@@ -412,6 +412,10 @@ func (s *fileService) deleteFile(writer http.ResponseWriter, request *http.Reque
 		writeError(writer, http.StatusForbidden, "protected_path")
 		return
 	}
+	if err := s.policy.AllowSubject(resolved, subject.Groups); err != nil {
+		decisionError(writer, err)
+		return
+	}
 	info, err := os.Lstat(resolved)
 	if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
 		writeError(writer, http.StatusBadRequest, "unsupported_target")

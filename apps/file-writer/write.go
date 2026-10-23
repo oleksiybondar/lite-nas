@@ -353,17 +353,30 @@ func publishStage(inv invocation) (result, error) {
 		if !errors.Is(destinationErr, unix.ENOENT) {
 			return result{}, publishFailure(parent, name, stat, errors.New("destination is not absent"))
 		}
-		err = unix.Renameat2(parent, name, parent, destination, unix.RENAME_NOREPLACE)
 	} else {
 		if destinationErr != nil || current.Mode&unix.S_IFMT != unix.S_IFREG ||
 			uint64(current.Dev) != inv.DestinationDevice || current.Ino != inv.DestinationInode {
 			return result{}, publishFailure(parent, name, stat, errors.New("destination identity changed"))
 		}
+	}
+	mode := uint32(0o664)
+	if inv.Mode == "0660" {
+		mode = 0o660
+	}
+	if inv.DestinationAbsent {
+		err = unix.Renameat2(parent, name, parent, destination, unix.RENAME_NOREPLACE)
+	} else {
 		// Linux cannot compare the destination inode atomically with replacement.
 		err = unix.Renameat2(parent, name, parent, destination, 0)
 	}
 	if err != nil {
 		return result{}, publishFailure(parent, name, stat, fmt.Errorf("rename stage: %w", err))
+	}
+	if err := unix.Fchmod(int(stage.Fd()), mode); err != nil {
+		return result{}, &operationError{Code: "publish_mode_failed", Message: fmt.Sprintf("set published mode: %v", err), Cleanup: "not_possible"}
+	}
+	if err := stage.Sync(); err != nil {
+		return result{}, &operationError{Code: "publish_sync_failed", Message: fmt.Sprintf("sync published file: %v", err), Cleanup: "not_possible"}
 	}
 	if err := unix.Fsync(parent); err != nil {
 		return result{}, &operationError{Code: "publish_sync_failed", Message: fmt.Sprintf("sync published directory: %v", err), Cleanup: "not_possible"}

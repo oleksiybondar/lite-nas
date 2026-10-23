@@ -214,7 +214,7 @@ Acceptance criteria:
   rejected; earlier stage writes do not grant publication.
 - Client-provided filenames and paths are validated and safely resolved before
   they can affect storage locations.
-- Uploads targeting a built-in or configured protected path are rejected
+- Uploads targeting a configured protected path are rejected
   before accepting content and checked again before final publication. The
   shared protected-path policy is `filesystem.protected_paths` and applies to
   new-file creation, replacement, and deletion.
@@ -561,8 +561,7 @@ Acceptance criteria:
   contract with the RBAC service before implementing deletion. Do not infer
   delete permission from upload/write permission.
 - Configuration key `filesystem.protected_paths` is a list of
-  canonical absolute paths for additional protected roots. It extends
-  non-removable built-in protected OS/runtime roots. Installed defaults include
+  canonical absolute paths for protected roots. The packaged defaults include
   `/etc` and platform-critical paths such as `/usr`, `/bin`, `/sbin`, `/lib`,
   `/lib64`, `/boot`, `/proc`, `/sys`, `/dev`, `/run`, and `/var/lib` where
   present.

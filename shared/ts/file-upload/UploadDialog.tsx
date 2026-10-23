@@ -2,10 +2,12 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   LinearProgress,
   Stack,
   Typography,
@@ -19,7 +21,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { hostPathSchema, uploadFilenameSchema } from "./schemas";
 import type { FileUploadProgress } from "./upload";
@@ -45,6 +47,7 @@ interface UploadProgressViewProps {
 interface UploadQueueOptions {
   files: File[];
   directory: string;
+  privateUpload: boolean;
   signal: AbortSignal;
   setActiveName: (name: string) => void;
   setProgress: (progress: FileUploadProgress | null) => void;
@@ -72,6 +75,8 @@ interface UploadDialogViewProps {
   activeName: string;
   progress: FileUploadProgress | null;
   error: string;
+  privateUpload: boolean;
+  onPrivateChange: (value: boolean) => void;
   controllerRef: MutableRefObject<AbortController | null>;
   onClose: () => void;
   onUpload: () => void;
@@ -111,7 +116,13 @@ async function uploadQueuedFiles(options: UploadQueueOptions): Promise<void> {
   for (const file of options.files) {
     options.setActiveName(file.name);
     options.setProgress(null);
-    await uploadFile(file, options.directory, options.signal, options.setProgress);
+    await uploadFile({
+      file,
+      directory: options.directory,
+      signal: options.signal,
+      onProgress: options.setProgress,
+      privateUpload: options.privateUpload,
+    });
     options.removeFile(file);
     options.onUploaded?.();
   }
@@ -165,6 +176,15 @@ function closeUpload(options: CloseUploadOptions): void {
   options.setProgress(null);
   options.setError("");
   options.onClose();
+}
+
+/** Resets the visibility choice when a dialog closes so a later upload starts shared. */
+function useUploadPrivacy(open: boolean): [boolean, Dispatch<SetStateAction<boolean>>] {
+  const [privateUpload, setPrivateUpload] = useState(false);
+  useEffect(() => {
+    if (!open) setPrivateUpload(false);
+  }, [open]);
+  return [privateUpload, setPrivateUpload];
 }
 
 /** Renders the hidden chooser and drag-and-drop target. */
@@ -348,9 +368,7 @@ export function UploadDialog({
   const [progress, setProgress] = useState<FileUploadProgress | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  /** Closes an idle modal and clears its pending selection. */
-  const handleClose = (): void => closeUpload({ busy, setFiles, setProgress, setError, onClose });
+  const [privateUpload, setPrivateUpload] = useUploadPrivacy(open);
 
   /** Validates the destination and uploads queued files in order. */
   const handleUpload = (): void => {
@@ -358,6 +376,7 @@ export function UploadDialog({
       busy,
       files,
       directory,
+      privateUpload,
       controllerRef,
       setBusy,
       setError,
@@ -379,8 +398,10 @@ export function UploadDialog({
       activeName={activeName}
       progress={progress}
       error={error}
+      privateUpload={privateUpload}
+      onPrivateChange={setPrivateUpload}
       controllerRef={controllerRef}
-      onClose={handleClose}
+      onClose={() => closeUpload({ busy, setFiles, setProgress, setError, onClose })}
       onUpload={handleUpload}
       onFilesSelected={(selected) => addFiles(selected, setFiles, setError)}
     />
@@ -397,6 +418,8 @@ function UploadDialogContent({
   progress,
   percent,
   error,
+  privateUpload,
+  onPrivateChange,
   onFilesSelected,
 }: {
   directory: string;
@@ -407,6 +430,8 @@ function UploadDialogContent({
   progress: FileUploadProgress | null;
   percent?: number;
   error: string;
+  privateUpload: boolean;
+  onPrivateChange: (value: boolean) => void;
   onFilesSelected: (files: FileList | null) => void;
 }): ReactElement {
   return (
@@ -415,6 +440,16 @@ function UploadDialogContent({
         <Typography variant="body2" color="text.secondary">
           Destination: {directory}
         </Typography>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={!privateUpload}
+              disabled={busy}
+              onChange={(_, checked) => onPrivateChange(!checked)}
+            />
+          }
+          label="Readable by other users"
+        />
         <UploadDropZone busy={busy} inputRef={inputRef} onFilesSelected={onFilesSelected} />
         <UploadDetails
           files={files}

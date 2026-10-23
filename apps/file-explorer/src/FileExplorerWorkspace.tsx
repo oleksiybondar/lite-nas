@@ -64,7 +64,7 @@ interface WorkspaceOverlaysProps {
   onCloseUpload: () => void;
   onCloseFolder: () => void;
   onUploaded: () => void;
-  onCreateFolder: (name: string) => Promise<void>;
+  onCreateFolder: (name: string, privateDirectory: boolean) => Promise<void>;
   onCloseAction: () => void;
   onConfirmAction: () => Promise<void>;
   onClosePreview: () => void;
@@ -434,10 +434,10 @@ function useWorkspaceControls(
   };
 
   /** Creates a child folder and refreshes the active directory listing. */
-  const makeFolder = async (name: string): Promise<void> => {
+  const makeFolder = async (name: string, privateDirectory: boolean): Promise<void> => {
     const directory = explorer.panels[explorer.activePanel].directory;
     const path = `${directory === "/" ? "" : directory}/${name}`;
-    await createDirectory(path);
+    await createDirectory(path, privateDirectory);
     setRefresh((value) => value + 1);
   };
 

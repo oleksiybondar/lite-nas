@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -30,6 +31,38 @@ func TestReadScopeEnforcesStorageBoundary(t *testing.T) {
 	}
 	if !admin.AllowsDirectory("/etc") || !admin.AllowsFile("/etc/passwd") {
 		t.Fatal("administrator was denied system reads")
+	}
+}
+
+// TestReadScopeUsesConfiguredRootsAndExclusions covers file-service-svc/FR-008.
+func TestReadScopeUsesConfiguredRootsAndExclusions(t *testing.T) {
+	writeRoot := t.TempDir()
+	readRoot := t.TempDir()
+	denied := filepath.Join(readRoot, "restricted")
+	policy, err := NewPolicy([]string{writeRoot}, nil, ReadRules{
+		ReadRoots: []string{readRoot}, NonAdminDenied: []string{denied},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "configured read root", path: filepath.Join(readRoot, "public", "file"), want: true},
+		{name: "configured exclusion", path: filepath.Join(denied, "file")},
+		{name: "unconfigured root", path: "/etc/passwd"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			scope, err := policy.ReadScope([]string{"lite-nas-operator"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := scope.AllowsFile(test.path); got != test.want {
+				t.Fatalf("read allowed = %v, want %v", got, test.want)
+			}
+		})
 	}
 }
 

@@ -12,22 +12,17 @@ import (
 	"lite-nas/shared/roleauth"
 )
 
-// systemReadRoots cannot become non-admin storage merely through a mount or write-root setting.
-var systemReadRoots = []string{
-	"/bin", "/boot", "/dev", "/etc", "/lib", "/lib64", "/proc",
-	"/root", "/run", "/sbin", "/snap", "/sys", "/usr", "/var",
-}
-
 // ReadScope is one request's view of directories visible through File Service.
 type ReadScope struct {
 	administrator bool
 	roots         []string
+	denied        []string
 }
 
 // ReadScope resolves a subject's role and mounted ZFS storage for one request.
 func (p Policy) ReadScope(groups []string) (ReadScope, error) {
 	if roleauth.MatchesRequirement(groups, roleauth.RequirementAdministrator) {
-		return ReadScope{administrator: true}, nil
+		return ReadScope{administrator: true, denied: p.readDeniedAll}, nil
 	}
 	mountInfo, err := os.Open("/proc/self/mountinfo")
 	if err != nil {
@@ -38,25 +33,28 @@ func (p Policy) ReadScope(groups []string) (ReadScope, error) {
 	if err != nil {
 		return ReadScope{}, err
 	}
-	roots := make([]string, 0, 1+len(p.writeRoots)+len(zfsRoots))
-	for _, root := range append(append([]string{"/home"}, p.writeRoots...), zfsRoots...) {
-		if root == "/" || fileaccess.WithinRoots(root, systemReadRoots) {
+	roots := make([]string, 0, len(p.readRoots)+len(p.writeRoots)+len(zfsRoots))
+	for _, root := range append(append(append([]string{}, p.readRoots...), p.writeRoots...), zfsRoots...) {
+		if root == "/" {
 			continue
 		}
 		roots = append(roots, root)
 	}
-	return ReadScope{roots: roots}, nil
+	return ReadScope{roots: roots, denied: append(append([]string{}, p.readDeniedAll...), p.readDeniedNonAdmin...)}, nil
 }
 
 // AllowsFile permits regular-file reads only within an approved storage tree.
 func (scope ReadScope) AllowsFile(path string) bool {
-	return scope.administrator || fileaccess.WithinRoots(path, scope.roots)
+	return !deniedByMask(scope.denied, path) && (scope.administrator || fileaccess.WithinRoots(path, scope.roots))
 }
 
 // AllowsDirectory also permits ancestors needed to navigate to approved storage.
 func (scope ReadScope) AllowsDirectory(path string) bool {
 	if scope.AllowsFile(path) {
 		return true
+	}
+	if deniedByMask(scope.denied, path) {
+		return false
 	}
 	for _, root := range scope.roots {
 		if fileaccess.WithinRoots(root, []string{path}) {
