@@ -77,7 +77,7 @@ func TestPolicyProtectsFutureConfiguredRoot(t *testing.T) {
 // TestDirectoryModeUsesConfiguredMask covers file-service-svc/FR-010 presets.
 func TestDirectoryModeUsesConfiguredMask(t *testing.T) {
 	root := t.TempDir()
-	policy, err := NewPolicy([]string{root}, nil, ReadRules{KnownPathDirectories: []string{root + "/*/.litenas"}})
+	policy, err := NewPolicy([]string{root}, nil, ReadRules{KnownPathDirectories: []string{root + "/*/.lite-nas"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,10 +87,10 @@ func TestDirectoryModeUsesConfiguredMask(t *testing.T) {
 		private bool
 		want    string
 	}{
-		{name: "known path", path: root + "/alice/.litenas", want: "0771"},
+		{name: "known path", path: root + "/alice/.lite-nas", want: "0771"},
 		{name: "other path", path: root + "/alice/photos", want: "0775"},
-		{name: "private wins", path: root + "/alice/.litenas", private: true, want: "0770"},
-		{name: "mask one segment", path: root + "/alice/sub/.litenas", want: "0775"},
+		{name: "private wins", path: root + "/alice/.lite-nas", private: true, want: "0770"},
+		{name: "mask one segment", path: root + "/alice/sub/.lite-nas", want: "0775"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := policy.DirectoryMode(test.path, test.private); got != test.want {
@@ -134,7 +134,7 @@ func TestReadRulesSeparateCallerClasses(t *testing.T) {
 
 // TestPathMaskValidationRejectsMalformedMasks covers config input boundaries.
 func TestPathMaskValidationRejectsMalformedMasks(t *testing.T) {
-	for _, mask := range []string{"relative/*", "/home/a*/.litenas", "/home/**/.litenas", "/home/?/.litenas", "/home/../x"} {
+	for _, mask := range []string{"relative/*", "/home/a*/.lite-nas", "/home/**/.lite-nas", "/home/?/.lite-nas", "/home/../x"} {
 		if err := ValidatePathMask(mask); err == nil {
 			t.Fatalf("accepted mask %q", mask)
 		}

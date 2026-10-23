@@ -14,8 +14,4 @@ export { AppSidebarModeToggle } from "@components/navigation/AppSidebarModeToggl
 export { AppTopBar } from "@components/navigation/AppTopBar";
 export { AppUserMenu } from "@components/navigation/AppUserMenu";
 export { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
-export {
-  ThemeModeToggle,
-  ThemeSourceSelector,
-  ThemeTemplateSelector,
-} from "@components/theme";
+export { ThemeModeToggle, ThemeSourceSelector, ThemeTemplateSelector } from "@lite-nas/theme";

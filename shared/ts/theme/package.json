@@ -9,6 +9,7 @@
     "./manager/storage": "./manager/storage.ts"
   },
   "peerDependencies": {
-    "@mui/material": "^7.3.9"
+    "@mui/material": "^7.3.9",
+    "react": "^18.3.1"
   }
 }

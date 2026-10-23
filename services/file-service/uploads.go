@@ -365,6 +365,11 @@ func (s *fileService) patchUpload(writer http.ResponseWriter, request *http.Requ
 
 // conventionalUpload streams a destination-first multipart file in bounded chunks.
 func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject) {
+	s.conventionalUploadWithAvatarMode(writer, request, subject, false)
+}
+
+// conventionalUploadWithAvatarMode reuses the durable upload flow for fixed profile writes.
+func (s *fileService) conventionalUploadWithAvatarMode(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject, publicAvatar bool) {
 	multipartReader, err := request.MultipartReader()
 	if err != nil {
 		writeError(writer, http.StatusBadRequest, "invalid_multipart")
@@ -420,7 +425,7 @@ func (s *fileService) conventionalUpload(writer http.ResponseWriter, request *ht
 		ID: id, Owner: subject.Username, UID: subject.UID, Target: target,
 		ChunkSize: s.cfg.ChunkSize, State: "active", Expires: time.Now().Add(s.cfg.UploadTTL),
 		DestinationExists: exists, DestinationDevice: device, DestinationInode: inode,
-		IdempotencyKey: id, Private: private,
+		IdempotencyKey: id, Private: private, PublicAvatar: publicAvatar,
 	}
 	result, err := s.writerCommand(request.Context(), subject, "create", record, nil)
 	if err != nil {

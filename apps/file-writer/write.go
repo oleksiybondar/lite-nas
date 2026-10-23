@@ -363,6 +363,9 @@ func publishStage(inv invocation) (result, error) {
 	if inv.Mode == "0660" {
 		mode = 0o660
 	}
+	if inv.Mode == "0644" {
+		mode = 0o644
+	}
 	if inv.DestinationAbsent {
 		err = unix.Renameat2(parent, name, parent, destination, unix.RENAME_NOREPLACE)
 	} else {

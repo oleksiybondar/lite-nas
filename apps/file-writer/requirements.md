@@ -57,9 +57,11 @@ after the check remains possible; File Service must treat this as a concurrent
 mutation risk.
 The stage MUST remain `0600` through rename so another group member cannot
 alter its bytes after checksum verification. The writer MUST accept only
-`0664` or `0660` as the final mode, apply it to the opened published inode,
-and sync it before reporting success. A mode or sync failure after rename
-MUST report that cleanup is not possible.
+`0664`, `0660`, or `0644` as the final mode. File Service MUST request `0644`
+only for the authenticated user's fixed `.lite-nas/avatar.image` target. The
+writer MUST apply the selected mode to the opened published inode and sync it
+before reporting success. A mode or sync failure after rename MUST report
+that cleanup is not possible.
 
 ### file-writer/FR-007 Clean up a stage
 

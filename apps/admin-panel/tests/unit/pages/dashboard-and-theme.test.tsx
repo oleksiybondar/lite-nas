@@ -20,6 +20,7 @@ import { AppThemeProvider } from "@providers/AppThemeProvider";
 import { router } from "@routes/router";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
+import { TestProfileBoundary } from "@tests/unit/test-utils/profile-boundary";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
@@ -105,13 +106,19 @@ const categoryLandingPageCases = [
 ];
 
 describe("dashboard page", () => {
-  test("renders the initial dashboard sections", () => {
-    renderWithThemeManager(<DashboardPage />);
+  test.each([
+    { title: "System Metrics", path: "/system/performance" },
+    { title: "Services", path: "/system/processes/services" },
+    { title: "Applications", path: "/applications" },
+    { title: "Preferences", path: "/preferences" },
+  ])("admin-panel-app/FR-002 links the $title card to its page", ({ title, path }) => {
+    renderWithThemeManager(
+      <TestMemoryRouter>
+        <DashboardPage />
+      </TestMemoryRouter>,
+    );
 
-    expect(screen.getByRole("heading", { name: "LiteNAS operations" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "System Metrics" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Access" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Services" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: new RegExp(title) })).toHaveAttribute("href", path);
   });
 });
 
@@ -180,9 +187,11 @@ test("persists changed monitoring settings for one resource scope on apply", () 
   window.localStorage.clear();
 
   render(
-    <TestMemoryRouter>
-      <PreferencesMonitoringSettingsPage />
-    </TestMemoryRouter>,
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesMonitoringSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
   );
 
   const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
@@ -213,9 +222,11 @@ test("persists changed processes polling settings using interval-only cards", ()
   window.localStorage.clear();
 
   render(
-    <TestMemoryRouter>
-      <PreferencesProcessesPollingSettingsPage />
-    </TestMemoryRouter>,
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesProcessesPollingSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
   );
 
   fireEvent.change(
@@ -241,9 +252,11 @@ test("renders process and service polling defaults on the dedicated processes pa
   window.localStorage.clear();
 
   render(
-    <TestMemoryRouter>
-      <PreferencesProcessesPollingSettingsPage />
-    </TestMemoryRouter>,
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesProcessesPollingSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
   );
 
   expect(
@@ -282,9 +295,11 @@ test("renders persisted monitoring polling modes in the correct resource cards",
   );
 
   render(
-    <TestMemoryRouter>
-      <PreferencesMonitoringSettingsPage />
-    </TestMemoryRouter>,
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesMonitoringSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
   );
 
   expect(
@@ -445,7 +460,7 @@ const StatefulThemeManagerProvider = ({ children }: PropsWithChildren): ReactEle
         templateName: settings.templateName,
       }}
     >
-      {children}
+      <TestProfileBoundary>{children}</TestProfileBoundary>
     </ThemeManagerContext.Provider>
   );
 };

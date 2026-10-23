@@ -20,8 +20,8 @@ Usage:
   lite-nas-file-writer stat     --target PATH --expected-device N --expected-inode N --expected-uid N
   lite-nas-file-writer checksum --target PATH --expected-device N --expected-inode N --expected-uid N
   lite-nas-file-writer truncate --target PATH --expected-device N --expected-inode N --expected-uid N --offset N
-  lite-nas-file-writer publish  --target PATH --expected-device N --expected-inode N --expected-uid N --destination-absent [--mode 0660|0664]
-  lite-nas-file-writer publish  --target PATH --expected-device N --expected-inode N --expected-uid N --destination-device N --destination-inode N [--mode 0660|0664]
+  lite-nas-file-writer publish  --target PATH --expected-device N --expected-inode N --expected-uid N --destination-absent [--mode 0644|0660|0664]
+  lite-nas-file-writer publish  --target PATH --expected-device N --expected-inode N --expected-uid N --destination-device N --destination-inode N [--mode 0644|0660|0664]
   lite-nas-file-writer cleanup  --target PATH --expected-device N --expected-inode N --expected-uid N
 
 PATH is an absolute, clean path ending in .upload. The destination is PATH
@@ -72,7 +72,7 @@ func parseInvocation(args []string) (invocation, error) {
 	flags.BoolVar(&inv.DestinationAbsent, "destination-absent", false, "require an absent destination")
 	flags.Uint64Var(&inv.DestinationDevice, "destination-device", 0, "existing destination device")
 	flags.Uint64Var(&inv.DestinationInode, "destination-inode", 0, "existing destination inode")
-	flags.StringVar(&inv.Mode, "mode", "0664", "published file mode: 0660 or 0664")
+	flags.StringVar(&inv.Mode, "mode", "0664", "published file mode: 0644, 0660 or 0664")
 	if err := flags.Parse(args[1:]); err != nil {
 		return invocation{}, err
 	}
@@ -106,8 +106,8 @@ func parseInvocation(args []string) (invocation, error) {
 		}
 	case "publish":
 		allowed["mode"] = true
-		if inv.Mode != "0660" && inv.Mode != "0664" {
-			return invocation{}, errors.New("publish mode must be 0660 or 0664")
+		if inv.Mode != "0644" && inv.Mode != "0660" && inv.Mode != "0664" {
+			return invocation{}, errors.New("publish mode must be 0644, 0660 or 0664")
 		}
 		allowed["destination-absent"] = true
 		allowed["destination-device"] = true

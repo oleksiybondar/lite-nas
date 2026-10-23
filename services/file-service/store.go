@@ -26,6 +26,7 @@ type uploadRecord struct {
 	SHA256             string     `json:"sha256"`
 	ContentType        string     `json:"content_type,omitempty"`
 	Private            bool       `json:"private,omitempty"`
+	PublicAvatar       bool       `json:"public_avatar,omitempty"`
 	ChunkSize          int64      `json:"chunk_size"`
 	RequestedChunkSize int64      `json:"requested_chunk_size,omitempty"`
 	Offset             int64      `json:"offset"`

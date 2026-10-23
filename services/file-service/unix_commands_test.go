@@ -22,6 +22,7 @@ func TestValidateWriterArgumentsRejectsUnexpectedOperationsAndPaths(t *testing.T
 		{operation: "create", record: &uploadRecord{Target: "relative/file"}},
 		{operation: "write", record: &uploadRecord{Target: "/tmp/file", Offset: -1}},
 		{operation: "write", record: &uploadRecord{Target: "/tmp/file"}, data: make([]byte, 16*1024*1024+1)},
+		{operation: "publish", record: &uploadRecord{Target: "/tmp/file", Owner: "alice", PublicAvatar: true}},
 	}
 	for _, test := range tests {
 		if err := validateWriterArguments(test.operation, test.record, test.data); err == nil {

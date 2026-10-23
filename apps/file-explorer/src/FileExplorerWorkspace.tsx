@@ -12,6 +12,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import MarkdownIt from "markdown-it";
 import type { Dispatch, ReactElement, SetStateAction } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmActionDialog } from "./ConfirmActionDialog";
@@ -331,6 +332,7 @@ function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement
 
   if (error) return <Alert severity="error">{error}</Alert>;
   if (content === null) return <CircularProgress aria-label="Loading text preview" />;
+  if (extension === "md") return <MarkdownFilePreview content={content} />;
   const highlighted = highlightSource(content, extension);
   return (
     <Box>
@@ -366,6 +368,28 @@ function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement
         <code>{highlighted ?? content}</code>
       </Box>
     </Box>
+  );
+}
+
+const markdownRenderer = new MarkdownIt({ html: false, linkify: false, typographer: false });
+
+/** Renders Markdown syntax while keeping embedded HTML inert. */
+function MarkdownFilePreview({ content }: { content: string }): ReactElement {
+  return (
+    <Box
+      className="file-explorer-markdown-preview"
+      sx={{
+        maxHeight: "70vh",
+        overflow: "auto",
+        overflowWrap: "anywhere",
+        "& img": { maxWidth: "100%" },
+        "& pre": { overflow: "auto", p: 2, bgcolor: "action.hover", borderRadius: 1 },
+        "& table": { borderCollapse: "collapse" },
+        "& th, & td": { border: 1, borderColor: "divider", p: 1 },
+      }}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: MarkdownIt escapes raw HTML and disables linkification for this preview.
+      dangerouslySetInnerHTML={{ __html: markdownRenderer.render(content) }}
+    />
   );
 }
 

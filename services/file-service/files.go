@@ -113,6 +113,9 @@ func (s *fileService) download(writer http.ResponseWriter, request *http.Request
 		decisionError(writer, fileaccess.ErrDenied)
 		return
 	}
+	if !attachment && s.serveSharedAvatar(writer, request, subject, resolved) {
+		return
+	}
 	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
@@ -249,6 +252,18 @@ func parseRange(header string, size int64) (int64, int64, bool, error) {
 func safeContentType(path string, attachment bool) string {
 	if attachment {
 		return "application/octet-stream"
+	}
+	if filepath.Base(path) == "avatar.image" && filepath.Base(filepath.Dir(path)) == profileDirectoryName {
+		file, err := os.Open(path)
+		if err == nil {
+			defer file.Close()
+			var signature [512]byte
+			count, _ := file.Read(signature[:])
+			mediaType := http.DetectContentType(signature[:count])
+			if mediaType == "image/png" || mediaType == "image/jpeg" {
+				return mediaType
+			}
+		}
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".txt":

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ProcessPollingSettingsDraft } from "./types";
+import type { ProcessPollingSettingsDraft } from "./processTypes";
 
 export const processPollingSettingsFormSchema = z.object({
   snapshotIntervalMs: z.coerce.number().int().positive(),

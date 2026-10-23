@@ -1,4 +1,4 @@
-import type { MonitoringPollingSettings } from "@dto/monitoring/monitoring-polling-settings";
+import type { MonitoringPollingSettings } from "./types";
 
 /**
  * Editable string-backed form state for one monitoring polling settings card.

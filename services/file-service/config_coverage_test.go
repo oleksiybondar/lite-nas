@@ -90,7 +90,7 @@ func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 		{name: "missing write roots", old: "write_roots=/home", new: "write_roots="},
 		{name: "relative read root", old: "read_roots=/home", new: "read_roots=relative"},
 		{name: "relative protected root", old: "protected_paths=/bin", new: "protected_paths=relative"},
-		{name: "malformed mask", old: "known_path_directories=/home/*/.litenas", new: "known_path_directories=/home/**/.litenas"},
+		{name: "malformed mask", old: "known_path_directories=/home/*/.lite-nas", new: "known_path_directories=/home/**/.lite-nas"},
 		{name: "invalid docs switch", old: "enabled=false", new: "enabled=maybe"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -1,3 +1,4 @@
-# First-version user-scoped read/delete commands. RBAC and path policy run first.
+# User-scoped file commands. RBAC and path policy run first.
+# mkdir modes mirror validateUserCommandArguments and DirectoryMode.
 # These fixed binaries cannot be run as root and receive no shell grant.
-lite-nas-file-service ALL=(ALL,!root,!#0) NOPASSWD: /bin/cat -- *, /bin/rm -- *, /bin/mkdir -- *, /bin/rmdir -- *
+lite-nas-file-service ALL=(ALL,!root,!#0) NOPASSWD: /bin/cat -- *, /bin/rm -- *, /bin/mkdir -m 0770 -- *, /bin/mkdir -m 0771 -- *, /bin/mkdir -m 0775 -- *, /bin/rmdir -- *

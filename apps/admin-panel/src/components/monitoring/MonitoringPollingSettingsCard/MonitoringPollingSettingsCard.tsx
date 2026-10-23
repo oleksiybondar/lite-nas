@@ -1,6 +1,6 @@
+import type { MonitoringPollingSettingsCardProps } from "@lite-nas/settings";
 import { MonitoringPollingSettingsProvider } from "@providers/MonitoringPollingSettingsProvider";
 import type { ReactElement } from "react";
-import type { MonitoringPollingSettingsCardProps } from "./helpers";
 import { MonitoringPollingSettingsCardContent } from "./MonitoringPollingSettingsCardContent";
 
 /**

@@ -572,7 +572,7 @@ merged and existing regular files are replaced.
 - New directories use `0775` by default or `0770` when `private` is true.
   A non-private path matching `filesystem.known_path_directories` uses `0771`,
   permitting access by known path without listing. A `*` mask matches exactly
-  one path component, as in `/home/*/.litenas`. These rules do not change
+  one path component, as in `/home/*/.lite-nas`. These rules do not change
   existing directories or their ancestors.
 - Before mutation, the service MUST enforce write-root and protected-path
   policy, caller read permission on every copied source entry, the appropriate
@@ -619,6 +619,32 @@ server-side jobs that continue after the initiating browser request ends.
   stable non-success response.
 - In-memory jobs do not survive a File Service restart. Clients MUST be able
   to distinguish a missing job from a still-running job.
+
+### file-service-svc/FR-012 Store per-user LiteNAS profile files
+
+File Service MUST resolve `/home/<username>/.lite-nas` from the authenticated
+Unix subject, never from a browser-supplied write path. Authenticated `GET`
+and `PUT` at `/f/profile/ui`, `/f/profile/admin-panel`, and
+`/f/profile/avatar` address fixed filenames `ui.json`, `admin-panel.json`,
+and `avatar.image`. The first write MUST create the directory as the verified
+non-root Unix user using the known-path directory mode. An existing directory
+MUST be a real directory owned by that user. JSON writes MUST be bounded,
+Huma-validated envelopes containing a document object and published through
+the existing authorized staged writer with private mode. Avatar writes MUST
+accept complete PNG/JPEG images of at most 5 MiB and 4096 pixels per side,
+publish as `0644`, and serve with the detected image MIME type.
+The restricted sudoers rule MUST permit the exact validated `mkdir -m` modes
+used by the service (`0770`, `0771`, and `0775`) so first-write directory
+creation can succeed. Directory setup failures MUST be logged with their
+underlying cause and returned as a stable non-success response.
+
+Any authenticated LiteNAS user MAY read another user's fixed
+`/f/home/<username>/.lite-nas/avatar.image`. The exception MUST apply only
+to that path when it is within configured read scope, a regular PNG/JPEG file
+owned by the named Unix user, and world-readable. File Service MAY use its
+storage-read ACL to stream this authorized avatar when the caller cannot
+traverse the owner's home. Other profile files retain ordinary RBAC read
+checks. Invalid, missing, or inaccessible paths MUST fail closed.
 
 ## Interface Requirements
 
@@ -863,6 +889,8 @@ Debian-package workflows.
   and read group and install the restricted user-scoped execution policy
   idempotently. Provision existing storage and newly created ZFS mounts with
   documented read/search group rules, while excluding system-critical paths.
+- Deployment MUST install the matching validated `mkdir -m` sudoers operands
+  before profile writes are expected to create `.lite-nas`.
 - Package and install validation verify that the File Service AppArmor profile
   is installed and loaded in enforce mode.
 - The package includes the root-owned `lite-nas-file-writer` executable,

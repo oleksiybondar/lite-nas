@@ -751,6 +751,19 @@ The Admin Panel needs a user-owned `.lite-nas` directory in the user's home
 namespace for an avatar and preferred UI settings. Implement this through File
 Service so clients do not access host paths directly.
 
+The browser-facing profile contract uses authenticated `GET` and `PUT`
+`/f/profile/ui` and `/f/profile/admin-panel` for `ui.json` and
+`admin-panel.json`, and `GET` and `PUT` `/f/profile/avatar` for
+`avatar.image`. File Service resolves the home directory from the verified
+Unix identity and creates `.lite-nas` on the first write. The avatar read
+response has a detected PNG or JPEG content type. Existing authenticated
+`/f/home/<username>/.lite-nas/avatar.image` reads are available to other
+authenticated LiteNAS users. This fixed path is a deliberate exception to
+ordinary per-user Unix/RBAC read decisions: File Service checks the target's
+Unix owner, regular-file type, world-read mode, image signature, and configured
+read scope, then streams it using its storage-read ACL. Other profile files
+retain ordinary path authorization checks.
+
 1. Define and document the stable per-user profile directory and file naming
    conventions with Admin Panel before implementation. The authenticated
    identity, not a client-supplied username or arbitrary absolute path, selects
@@ -764,10 +777,10 @@ Service so clients do not access host paths directly.
    create it as the File Service account or grant a general-purpose mkdir
    capability. Update requirements and shared contracts before implementation;
    do not guess a public DTO or route.
-4. Ensure profile file reads, avatar uploads/replacements, and settings writes
-   remain confined to the authenticated user's `.lite-nas` directory, use the
-   existing authentication and RBAC checks, and fail closed on policy or
-   filesystem errors.
+4. Ensure profile writes and private settings reads remain confined to the
+   authenticated user's `.lite-nas` directory with existing RBAC checks.
+   The authenticated cross-user avatar read exception must fail closed on
+   policy, owner, mode, image-content, or filesystem errors.
 5. Document how the Admin Panel obtains and updates the avatar and preferred
    UI settings through File Service. Keep the settings document schema owned by
    the frontend contract and validate it before writes.

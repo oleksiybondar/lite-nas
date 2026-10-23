@@ -54,6 +54,9 @@ func (writer *memoryWriter) command(_ context.Context, _ fileaccess.Subject, ope
 		if record.Private {
 			mode = 0o660
 		}
+		if record.PublicAvatar {
+			mode = 0o644
+		}
 		if err := os.WriteFile(record.Target, writer.contents[record.Target], mode); err != nil {
 			return writerResult{}, err
 		}

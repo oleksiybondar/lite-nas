@@ -49,7 +49,8 @@ MUST enter it. Double-clicking a file MUST open its `/f/{absolute-path...}`
 resource in a new tab. Preview MUST show supported images and PDFs inline,
 provide native HTML audio or video controls for supported media, and display
 supported text, markup, data, and source files as escaped content with an
-extension label. Files with a supported syntax grammar MUST show syntax
+extension label. Markdown files MUST render their formatting, with embedded
+HTML disabled. Files with a supported syntax grammar MUST show syntax
 highlighting. Text previews MUST NOT execute markup or source code.
 Unsupported file types MUST NOT offer Preview. The preview dialog MUST include
 a visible close control and use the large dialog width.
@@ -143,8 +144,11 @@ flow is unavailable.
 ### file-explorer-app/IR-002 Share the admin-panel theme
 
 The app MUST use Material UI and the shared `@lite-nas/theme` package. It MUST
-read the admin panel's preferred theme from the same-origin preference key and
-keep File Explorer-specific UI preferences separate from shared theme data.
+read the authenticated shared `/f/profile/ui` document first, copy a valid
+`preferredMode` to the shared browser key, and fall back to that validated
+local value when the file is absent or unavailable. It MUST use the shared
+`@lite-nas/profile` schema and read helper. File Explorer-specific UI
+preferences MUST remain separate from the shared mode.
 
 ### file-explorer-app/IR-003 Reuse byte-size formatting
 
@@ -164,6 +168,8 @@ existing local package workflow MUST build the separately requested
 snippet; the app has no deployment enable/disable flag. File Service requests
 MUST pass directly through Nginx's `/f/` and `/ls/` routes, without the web
 gateway proxying the static app.
+The Vite development server MUST proxy `/f/` requests to File Service while
+preserving the browser Host for same-origin mutation checks.
 
 ## Testability Requirements
 
@@ -179,4 +185,4 @@ directory delete responses,
 queue progress, and job restoration after browser reload. Size formatting MUST
 be covered for null, byte, and supported unit boundaries. Build and deployment
 checks MUST verify the Nginx mount, admin-panel embed, shared theme, shared
-formatting package, and deployed static assets.
+profile preference, shared formatting package, and deployed static assets.

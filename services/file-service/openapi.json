@@ -3,7 +3,7 @@
   "info": {
     "title": "LiteNAS File Service",
     "version": "0.1.0",
-    "description": "Authenticated file browsing, downloads, uploads, and filesystem operations. The public paths below are served by Nginx; File Service validates every request through Auth and RBAC. Host paths are absolute Unix paths represented as slash-delimited URL suffixes. For browser cookie mutations, send a same-origin Origin or Referer header. Operation jobs live only while File Service runs."
+    "description": "Authenticated file browsing, downloads, uploads, and filesystem operations. The public paths below are served by Nginx. File Service validates requests through Auth and RBAC except for the documented authenticated cross-user avatar read policy. Host paths are absolute Unix paths represented as slash-delimited URL suffixes. For browser cookie mutations, send a same-origin Origin or Referer header. Operation jobs live only while File Service runs."
   },
   "servers": [
     {
@@ -39,6 +39,10 @@
     {
       "name": "Jobs",
       "description": "Read server-side operation progress."
+    },
+    {
+      "name": "Profile",
+      "description": "Read and write fixed files in the authenticated Unix user's .lite-nas directory."
     },
     {
       "name": "Documentation",
@@ -556,12 +560,116 @@
         }
       }
     },
+    "/f/profile/ui": {
+      "get": {
+        "operationId": "getSharedUiProfile",
+        "tags": ["Profile"],
+        "summary": "Read the current user's shared UI settings",
+        "responses": {
+          "200": { "description": "The ui.json document." },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "operationId": "putSharedUiProfile",
+        "tags": ["Profile"],
+        "summary": "Save the current user's shared UI settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["document"],
+                "additionalProperties": false,
+                "properties": { "document": { "type": "object" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Saved ui.json." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/f/profile/admin-panel": {
+      "get": {
+        "operationId": "getAdminPanelProfile",
+        "tags": ["Profile"],
+        "summary": "Read the current user's admin-panel settings",
+        "responses": {
+          "200": { "description": "The admin-panel.json document." },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "operationId": "putAdminPanelProfile",
+        "tags": ["Profile"],
+        "summary": "Save the current user's admin-panel settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["document"],
+                "additionalProperties": false,
+                "properties": { "document": { "type": "object" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Saved admin-panel.json." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/f/profile/avatar": {
+      "get": {
+        "operationId": "getOwnAvatar",
+        "tags": ["Profile"],
+        "summary": "Read the current user's avatar",
+        "responses": {
+          "200": { "description": "PNG or JPEG avatar bytes." },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "operationId": "putOwnAvatar",
+        "tags": ["Profile"],
+        "summary": "Upload a PNG or JPEG avatar of at most 5 MiB",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": { "schema": { "type": "string", "format": "binary" } },
+            "image/jpeg": { "schema": { "type": "string", "format": "binary" } }
+          }
+        },
+        "responses": {
+          "201": { "description": "Saved avatar.image." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
     "/f/{absolutePath}": {
       "get": {
         "operationId": "getInlineFile",
         "tags": ["Downloads"],
         "summary": "Stream an authorized file",
-        "description": "Text, PDF, and supported image extensions may render inline; other types are attachments. The ETag identifies the selected file version.",
+        "description": "Text, PDF, and supported image extensions may render inline; other types are attachments. The ETag identifies the selected file version. A fixed /home/<username>/.lite-nas/avatar.image is readable by authenticated users when it is owned by the named user, world-readable, and a valid PNG/JPEG; other files use ordinary RBAC read decisions.",
         "parameters": [
           {
             "$ref": "#/components/parameters/absolutePath"

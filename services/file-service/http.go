@@ -76,6 +76,8 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 		s.serveDocs(writer, request)
 	case path == "/upload" && request.Method == http.MethodPost:
 		s.conventionalUpload(writer, request, subject)
+	case strings.HasPrefix(path, "/profile/"):
+		s.profileResource(writer, request, subject)
 	case path == "/mkdir" && request.Method == http.MethodPost:
 		s.createDirectory(writer, request, subject)
 	case (path == "/copy" || path == "/move") && request.Method == http.MethodPost:

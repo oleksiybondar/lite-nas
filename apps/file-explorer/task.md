@@ -28,12 +28,13 @@ admin-panel utility and is not a standalone product.
   File Explorer-specific UI changes in an app-specific preference key.
 - Use the existing `lite-nas-at` cookie through same-origin Nginx composition.
   Do not copy tokens into application storage, iframe messages, or URLs.
-- Keep two independent panels by default, with a header control to show one or
-  two panels. Highlight the active panel. A single click selects an item;
+- Keep two independent panels, with one shown by default and a header control
+  to show one or two panels. Highlight the active panel. A single click selects
+  an item;
   Ctrl or Command click and Space toggle a multi-selection, and arrow keys
   move keyboard focus. Keep a Back control visible after listing errors.
 - Put a Show hidden files eye toggle alongside the panel-view switch. Start with
-  hidden files visible; when hidden files are turned off, remove dot-prefixed
+  hidden files hidden; when the toggle is off, remove dot-prefixed
   entries from both panels and from available actions.
 - Preview supported images and PDFs inline, use native HTML controls for audio
   and video, and show supported text, markup, data, and code as escaped content

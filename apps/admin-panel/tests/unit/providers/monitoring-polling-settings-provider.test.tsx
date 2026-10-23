@@ -2,6 +2,7 @@ import { buildMonitoringPollingSettingsStorageKey } from "@helpers/monitoring-po
 import { useMonitoringPollingSettings } from "@hooks/useMonitoringPollingSettings";
 import { MonitoringPollingSettingsProvider } from "@providers/MonitoringPollingSettingsProvider";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { TestProfileBoundary } from "@tests/unit/test-utils/profile-boundary";
 import type { ReactElement } from "react";
 
 beforeEach(() => {
@@ -156,8 +157,10 @@ const MonitoringPollingSettingsProbe = (): ReactElement => {
  */
 const renderMonitoringPollingSettingsProvider = (storageKey = "system-metrics"): void => {
   render(
-    <MonitoringPollingSettingsProvider storageKey={storageKey}>
-      <MonitoringPollingSettingsProbe />
-    </MonitoringPollingSettingsProvider>,
+    <TestProfileBoundary>
+      <MonitoringPollingSettingsProvider storageKey={storageKey}>
+        <MonitoringPollingSettingsProbe />
+      </MonitoringPollingSettingsProvider>
+    </TestProfileBoundary>,
   );
 };

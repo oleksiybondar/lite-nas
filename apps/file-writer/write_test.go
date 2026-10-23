@@ -75,6 +75,14 @@ func TestInvocationRejectsInvalidFlags(t *testing.T) {
 	}
 }
 
+// TestInvocationAcceptsPublicAvatarMode covers the fixed profile avatar publication mode.
+func TestInvocationAcceptsPublicAvatarMode(t *testing.T) {
+	_, err := parseInvocation([]string{"publish", "--target", "/tmp/avatar.image.upload", "--expected-device", "1", "--expected-inode", "1", "--expected-uid", "1", "--destination-absent", "--mode", "0644"})
+	if err != nil {
+		t.Fatalf("rejected public avatar mode: %v", err)
+	}
+}
+
 // TestCreateReturnsIdentity verifies creation reports the effective owner's new inode.
 // Requirements: file-writer/FR-001.
 func TestCreateReturnsIdentity(t *testing.T) {
@@ -264,6 +272,21 @@ func TestPublishReplacesRegularDestination(t *testing.T) {
 	if publishedIdentity.Ino != created.Inode || publishedIdentity.Uid != created.UID {
 		t.Fatalf("published identity = inode %d uid %d, want inode %d uid %d",
 			publishedIdentity.Ino, publishedIdentity.Uid, created.Inode, created.UID)
+	}
+}
+
+// TestPublishAppliesPublicAvatarMode covers file-writer/FR-006 profile publication.
+func TestPublishAppliesPublicAvatarMode(t *testing.T) {
+	t.Parallel()
+	stage, identity := mustStageFixture(t)
+	args := append([]string{"publish", "--target", stage, "--destination-absent", "--mode", "0644"}, identity...)
+	mustRun(t, args, nil)
+	published, err := os.Stat(strings.TrimSuffix(stage, ".upload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := published.Mode().Perm(); mode != 0o644 {
+		t.Fatalf("published mode = %04o, want 0644", mode)
 	}
 }
 

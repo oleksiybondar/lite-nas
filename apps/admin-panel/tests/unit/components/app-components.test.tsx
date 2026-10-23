@@ -50,93 +50,50 @@ describe("app shell components", () => {
   });
 });
 
-describe("theme mode toggle", () => {
-  test("uses supplied props before context values", () => {
+describe("shared theme controls", () => {
+  test("changes the selected mode", () => {
     const onChange = vi.fn();
-
-    renderWithThemeManager(<ThemeModeToggle mode="light" onChange={onChange} source="user" />, {
-      mode: "dark",
-      resolvedMode: "dark",
-    });
-
-    const modeSwitch = screen.getByRole("switch", { name: "Light" });
-    fireEvent.click(modeSwitch);
-
+    render(<ThemeModeToggle mode="light" onChange={onChange} source="user" />);
+    fireEvent.click(screen.getByRole("switch", { name: "Light" }));
     expect(onChange).toHaveBeenCalledWith("dark");
   });
 
-  test("uses context state when props are not supplied", () => {
-    const setMode = vi.fn();
-
-    renderWithThemeManager(<ThemeModeToggle />, {
-      mode: "dark",
-      setMode,
-      source: "user",
-    });
-
-    fireEvent.click(screen.getByRole("switch", { name: "Dark" }));
-
-    expect(setMode).toHaveBeenCalledWith("light");
-  });
-
-  test("disables user selection when the selected source is not user", () => {
-    renderWithThemeManager(<ThemeModeToggle source="default" />);
-
+  test("disables mode selection for the default source", () => {
+    render(<ThemeModeToggle mode="dark" onChange={vi.fn()} source="default" />);
     expect(screen.getByRole("switch", { name: "Dark" })).toBeDisabled();
   });
-});
 
-describe("theme source selector", () => {
-  test("calls the supplied change handler when controlled", () => {
+  test("changes the selected source", () => {
     const onChange = vi.fn();
-
-    renderWithThemeManager(<ThemeSourceSelector onChange={onChange} value="default" />);
+    render(<ThemeSourceSelector onChange={onChange} value="default" />);
     selectMuiOption("Theme source", "User");
-
     expect(onChange).toHaveBeenCalledWith("user");
   });
 
-  test("updates context when uncontrolled", () => {
-    const setSource = vi.fn();
-
-    renderWithThemeManager(<ThemeSourceSelector />, {
-      setSource,
-      source: "os",
-    });
-    selectMuiOption("Theme source", "Default");
-
-    expect(setSource).toHaveBeenCalledWith("default");
-  });
-});
-
-describe("theme template selector", () => {
-  test("calls the supplied change handler when controlled", () => {
+  test("changes the selected template", () => {
     const onChange = vi.fn();
-
-    renderWithThemeManager(<ThemeTemplateSelector onChange={onChange} source="user" />, {
-      availableTemplates: ["default", "backup" as never],
-    });
+    render(
+      <ThemeTemplateSelector
+        availableTemplates={["default", "backup" as never]}
+        onChange={onChange}
+        source="user"
+        value="default"
+      />,
+    );
     selectMuiOption("Theme template", "Backup");
-
     expect(onChange).toHaveBeenCalledWith("backup");
   });
 
-  test("updates context when uncontrolled", () => {
-    const setTemplateName = vi.fn();
-
-    renderWithThemeManager(<ThemeTemplateSelector source="user" />, {
-      availableTemplates: ["default", "backup" as never],
-      setTemplateName,
-    });
-    selectMuiOption("Theme template", "Backup");
-
-    expect(setTemplateName).toHaveBeenCalledWith("backup");
-  });
-
-  test("honors an explicit disabled override", () => {
-    renderWithThemeManager(<ThemeTemplateSelector disabled={false} source="default" />);
-
-    expect(screen.getByRole("combobox", { name: "Theme template" })).not.toHaveAttribute(
+  test("disables template selection outside user source", () => {
+    render(
+      <ThemeTemplateSelector
+        availableTemplates={["default"]}
+        onChange={vi.fn()}
+        source="os"
+        value="default"
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Theme template" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );

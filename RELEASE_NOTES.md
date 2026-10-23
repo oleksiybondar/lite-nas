@@ -5,6 +5,60 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.3.0 - 2026-10-23
+
+### RL-0.3.0 Summary
+
+- Added a separately served File Explorer and connected the admin panel to
+  user-owned profile files. This release turns the earlier File Service and
+  file-writer foundations into browser-facing file and preference workflows.
+
+### RL-0.3.0 Added
+
+- Added File Explorer browsing with a metadata grid, one or two panels, hidden
+  file controls, and image, PDF, media, Markdown, and highlighted text previews.
+- Added shared upload UI, folder creation, copy, move, delete, typed
+  confirmation, and a queue that resumes display of server jobs after reload.
+- Added fixed authenticated File Service routes for `ui.json`,
+  `admin-panel.json`, and PNG/JPEG `avatar.image` under each user's `.lite-nas`
+  directory. Another authenticated user may read the fixed avatar path.
+- Added shared TypeScript profile transport and validation, avatar and
+  appearance controls, and monitoring and process polling settings cards for
+  reuse by later applications.
+- Added an Applications area with an embedded File Explorer, plus whole-card
+  navigation from Applications and the admin dashboard.
+
+### RL-0.3.0 Changed
+
+- Admin appearance and monitoring settings now load authenticated files first,
+  mirror valid values to local storage, and use local values when files are
+  unavailable. The shared `ui.json` carries the preferred light or dark mode;
+  `admin-panel.json` carries admin-specific theme and polling settings.
+- File Explorer now reads the shared preferred mode through File Service and
+  uses the same local browser fallback.
+- File Service creates the profile directory as the verified Unix user, and
+  file-writer can publish the fixed avatar with mode `0644`.
+
+### RL-0.3.0 Fixed
+
+- Aligned File Service's restricted sudoers rule with its validated `mkdir -m`
+  invocation so a first profile write can create `.lite-nas`.
+- Profile save errors now expose the File Service HTTP status in the admin UI,
+  and directory setup failures are logged by File Service.
+
+### RL-0.3.0 Platform
+
+- Added the Nginx File Explorer mount and separate static-asset package to
+  local build, deployment, and package workflows. Both Debian packages use
+  the `0.3.0` base version.
+- Added local Vite `/f/` proxies for admin panel and File Explorer development,
+  preserving the browser Host for File Service's same-origin checks.
+
+### RL-0.3.0 Notes
+
+- Moments is not included in this release. The shared profile and settings
+  packages provide the browser contract for its later implementation.
+
 ## 0.2.5 - File writer application
 
 ### RL-0.2.5 Summary

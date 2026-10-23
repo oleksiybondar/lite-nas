@@ -13,6 +13,9 @@ while making the shared user preference available to embedded applications.
 - Add an Applications navigation area. File Explorer is always deployed and
   listed. Moments is shown only when its app/service is enabled in LiteNAS
   configuration. Do not infer availability from a failed browser request.
+- Show File Explorer as a whole-card link without a separate Open button.
+  Dashboard cards link to working System Metrics, Services, Applications, and
+  Preferences routes.
 - Embed each app at its Nginx path under `/apps/`; the app may also be opened
   directly in a new tab where its deployment supports that mode.
 - Keep the current admin-panel theme as an app-specific setting. Persist the
@@ -40,7 +43,8 @@ while making the shared user preference available to embedded applications.
    refresh and unauthorized handling remain consistent. Validate payloads
    before sending them.
 4. Add user-facing avatar and appearance controls using existing admin-panel
-   component organization, navigation patterns, and test selectors.
+   component organization, navigation patterns, and test selectors. Use shared
+   profile, theme, and polling settings controls where the UI is reusable.
 5. Add the Applications navigation and embedded app routes. Keep the route
    tree separate from the navigation tree and show service availability using
    the established service configuration source.
@@ -60,3 +64,19 @@ while making the shared user preference available to embedded applications.
   storage.
 - Add focused app tests for navigation visibility, profile persistence/error
   handling, and settings precedence. Follow the admin-panel test conventions.
+
+## Profile file contract
+
+The selected directory is `/home/<authenticated Unix user>/.lite-nas`.
+`ui.json` contains a Zod-validated `preferredMode` (`light` or `dark`) shared
+with other apps. `admin-panel.json` contains the admin-panel theme source,
+mode, template, and source-scoped monitoring polling timings. Admin-panel
+loads authenticated files before protected content, replicates valid settings
+to local storage, and falls back to local storage when file reads are absent
+or unavailable. Profile writes use the fixed File Service `/f/profile/*`
+routes; avatar uploads use `avatar.image` and show the initials fallback when
+the file is absent.
+
+The `0.3.0` delivery includes File Explorer and shared profile controls.
+Moments availability and its app-specific preference override remain future
+work until the Moments application is implemented.

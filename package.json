@@ -6,6 +6,8 @@
     "apps/admin-panel",
     "apps/file-explorer",
     "shared/ts/theme",
+    "shared/ts/profile",
+    "shared/ts/settings",
     "shared/ts/file-upload",
     "shared/ts/formatting"
   ],

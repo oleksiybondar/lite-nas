@@ -1,5 +1,14 @@
+lite-nas (0.3.0) unstable; urgency=medium
+
+  * Add File Explorer browser workflows and the admin Applications embed.
+  * Persist user avatar and UI settings through authenticated File Service
+    profile files with local browser fallback.
+  * Add shared browser settings controls and fix profile-directory sudoers modes.
+
+ -- Oleksiy Bondar <bondaroleksiyandroyovich@gmail.com>  Fri, 23 Oct 2026 13:41:28 +0200
+
 lite-nas (0.2.5) unstable; urgency=medium
 
-  * Initial LiteNAS bootstrap package.
+  * Add the user-scoped file-writer application.
 
  -- Oleksiy Bondar <bondaroleksiyandroyovich@gmail.com>  Thu, 23 Apr 2026 12:00:00 +0000

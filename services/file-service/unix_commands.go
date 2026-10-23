@@ -28,6 +28,9 @@ func validateWriterArguments(operation string, record *uploadRecord, data []byte
 		fileaccess.ValidateHostPath(record.Target+".upload") != nil {
 		return fileaccess.ErrInvalidPath
 	}
+	if record.PublicAvatar && (record.Private || sharedAvatarOwner(record.Target) != record.Owner) {
+		return errors.New("public mode requires the owner's fixed avatar path")
+	}
 	if (operation == "write" || operation == "truncate") && record.Offset < 0 {
 		return errors.New("invalid writer offset")
 	}
@@ -97,6 +100,9 @@ func invokeWriter(ctx context.Context, subject fileaccess.Subject, operation str
 		mode := "0664"
 		if record.Private {
 			mode = "0660"
+		}
+		if record.PublicAvatar {
+			mode = "0644"
 		}
 		args = append(args, "--mode", mode)
 		if record.DestinationExists {

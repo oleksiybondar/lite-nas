@@ -11,8 +11,7 @@ export const PreferencesApplicationSettingsPage = (): ReactElement => {
     <CategoryLandingPage
       cards={[
         {
-          description:
-            "Adjust the admin-panel theme source, mode, and template for this browser session.",
+          description: "Adjust the admin-panel theme source, mode, and template for your profile.",
           icon: <PaletteRoundedIcon />,
           path: "/preferences/application/theme",
           title: "Theme",
