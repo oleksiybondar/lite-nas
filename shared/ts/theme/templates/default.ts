@@ -1,5 +1,5 @@
 import type { ThemeOptions } from "@mui/material/styles";
-import type { ThemeTemplate } from "@theme/types";
+import type { ThemeTemplate } from "../types";
 
 const fontFamily = [
   "Inter",
@@ -32,6 +32,7 @@ const commonTemplateOptions = {
   },
 } satisfies Pick<ThemeOptions, "shape" | "typography">;
 
+/** Default LiteNAS colors and typography for light and dark modes. */
 export const defaultTheme: ThemeTemplate = {
   dark: {
     ...commonTemplateOptions,

@@ -1,5 +1,5 @@
-export { createAppTheme } from "@theme/mui/createAppTheme";
-export { themeRegistry } from "@theme/registry";
+export { createAppTheme } from "./mui/createAppTheme";
+export { themeRegistry } from "./registry";
 export type {
   ResolvedThemeSettings,
   ThemeManagerContextValue,
@@ -9,4 +9,4 @@ export type {
   ThemeSource,
   ThemeTemplate,
   ThemeTemplateName,
-} from "@theme/types";
+} from "./types";

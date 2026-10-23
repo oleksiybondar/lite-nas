@@ -1,6 +1,7 @@
-import type { ThemeSettings, ThemeSource, ThemeTemplateName } from "@theme/index";
+import type { ThemeSettings, ThemeSource, ThemeTemplateName } from "../index";
 
-const themeSettingsStorageKey = "lite-nas.admin-panel.theme.settings";
+/** Shared browser preference key used by LiteNAS apps on the same origin. */
+export const themeSettingsStorageKey = "lite-nas.admin-panel.theme.settings";
 
 const isThemeSource = (value: string): value is ThemeSource => {
   return value === "default" || value === "os" || value === "user";
@@ -14,6 +15,7 @@ const isThemeTemplateName = (value: string): value is ThemeTemplateName => {
   return value === "default";
 };
 
+/** Default choice before a browser saves theme preferences. */
 export const defaultThemeSettings: ThemeSettings = {
   mode: "dark",
   source: "default",
@@ -51,6 +53,7 @@ const parseThemeSettings = (value: unknown): ThemeSettings | null => {
   };
 };
 
+/** Reads a validated theme preference or returns the default choice. */
 export const loadThemeSettings = (): ThemeSettings => {
   if (typeof window === "undefined") {
     return defaultThemeSettings;
@@ -70,6 +73,7 @@ export const loadThemeSettings = (): ThemeSettings => {
   }
 };
 
+/** Saves the admin panel's chosen theme for same-origin LiteNAS apps. */
 export const saveThemeSettings = (settings: ThemeSettings): void => {
   if (typeof window === "undefined") {
     return;

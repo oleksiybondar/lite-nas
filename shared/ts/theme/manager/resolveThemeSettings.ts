@@ -1,8 +1,9 @@
-import type { ResolvedThemeSettings, ThemeMode, ThemeSettings } from "@theme/types";
+import type { ResolvedThemeSettings, ThemeMode, ThemeSettings } from "../types";
 
 const defaultThemeMode: ThemeMode = "dark";
 const defaultThemeTemplateName = "default";
 
+/** Resolves default, OS, or saved user preferences into active theme options. */
 export const resolveThemeSettings = (
   settings: ThemeSettings,
   osMode: ThemeMode,

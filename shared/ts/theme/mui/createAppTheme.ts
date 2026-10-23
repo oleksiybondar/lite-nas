@@ -1,10 +1,10 @@
 import type { Theme } from "@mui/material/styles";
 import { createTheme } from "@mui/material/styles";
+import { themeRegistry } from "../registry";
+import type { ThemeMode, ThemeTemplateName } from "../types";
+import { getComponentOverrides } from "./components";
 
-import { getComponentOverrides } from "@theme/mui/components";
-import { themeRegistry } from "@theme/registry";
-import type { ThemeMode, ThemeTemplateName } from "@theme/types";
-
+/** Creates the MUI theme used by each LiteNAS browser application. */
 export const createAppTheme = (templateName: ThemeTemplateName, mode: ThemeMode): Theme => {
   const selectedTemplate = themeRegistry[templateName];
   const templateOptions = mode === "dark" ? selectedTemplate.dark : selectedTemplate.light;

@@ -1,5 +1,6 @@
 import type { ThemeOptions } from "@mui/material/styles";
 
+/** Returns shared MUI component defaults and style overrides. */
 export const getComponentOverrides = (): ThemeOptions["components"] => {
   return {
     MuiButton: {
