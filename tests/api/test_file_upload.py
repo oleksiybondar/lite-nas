@@ -495,3 +495,44 @@ def test_admin_cannot_upload_into_critical_path(
     """
     status = denied_upload_status(api_client, admin_cookie, directory)
     expect(status).to_be(HTTPStatus.FORBIDDEN)
+
+
+# Requirements: file-service-svc/FR-001 and file-service-svc/FR-005.
+@pytest.mark.parametrize(
+    "method",
+    ["GET", "HEAD", "PATCH", "DELETE", "PUT"],
+)
+def test_other_user_cannot_access_resumable_upload(
+    api_client: RESTClient,
+    operator_cookie: str,
+    testsudo_cookie: str,
+    upload_target: str,
+    method: str,
+) -> None:
+    """Test case: an upload ID does not grant another user access to the upload.
+
+    Preparation:
+    - The operator creates a resumable upload with a known ID.
+    - A second account has its own valid session.
+
+    Action:
+    - The second account sends the selected progress or mutation request.
+
+    Expected result:
+    - The upload resource remains hidden from the second account.
+    """
+    upload_id, _ = start_upload(api_client, operator_cookie, upload_target, CONTENT)
+    try:
+        endpoint = f"{UPLOAD_ENDPOINT}/{upload_id}"
+        if method == "PUT":
+            endpoint += "/completion"
+        response = api_client.request(
+            method=method,
+            path=endpoint,
+            payload=b"x" if method == "PATCH" else None,
+            headers={"Origin": ORIGIN, "Upload-Offset": "0"},
+            cookies={ACCESS_COOKIE: testsudo_cookie},
+        ).execute()
+        expect(response.status).to_be(HTTPStatus.NOT_FOUND)
+    finally:
+        cancel_upload(api_client, operator_cookie, upload_id)
