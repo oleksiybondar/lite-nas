@@ -31,11 +31,12 @@ local time zone.
 
 ### file-explorer-app/FR-002 Present one or two independent panels
 
-The default view MUST have two independently navigable panels and highlight
-the active panel. A header control MUST switch between one-panel and two-panel
-views without discarding either panel's directory or history. File operations
-MUST use the active panel's selection. Copy and Move MUST appear only in
-two-panel view and use the other panel's current directory as the target.
+The default view MUST show one panel and hide hidden files. A header control
+MUST switch between one-panel and two-panel views. Both panels MUST remain
+independently navigable, and the active panel MUST be highlighted. Switching
+views MUST preserve both panels' directory and history. File operations MUST
+use the active panel's selection. Copy and Move MUST appear only in two-panel
+view and use the other panel's current directory as the target.
 
 ### file-explorer-app/FR-003 Select and inspect entries
 

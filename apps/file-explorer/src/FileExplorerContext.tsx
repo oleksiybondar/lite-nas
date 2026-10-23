@@ -289,7 +289,7 @@ function useExplorerPanels(): Pick<
     { directory: "/", history: [], selected: [] },
   ]);
   const [activePanel, setActivePanel] = useState<0 | 1>(0);
-  const [doublePanel, setDoublePanel] = useState(true);
+  const [doublePanel, setDoublePanel] = useState(false);
   const navigate = (panel: 0 | 1, directory: string): void =>
     navigatePanel(setPanels, setActivePanel, panel, directory);
   const back = (panel: 0 | 1): void => backPanel(setPanels, setActivePanel, panel);
