@@ -109,6 +109,8 @@ jobs:
             dir: ./services/litenas-integrity
           - name: Network metrics service
             dir: ./services/network-metrics
+          - name: Process metrics service
+            dir: ./services/process-metrics
           - name: Disk metrics service
             dir: ./services/disk-metrics
           - name: Service metrics service
@@ -363,6 +365,15 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Process metrics
+              artifact_name: process-metrics-linux
+              build_script: scripts/build-process-metrics-binary.sh
+              output_path: .build/process-metrics/linux-amd64/process-metrics
+              test_script: scripts/test-process-metrics.sh --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Disk metrics
               artifact_name: disk-metrics-linux
               build_script: scripts/build-disk-metrics-binary.sh
@@ -494,6 +505,15 @@ jobs:
               build_script: scripts/build-network-metrics-binary.sh
               output_path: .build/network-metrics/linux-arm64/network-metrics
               test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Process metrics
+              artifact_name: process-metrics-linux
+              build_script: scripts/build-process-metrics-binary.sh
+              output_path: .build/process-metrics/linux-arm64/process-metrics
+              test_script: scripts/test-process-metrics.sh --with-coverage
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -794,6 +814,12 @@ jobs:
         with:
           name: network-metrics-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/network-metrics
+
+      - name: Download process metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: process-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/process-metrics
 
       - name: Download disk metrics build artifact
         uses: actions/download-artifact@v4

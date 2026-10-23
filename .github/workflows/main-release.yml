@@ -85,6 +85,14 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Process metrics
+              artifact_name: process-metrics-linux
+              build_script: scripts/build-process-metrics-binary.sh
+              output_path: .build/process-metrics/linux-amd64/process-metrics
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Disk metrics
               artifact_name: disk-metrics-linux
               build_script: scripts/build-disk-metrics-binary.sh
@@ -201,6 +209,14 @@ jobs:
               artifact_name: network-metrics-linux
               build_script: scripts/build-network-metrics-binary.sh
               output_path: .build/network-metrics/linux-arm64/network-metrics
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Process metrics
+              artifact_name: process-metrics-linux
+              build_script: scripts/build-process-metrics-binary.sh
+              output_path: .build/process-metrics/linux-arm64/process-metrics
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -477,6 +493,9 @@ jobs:
       - name: Test admin-panel
         run: scripts/test-admin-panel.sh --with-coverage
 
+      - name: Test File Explorer
+        run: scripts/test-file-explorer.sh --with-coverage
+
   build-release-package:
     name: LiteNAS release package (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -533,6 +552,12 @@ jobs:
         with:
           name: network-metrics-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/network-metrics
+
+      - name: Download process metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: process-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/process-metrics
 
       - name: Download disk metrics build artifact
         uses: actions/download-artifact@v4
