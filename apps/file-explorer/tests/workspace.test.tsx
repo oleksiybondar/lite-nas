@@ -186,6 +186,17 @@ async function confirmFileAction(buttonTestId: string) {
   });
 }
 
+/** Opens a text preview and waits until its content has loaded. */
+async function openTextPreview(panel: HTMLElement) {
+  vi.mocked(fetch).mockImplementationOnce(
+    async () => new Response("const value = 1;", { status: 200 }),
+  );
+  await selectSourceFile(panel);
+  fireEvent.click(screen.getByTestId("file-explorer-preview-button"));
+  await screen.findByText("TXT source");
+  return screen.getByRole("dialog");
+}
+
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The controls are tested together as one user-facing region.
 describe("File Explorer controls", () => {
   test("file-explorer-app/FR-008 requires yes before a consequential action", async () => {
@@ -647,4 +658,21 @@ describe("File Explorer workspace", () => {
       requestBody: mkdirRequest?.body,
     }).toEqual({ requestSubmitted: true, requestBody: JSON.stringify({ path: "/dest/new" }) });
   });
+});
+
+test("file-explorer-app/FR-003 shows a close control in the large preview dialog", async () => {
+  const { left } = await renderTransferWorkspace();
+  const dialog = await openTextPreview(left);
+  expect({
+    closeButtonVisible: screen.getByRole("button", { name: "Close preview" }) !== null,
+    largeWidth: dialog.classList.contains("MuiDialog-paperWidthLg"),
+  }).toEqual({ closeButtonVisible: true, largeWidth: true });
+});
+
+test("file-explorer-app/FR-003 closes a preview with its close control", async () => {
+  const { left } = await renderTransferWorkspace();
+  await openTextPreview(left);
+  fireEvent.click(screen.getByRole("button", { name: "Close preview" }));
+  await waitForElementToBeRemoved(() => screen.getByRole("dialog"));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

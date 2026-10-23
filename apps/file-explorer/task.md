@@ -36,8 +36,9 @@ admin-panel utility and is not a standalone product.
   hidden files visible; when hidden files are turned off, remove dot-prefixed
   entries from both panels and from available actions.
 - Preview supported images and PDFs inline, use native HTML controls for audio
-  and video, and show supported text, markup, data, and code as escaped text
-  with an extension label. Never execute previewed file contents.
+  and video, and show supported text, markup, data, and code as escaped content
+  with syntax highlighting for recognized grammars and an extension label.
+  Never execute previewed file contents.
 - Show Copy, Move, Preview, Delete, Upload, and New folder in the bottom action
   bar. Copy and Move use the opposite panel as their destination and appear in
   two-panel mode. Copy, Move, and Delete require typing `yes` in a reusable

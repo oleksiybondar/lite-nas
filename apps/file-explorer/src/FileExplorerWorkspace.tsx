@@ -1,4 +1,5 @@
 import { UploadDialog } from "@lite-nas/file-upload";
+import CloseIcon from "@mui/icons-material/Close";
 import {
   Alert,
   Box,
@@ -7,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  IconButton,
   Stack,
   Typography,
 } from "@mui/material";
@@ -31,6 +33,7 @@ import {
   transferEntry,
   visibleFileEntries,
 } from "./file-service";
+import { highlightSource } from "./highlight-source";
 import { NewFolderDialog } from "./NewFolderDialog";
 import { displayName, fileServicePath } from "./paths";
 
@@ -235,7 +238,12 @@ function PreviewDialog({
   const PreviewContent = kind === null ? null : previewContentByKind[kind];
   return (
     <Dialog open={path !== null} onClose={onClose} fullWidth maxWidth="lg">
-      <DialogTitle>{path === null ? "Preview" : displayName(path)}</DialogTitle>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {path === null ? "Preview" : displayName(path)}
+        <IconButton aria-label="Close preview" onClick={onClose} edge="end" size="small">
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent sx={{ minHeight: 160 }}>
         {path !== null && PreviewContent !== null && (
           <PreviewContent path={path} extension={extension} />
@@ -323,6 +331,7 @@ function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement
 
   if (error) return <Alert severity="error">{error}</Alert>;
   if (content === null) return <CircularProgress aria-label="Loading text preview" />;
+  const highlighted = highlightSource(content, extension);
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
@@ -338,9 +347,23 @@ function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement
           borderRadius: 1,
           fontFamily: "monospace",
           whiteSpace: "pre",
+          "& .token.comment, & .token.prolog, & .token.cdata": {
+            color: "text.secondary",
+            fontStyle: "italic",
+          },
+          "& .token.keyword, & .token.boolean, & .token.atrule": {
+            color: "primary.main",
+            fontWeight: 700,
+          },
+          "& .token.string, & .token.attr-value, & .token.regex": { color: "success.main" },
+          "& .token.number, & .token.constant": { color: "warning.main" },
+          "& .token.function, & .token.class-name, & .token.selector": {
+            color: "secondary.main",
+          },
+          "& .token.operator, & .token.punctuation": { color: "text.secondary" },
         }}
       >
-        <code>{content}</code>
+        <code>{highlighted ?? content}</code>
       </Box>
     </Box>
   );

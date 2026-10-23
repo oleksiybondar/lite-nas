@@ -17,6 +17,7 @@
     "@lite-nas/formatting": "file:../../shared/ts/formatting",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
+    "reprism": "^0.0.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^4.4.3"

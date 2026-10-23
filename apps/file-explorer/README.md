@@ -16,8 +16,8 @@ formatting comes from the reusable `@lite-nas/formatting` package. The Show
 hidden files control starts enabled and sits beside the one/two-panel switch;
 turning it off hides dot-prefixed entries from both panels and their actions.
 Preview supports images, PDFs, browser audio/video controls, and escaped text
-for supported markup, data, and source formats. Text previews display source
-as text and never execute file contents.
+for supported markup, data, and source formats, with syntax highlighting for
+recognized grammars. Text previews never execute file contents.
 
 The shared `@lite-nas/formatting` package exports `formatByteSize(size)` for
 nullable byte counts. It uses 1024-byte unit steps, displays B/KB/MB/GB/TB, and

@@ -47,9 +47,11 @@ structured data, markup, code, and other files. Double-clicking a directory
 MUST enter it. Double-clicking a file MUST open its `/f/{absolute-path...}`
 resource in a new tab. Preview MUST show supported images and PDFs inline,
 provide native HTML audio or video controls for supported media, and display
-supported text, markup, data, and source files as escaped plain text with an
-extension label. Text previews MUST NOT execute markup or source code.
-Unsupported file types MUST NOT offer Preview.
+supported text, markup, data, and source files as escaped content with an
+extension label. Files with a supported syntax grammar MUST show syntax
+highlighting. Text previews MUST NOT execute markup or source code.
+Unsupported file types MUST NOT offer Preview. The preview dialog MUST include
+a visible close control and use the large dialog width.
 
 Names beginning with `.` MUST be treated as hidden files or folders. The
 workspace MUST provide a Show hidden files toggle beside the panel-view toggle.
@@ -166,7 +168,8 @@ navigation, independent panel histories, view switching, active selection,
 keyboard multi-selection, metadata grid values and horizontal scrolling,
 hidden-file visibility and selection behavior, file opening, image/PDF/media/
 text previews, escaped text rendering, folder creation, upload, confirmation
-gating, copy and move destination paths, file and directory delete responses,
+gating and preview dismissal, copy and move destination paths, file and
+directory delete responses,
 queue progress, and job restoration after browser reload. Size formatting MUST
 be covered for null, byte, and supported unit boundaries. Build and deployment
 checks MUST verify the Nginx mount, admin-panel embed, shared theme, shared
