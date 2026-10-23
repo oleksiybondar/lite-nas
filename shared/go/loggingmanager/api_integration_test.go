@@ -39,6 +39,24 @@ func TestListEventsReturnsCreatedEvent(t *testing.T) {
 	}
 }
 
+// TestListEventsTreatsSQLSyntaxAsCategoryData verifies that a browser-reachable filter cannot alter the SQLite predicate.
+func TestListEventsTreatsSQLSyntaxAsCategoryData(t *testing.T) {
+	t.Parallel()
+
+	rig := newRunningCoreRig(t)
+	mustCreateEvent(t, rig, "system")
+
+	page, err := rig.core.ListEventsPage(dto.ListEventsInput{Page: 1, Filters: []dto.Filter{{
+		Key: dto.FilterKeyCategory, Condition: dto.FilterConditionEQ, Values: []string{"' OR 1=1 --"},
+	}}})
+	if err != nil {
+		t.Fatalf("ListEventsPage() error = %v", err)
+	}
+	if page.TotalCount != 0 {
+		t.Fatalf("SQL-shaped category matched %d seeded alerts, want 0", page.TotalCount)
+	}
+}
+
 func TestListEventsPageReturnsTotalCountIndependentOfPageSize(t *testing.T) {
 	t.Parallel()
 

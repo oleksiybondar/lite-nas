@@ -58,47 +58,78 @@ export function ExplorerActionQueue(): ReactElement | null {
       >
         Actions · {completed} of {queue.length} finished
       </Button>
-      <Popper open={open} anchorEl={anchor} placement="bottom-end" sx={{ zIndex: 1300 }}>
-        <ClickAwayListener onClickAway={() => setAnchor(null)}>
-          <Paper
-            id="file-explorer-action-queue"
-            variant="outlined"
-            data-testid="file-explorer-action-queue"
-            sx={{ mt: 1, p: 2, width: { xs: "min(90vw, 380px)", sm: 380 }, boxShadow: 4 }}
-          >
-            <Stack spacing={1.5}>
-              <Stack spacing={0.75}>
-                <Typography variant="subtitle2">Action progress</Typography>
-                <LinearProgress variant="determinate" value={overallProgress} />
-                {running && <RunningActionProgress action={running} />}
-              </Stack>
-              <Stack spacing={0.25}>
-                {queue.map((item) => (
-                  <Typography
-                    key={item.id}
-                    variant="body2"
-                    color={item.status === "error" ? "error" : "text.secondary"}
-                  >
-                    {item.status}: {item.label} · {Math.round(item.progress)}%
-                    {item.error ? ` — ${item.error}` : ""}
-                  </Typography>
-                ))}
-              </Stack>
-              {complete && (
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setAnchor(null);
-                    clearQueue();
-                  }}
-                >
-                  Close completed actions
-                </Button>
-              )}
-            </Stack>
-          </Paper>
-        </ClickAwayListener>
-      </Popper>
+      <ActionQueuePopover
+        open={open}
+        anchor={anchor}
+        queue={queue}
+        running={running}
+        overallProgress={overallProgress}
+        complete={complete}
+        onClose={() => setAnchor(null)}
+        onClear={() => {
+          setAnchor(null);
+          clearQueue();
+        }}
+      />
     </>
+  );
+}
+
+/** Renders queue details and lets users dismiss completed action results. */
+function ActionQueuePopover({
+  open,
+  anchor,
+  queue,
+  running,
+  overallProgress,
+  complete,
+  onClose,
+  onClear,
+}: {
+  open: boolean;
+  anchor: HTMLElement | null;
+  queue: ExplorerQueuedAction[];
+  running: ExplorerQueuedAction | undefined;
+  overallProgress: number;
+  complete: boolean;
+  onClose: () => void;
+  onClear: () => void;
+}): ReactElement {
+  return (
+    <Popper open={open} anchorEl={anchor} placement="bottom-end" sx={{ zIndex: 1300 }}>
+      <ClickAwayListener onClickAway={onClose}>
+        <Paper
+          id="file-explorer-action-queue"
+          variant="outlined"
+          data-testid="file-explorer-action-queue"
+          sx={{ mt: 1, p: 2, width: { xs: "min(90vw, 380px)", sm: 380 }, boxShadow: 4 }}
+        >
+          <Stack spacing={1.5}>
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle2">Action progress</Typography>
+              <LinearProgress variant="determinate" value={overallProgress} />
+              {running && <RunningActionProgress action={running} />}
+            </Stack>
+            <Stack spacing={0.25}>
+              {queue.map((item) => (
+                <Typography
+                  key={item.id}
+                  variant="body2"
+                  color={item.status === "error" ? "error" : "text.secondary"}
+                >
+                  {item.status}: {item.label} · {Math.round(item.progress)}%
+                  {item.error ? ` — ${item.error}` : ""}
+                </Typography>
+              ))}
+            </Stack>
+            {complete && (
+              <Button size="small" onClick={onClear}>
+                Close completed actions
+              </Button>
+            )}
+          </Stack>
+        </Paper>
+      </ClickAwayListener>
+    </Popper>
   );
 }

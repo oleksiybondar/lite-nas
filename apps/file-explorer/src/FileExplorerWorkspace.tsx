@@ -498,6 +498,42 @@ export function FileExplorerWorkspace(): ReactElement {
       data-testid="file-explorer-page"
     >
       <WorkspaceHeader />
+      <WorkspaceBody
+        explorer={explorer}
+        refresh={refresh}
+        showHidden={showHidden}
+        setShowHidden={setShowHidden}
+        selected={selected}
+        previewable={previewable}
+        controls={controls}
+        setRefresh={setRefresh}
+      />
+    </Container>
+  );
+}
+
+/** Composes the panels, action bar, and dialogs for the active workspace state. */
+function WorkspaceBody({
+  explorer,
+  refresh,
+  showHidden,
+  setShowHidden,
+  selected,
+  previewable,
+  controls,
+  setRefresh,
+}: {
+  explorer: FileExplorerContextValue;
+  refresh: number;
+  showHidden: boolean;
+  setShowHidden: Dispatch<SetStateAction<boolean>>;
+  selected: FileEntry[];
+  previewable: boolean;
+  controls: ReturnType<typeof useWorkspaceControls>;
+  setRefresh: Dispatch<SetStateAction<number>>;
+}): ReactElement {
+  return (
+    <>
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <PanelPair doublePanel={explorer.doublePanel} refresh={refresh} showHidden={showHidden} />
       </Box>
@@ -529,7 +565,7 @@ export function FileExplorerWorkspace(): ReactElement {
         onConfirmAction={controls.confirmAction}
         onClosePreview={() => controls.setPreviewPath(null)}
       />
-    </Container>
+    </>
   );
 }
 

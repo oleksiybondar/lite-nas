@@ -1,7 +1,9 @@
 package main
 
 import (
+	"mime"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +35,35 @@ func TestSafeContentTypeIncludesPassiveMedia(t *testing.T) {
 				t.Fatalf("safeContentType(%q) = %q, want %q", test.path, got, test.want)
 			}
 		})
+	}
+}
+
+// TestDownloadQuotesHeaderSyntaxInFilename covers file-service-svc/FR-003 response headers.
+func TestDownloadQuotesHeaderSyntaxInFilename(t *testing.T) {
+	root := t.TempDir()
+	name := "report\r\nX-Injected: yes.txt"
+	path := filepath.Join(root, name)
+	if err := os.WriteFile(path, []byte("safe"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service, _ := mustWorkflowService(t, root)
+	service.readerCommand = openWorkflowFile
+	escaped := strings.ReplaceAll(strings.ReplaceAll(path, "\r", "%0D"), "\n", "%0A")
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.URL.Path = path
+	request.URL.RawPath = escaped
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("download = %d %q, want 200", response.Code, response.Body.String())
+	}
+	_, parameters, err := mime.ParseMediaType(response.Header().Get("Content-Disposition"))
+	if err != nil {
+		t.Fatalf("parse content disposition: %v", err)
+	}
+	if parameters["filename"] != name {
+		t.Fatalf("content disposition filename = %q, want %q", parameters["filename"], name)
 	}
 }
 

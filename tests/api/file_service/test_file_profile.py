@@ -7,7 +7,11 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 import pytest
-from constants import API_BASE_URL, SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN, TEST_SUDO_LOGIN
+from constants import (
+    API_BASE_URL,
+    SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
+    TEST_SUDO_LOGIN,
+)
 from hyperiontf import CLIClient, RESTClient, expect
 
 from .conftest import ACCESS_COOKIE
@@ -104,6 +108,46 @@ def test_profile_document_round_trip(
 
 
 # Requirements: file-service-svc/FR-012.
+@pytest.mark.usefixtures("profile_workspace")
+def test_profile_expression_text_remains_literal_data(
+    api_client: RESTClient, operator_cli_client: CLIClient, operator_cookie: str
+) -> None:
+    """Test case: profile JSON does not execute expression-shaped text.
+
+    Preparation:
+    - The operator's existing profile document is backed up.
+
+    Action:
+    - Publish and read a profile document containing template and code syntax
+      that would create a separate sentinel if interpreted.
+
+    Expected result:
+    - The document is returned literally and no sentinel is created.
+    """
+    sentinel = f"/home/{SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN}/.lite-nas-eval-{uuid4().hex}"
+    document = {
+        "template": "{{ 7 * 7 }}",
+        "expression": f"__import__('os').system('touch {sentinel}')",
+    }
+    try:
+        written = api_client.put(
+            path="/f/profile/ui",
+            payload={"document": document},
+            headers={"Origin": ORIGIN},
+            cookies={ACCESS_COOKIE: operator_cookie},
+        )
+        if written.status not in (200, 201):
+            pytest.fail(f"profile publication failed: HTTP {written.status}")
+        read = api_client.get(path="/f/profile/ui", cookies={ACCESS_COOKIE: operator_cookie})
+        if read.body != document:
+            pytest.fail("profile expression was not returned literally")
+        operator_cli_client.execute(f"test ! -e {shlex.quote(sentinel)}")
+        operator_cli_client.assert_exit_code(0)
+    finally:
+        operator_cli_client.execute(f"rm -f -- {shlex.quote(sentinel)}")
+
+
+# Requirements: file-service-svc/FR-012.
 @pytest.mark.parametrize("name", ["ui.json", "admin-panel.json"])
 def test_other_user_cannot_read_private_profile_document(  # noqa: PLR0913
     api_client: RESTClient,
@@ -163,7 +207,8 @@ def test_other_authenticated_user_can_read_fixed_avatar(
     """
     put_avatar(api_client, operator_cookie)
     response = api_client.get(
-        path=f"/f{profile_workspace}/avatar.image", cookies={ACCESS_COOKIE: testsudo_cookie}
+        path=f"/f{profile_workspace}/avatar.image",
+        cookies={ACCESS_COOKIE: testsudo_cookie},
     )
     expect(response.status).to_be(200)
 
@@ -211,7 +256,8 @@ def test_private_avatar_does_not_receive_cross_user_exception(
     operator_cli_client.execute(f"chmod 0600 -- {shlex.quote(profile_workspace + '/avatar.image')}")
     operator_cli_client.assert_exit_code(0)
     response = api_client.get(
-        path=f"/f{profile_workspace}/avatar.image", cookies={ACCESS_COOKIE: testsudo_cookie}
+        path=f"/f{profile_workspace}/avatar.image",
+        cookies={ACCESS_COOKIE: testsudo_cookie},
     )
     expect(response.status).to_be(404)
 
@@ -243,7 +289,8 @@ def test_avatar_exception_is_limited_to_inline_file_route(
     )
     operator_cli_client.assert_exit_code(0)
     response = api_client.get(
-        path=f"/d{profile_workspace}/avatar.image", cookies={ACCESS_COOKIE: testsudo_cookie}
+        path=f"/d{profile_workspace}/avatar.image",
+        cookies={ACCESS_COOKIE: testsudo_cookie},
     )
     expect(response.status).to_be(403)
 
@@ -275,6 +322,7 @@ def test_avatar_exception_allows_named_acl_denial(
     )
     operator_cli_client.assert_exit_code(0)
     response = api_client.get(
-        path=f"/f{profile_workspace}/avatar.image", cookies={ACCESS_COOKIE: testsudo_cookie}
+        path=f"/f{profile_workspace}/avatar.image",
+        cookies={ACCESS_COOKIE: testsudo_cookie},
     )
     expect(response.status).to_be(200)
