@@ -8,6 +8,8 @@ import type { ReactElement } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { loadMe, request } from "./api";
 import { Login } from "./Login";
+import { MomentsLayout } from "./MomentsLayout";
+import { MomentsPublicHeader } from "./MomentsPublicHeader";
 import { MomentsShell } from "./MomentsShell";
 import type { Me } from "./schemas";
 
@@ -32,7 +34,11 @@ export const App = (): ReactElement => {
 
   let content: ReactElement;
   if (me === undefined) {
-    content = <Container sx={{ py: 8 }}>Loading Moments…</Container>;
+    content = (
+      <MomentsLayout header={<MomentsPublicHeader />}>
+        <Container sx={{ py: 8, my: "auto" }}>Loading Moments…</Container>
+      </MomentsLayout>
+    );
   } else if (me === null) {
     content = <Login onSuccess={setMe} />;
   } else {

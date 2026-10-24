@@ -6,6 +6,7 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { logout, saveSharedMode } from "./api";
 import { MomentsHeader } from "./MomentsHeader";
+import { MomentsLayout } from "./MomentsLayout";
 import { Settings } from "./Settings";
 import type { Me } from "./schemas";
 import { useProfileAvatar } from "./useProfileAvatar";
@@ -44,17 +45,20 @@ export const MomentsShell = ({
   };
 
   return (
-    <>
-      <MomentsHeader
-        username={me.user.login}
-        fullName={me.user.full_name}
-        avatarUrl={avatar ?? me.user.avatar_url}
-        onHome={() => setView("home")}
-        onProfile={() => setView("profile")}
-        onApplicationSettings={() => setView("appearance")}
-        onLogout={() => void onLogout()}
-      />
-      <Container sx={{ py: 4 }}>
+    <MomentsLayout
+      header={
+        <MomentsHeader
+          username={me.user.login}
+          fullName={me.user.full_name}
+          avatarUrl={avatar ?? me.user.avatar_url}
+          onHome={() => setView("home")}
+          onProfile={() => setView("profile")}
+          onApplicationSettings={() => setView("appearance")}
+          onLogout={() => void onLogout()}
+        />
+      }
+    >
+      <Container maxWidth={false} sx={{ py: 4, width: "100%" }}>
         {view === "home" ? (
           <Paper data-testid="moments-home" sx={{ p: 4 }}>
             <Typography variant="h1">Moments</Typography>
@@ -72,6 +76,6 @@ export const MomentsShell = ({
           />
         )}
       </Container>
-    </>
+    </MomentsLayout>
   );
 };
