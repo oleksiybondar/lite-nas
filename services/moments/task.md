@@ -9,6 +9,8 @@ Service for media byte delivery and File Service for file access and uploads.
 
 The installed service name is `lite-nas-moments`. The application path is
 `services/moments`; its browser UI is the separate `apps/moments` React app.
+The [Moments architecture](../../docs/moments-architecture.md) distinguishes
+the initial File Service gallery demo from this later metadata API work.
 
 ## Responsibilities and boundaries
 

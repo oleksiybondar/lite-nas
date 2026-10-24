@@ -25,6 +25,7 @@ incrementally on top of this working skeleton.
 - [Overview](#overview)
 - [Goals & Philosophy](#goals--philosophy)
 - [Architecture Overview](#architecture-overview)
+- [Moments and Media Architecture](#moments-and-media-architecture)
 - [Monorepo Structure](#monorepo-structure)
 - [Core Features](#core-features)
 - [Configuration Validation Engine](#configuration-validation-engine)
@@ -117,6 +118,21 @@ and packaging flow.
 
 A dedicated auth authority keeps PAM-backed host authentication, token
 issuance, and emergency auth-state control out of the browser gateway.
+
+## Moments and Media Architecture
+
+Moments is the family-facing personal media application. Its authenticated
+browser shell, profile settings, and embedded and standalone hosts exist today;
+the gallery and album APIs are planned. A first gallery demo can browse
+authorized originals through File Service while the Moments metadata API and
+Stream Service playback contract are developed separately. The gallery design
+calls for bounded requests and a virtualized wall so browsing large collections
+does not overload shared ZFS storage. The full service boundaries, demo scope, and
+frontend design are in the [Moments architecture](docs/moments-architecture.md).
+
+Moments is prioritized for practical family use in this development slice. It
+is adjacent to the security and platform skeleton work, not a requirement of
+that skeleton.
 
 ## Monorepo Structure
 
@@ -246,8 +262,10 @@ Planned expansion areas:
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
 
-- **Media services (planned)**
-  Support for media storage and browsing, including a gallery-style experience for personal content.
+- **Moments gallery (next product priority)**
+  Build a useful gallery demo over existing authorized files, then add album
+  metadata and richer media behavior through the separately defined service
+  contracts. See the [Moments architecture](docs/moments-architecture.md).
 
 ## Configuration Validation Engine
 

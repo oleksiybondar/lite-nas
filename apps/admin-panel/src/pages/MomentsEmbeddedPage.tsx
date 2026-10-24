@@ -8,6 +8,7 @@ export const MomentsEmbeddedPage = (): ReactElement => {
       <Typography variant="h1">Moments</Typography>
       <iframe
         title="Moments"
+        allowFullScreen
         src="/apps/moments/"
         data-testid="moments-frame"
         style={{ width: "100%", minHeight: "70vh", border: 0 }}

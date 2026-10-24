@@ -5,6 +5,25 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## Unreleased
+
+### RL-Unreleased Summary
+
+- Set Moments gallery work as the next family-use product priority alongside
+  the security and platform slice, outside the security skeleton's scope.
+
+### RL-Unreleased Changed
+
+- Documented a first gallery demo using the existing Moments shell and
+  authorized File Service routes, with bounded loading of original media.
+- Connected the detailed gallery frontend design to the LiteNAS Moments
+  architecture and existing app, service, and Stream Service tasks.
+
+### RL-Unreleased Notes
+
+- This entry records documentation and priorities only. Album/gallery APIs,
+  video range playback, and Live Photo motion are not delivered by this change.
+
 ## 0.3.0 - 2026-10-23
 
 ### RL-0.3.0 Summary

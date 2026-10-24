@@ -7,6 +7,13 @@ separately deployable React application that works embedded in the admin panel
 at `/apps/moments` and directly through the Moments host configured for the
 deployment.
 
+The [LiteNAS Moments architecture](../../docs/moments-architecture.md) defines
+the current service boundaries and first gallery demo. The
+[gallery design task](../gallery_taks.md) describes the longer-term wall and
+viewer experience. Start with the contract-backed File Service demo before
+implementing the full album workflow below; do not treat the gallery task's
+example TypeScript models as backend DTOs.
+
 ## User behavior
 
 - Let users create, rename, and remove albums. Each album has a readable name

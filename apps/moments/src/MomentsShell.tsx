@@ -1,17 +1,17 @@
 import type { ThemeMode } from "@lite-nas/theme";
+import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { logout, saveSharedMode } from "./api";
+import { DemoGallery } from "./DemoGallery";
 import { MomentsHeader } from "./MomentsHeader";
 import { MomentsLayout } from "./MomentsLayout";
 import { Settings } from "./Settings";
 import type { Me } from "./schemas";
 import { useProfileAvatar } from "./useProfileAvatar";
 
-/** Provides the authenticated header, empty home, and shared settings views. */
+/** Provides the authenticated header, demo gallery, and shared settings views. */
 export const MomentsShell = ({
   me,
   mode,
@@ -60,9 +60,9 @@ export const MomentsShell = ({
     >
       <Container maxWidth={false} sx={{ py: 4, width: "100%" }}>
         {view === "home" ? (
-          <Paper data-testid="moments-home" sx={{ p: 4 }}>
-            <Typography variant="h1">Moments</Typography>
-          </Paper>
+          <Box data-testid="moments-home">
+            <DemoGallery />
+          </Box>
         ) : (
           <Settings
             view={view}

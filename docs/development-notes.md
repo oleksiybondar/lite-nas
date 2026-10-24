@@ -1,5 +1,21 @@
 # Development Notes
 
+## Why Moments is in this slice
+
+The security and platform skeleton establishes authentication, file access,
+deployment, and browser hosting. The Moments gallery is outside that skeleton's
+security scope. It is included as a near-term product priority because photo
+browsing is the most useful LiteNAS application for the maintainer's family.
+
+The first target is a reviewable gallery demo over existing File Service
+routes, with bounded original-media loading and a responsive viewing flow.
+The existing Moments shell supplies authentication and hosting. Album, tag,
+pagination, and persistence contracts still need the planned Moments service;
+video range playback and Live Photo motion depend on the Stream Service work.
+This sequencing exercises the existing platform with a real household use case
+without treating unfinished backend APIs as implemented. See the
+[Moments architecture](moments-architecture.md).
+
 ## Why system-metrics came first
 
 The `system-metrics` service is not the highest business-value capability in the

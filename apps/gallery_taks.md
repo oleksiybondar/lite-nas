@@ -1,14 +1,30 @@
-# Technical Task Definition
+# Moments Gallery — Frontend Design Task
 
 ## High-Performance Virtualized Mixed-Media Gallery
 
-**Version:** 2.0 — Consolidated specification  
-**Status:** Ready for implementation  
+**Version:** 2.1 — Integrated with LiteNAS planning
+**Status:** Design direction; service integration requires contract decisions
 **Technology:** React, TypeScript, Material UI, Motion for React  
-**Architecture:** Context-driven, headless services, virtualized views, original-media-only transport  
+**Architecture:** Bounded media loading, virtualized views, original-media-first transport
 **Primary constraint:** NAS-friendly performance with no server-side media processing
 
 ---
+
+This task describes the intended Moments gallery frontend and user experience.
+Read it with the [LiteNAS Moments architecture](../docs/moments-architecture.md),
+the [Moments app task](moments/task.md), and the
+[Moments service task](../services/moments/task.md). The latter documents backend
+ownership and decisions still required. TypeScript examples below are proposed
+view-local models, not implemented HTTP DTOs or approved API routes.
+
+The first reviewable increment is a gallery demo that reads authorized files
+through the existing File Service contracts. Build only the pieces needed for
+that increment. Albums, persisted layout settings, tags, cover generation,
+and Stream Service playback belong to later contract-backed work. The detailed
+architecture below remains the direction for a full gallery, not a mandate to
+create every named context, service, or file before the demo works.
+Original-file-only delivery is the gallery's baseline; any future Stream
+Service codec behavior is a separate documented playback decision.
 
 ## 1. Project Overview
 
@@ -320,7 +336,9 @@ These boundaries must remain explicit.
 
 ## 6. Backend Metadata Contract
 
-The application backend returns gallery metadata as JSON.
+The planned Moments application backend returns gallery metadata as JSON once
+its API contract is defined. For the first demo, adapt validated File Service
+listing data into a view-local model instead.
 
 It is a thin metadata service, not a media-processing backend.
 
@@ -410,7 +428,8 @@ The frontend must function without requiring backend-generated previews or addit
 
 ## 6.4 Backend Layout Configuration
 
-The layout mode is stored in the database as part of gallery settings.
+Persistent layout mode is planned for Moments metadata. The first demo may use
+an application default or local view state until a settings API is defined.
 
 ```typescript
 type GalleryLayoutMode =
@@ -1560,6 +1579,18 @@ Do not make animation necessary for understanding or operating the application.
 ---
 
 ## 29. Implementation Phases
+
+## Phase 0 — File Service Demo
+
+- Confirm the existing authenticated File Service listing and original-file
+  delivery contracts in code and map validated responses into a minimal gallery
+  view model.
+- Display a bounded responsive image wall and modal viewer over authorized
+  files, preserving wall scroll position and providing file fallbacks.
+- Share a conservative loading budget and verify behavior on a realistic
+  original-file collection before adding more state layers.
+- Keep unsupported video/Live Photo playback explicit until the relevant
+  documented delivery contract is available.
 
 ## Phase 1 — Gallery Domain and Contexts
 
