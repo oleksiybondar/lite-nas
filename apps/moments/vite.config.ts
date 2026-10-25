@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
@@ -14,7 +15,11 @@ export default defineConfig({
   plugins: [react()],
   test: {
     coverage: {
-      include: ["src/**/*.{ts,tsx}"],
+      allowExternal: true,
+      include: [
+        resolve("src/**/*.{ts,tsx}"),
+        resolve("../../shared/ts/file-browser/FileSelectionPage.tsx"),
+      ],
       thresholds: { branches: 75, functions: 75, lines: 75, statements: 75 },
     },
   },

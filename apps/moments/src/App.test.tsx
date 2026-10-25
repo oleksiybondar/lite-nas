@@ -94,6 +94,16 @@ test("thumbnail maker is available from Moments navigation", async () => {
   expect(screen.getByTestId("thumbnail-maker")).toBeTruthy();
 });
 
+test.each([
+  ["Select folder", "file-selection-folder"],
+  ["Select file", "file-selection-file"],
+])("moments/FR-004 opens the %s page", async (label, testId) => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  fireEvent.click(await screen.findByRole("button", { name: label }));
+  expect(await screen.findByTestId(testId)).toBeTruthy();
+});
+
 // Requirements: moments/FR-002. Authenticated users can inspect their profile.
 test("user menu opens the shared profile screen", async () => {
   vi.mocked(loadMe).mockResolvedValue(me);

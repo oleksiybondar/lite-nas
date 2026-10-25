@@ -1,7 +1,12 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: shell navigation stays together while the demo views are reviewed.
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: shell view routing stays explicit for the current screens.
+
+import { FileSelectionDialog, FolderSelectionDialog } from "@lite-nas/file-browser";
 import type { ThemeMode } from "@lite-nas/theme";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { logout, saveSharedMode } from "./api";
@@ -26,7 +31,11 @@ export const MomentsShell = ({
   onSignedOut: () => void;
 }): ReactElement => {
   const [view, setView] = useState<"home" | "thumbnail" | "profile" | "appearance">("home");
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const avatar = useProfileAvatar();
 
   const saveMode = async (value: ThemeMode): Promise<void> => {
@@ -55,15 +64,38 @@ export const MomentsShell = ({
           avatarUrl={avatar ?? me.user.avatar_url}
           onHome={() => setView("home")}
           onThumbnailMaker={() => setView("thumbnail")}
+          onSelectFolder={() => setFolderDialogOpen(true)}
+          onSelectFile={() => setFileDialogOpen(true)}
           onProfile={() => setView("profile")}
           onApplicationSettings={() => setView("appearance")}
           onLogout={() => void onLogout()}
         />
       }
     >
-      <Container maxWidth={false} sx={{ py: 4, width: "100%" }}>
+      <Container
+        maxWidth={false}
+        sx={{
+          py: 2,
+          width: "100%",
+          height: "100%",
+          minHeight: 0,
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         {view === "home" && (
           <Box data-testid="moments-home">
+            {(selectedFolder || selectedFile) && (
+              <Stack spacing={0.5} sx={{ mb: 2 }}>
+                {selectedFolder && (
+                  <Typography variant="body2">Selected folder: {selectedFolder}</Typography>
+                )}
+                {selectedFile && (
+                  <Typography variant="body2">Selected file: {selectedFile}</Typography>
+                )}
+              </Stack>
+            )}
             <DemoGallery />
           </Box>
         )}
@@ -81,6 +113,18 @@ export const MomentsShell = ({
           />
         )}
       </Container>
+      <FolderSelectionDialog
+        open={folderDialogOpen}
+        onClose={() => setFolderDialogOpen(false)}
+        initialDirectory="/home/oleksiybondar"
+        onSelect={setSelectedFolder}
+      />
+      <FileSelectionDialog
+        open={fileDialogOpen}
+        onClose={() => setFileDialogOpen(false)}
+        initialDirectory="/home/oleksiybondar"
+        onSelect={setSelectedFile}
+      />
     </MomentsLayout>
   );
 };

@@ -12,6 +12,8 @@ export const MomentsHeader = ({
   avatarUrl,
   onHome,
   onThumbnailMaker,
+  onSelectFolder,
+  onSelectFile,
   onProfile,
   onApplicationSettings,
   onLogout,
@@ -21,6 +23,8 @@ export const MomentsHeader = ({
   avatarUrl?: string | null;
   onHome: () => void;
   onThumbnailMaker: () => void;
+  onSelectFolder: () => void;
+  onSelectFile: () => void;
   onProfile: () => void;
   onApplicationSettings: () => void;
   onLogout: () => void;
@@ -34,6 +38,8 @@ export const MomentsHeader = ({
         Home
       </Button>
       <Button onClick={onThumbnailMaker}>Thumbnail maker</Button>
+      <Button onClick={onSelectFolder}>Select folder</Button>
+      <Button onClick={onSelectFile}>Select file</Button>
       <UserMenu
         login={username}
         fullName={fullName}

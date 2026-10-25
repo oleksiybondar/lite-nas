@@ -10,7 +10,11 @@ export default defineConfig({
     setupFiles: ["tests/setup.ts"],
     coverage: {
       allowExternal: true,
-      include: [resolve("src/**/*.{ts,tsx}"), resolve("../../shared/ts/formatting/index.ts")],
+      include: [
+        resolve("src/**/*.{ts,tsx}"),
+        resolve("../../shared/ts/file-browser/**/*.{ts,tsx}"),
+        resolve("../../shared/ts/formatting/index.ts"),
+      ],
       thresholds: { branches: 75, functions: 75, lines: 75, statements: 75 },
     },
   },

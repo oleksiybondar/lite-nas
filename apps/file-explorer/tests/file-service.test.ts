@@ -3,6 +3,7 @@ import {
   canPreviewFile,
   createDirectory,
   deleteEntry,
+  filterFileEntries,
   getOperationJob,
   isHiddenFileEntry,
   listDirectory,
@@ -58,6 +59,19 @@ test("file-explorer-app/IR-001 escapes a File Service resource path", () => {
 
 test("file-explorer-app/IR-001 accepts an absolute host path", () => {
   expect(hostPathSchema.safeParse("/some/thing").success).toBe(true);
+});
+
+test.each([
+  [{ include: [".JPG"] }, ["/root/photo.jpg", "/root/folder"]],
+  [{ exclude: ["jpg"] }, ["/root/notes.txt", "/root/folder"]],
+  [{ include: ["jpg", "txt"], exclude: ["txt"] }, ["/root/photo.jpg", "/root/folder"]],
+])("file-explorer-app/FR-001 filters file extensions while retaining directories", (filter, expected) => {
+  const entries = [
+    listingEntry("/root/photo.jpg", "file"),
+    listingEntry("/root/notes.txt", "file"),
+    listingEntry("/root/folder", "directory"),
+  ];
+  expect(filterFileEntries(entries, filter).map((entry) => entry.path)).toEqual(expected);
 });
 
 test.each([

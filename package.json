@@ -10,7 +10,8 @@
     "shared/ts/profile",
     "shared/ts/settings",
     "shared/ts/file-upload",
-    "shared/ts/formatting"
+    "shared/ts/formatting",
+    "shared/ts/file-browser"
   ],
   "scripts": {
     "ci:analysis": "scripts/run-ci-analysis.sh",
