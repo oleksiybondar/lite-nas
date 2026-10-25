@@ -1,3 +1,4 @@
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: shell navigation stays together while the demo views are reviewed.
 import type { ThemeMode } from "@lite-nas/theme";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -9,6 +10,7 @@ import { MomentsHeader } from "./MomentsHeader";
 import { MomentsLayout } from "./MomentsLayout";
 import { Settings } from "./Settings";
 import type { Me } from "./schemas";
+import { ThumbnailMaker } from "./ThumbnailMaker";
 import { useProfileAvatar } from "./useProfileAvatar";
 
 /** Provides the authenticated header, demo gallery, and shared settings views. */
@@ -23,7 +25,7 @@ export const MomentsShell = ({
   onModeChange: (mode: ThemeMode) => void;
   onSignedOut: () => void;
 }): ReactElement => {
-  const [view, setView] = useState<"home" | "profile" | "appearance">("home");
+  const [view, setView] = useState<"home" | "thumbnail" | "profile" | "appearance">("home");
   const [message, setMessage] = useState<string | null>(null);
   const avatar = useProfileAvatar();
 
@@ -52,6 +54,7 @@ export const MomentsShell = ({
           fullName={me.user.full_name}
           avatarUrl={avatar ?? me.user.avatar_url}
           onHome={() => setView("home")}
+          onThumbnailMaker={() => setView("thumbnail")}
           onProfile={() => setView("profile")}
           onApplicationSettings={() => setView("appearance")}
           onLogout={() => void onLogout()}
@@ -59,11 +62,13 @@ export const MomentsShell = ({
       }
     >
       <Container maxWidth={false} sx={{ py: 4, width: "100%" }}>
-        {view === "home" ? (
+        {view === "home" && (
           <Box data-testid="moments-home">
             <DemoGallery />
           </Box>
-        ) : (
+        )}
+        {view === "thumbnail" && <ThumbnailMaker />}
+        {(view === "profile" || view === "appearance") && (
           <Settings
             view={view}
             username={me.user.login}

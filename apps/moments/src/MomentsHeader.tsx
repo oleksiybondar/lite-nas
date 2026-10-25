@@ -11,6 +11,7 @@ export const MomentsHeader = ({
   fullName,
   avatarUrl,
   onHome,
+  onThumbnailMaker,
   onProfile,
   onApplicationSettings,
   onLogout,
@@ -19,6 +20,7 @@ export const MomentsHeader = ({
   fullName?: string;
   avatarUrl?: string | null;
   onHome: () => void;
+  onThumbnailMaker: () => void;
   onProfile: () => void;
   onApplicationSettings: () => void;
   onLogout: () => void;
@@ -31,6 +33,7 @@ export const MomentsHeader = ({
       <Button data-testid="moments-home-button" onClick={onHome}>
         Home
       </Button>
+      <Button onClick={onThumbnailMaker}>Thumbnail maker</Button>
       <UserMenu
         login={username}
         fullName={fullName}

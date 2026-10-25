@@ -1,22 +1,28 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: image state and EXIF overlays compose one wall tile.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: image state and EXIF overlays compose one wall tile.
+// biome-ignore-all lint/a11y/useMediaCaption: paired motion assets have no caption file in the gallery contract.
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import StopIcon from "@mui/icons-material/Stop";
 import TabletAndroidOutlinedIcon from "@mui/icons-material/TabletAndroidOutlined";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useCarousel } from "./CarouselContext";
 import { useGallery } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
 import { googleMapsUrl } from "./GalleryMaps";
 import type { GalleryItem } from "./gallery-model";
 import { useStream } from "./StreamContext";
+import { useWall } from "./WallContext";
 
 /** Chooses a familiar camera glyph from the reported device name. */
 const cameraIcon = (name: string): typeof PhotoCameraOutlinedIcon => {
@@ -37,14 +43,58 @@ export const GalleryPhotoTile = ({
 }): ReactElement => {
   const { queue, metadata: reader } = useGallery();
   const stream = useStream();
+  const { selected } = useCarousel();
+  const { activeVideoId, setActiveVideoId } = useWall();
   const status = queue.status(item.url);
   const attempt = queue.attempt(item.url);
+  const motionRef = useRef<HTMLVideoElement>(null);
+  const [motionPlaying, setMotionPlaying] = useState(false);
+  const [motionError, setMotionError] = useState(false);
   const [details, setDetails] = useState<PhotoMetadata | null | undefined>(() =>
     reader.cached(item.url),
   );
   const mapUrl = details?.location ? googleMapsUrl(details.location) : null;
   const deviceName = details?.camera?.toLowerCase() ?? "";
   const DeviceIcon = cameraIcon(deviceName);
+  useEffect(() => {
+    if (selected !== null || (activeVideoId !== null && activeVideoId !== item.id)) {
+      motionRef.current?.pause();
+      motionRef.current?.removeAttribute("src");
+      setMotionPlaying(false);
+      if (activeVideoId === item.id) setActiveVideoId(null);
+    }
+  }, [activeVideoId, item.id, selected, setActiveVideoId]);
+  useEffect(
+    () => () => {
+      motionRef.current?.pause();
+      if (activeVideoId === item.id) setActiveVideoId(null);
+    },
+    [activeVideoId, item.id, setActiveVideoId],
+  );
+
+  /** Starts the associated movie directly from this wall item. */
+  const playMotion = (): void => {
+    if (!item.motionUrl) return;
+    setMotionError(false);
+    setActiveVideoId(item.id);
+    setMotionPlaying(true);
+    const video = motionRef.current;
+    const url = stream.original(item.motionUrl);
+    if (video && url) {
+      video.src = url;
+      void video.play().catch(() => {
+        // Native controls remain available when the browser blocks immediate playback.
+      });
+    }
+  };
+
+  /** Stops wall playback and restores the still photo. */
+  const stopMotion = (): void => {
+    motionRef.current?.pause();
+    if (motionRef.current) motionRef.current.removeAttribute("src");
+    setMotionPlaying(false);
+    setActiveVideoId(null);
+  };
   useEffect(() => {
     if (!interested) return;
     const cached = reader.cached(item.url);
@@ -71,6 +121,7 @@ export const GalleryPhotoTile = ({
         position: "relative",
         width: "100%",
         height: "100%",
+        isolation: "isolate",
       }}
     >
       <Box
@@ -81,6 +132,7 @@ export const GalleryPhotoTile = ({
         sx={{
           position: "absolute",
           inset: 0,
+          zIndex: 0,
           width: "100%",
           height: "100%",
           p: 0,
@@ -126,21 +178,79 @@ export const GalleryPhotoTile = ({
         )}
         {status === "error" && <Typography sx={{ p: 2 }}>Image unavailable</Typography>}
       </Box>
+      {item.motionUrl && (
+        <Box
+          sx={{
+            display: motionPlaying ? "block" : "none",
+            position: "absolute",
+            inset: 0,
+            zIndex: 2,
+            bgcolor: "common.black",
+          }}
+        >
+          <video
+            ref={motionRef}
+            controls
+            playsInline
+            preload="none"
+            onEnded={stopMotion}
+            onError={() => {
+              setMotionError(true);
+              stopMotion();
+            }}
+            aria-label={`Live Photo motion ${item.filename}`}
+            style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        </Box>
+      )}
       {item.motionUrl && status === "ready" && (
-        <Typography
-          variant="caption"
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={
+            motionPlaying ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />
+          }
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (motionPlaying) stopMotion();
+            else playMotion();
+          }}
+          aria-label={`${motionPlaying ? "Stop" : "Play"} Live Photo ${item.filename}`}
           sx={{
             position: "absolute",
             top: 8,
             left: 8,
+            zIndex: 30,
+            pointerEvents: "auto",
+            minWidth: 0,
             px: 1,
+            py: 0.25,
             borderRadius: 1,
             color: "common.white",
             bgcolor: "rgba(0,0,0,0.7)",
-            pointerEvents: "none",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.85)" },
           }}
         >
           Live Photo
+        </Button>
+      )}
+      {motionError && (
+        <Typography
+          role="status"
+          variant="caption"
+          sx={{
+            position: "absolute",
+            top: 42,
+            left: 8,
+            zIndex: 20,
+            color: "common.white",
+            bgcolor: "rgba(0,0,0,0.75)",
+            px: 1,
+            borderRadius: 1,
+          }}
+        >
+          Motion unavailable
         </Typography>
       )}
       <Stack

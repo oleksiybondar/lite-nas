@@ -38,6 +38,44 @@ path-only demo fixture has no tag values to display.
 Album and gallery metadata APIs are not implemented yet. Appearance preferences
 apply to both embedded and standalone views.
 
+## Thumbnail maker demo
+
+Open **Thumbnail maker** from the Moments header after signing in. It uses the
+same `public/dev-fixtures/gallery.json` photo paths as the gallery. You can add
+photos through the searchable picker, generate a random selection of 1–25
+photos, or upload PNG, JPEG, WebP, or GIF files. Uploaded images are embedded
+as data URLs in browser memory and in downloaded JSON; they are not sent to a
+backend. Each image may be up to 20 MB, and one thumbnail supports 1–35 images.
+Transparent PNGs start without a backing frame and remain unframed when a
+template is applied.
+
+The editor offers scattered photos, a curved card ribbon, grid, and featured
+photo layouts. New scattered layouts spread images across the canvas and fit
+their outer corners. The ribbon starts with a transparent background. Drag the
+selected image to move it; use the corner handle to resize and the top handle
+to rotate. Numeric controls set position, size, frame ratio, rotation, zoom,
+and crop focus. Whole-composition controls move, zoom, or fit all images
+together; drag mode moves it with the pointer and uses the wheel to zoom. The layer
+list controls selection and drawing order. Frames, color and grain effects,
+shadow, canvas aspect ratio, and paper or solid backgrounds are saved in a
+versioned JSON recipe. Older demo recipes without composition settings load
+with a neutral transform. Paste a downloaded recipe into the import field to
+render it again. PNG and JPG download from the same canvas renderer as the
+preview, with pixel area at least equivalent to
+1920×1080 and a maximum canvas dimension of 4096 pixels. JPG fills a
+transparent background with white; PNG retains transparency.
+
+The image picker lists at most twelve matches at a time and loads only the
+highlighted photo preview after a short pause. Selected images decode two at a
+time into bounded working previews. The layer list uses those decoded previews
+without new image requests. Export loads originals one at a time so editing
+does not retain all full-resolution images in memory.
+
+The thumbnail maker uses bundled frontend libraries and browser canvas APIs;
+it does not load scripts, fonts, or images from an internet CDN. Gallery photos
+still need the local authenticated File and Stream Service routes. Uploaded
+photos can be edited without those media routes after Moments has loaded.
+
 ## Local build and deployment
 
 Build the two artifacts with `./scripts/build-moments-binary.sh` and
@@ -100,8 +138,8 @@ Vite when those services use different loopback origins. File requests keep
 their browser-facing paths: `/f/home/...` maps to `/home/...`, and
 `/d/home/...` maps to `/download/home/...` on File Service.
 
-Set `LITE_NAS_STREAM_SERVICE_ORIGIN` to Stream Service's loopback HTTP origin
-before starting Vite. The `/s/home/...` proxy maps to `/home/...` on that
-service. Vite returns 503 for `/s/` until an origin is configured. The Vite
-server reloads frontend changes without rebuilding or redeploying Moments;
-its backend services must still be running.
+Vite proxies `/s/` to Stream Service at `127.0.0.1:8083` by default, matching
+the Nginx mount. Set `LITE_NAS_STREAM_SERVICE_ORIGIN` before starting Vite when
+the service uses another loopback origin. `/s/home/...` maps to `/home/...` on
+Stream Service. The Vite server reloads frontend changes without rebuilding or
+redeploying Moments; its backend services must still be running.

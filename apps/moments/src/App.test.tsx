@@ -82,6 +82,18 @@ test("user menu opens Moments appearance settings", async () => {
   await waitFor(() => expect(screen.getByTestId("preferences-theme-settings-title")).toBeTruthy());
 });
 
+// Requirements: moments/FR-003. Authenticated users can open the thumbnail maker demo.
+test("thumbnail maker is available from Moments navigation", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+    fillRect: vi.fn(),
+  } as unknown as CanvasRenderingContext2D);
+  renderMomentsApp();
+  fireEvent.click(await screen.findByRole("button", { name: "Thumbnail maker" }));
+  await screen.findByText("Gallery fixture could not be loaded.");
+  expect(screen.getByTestId("thumbnail-maker")).toBeTruthy();
+});
+
 // Requirements: moments/FR-002. Authenticated users can inspect their profile.
 test("user menu opens the shared profile screen", async () => {
   vi.mocked(loadMe).mockResolvedValue(me);

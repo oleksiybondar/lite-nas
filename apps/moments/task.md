@@ -34,7 +34,8 @@ example TypeScript models as backend DTOs.
 - Display Apple Live Photos as a still with its paired motion component when
   the source contains a valid pair. Ordinary videos remain playable as media;
   Moments is not a general streaming catalog.
-- Generate a collage-style album cover from up to ten selected photos. Keep a
+- Generate a collage-style album cover from up to 35 selected photos, with
+  randomized fixture selection limited to 25 photos. Keep a
   serializable layout descriptor containing the chosen items and their
   positions, angles, and sizes so the cover can be regenerated consistently.
 - Use a Moments-specific theme setting when one exists. Otherwise inherit the
