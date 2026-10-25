@@ -1,7 +1,8 @@
 # Moments
 
 Moments contains browser authentication, a fixture-backed demo gallery on its
-home page, the shared user dropdown, and shared profile/appearance settings.
+home page, a browser-only thumbnail maker, the shared user dropdown, and
+shared profile/appearance settings.
 The gallery reads `public/dev-fixtures/gallery.json` and uses the existing
 `/f/` File Service route. The fixture paths must exist and be authorized on the
 running host. Collection, wall, and viewer providers share one headless image
@@ -122,8 +123,10 @@ derives the original `/s/`, transcoded `/s/transcode/`, and HEIC/HEIF JPEG
 video elements; the context owns the LiteNAS URL contract for future callers.
 HEIC/HEIF wall, viewer, and thumbnail images use the JPEG preview. The gallery
 combines an unambiguous same-folder HEIC/HEIF and MOV filename pair into one
-Live Photo without waiting for media requests. It shows the still with a motion
-control when the image loads, and shows the paired movie if the image fails.
+Live Photo without waiting for media requests. Its wall chip plays and stops
+motion inline without opening the viewer; that control handles its own click
+so it does not activate the tile. The viewer can also play motion. If the
+still image fails, the paired movie remains available.
 Standalone HEIC files remain images; standalone MOV files remain videos and can
 fall back to transcoding when native playback fails.
 Downloads continue to use the original File Service bytes.
