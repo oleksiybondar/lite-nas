@@ -43,6 +43,7 @@ export const GalleryViewerMedia = (): ReactElement | null => {
   const viewingMotion = showingMotion || fallbackMotion;
   const activeVideoId = current?.kind === "video" || viewingMotion ? current?.id : null;
   const currentUrl = viewingMotion ? current?.motionUrl : current?.url;
+  const shouldAutoplay = showingMotion || (current?.kind === "video" && videoAutoplay);
   useEffect(() => {
     const video = videoRef.current;
     return () => video?.pause();
@@ -62,7 +63,7 @@ export const GalleryViewerMedia = (): ReactElement | null => {
       if (url) video.src = url;
     }
     let active = true;
-    void attemptVideoAutoplay(video, videoAutoplay || showingMotion).then((result) => {
+    void attemptVideoAutoplay(video, shouldAutoplay).then((result) => {
       if (!active) return;
       if (result === "blocked") setAutoplayBlocked(true);
       if (result === "failed") {
@@ -81,7 +82,7 @@ export const GalleryViewerMedia = (): ReactElement | null => {
     currentUrl,
     setVideoError,
     stream,
-    videoAutoplay,
+    shouldAutoplay,
     showingMotion,
     videoError,
     videoMode,
@@ -202,7 +203,7 @@ export const GalleryViewerMedia = (): ReactElement | null => {
             key={current.id}
             src={videoSource ?? undefined}
             controls
-            autoPlay={showingMotion}
+            autoPlay={shouldAutoplay}
             playsInline
             preload="metadata"
             onError={onVideoError}

@@ -139,6 +139,19 @@ test("the viewer falls back to the paired movie when the still cannot display", 
   );
 });
 
+// Requirements: moments/FR-003. A fallback Live Photo movie waits for explicit viewer playback.
+test("the viewer does not autoplay Live Photo motion after its still fails", async () => {
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+  renderLivePhotoGallery();
+  fireEvent.click(await screen.findByRole("button", { name: "Open IMG_2062.HEIC" }));
+  const dialog = screen.getByRole("dialog");
+  fireEvent.error(within(dialog).getByAltText("IMG_2062.HEIC"));
+  await waitFor(() =>
+    expect(dialog.querySelector("video")?.getAttribute("src")).toBe("/s/home/test/IMG_2062.MOV"),
+  );
+  expect(play).not.toHaveBeenCalled();
+});
+
 // Requirements: moments/FR-003. A failed paired movie uses the transcoded stream.
 test("the viewer transcodes a paired movie when its original cannot play", async () => {
   renderLivePhotoGallery();

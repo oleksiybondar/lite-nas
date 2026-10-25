@@ -22,6 +22,13 @@ test("the full fixture composes IMG_2062 as its first media item", () => {
   });
 });
 
+// Requirements: moments/FR-003. Fixture processing keeps standalone HEIC files visible.
+test("the full fixture keeps IMG_1864 as a standalone HEIC image", () => {
+  const composed = composeLivePhotoItems(galleryItemsFromPaths(fixture.items));
+  const still = composed.find((item) => item.filename === "IMG_1864.HEIC");
+  expect(still?.kind === "image" && still.motionUrl === undefined).toBe(true);
+});
+
 // Requirements: moments/FR-003. Same-folder HEIC/MOV companions become one item.
 test("matching filename companions compose one Live Photo", () => {
   const items = galleryItemsFromPaths(paths);
