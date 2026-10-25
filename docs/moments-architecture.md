@@ -1,91 +1,75 @@
 # Moments Architecture
 
-Moments is LiteNAS's personal photo and media application. It is a deliberate
-family-use product slice alongside the platform's security and administration
-work; the gallery is not a security-skeleton feature. The first useful target
-is a gallery demo over existing, authorized files. Album management, tags,
-uploads, and persistent gallery settings can follow through the separate
-Moments service work.
+Moments is LiteNAS's personal photo and media application. Its current browser
+experience includes a fixture-backed gallery and a browser-only thumbnail maker.
+Album, tag, upload, and persistent gallery metadata remain future service work.
 
-## Current platform boundary
+## Current boundaries
 
-- The deployed Moments app and loopback Go service currently provide browser
-  authentication, an empty home screen, profile settings, and embedded and
-  standalone hosting. They do not yet provide album or gallery APIs.
-- File Service already supplies authenticated `/ls/`, `/f/`, and `/d/` routes
-  for listing, reading, downloading, and uploading files. RBAC and File Service
-  remain responsible for path authorization; the browser does not scan NAS
-  paths directly.
-- Stream Service and its `/s/` playback route are planned for range delivery
-  and Live Photo handling. Gallery design must not treat them as available in
-  the initial demo.
-- The Moments Go service is the planned owner of album identities, tags,
-  pagination, SQLite metadata, layout preferences, and cover descriptors. Its
-  [service task](../services/moments/task.md) requires explicit API decisions
-  before those contracts are implemented.
+- The React app and loopback Go service provide authentication, shared profile
+  and appearance settings, and embedded and standalone hosting. The Go service
+  does not yet expose album or gallery metadata APIs.
+- The demo gallery reads the validated, ordered
+  `apps/moments/public/dev-fixtures/gallery.json` fixture. Its paths point to
+  existing files available to the signed-in user. The fixture is bundled with
+  the app and does not discover files from a directory listing.
+- File Service owns authorized `/f/` reads, `/d/` downloads, and `/ls/`
+  listings. File uploads use its established `/f/` contract. Neither browser
+  demo nor Moments service scans NAS paths directly.
+- Stream Service supplies the `/s/` media route, including original streaming,
+  HEIC/HEIF JPEG previews, and a video transcode fallback. Nginx exposes the
+  route on embedded and standalone hosts; Vite proxies it during development.
+- The planned Moments metadata API will own album identities, tags,
+  pagination, persisted settings, and cover descriptors. Its contract must be
+  decided before the browser integrates it.
 
-## First gallery demo
+## Gallery demo
 
-Use the existing Moments login and the established File Service routes to
-display a user-authorized directory as a responsive media wall and modal
-viewer. The browser may adapt validated File Service listing records into a
-view-local gallery model. Keep that adapter specific to the documented File
-Service contract; do not introduce a speculative Moments API, DTO, or route.
-The demo may use original file URLs for browser-supported still images. Video
-playback and Live Photo motion require checking the existing file delivery
-behavior or waiting for the Stream Service contract. Unsupported originals
-need a useful file fallback.
+The gallery maps fixture records into a local collection model. The wall offers
+mosaic, justified, masonry, and grid layouts. It virtualizes nearby tiles and
+uses a bounded image queue. The modal viewer keeps the wall mounted and offers
+navigation, slideshow, fullscreen, original downloads, and available EXIF
+details. Videos use native playback with a transcode fallback. A recognized
+same-folder HEIC/HEIF and MOV pair appears as a Live Photo; its motion can play
+on the wall or in the viewer. Pairing in this demo is based on fixture paths
+and filenames; a future metadata service must define durable media identity
+and association rules.
 
-The demo does not imply album CRUD, tags, recursive discovery, pagination,
-uploads, SQLite settings, or collage covers are implemented. Those remain in
-the [Moments app task](../apps/moments/task.md) and service task. Before
-implementing an integration whose contract is not documented in existing code,
-settle that contract explicitly.
+The gallery does not imply album CRUD, recursive discovery, pagination, tags,
+uploads, or persisted layout preferences. Its wall layout selection is local to
+the current page. The [gallery design](../apps/gallery_taks.md) records the
+broader experience and remaining validation work.
 
-## Gallery design direction
+## Thumbnail maker demo
 
-The [gallery task](../apps/gallery_taks.md) is the detailed source for the
-frontend experience. Its principles apply to the full Moments gallery and
-guide a smaller demo where relevant:
+The authenticated browser app can build a thumbnail from up to 35 photos. It
+uses the same gallery fixture for photo selection, limits random selection to
+25, and also accepts local image uploads. Uploaded bytes stay in browser
+memory as data URLs and can be included in exported JSON. Transparent source
+pixels remain transparent. The editor supports scattered, ribbon, grid, and
+featured layouts; image position, size, rotation, frame ratio, crop, and
+effects; layer order; and whole-composition position and scale. A versioned
+JSON recipe recreates the canvas. PNG or JPG export renders from that recipe at
+a pixel area of at least 1920×1080. PNG can preserve a transparent canvas;
+JPG fills it with white.
 
-- Keep metadata separate from original media bytes. Only visible items and a
-  small nearby range should create media requests or DOM nodes.
-- Share one conservative image-request budget across wall and modal viewing.
-  Prioritize the current viewport or selected item, reuse in-flight requests,
-  and drop queued work that is no longer useful. This protects the Raspberry
-  Pi and shared ZFS pool from gallery traffic competing with SMB/NFS users.
-- Keep wall scroll position and layout stable while the modal opens. Plan wall
-  geometry independently of image readiness, using known dimensions when
-  available and a stable fallback when they are not.
-- Use original media through existing authorized routes. The gallery must not
-  require generated thumbnails, posters, transcoded files, or per-file
-  sidecars. Browser cache behavior can help, but decoded media must not be
-  retained without a bound.
-- Provide a responsive mosaic or justified wall, loading placeholders, a
-  keyboard-accessible modal, reduced-motion behavior, and explicit unsupported
-  format and loading-error states. Video tiles should not probe many videos.
-- Use the established React, TypeScript, MUI, and Zod conventions. Validate
-  File Service responses before mapping them into gallery state and validate
-  submitted settings when those operations exist.
+The picker loads one highlighted preview at a time, selected images decode in
+a bounded queue, and export reads originals sequentially. The maker has no
+backend storage, album cover association, or persistence beyond a downloaded
+recipe or image.
 
-The detailed task's contexts, loader, registry, and layout strategies describe
-responsibilities, not a requirement to create every proposed abstraction for
-the demo. Add each piece only when the implementation needs that behavior.
-Fixed numeric examples in that task are tuning starting points, not backend
-contracts or guaranteed performance targets; measure with realistic galleries
-and constrained network conditions.
+## Remaining service integration
 
-## Later service integration
+Define the Moments metadata API before replacing fixture records with
+validated album/media responses. Settle ordering, pagination, stable media
+identity, URL construction, dimensions, Live Photo association, and persisted
+layout and cover settings in the service contract. Keep File Service as the
+authorized file boundary and Stream Service as the media delivery boundary.
+The current frontend recipe is a demo format; a persisted album cover
+descriptor needs its own agreed contract and a policy for moved or missing
+source files.
 
-When the Moments metadata API is defined, replace the directory adapter with
-validated album/media data from the Moments service. Keep File Service as the
-authorized file boundary and use Stream Service for its documented playback
-contract when available. Resolve ordering, pagination, stable media identity,
-URL construction, dimensions, Live Photo association, and persisted layout
-settings in those service contracts before wiring the browser to them. The
-gallery's display model may map from those contracts, but it does not define
-their HTTP shapes by itself.
-
-See [Moments skeleton requirements](../requirements/moments-skeleton.md) for
-implemented scope and [development notes](development-notes.md) for priority
-context.
+See [implemented requirements](../requirements/moments-skeleton.md), the
+[app task](../apps/moments/task.md), the
+[service task](../services/moments/task.md), and the
+[app README](../apps/moments/README.md) for usage and deployment details.

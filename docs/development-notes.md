@@ -7,13 +7,12 @@ deployment, and browser hosting. The Moments gallery is outside that skeleton's
 security scope. It is included as a near-term product priority because photo
 browsing is the most useful LiteNAS application for the maintainer's family.
 
-The first target is a reviewable gallery demo over existing File Service
-routes, with bounded original-media loading and a responsive viewing flow.
-The existing Moments shell supplies authentication and hosting. Album, tag,
-pagination, and persistence contracts still need the planned Moments service;
-video range playback and Live Photo motion depend on the Stream Service work.
-This sequencing exercises the existing platform with a real household use case
-without treating unfinished backend APIs as implemented. See the
+The fixture-backed gallery demo now provides bounded media loading, responsive
+wall layouts, a viewer, video playback, and Live Photo motion through the
+existing File and Stream Service routes. A browser-only thumbnail maker uses
+the same fixture. The Moments shell supplies authentication and hosting.
+Album, tag, pagination, upload, and persistence contracts still need Moments
+service work. See the
 [Moments architecture](moments-architecture.md).
 
 ## Why system-metrics came first
@@ -142,13 +141,12 @@ separate planned boundary:
   `/d/home/alice/photo.jpg` map to `/home/alice/photo.jpg`, and
   `/s/media/movie.avi` maps to `/media/movie.avi`. RBAC checks the resolved
   host paths.
-- The packaged `/etc/logrotate.d/lite-nas` policy rotates File Service's log at
-  `/var/log/lite-nas/file-service.log` daily, retaining seven compressed
-  rotations. Stream Service has a planned log path in the same policy.
+- The packaged `/etc/logrotate.d/lite-nas` policy rotates File Service and
+  Stream Service logs daily, retaining seven compressed rotations.
 - Local deployment and Debian installation create the shared `lite-nas-fs-rd`
   group idempotently. File Service uses it for file read and directory read
   plus search/traverse in provisioned file-backed storage roots, with no write
-  access. Stream Service is designed to join it later. System-critical paths
+  access. Stream Service also joins this group. System-critical paths
   are excluded. Existing content and new mounts need read/search group/ACL
   provisioning. File Service has a dedicated enforce-mode AppArmor profile.
 - Browser requests use the gateway's existing `lite-nas-at` access cookie over

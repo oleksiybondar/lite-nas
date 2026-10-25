@@ -122,13 +122,12 @@ issuance, and emergency auth-state control out of the browser gateway.
 ## Moments and Media Architecture
 
 Moments is the family-facing personal media application. Its authenticated
-browser shell, profile settings, and embedded and standalone hosts exist today;
-the gallery and album APIs are planned. A first gallery demo can browse
-authorized originals through File Service while the Moments metadata API and
-Stream Service playback contract are developed separately. The gallery design
-calls for bounded requests and a virtualized wall so browsing large collections
-does not overload shared ZFS storage. The full service boundaries, demo scope, and
-frontend design are in the [Moments architecture](docs/moments-architecture.md).
+browser shell, profile settings, embedded and standalone hosts, fixture-backed
+gallery, and browser-only thumbnail maker are implemented. The gallery uses
+authorized File and Stream Service routes with bounded requests and a
+virtualized wall. Album and metadata APIs, uploads, and persistence remain
+planned. The current boundaries and demo scope are in the
+[Moments architecture](docs/moments-architecture.md).
 
 Moments is prioritized for practical family use in this development slice. It
 is adjacent to the security and platform skeleton work, not a requirement of
@@ -262,10 +261,10 @@ Planned expansion areas:
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
 
-- **Moments gallery (next product priority)**
-  Build a useful gallery demo over existing authorized files, then add album
-  metadata and richer media behavior through the separately defined service
-  contracts. See the [Moments architecture](docs/moments-architecture.md).
+- **Moments album and metadata workflows (next product priority)**
+  Connect the existing gallery and thumbnail maker demos to authorized albums,
+  tags, uploads, and persistent cover descriptors through separately defined
+  service contracts. See the [Moments architecture](docs/moments-architecture.md).
 
 ## Configuration Validation Engine
 

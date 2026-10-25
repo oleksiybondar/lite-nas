@@ -1,12 +1,12 @@
-# Moments Gallery — Frontend Design Task
+# Moments Gallery — Design Reference and Remaining Work
 
 ## High-Performance Virtualized Mixed-Media Gallery
 
 **Version:** 2.1 — Integrated with LiteNAS planning
-**Status:** Design direction; service integration requires contract decisions
+**Status:** Fixture gallery implemented; service integration and scale validation remain
 **Technology:** React, TypeScript, Material UI, Motion for React  
 **Architecture:** Bounded media loading, virtualized views, original-media-first transport
-**Primary constraint:** NAS-friendly performance with no server-side media processing
+**Primary constraint:** NAS-friendly performance with bounded media requests
 
 ---
 
@@ -17,14 +17,14 @@ the [Moments app task](moments/task.md), and the
 ownership and decisions still required. TypeScript examples below are proposed
 view-local models, not implemented HTTP DTOs or approved API routes.
 
-The first reviewable increment is a gallery demo that reads authorized files
-through the existing File Service contracts. Build only the pieces needed for
-that increment. Albums, persisted layout settings, tags, cover generation,
-and Stream Service playback belong to later contract-backed work. The detailed
-architecture below remains the direction for a full gallery, not a mandate to
-create every named context, service, or file before the demo works.
-Original-file-only delivery is the gallery's baseline; any future Stream
-Service codec behavior is a separate documented playback decision.
+The fixture-backed gallery demo is implemented. It reads authorized media
+through File and Stream Service, including optional HEIC/HEIF previews and video
+transcode fallback. The detailed sections below preserve original-media-first
+design goals and candidate structures; they are not a checklist of missing
+components or a statement of the current transport contract. The
+[app README](moments/README.md) describes current behavior. Albums, persisted
+layout settings, tags, and stored covers require the metadata API described in
+the [Moments service task](../services/moments/task.md).
 
 ## 1. Project Overview
 
@@ -72,9 +72,12 @@ React Browser Application
     Raspberry Pi
 ```
 
-The backend and file service are separate responsibilities.
+The diagram shows the original-file route. The implemented gallery also uses
+Stream Service's `/s/` route for playback and optional format fallbacks.
+Moments metadata APIs described below are planned; the current gallery uses a
+bundled fixture.
 
-**Application backend:**
+**Planned Moments metadata backend:**
 
 - Maintains gallery metadata.
 - Returns gallery configuration.
@@ -90,17 +93,20 @@ The backend and file service are separate responsibilities.
 - Does not generate previews or thumbnails.
 - Does not transcode videos.
 
-The gallery frontend must be designed around these limitations.
+The gallery remains original-first and does not require persistent derived
+files. Stream Service can generate a HEIC/HEIF preview or transcode fallback
+on request when the browser cannot display the original.
 
 ---
 
 ## 2. Fundamental Infrastructure Constraints
 
-These constraints are mandatory.
+These are original-first design constraints. The current Stream Service
+fallback routes are documented in the [app README](moments/README.md).
 
 ## 2.1 Original Files Only
 
-The frontend receives original media files.
+The frontend uses original media when the browser can display them.
 
 Examples include:
 
@@ -129,7 +135,7 @@ Do not require:
 - `mobileUrl`
 - Alternative resolution URLs
 
-Do not invent additional media endpoints.
+Use only established File and Stream Service media endpoints.
 
 Apple Live Photos may require a logical association between an original still photograph and an original
 motion file. Such an association must use existing file references or metadata relationships, not generated
@@ -137,7 +143,9 @@ preview files.
 
 ## 2.3 No Server-Side Media Processing
 
-The solution must not require:
+The baseline gallery must not require persistent derivatives or background
+processing. Optional Stream Service previews and transcode fallback are
+available for browser compatibility. The baseline does not require:
 
 - Thumbnail generation.
 - Image resizing.
@@ -1068,7 +1076,8 @@ Do not allow animation to degrade scrolling performance.
 
 The wall contains images, videos, and Live Photos.
 
-Since no generated previews exist, presentation must work directly with original media constraints.
+Presentation must work with original media constraints; HEIC/HEIF preview and
+video transcode fallback are available through Stream Service when needed.
 
 ## 17.1 Images
 
@@ -1578,285 +1587,37 @@ Do not make animation necessary for understanding or operating the application.
 
 ---
 
-## 29. Implementation Phases
-
-## Phase 0 — File Service Demo
-
-- Confirm the existing authenticated File Service listing and original-file
-  delivery contracts in code and map validated responses into a minimal gallery
-  view model.
-- Display a bounded responsive image wall and modal viewer over authorized
-  files, preserving wall scroll position and providing file fallbacks.
-- Share a conservative loading budget and verify behavior on a realistic
-  original-file collection before adding more state layers.
-- Keep unsupported video/Live Photo playback explicit until the relevant
-  documented delivery contract is available.
-
-## Phase 1 — Gallery Domain and Contexts
-
-Implement:
-
-- Gallery metadata types.
-- Backend DTO adaptation.
-- GalleryContext.
-- WallContext.
-- CarouselContext.
-- Typed hooks.
-- Configuration access.
-
-## Phase 2 — Image Transport
-
-Implement:
-
-- ImageLazyLoader.
-- Request coordinator.
-- Resource registry.
-- Concurrency.
-- Batch completion.
-- Readiness tracking.
-- Deduplication.
-- Cleanup.
-- Unit tests.
-
-## Phase 3 — Layout Planning
-
-Implement:
-
-- Planner interface.
-- Mosaic strategy.
-- Justified strategy.
-- Responsive geometry.
-- Missing-dimension fallbacks.
-- Unit tests.
-
-## Phase 4 — Virtualized Wall
-
-Implement:
-
-- Bounded virtual window.
-- Overscan.
-- Rotation.
-- Scroll anchoring.
-- MUI tiles.
-- Skeletons.
-- Controlled image acquisition.
-
-## Phase 5 — Loading UX
-
-Implement:
-
-- Bootstrap animation.
-- Bottom-up tile assembly.
-- Steady-state behavior.
-- Recovery loading state.
-- Reduced-motion handling.
-
-## Phase 6 — Carousel
-
-Implement:
-
-- Modal.
-- Initial resource handoff.
-- Independent virtual window.
-- Navigation.
-- Shared priorities.
-- Wall preservation.
-
-## Phase 7 — Mixed Media
-
-Implement:
-
-- Original-image rendering.
-- Video placeholders.
-- HTML5 video renderer.
-- Live Photo relationships.
-- Format fallbacks.
-
-## Phase 8 — Playback and Slideshow
-
-Implement:
-
-- Video autoplay.
-- Pause on navigation.
-- Image auto-next delay.
-- Video completion advance.
-- Error handling.
-- Timer cleanup.
-
-## Phase 9 — Performance and Quality
-
-Implement:
-
-- Automated lifecycle tests.
-- Large gallery testing.
-- Network throttling tests.
-- Browser profiling.
-- NAS-load observations.
-- Accessibility validation.
-- Final tuning.
-
----
-
-## 30. Definition of Done
-
-The implementation is complete when:
-
-- [ ] Gallery metadata is loaded independently of media payloads.
-- [ ] The frontend uses one original-file URL per item.
-- [ ] No generated thumbnail or preview endpoints are required.
-- [ ] No media transformation is required from the backend.
-- [ ] No filesystem sidecars are introduced.
-- [ ] The image loader supports configurable batching and concurrency.
-- [ ] All image requests follow the shared network budget.
-- [ ] Individual image readiness is tracked.
-- [ ] Loading groups settle despite individual failures.
-- [ ] Image resource sharing works between wall and carousel.
-- [ ] Loader cleanup does not destroy view-owned resources.
-- [ ] Wall virtualization is bounded and bidirectional.
-- [ ] Scroll position remains stable during rotation.
-- [ ] Mosaic layout works with mixed aspect ratios.
-- [ ] Justified layout fills rows dynamically.
-- [ ] Layout selection is read from database metadata.
-- [ ] Layout planning is independent of loading.
-- [ ] Missing dimensions are handled.
-- [ ] Initial loading uses the intended bottom-up assembly effect.
-- [ ] Animation is restrained during normal scrolling.
-- [ ] UI consistently uses MUI.
-- [ ] Carousel opens over the still-mounted wall.
-- [ ] Closing the carousel preserves the wall position.
-- [ ] Carousel reuses available image resources where possible.
-- [ ] Carousel navigation remains independent from the wall.
-- [ ] Videos do not trigger mass wall-video downloads.
-- [ ] Unsupported media displays a useful fallback.
-- [ ] Video playback pauses on slide changes.
-- [ ] Video autoplay restrictions are handled.
-- [ ] Slideshow supports 1/3/5-second image delays.
-- [ ] Videos advance on completion when slideshow mode is enabled.
-- [ ] Live Photo still/motion relationships are handled where supported.
-- [ ] No unbounded DOM or application-owned media-resource accumulation occurs.
-- [ ] Performance has been evaluated on realistic constrained-network scenarios.
-- [ ] Tests cover major layout, transport, navigation, and lifecycle behavior.
-
----
-
-## 31. Explicit Non-Goals
-
-Do not implement as part of this task:
-
-- Media uploads.
-- Media editing.
-- Server-side image processing.
-- Thumbnail generation.
-- Preview generation.
-- Video transcoding.
-- Image transcoding.
-- Automatic browser-compatible format conversion.
-- Server-side poster extraction.
-- Sidecar metadata generation.
-- Persistent custom offline gallery storage.
-- Full-gallery prefetching.
-- AI-based photo analysis.
-- Automated focal-point recognition.
-
-Future support for optional optimized derivatives may be considered separately, but must not affect the
-original-only requirements of this implementation.
-
----
-
-## 32. Instructions for an AI Implementation Agent
-
-When implementing this specification:
-
-1. Inspect the repository before writing code.
-
-2. Identify the existing React, TypeScript, MUI, routing, backend API, and dependency conventions.
-
-3. Preserve existing application architecture where reasonable.
-
-4. Implement the specified responsibilities without combining unrelated layers.
-
-5. Do not introduce thumbnail or preview endpoints.
-
-6. Do not introduce media conversion or transcoding services.
-
-7. Do not add persistent NAS files.
-
-8. Use only original file download URLs supplied by the backend.
-
-9. Keep the loader reusable and unaware of wall/carousel navigation.
-
-10. Keep layout planning independent of React rendering and image readiness.
-
-11. Make network concurrency configurable and enforce it globally.
-
-12. Ensure view-specific loading triggers remain inside their respective contexts.
-
-13. Avoid retaining all downloaded media in application memory.
-
-14. Use stable resource identities and deduplicate requests.
-
-15. Treat resource release and view lifecycle as separate concerns.
-
-16. Use MUI consistently for UI.
-
-17. Prefer native media APIs for browser-supported formats.
-
-18. Provide appropriate fallbacks for unsupported originals.
-
-19. Implement video playback cleanup and guard against stale callbacks.
-
-20. Maintain wall state when the carousel opens.
-
-21. Keep layout algorithms deterministic and testable.
-
-22. Do not create unnecessary React context updates.
-
-23. Preserve scrolling behavior over decorative animations.
-
-24. Respect reduced-motion settings.
-
-25. Add tests for concurrency, failures, geometry, and lifecycle transitions.
-
-26. Avoid premature abstractions that have no clear responsibility.
-
-27. Document any deviation from this specification.
-
-28. Do not silently substitute conventional media-gallery assumptions for the NAS-specific constraints.
-
-29. Prefer conservative resource usage when performance choices are ambiguous.
-
-30. Deliver a fully integrated and tested implementation rather than isolated demonstration components.
-
----
-
-## 33. Final Architectural Principles
-
-The design must maintain the following relationships:
-
-**Gallery metadata describes the media collection.**
-
-**The backend remains thin and does not process original files.**
-
-**The NAS remains the authoritative source of original media.**
-
-**WallContext determines what belongs in the virtualized wall and when loading should be requested.**
-
-**CarouselContext determines what belongs in the carousel and how navigation/playback behaves.**
-
-**The layout planner determines the visual arrangement of wall tiles.**
-
-**The LazyLoader performs image acquisition and readiness tracking.**
-
-**The shared request coordinator protects network and storage resources.**
-
-**The resource registry supports reuse without duplicating large payloads.**
-
-**MUI components present the resulting state.**
-
-**Animations improve perceived loading quality without introducing excessive rendering or storage pressure.**
-
-The finished system must provide a modern, responsive, visually attractive gallery experience while respecting
-the operational constraints of original media stored on a Raspberry Pi/ZFS NAS.
-
-**The primary design philosophy is controlled demand, bounded resources, clear ownership, and predictable
-behavior—not eager media processing or aggressive prefetching.**
+## 29. Remaining Gallery Work
+
+The fixture gallery already has bounded image loading, virtualized wall layouts,
+a modal viewer, video playback, Live Photo motion, EXIF display, and slideshow
+controls. Keep those as implemented behavior rather than new implementation
+tasks. The browser-only thumbnail maker is documented separately in the
+[app README](moments/README.md).
+
+- Replace fixture collection records with validated, authorized album/media
+  responses once the Moments metadata contract is defined. Settle media
+  identity, ordering, pagination, dimensions, and Live Photo association first.
+- Persist gallery layout settings through an agreed service or profile contract.
+- Integrate album tags, filtering, uploads, and stored cover descriptors through
+  the respective app and service tasks.
+- Measure scrolling, media request volume, browser memory, and NAS response on
+  realistic large galleries and constrained networks. Tune based on those
+  results; the design's numeric examples are starting points.
+- Complete focused accessibility and lifecycle validation for the implemented
+  gallery, including keyboard navigation, focus restoration, reduced motion,
+  playback cleanup, and error recovery.
+
+## 30. Remaining Acceptance Criteria
+
+- [ ] Gallery data and layout settings come from documented, validated metadata
+  responses instead of the bundled fixture.
+- [ ] Large-gallery and constrained-network measurements confirm bounded DOM,
+  media requests, and application-owned memory without unacceptable NAS impact.
+- [ ] Accessibility and lifecycle behavior has been checked across wall,
+  viewer, video, and Live Photo interactions.
+
+The backend remains responsible for metadata and authorization; File Service
+owns original files and downloads, and Stream Service owns media delivery.
+The gallery should request media only when the user can use it and keep the
+resource budget bounded.
