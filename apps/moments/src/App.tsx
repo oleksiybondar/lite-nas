@@ -11,6 +11,7 @@ import { Login } from "./Login";
 import { MomentsLayout } from "./MomentsLayout";
 import { MomentsPublicHeader } from "./MomentsPublicHeader";
 import { MomentsShell } from "./MomentsShell";
+import { StreamProvider } from "./StreamContext";
 import type { Me } from "./schemas";
 
 /** Resolves the browser session before showing the Moments shell. */
@@ -48,11 +49,13 @@ export const App = (): ReactElement => {
   }
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
-        {content}
-      </Box>
-    </ThemeProvider>
+    <StreamProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
+          {content}
+        </Box>
+      </ThemeProvider>
+    </StreamProvider>
   );
 };

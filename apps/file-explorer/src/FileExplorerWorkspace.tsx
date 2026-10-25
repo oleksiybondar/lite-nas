@@ -484,7 +484,7 @@ function useWorkspaceControls(
 export function FileExplorerWorkspace(): ReactElement {
   const explorer = useFileExplorer();
   const [refresh, setRefresh] = useState(0);
-  const [showHidden, setShowHidden] = useState(false);
+  const [showHidden, setShowHidden] = useState(true);
   useCompletedActionRefresh(explorer.queue, setRefresh);
   const selected = visibleFileEntries(explorer.panels[explorer.activePanel].selected, showHidden);
   const previewable = selected.length === 1 && canPreviewFile(selected[0]);

@@ -71,15 +71,24 @@ Publish a Moments hostname through a Cloudflare tunnel to
 and forwarding `X-Forwarded-Proto: https`.
 The standalone Nginx server matches `moments.<domain>` and keeps the origin
 listener on loopback. Add the corresponding DNS record to the tunnel. The
-browser reaches `/api/`, `/f/`, `/d/`, and `/ls/` through the same origin, so
+browser reaches `/api/`, `/f/`, `/s/`, `/d/`, and `/ls/` through the same origin, so
 no cross-origin token transfer is needed. For direct HTTPS without a tunnel,
 install a certificate covering the production hostname and adjust the Nginx
 TLS certificate paths.
 
 The existing File Service snippet handles uploads under `/f/`, along with
 source files under `/f/`, downloads under `/d/`, and listings under `/ls/`.
-The demo gallery reads original files through `/f/`; uploads and directory
-listings are not exposed by this demo.
+The demo fixture stores `/f/` file URLs. `StreamContext` validates them and
+derives the original `/s/`, transcoded `/s/transcode/`, and HEIC/HEIF JPEG
+`/s/preview/` routes for the gallery. Components use standard HTML5 image and
+video elements; the context owns the LiteNAS URL contract for future callers.
+HEIC/HEIF wall, viewer, and thumbnail images use the JPEG preview. The gallery
+combines an unambiguous same-folder HEIC/HEIF and MOV filename pair into one
+Live Photo without waiting for media requests. It shows the still with a motion
+control when the image loads, and shows the paired movie if the image fails.
+Standalone HEIC files remain images; standalone MOV files remain videos and can
+fall back to transcoding when native playback fails.
+Downloads continue to use the original File Service bytes.
 
 ## Local frontend development
 
@@ -91,10 +100,8 @@ Vite when those services use different loopback origins. File requests keep
 their browser-facing paths: `/f/home/...` maps to `/home/...`, and
 `/d/home/...` maps to `/download/home/...` on File Service.
 
-When Stream Service is available, set `LITE_NAS_STREAM_SERVICE_ORIGIN` to its
-loopback HTTP origin before starting Vite. The `/s/home/...` proxy then maps to
-`/home/...` on Stream Service. This repository currently specifies Stream
-Service but does not implement its listener, so `/s/` has no target until that
-origin is configured; Vite returns a clear 503 for `/s/` in the meantime. The
-Vite server reloads frontend changes without rebuilding or redeploying Moments;
+Set `LITE_NAS_STREAM_SERVICE_ORIGIN` to Stream Service's loopback HTTP origin
+before starting Vite. The `/s/home/...` proxy maps to `/home/...` on that
+service. Vite returns 503 for `/s/` until an origin is configured. The Vite
+server reloads frontend changes without rebuilding or redeploying Moments;
 its backend services must still be running.

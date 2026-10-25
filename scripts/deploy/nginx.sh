@@ -15,6 +15,8 @@ readonly LITE_NAS_NGINX_SITE_NAME="${LITE_NAS_NGINX_SITE_NAME:-lite-nas-web-gate
 readonly LITE_NAS_NGINX_SITE_SOURCE="${LITE_NAS_NGINX_SITE_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/sites-available/$LITE_NAS_NGINX_SITE_NAME}"
 readonly LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE="${LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/snippets/lite-nas-file-service.conf}"
 readonly LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_TARGET="${LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_TARGET:-$LITE_NAS_NGINX_CONFIG_ROOT/snippets/lite-nas-file-service.conf}"
+readonly LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_SOURCE="${LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/snippets/lite-nas-stream-service.conf}"
+readonly LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_TARGET="${LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_TARGET:-$LITE_NAS_NGINX_CONFIG_ROOT/snippets/lite-nas-stream-service.conf}"
 readonly LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE="${LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/snippets/lite-nas-moments-embedded.conf}"
 readonly LITE_NAS_NGINX_MOMENTS_SNIPPET_TARGET="${LITE_NAS_NGINX_MOMENTS_SNIPPET_TARGET:-$LITE_NAS_NGINX_CONFIG_ROOT/snippets/lite-nas-moments-embedded.conf}"
 readonly LITE_NAS_NGINX_MOMENTS_SITE_SOURCE="${LITE_NAS_NGINX_MOMENTS_SITE_SOURCE:-$LITE_NAS_REPO_ROOT/configs/etc/nginx/sites-available/lite-nas-moments.conf}"
@@ -55,6 +57,10 @@ deploy.nginx.installSiteConfig() {
 		log.error "Missing LiteNAS file-service nginx snippet: $LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE"
 		exit 1
 	fi
+	if [ ! -f "$LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_SOURCE" ]; then
+		log.error "Missing LiteNAS stream-service nginx snippet: $LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_SOURCE"
+		exit 1
+	fi
 	if [ ! -f "$LITE_NAS_NGINX_MOMENTS_SITE_SOURCE" ] || [ ! -f "$LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE" ]; then
 		log.error "Missing Moments nginx site or embedded mount source."
 		exit 1
@@ -67,6 +73,7 @@ deploy.nginx.installSiteConfig() {
 	install -m 0644 "$LITE_NAS_NGINX_SITE_SOURCE" "$LITE_NAS_NGINX_SITE_TARGET"
 	install -m 0644 "$LITE_NAS_NGINX_MOMENTS_SITE_SOURCE" "$LITE_NAS_NGINX_MOMENTS_SITE_TARGET"
 	install -D -m 0644 "$LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_SOURCE" "$LITE_NAS_NGINX_FILE_SERVICE_SNIPPET_TARGET"
+	install -D -m 0644 "$LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_SOURCE" "$LITE_NAS_NGINX_STREAM_SERVICE_SNIPPET_TARGET"
 	install -D -m 0644 "$LITE_NAS_NGINX_MOMENTS_SNIPPET_SOURCE" "$LITE_NAS_NGINX_MOMENTS_SNIPPET_TARGET"
 }
 

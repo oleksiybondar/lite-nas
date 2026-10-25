@@ -16,17 +16,18 @@ import (
 
 // serviceConfig describes only settings consumed by File Service.
 type serviceConfig struct {
-	Address        string
-	Messaging      sharedconfig.MessagingConfig
-	Logging        sharedconfig.LoggingConfig
-	WriteRoots     []string
-	ProtectedPaths []string
-	ReadRules      filesystem.ReadRules
-	MetadataDir    string
-	ChunkSize      int64
-	DocsEnabled    bool
-	UploadTTL      time.Duration
-	CleanupEvery   time.Duration
+	Address             string
+	Messaging           sharedconfig.MessagingConfig
+	Logging             sharedconfig.LoggingConfig
+	WriteRoots          []string
+	ProtectedPaths      []string
+	ReadRules           filesystem.ReadRules
+	ListingIgnoredNames []string
+	MetadataDir         string
+	ChunkSize           int64
+	DocsEnabled         bool
+	UploadTTL           time.Duration
+	CleanupEvery        time.Duration
 }
 
 // loadServiceConfig validates the service's INI boundary before runtime setup.
@@ -72,6 +73,10 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 		AllDenied:            configPaths(file.Section("filesystem").Key("all_denied_paths").String()),
 		KnownPathDirectories: configPaths(file.Section("filesystem").Key("known_path_directories").String()),
 	}
+	listingIgnoredNames, err := parseListingIgnoredNames(file.Section("filesystem").Key("listing_ignored_names").String())
+	if err != nil {
+		return serviceConfig{}, err
+	}
 	if len(writeRoots) == 0 {
 		return serviceConfig{}, errors.New("filesystem.write_roots is required")
 	}
@@ -96,11 +101,31 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 	return serviceConfig{
 		Address: address, Messaging: messaging, Logging: logging,
 		WriteRoots: writeRoots, ProtectedPaths: protected,
-		ReadRules:   readRules,
+		ReadRules: readRules, ListingIgnoredNames: listingIgnoredNames,
 		MetadataDir: metadataDir, ChunkSize: int64(chunkMiB) << 20,
 		DocsEnabled: docsEnabled,
 		UploadTTL:   24 * time.Hour, CleanupEvery: 3 * time.Hour,
 	}, nil
+}
+
+// parseListingIgnoredNames validates comma-separated basename patterns for directory listings.
+func parseListingIgnoredNames(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	patterns := make([]string, 0)
+	for _, part := range strings.Split(value, ",") {
+		pattern := strings.TrimSpace(part)
+		if pattern == "" || pattern == "." || pattern == ".." || len(pattern) > 255 ||
+			strings.ContainsAny(pattern, "/\\") {
+			return nil, errors.New("listing_ignored_names must contain valid basename patterns")
+		}
+		if _, err := filepath.Match(pattern, ""); err != nil {
+			return nil, errors.New("listing_ignored_names contains an invalid pattern")
+		}
+		patterns = append(patterns, strings.ToLower(pattern))
+	}
+	return patterns, nil
 }
 
 // configPaths parses the comma-separated path convention used in INI values.

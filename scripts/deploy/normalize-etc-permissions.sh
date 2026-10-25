@@ -221,6 +221,7 @@ deploy.normalizeNginx() {
 	deploy.normalizePath 0755 "$nginx_sites_enabled_dir" "$owner"
 	deploy.normalizePath 0755 "$nginx_snippets_dir" "$owner"
 	deploy.normalizePath 0644 "$nginx_snippets_dir/lite-nas-file-service.conf" "$owner"
+	deploy.normalizePath 0644 "$nginx_snippets_dir/lite-nas-stream-service.conf" "$owner"
 
 	if [ -d "$nginx_sites_available_dir" ]; then
 		while IFS= read -r -d '' config_file; do

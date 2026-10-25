@@ -64,7 +64,7 @@ assert_file() {
 assert_file_contains() {
 	local path="$1"
 	local expected_line="$2"
-	grep -Fq "$expected_line" "$package_root/$path"
+	grep -Fq -- "$expected_line" "$package_root/$path"
 }
 
 assert_dir() {
@@ -104,6 +104,9 @@ assert_cmd "package name is lite-nas" assert_control_contains Package "lite-nas"
 assert_cmd "package depends on postfix" assert_depends_contains "postfix"
 assert_cmd "package depends on sudo" assert_depends_contains "sudo"
 assert_cmd "package depends on AppArmor" assert_depends_contains "apparmor"
+assert_cmd "package depends on OS ffmpeg" assert_depends_contains "ffmpeg"
+assert_cmd "package depends on HEIC decoder tools" assert_depends_contains "libheif-examples"
+assert_cmd "package depends on HEIC HEVC plugin" assert_depends_contains "libheif-plugin-libde265"
 assert_cmd "package depends on aide" assert_depends_contains "aide"
 assert_cmd "package includes postinst maintainer script" test -f "$package_control/postinst"
 assert_cmd "postinst invokes package runtime" grep -Fq "\"\$DEPLOY_RUNTIME_SCRIPT\" --mode \"\$mode\" \"\$@\"" "$package_control/postinst"
@@ -129,6 +132,7 @@ assert_cmd "network-metrics-cli binary packaged" assert_executable usr/libexec/l
 assert_cmd "zfs-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics-cli
 assert_cmd "file-writer binary packaged" assert_executable usr/libexec/lite-nas/lite-nas-file-writer
 assert_cmd "file-service binary packaged" assert_executable usr/libexec/lite-nas/file-service
+assert_cmd "stream-service binary packaged" assert_executable usr/libexec/lite-nas/stream-service
 assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/web-gateway
 assert_cmd "Moments binary packaged" assert_executable usr/libexec/lite-nas/moments
 assert_cmd "Moments frontend packaged" assert_file usr/libexec/lite-nas/moments-assets/index.html
@@ -136,6 +140,9 @@ assert_cmd "Moments frontend packaged" assert_file usr/libexec/lite-nas/moments-
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
 assert_cmd "file-writer deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-writer.sh
 assert_cmd "file-service deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-service.sh
+assert_cmd "stream-service deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/stream-service.sh
+assert_cmd "stream-service sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-stream-service-read"
+assert_cmd "stream-service preview helper is permitted" assert_file_contains "$packaged_config_root/sudoers.d/lite-nas-stream-service-read" '--preview-file *'
 assert_cmd "file-service deploy provisions read ACLs" assert_file_contains usr/libexec/lite-nas/scripts/deploy/file-service.sh 'deploy.fileService.provisionReadACL'
 assert_cmd "file-service deploy rotates its NATS certificate" assert_file_contains usr/libexec/lite-nas/scripts/deploy/file-service.sh 'rotate-nats-certificates.sh'
 assert_cmd "file-writer deploy installs the AppArmor profile" assert_file_contains usr/libexec/lite-nas/scripts/deploy/file-writer.sh "LITE_NAS_FILE_WRITER_PROFILE_TARGET=\"\${LITE_NAS_FILE_WRITER_PROFILE_TARGET:-/etc/apparmor.d/usr.libexec.lite-nas.lite-nas-file-writer}\""
@@ -147,6 +154,7 @@ assert_cmd "deploy configs installs service-admin kill helper" assert_file_conta
 assert_cmd "package deploy applies configs with NATS preservation option" assert_file_contains usr/libexec/lite-nas/scripts/deploy/lite-nas.sh "\"\$LITE_NAS_REPO_ROOT/scripts/deploy-configs.sh\" \"\${config_deploy_args[@]}\""
 assert_cmd "package postinstall deploys file writer" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh "deploy.fileWriter.deploy \"\$PACKAGE_ROOT/lite-nas-file-writer\" \"\$load_writer_profile\""
 assert_cmd "package postinstall deploys file service" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh "deploy.fileService.deploy \"\$PACKAGE_ROOT/file-service\" 0"
+assert_cmd "package postinstall deploys stream service" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh "deploy.streamService.deploy \"\$PACKAGE_ROOT/stream-service\" 0"
 assert_cmd "NATS preservation skips only NATS config entries" assert_file_contains usr/libexec/lite-nas/scripts/deploy-configs.sh "[ \"\$config_name\" = \"nats-server.conf\" ]"
 assert_cmd "resources-monitor deploy script packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/resources-monitor.sh
 assert_cmd "etc permission normalizer packaged" assert_executable usr/libexec/lite-nas/scripts/deploy/normalize-etc-permissions.sh
@@ -191,6 +199,10 @@ assert_cmd "admin Nginx site includes Moments mount" assert_file_contains "$pack
 assert_cmd "Moments AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.moments"
 assert_cmd "Moments unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-moments.service"
 assert_cmd "file-service.conf packaged" assert_file "$packaged_config_root/lite-nas/file-service.conf"
+assert_cmd "stream-service.conf packaged" assert_file "$packaged_config_root/lite-nas/stream-service.conf"
+assert_cmd "stream-service uses dedicated NATS certificate" assert_file_contains "$packaged_config_root/lite-nas/stream-service.conf" 'lite-nas-stream-service/client.crt'
+assert_cmd "stream-service listens on loopback" assert_file_contains "$packaged_config_root/lite-nas/stream-service.conf" 'address=127.0.0.1:8083'
+assert_cmd "stream-service NATS identity is authorized" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" 'user: "lite-nas-stream-service"'
 
 assert_cmd "resources-monitor unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-resources-monitor.service"
 assert_cmd "system logging manager unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-system-logging-manager.service"
@@ -207,6 +219,10 @@ assert_cmd "process-metrics unit template packaged" assert_file "$packaged_confi
 assert_cmd "zfs-metrics unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-zfs-metrics.service"
 assert_cmd "litenas-integrity unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-integrity.service"
 assert_cmd "file-service unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-file-service.service"
+assert_cmd "stream-service unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-stream-service.service"
+assert_cmd "stream-service unit runs as dedicated user" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-stream-service.service" 'User=lite-nas-stream-service'
+assert_cmd "stream-service unit has no file write grant" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-stream-service.service" 'ReadWritePaths=/var/log/lite-nas/stream-service.log'
+assert_cmd "stream-service preview uses bounded private tmpfs" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-stream-service.service" 'TemporaryFileSystem=/tmp:rw,size=64M,mode=1777'
 
 assert_cmd "postfix main.cf template packaged" assert_file "$packaged_config_root/postfix/main.cf"
 assert_cmd "postfix master.cf template packaged" assert_file "$packaged_config_root/postfix/master.cf"
@@ -231,6 +247,9 @@ assert_cmd "network-metrics-cli AppArmor profile packaged" assert_file "$package
 assert_cmd "zfs-metrics-cli AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.zfs-metrics-cli"
 assert_cmd "file-writer AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.lite-nas-file-writer"
 assert_cmd "file-service AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.file-service"
+assert_cmd "stream-service AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.stream-service"
+assert_cmd "stream-service profile confines installed binary" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.stream-service" 'profile /usr/libexec/lite-nas/stream-service'
+assert_cmd "stream-service profile permits HEIC decoder" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.stream-service" '/usr/bin/heif-dec ix,'
 assert_cmd "file-service AppArmor permits sudo UID changes" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.file-service" 'capability setuid,'
 assert_cmd "file-service AppArmor permits sudo GID changes" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.file-service" 'capability setgid,'
 assert_cmd "file-service AppArmor permits sudo PAM reads" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.file-service" 'include <abstractions/authentication>'
@@ -241,6 +260,9 @@ assert_cmd "nginx AppArmor profile packaged" assert_file "$packaged_config_root/
 assert_cmd "PAM config template packaged" assert_file "$packaged_config_root/pam.d/litenas-auth"
 assert_cmd "nginx site config template packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf"
 assert_cmd "file-service nginx snippet packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-file-service.conf"
+assert_cmd "stream-service nginx snippet packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-stream-service.conf"
+assert_cmd "admin Nginx site includes stream mount" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" 'include /etc/nginx/snippets/lite-nas-stream-service.conf;'
+assert_cmd "Moments Nginx site includes stream mount" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-moments.conf" 'include /etc/nginx/snippets/lite-nas-stream-service.conf;'
 assert_cmd "file-service nginx snippet forwards browser cookies" assert_file_contains "$packaged_config_root/nginx/snippets/lite-nas-file-service.conf" "proxy_set_header Cookie \$http_cookie;"
 assert_cmd "nginx site includes file-service snippet" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" 'include /etc/nginx/snippets/lite-nas-file-service.conf;'
 assert_cmd "ufw default config template packaged" assert_file "$packaged_config_root/default/ufw"

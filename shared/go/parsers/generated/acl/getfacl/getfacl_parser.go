@@ -47,40 +47,41 @@ func getfaclParserInit() {
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 13, 85, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 13, 88, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 1, 0, 5, 0, 20, 8, 0,
 		10, 0, 12, 0, 23, 9, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 		1, 1, 1, 1, 1, 1, 1, 1, 3, 1, 37, 8, 1, 1, 2, 1, 2, 5, 2, 41, 8, 2, 10,
 		2, 12, 2, 44, 9, 2, 1, 2, 1, 2, 1, 2, 5, 2, 49, 8, 2, 10, 2, 12, 2, 52,
-		9, 2, 1, 2, 3, 2, 55, 8, 2, 1, 3, 1, 3, 3, 3, 59, 8, 3, 1, 4, 3, 4, 62,
-		8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 3, 4,
-		74, 8, 4, 1, 5, 1, 5, 1, 6, 1, 6, 1, 7, 3, 7, 81, 8, 7, 1, 8, 1, 8, 1,
-		8, 0, 0, 9, 0, 2, 4, 6, 8, 10, 12, 14, 16, 0, 2, 2, 0, 1, 2, 5, 5, 1, 0,
-		4, 7, 86, 0, 21, 1, 0, 0, 0, 2, 36, 1, 0, 0, 0, 4, 38, 1, 0, 0, 0, 6, 56,
-		1, 0, 0, 0, 8, 61, 1, 0, 0, 0, 10, 75, 1, 0, 0, 0, 12, 77, 1, 0, 0, 0,
-		14, 80, 1, 0, 0, 0, 16, 82, 1, 0, 0, 0, 18, 20, 3, 2, 1, 0, 19, 18, 1,
-		0, 0, 0, 20, 23, 1, 0, 0, 0, 21, 19, 1, 0, 0, 0, 21, 22, 1, 0, 0, 0, 22,
-		24, 1, 0, 0, 0, 23, 21, 1, 0, 0, 0, 24, 25, 5, 0, 0, 1, 25, 1, 1, 0, 0,
-		0, 26, 27, 3, 4, 2, 0, 27, 28, 5, 13, 0, 0, 28, 37, 1, 0, 0, 0, 29, 30,
-		3, 8, 4, 0, 30, 31, 5, 13, 0, 0, 31, 37, 1, 0, 0, 0, 32, 33, 3, 6, 3, 0,
-		33, 34, 5, 13, 0, 0, 34, 37, 1, 0, 0, 0, 35, 37, 5, 13, 0, 0, 36, 26, 1,
-		0, 0, 0, 36, 29, 1, 0, 0, 0, 36, 32, 1, 0, 0, 0, 36, 35, 1, 0, 0, 0, 37,
-		3, 1, 0, 0, 0, 38, 42, 5, 10, 0, 0, 39, 41, 5, 12, 0, 0, 40, 39, 1, 0,
-		0, 0, 41, 44, 1, 0, 0, 0, 42, 40, 1, 0, 0, 0, 42, 43, 1, 0, 0, 0, 43, 45,
-		1, 0, 0, 0, 44, 42, 1, 0, 0, 0, 45, 46, 3, 10, 5, 0, 46, 50, 5, 11, 0,
-		0, 47, 49, 5, 12, 0, 0, 48, 47, 1, 0, 0, 0, 49, 52, 1, 0, 0, 0, 50, 48,
-		1, 0, 0, 0, 50, 51, 1, 0, 0, 0, 51, 54, 1, 0, 0, 0, 52, 50, 1, 0, 0, 0,
-		53, 55, 3, 16, 8, 0, 54, 53, 1, 0, 0, 0, 54, 55, 1, 0, 0, 0, 55, 5, 1,
-		0, 0, 0, 56, 58, 5, 10, 0, 0, 57, 59, 3, 16, 8, 0, 58, 57, 1, 0, 0, 0,
-		58, 59, 1, 0, 0, 0, 59, 7, 1, 0, 0, 0, 60, 62, 5, 3, 0, 0, 61, 60, 1, 0,
-		0, 0, 61, 62, 1, 0, 0, 0, 62, 63, 1, 0, 0, 0, 63, 64, 3, 12, 6, 0, 64,
-		65, 5, 11, 0, 0, 65, 66, 3, 14, 7, 0, 66, 67, 5, 11, 0, 0, 67, 73, 5, 8,
-		0, 0, 68, 69, 5, 10, 0, 0, 69, 70, 3, 16, 8, 0, 70, 71, 5, 11, 0, 0, 71,
-		72, 5, 8, 0, 0, 72, 74, 1, 0, 0, 0, 73, 68, 1, 0, 0, 0, 73, 74, 1, 0, 0,
-		0, 74, 9, 1, 0, 0, 0, 75, 76, 7, 0, 0, 0, 76, 11, 1, 0, 0, 0, 77, 78, 7,
-		1, 0, 0, 78, 13, 1, 0, 0, 0, 79, 81, 3, 16, 8, 0, 80, 79, 1, 0, 0, 0, 80,
-		81, 1, 0, 0, 0, 81, 15, 1, 0, 0, 0, 82, 83, 5, 9, 0, 0, 83, 17, 1, 0, 0,
-		0, 9, 21, 36, 42, 50, 54, 58, 61, 73, 80,
+		9, 2, 1, 2, 5, 2, 55, 8, 2, 10, 2, 12, 2, 58, 9, 2, 1, 3, 1, 3, 3, 3, 62,
+		8, 3, 1, 4, 3, 4, 65, 8, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1,
+		4, 1, 4, 1, 4, 3, 4, 77, 8, 4, 1, 5, 1, 5, 1, 6, 1, 6, 1, 7, 3, 7, 84,
+		8, 7, 1, 8, 1, 8, 1, 8, 0, 0, 9, 0, 2, 4, 6, 8, 10, 12, 14, 16, 0, 2, 2,
+		0, 1, 2, 5, 5, 1, 0, 4, 7, 89, 0, 21, 1, 0, 0, 0, 2, 36, 1, 0, 0, 0, 4,
+		38, 1, 0, 0, 0, 6, 59, 1, 0, 0, 0, 8, 64, 1, 0, 0, 0, 10, 78, 1, 0, 0,
+		0, 12, 80, 1, 0, 0, 0, 14, 83, 1, 0, 0, 0, 16, 85, 1, 0, 0, 0, 18, 20,
+		3, 2, 1, 0, 19, 18, 1, 0, 0, 0, 20, 23, 1, 0, 0, 0, 21, 19, 1, 0, 0, 0,
+		21, 22, 1, 0, 0, 0, 22, 24, 1, 0, 0, 0, 23, 21, 1, 0, 0, 0, 24, 25, 5,
+		0, 0, 1, 25, 1, 1, 0, 0, 0, 26, 27, 3, 4, 2, 0, 27, 28, 5, 13, 0, 0, 28,
+		37, 1, 0, 0, 0, 29, 30, 3, 8, 4, 0, 30, 31, 5, 13, 0, 0, 31, 37, 1, 0,
+		0, 0, 32, 33, 3, 6, 3, 0, 33, 34, 5, 13, 0, 0, 34, 37, 1, 0, 0, 0, 35,
+		37, 5, 13, 0, 0, 36, 26, 1, 0, 0, 0, 36, 29, 1, 0, 0, 0, 36, 32, 1, 0,
+		0, 0, 36, 35, 1, 0, 0, 0, 37, 3, 1, 0, 0, 0, 38, 42, 5, 10, 0, 0, 39, 41,
+		5, 12, 0, 0, 40, 39, 1, 0, 0, 0, 41, 44, 1, 0, 0, 0, 42, 40, 1, 0, 0, 0,
+		42, 43, 1, 0, 0, 0, 43, 45, 1, 0, 0, 0, 44, 42, 1, 0, 0, 0, 45, 46, 3,
+		10, 5, 0, 46, 50, 5, 11, 0, 0, 47, 49, 5, 12, 0, 0, 48, 47, 1, 0, 0, 0,
+		49, 52, 1, 0, 0, 0, 50, 48, 1, 0, 0, 0, 50, 51, 1, 0, 0, 0, 51, 56, 1,
+		0, 0, 0, 52, 50, 1, 0, 0, 0, 53, 55, 3, 16, 8, 0, 54, 53, 1, 0, 0, 0, 55,
+		58, 1, 0, 0, 0, 56, 54, 1, 0, 0, 0, 56, 57, 1, 0, 0, 0, 57, 5, 1, 0, 0,
+		0, 58, 56, 1, 0, 0, 0, 59, 61, 5, 10, 0, 0, 60, 62, 3, 16, 8, 0, 61, 60,
+		1, 0, 0, 0, 61, 62, 1, 0, 0, 0, 62, 7, 1, 0, 0, 0, 63, 65, 5, 3, 0, 0,
+		64, 63, 1, 0, 0, 0, 64, 65, 1, 0, 0, 0, 65, 66, 1, 0, 0, 0, 66, 67, 3,
+		12, 6, 0, 67, 68, 5, 11, 0, 0, 68, 69, 3, 14, 7, 0, 69, 70, 5, 11, 0, 0,
+		70, 76, 5, 8, 0, 0, 71, 72, 5, 10, 0, 0, 72, 73, 3, 16, 8, 0, 73, 74, 5,
+		11, 0, 0, 74, 75, 5, 8, 0, 0, 75, 77, 1, 0, 0, 0, 76, 71, 1, 0, 0, 0, 76,
+		77, 1, 0, 0, 0, 77, 9, 1, 0, 0, 0, 78, 79, 7, 0, 0, 0, 79, 11, 1, 0, 0,
+		0, 80, 81, 7, 1, 0, 0, 81, 13, 1, 0, 0, 0, 82, 84, 3, 16, 8, 0, 83, 82,
+		1, 0, 0, 0, 83, 84, 1, 0, 0, 0, 84, 15, 1, 0, 0, 0, 85, 86, 5, 9, 0, 0,
+		86, 17, 1, 0, 0, 0, 9, 21, 36, 42, 50, 56, 61, 64, 76, 83,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -525,7 +526,8 @@ type IHeaderLineContext interface {
 	COLON() antlr.TerminalNode
 	AllWS() []antlr.TerminalNode
 	WS(i int) antlr.TerminalNode
-	ValueAtom() IValueAtomContext
+	AllValueAtom() []IValueAtomContext
+	ValueAtom(i int) IValueAtomContext
 
 	// IsHeaderLineContext differentiates from other interfaces.
 	IsHeaderLineContext()
@@ -595,12 +597,37 @@ func (s *HeaderLineContext) WS(i int) antlr.TerminalNode {
 	return s.GetToken(GetfaclParserWS, i)
 }
 
-func (s *HeaderLineContext) ValueAtom() IValueAtomContext {
+func (s *HeaderLineContext) AllValueAtom() []IValueAtomContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IValueAtomContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IValueAtomContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IValueAtomContext); ok {
+			tst[i] = t.(IValueAtomContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *HeaderLineContext) ValueAtom(i int) IValueAtomContext {
 	var t antlr.RuleContext
+	j := 0
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IValueAtomContext); ok {
-			t = ctx.(antlr.RuleContext)
-			break
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
 		}
 	}
 
@@ -705,18 +732,25 @@ func (p *GetfaclParser) HeaderLine() (localctx IHeaderLineContext) {
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(54)
+	p.SetState(56)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == GetfaclParserVALUE_ATOM {
+	for _la == GetfaclParserVALUE_ATOM {
 		{
 			p.SetState(53)
 			p.ValueAtom()
 		}
+
+		p.SetState(58)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
 	}
 
 errorExit:
@@ -826,14 +860,14 @@ func (p *GetfaclParser) CommentLine() (localctx ICommentLineContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(56)
+		p.SetState(59)
 		p.Match(GetfaclParserHASH)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(58)
+	p.SetState(61)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -842,7 +876,7 @@ func (p *GetfaclParser) CommentLine() (localctx ICommentLineContext) {
 
 	if _la == GetfaclParserVALUE_ATOM {
 		{
-			p.SetState(57)
+			p.SetState(60)
 			p.ValueAtom()
 		}
 	}
@@ -1012,7 +1046,7 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(61)
+	p.SetState(64)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1021,7 +1055,7 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 
 	if _la == GetfaclParserDEFAULT_PREFIX {
 		{
-			p.SetState(60)
+			p.SetState(63)
 			p.Match(GetfaclParserDEFAULT_PREFIX)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1030,11 +1064,11 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 		}
 	}
 	{
-		p.SetState(63)
+		p.SetState(66)
 		p.Tag()
 	}
 	{
-		p.SetState(64)
+		p.SetState(67)
 		p.Match(GetfaclParserCOLON)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1042,11 +1076,11 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 		}
 	}
 	{
-		p.SetState(65)
+		p.SetState(68)
 		p.Qualifier()
 	}
 	{
-		p.SetState(66)
+		p.SetState(69)
 		p.Match(GetfaclParserCOLON)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1054,14 +1088,14 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 		}
 	}
 	{
-		p.SetState(67)
+		p.SetState(70)
 		p.Match(GetfaclParserPERM)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(73)
+	p.SetState(76)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1070,7 +1104,7 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 
 	if _la == GetfaclParserHASH {
 		{
-			p.SetState(68)
+			p.SetState(71)
 			p.Match(GetfaclParserHASH)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1078,11 +1112,11 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 			}
 		}
 		{
-			p.SetState(69)
+			p.SetState(72)
 			p.ValueAtom()
 		}
 		{
-			p.SetState(70)
+			p.SetState(73)
 			p.Match(GetfaclParserCOLON)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1090,7 +1124,7 @@ func (p *GetfaclParser) AclEntryLine() (localctx IAclEntryLineContext) {
 			}
 		}
 		{
-			p.SetState(71)
+			p.SetState(74)
 			p.Match(GetfaclParserPERM)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1190,7 +1224,7 @@ func (p *GetfaclParser) HeaderKey() (localctx IHeaderKeyContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(75)
+		p.SetState(78)
 		_la = p.GetTokenStream().LA(1)
 
 		if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&38) != 0) {
@@ -1306,7 +1340,7 @@ func (p *GetfaclParser) Tag() (localctx ITagContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(77)
+		p.SetState(80)
 		_la = p.GetTokenStream().LA(1)
 
 		if !((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&240) != 0) {
@@ -1418,7 +1452,7 @@ func (p *GetfaclParser) Qualifier() (localctx IQualifierContext) {
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(80)
+	p.SetState(83)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1427,7 +1461,7 @@ func (p *GetfaclParser) Qualifier() (localctx IQualifierContext) {
 
 	if _la == GetfaclParserVALUE_ATOM {
 		{
-			p.SetState(79)
+			p.SetState(82)
 			p.ValueAtom()
 		}
 	}
@@ -1520,7 +1554,7 @@ func (p *GetfaclParser) ValueAtom() (localctx IValueAtomContext) {
 	p.EnterRule(localctx, 16, GetfaclParserRULE_valueAtom)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(82)
+		p.SetState(85)
 		p.Match(GetfaclParserVALUE_ATOM)
 		if p.HasError() {
 			// Recognition error - abort rule

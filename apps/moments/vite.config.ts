@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import type { Plugin } from "vite";
+import { defineConfig } from "vitest/config";
 
 const fileServiceOrigin = process.env.LITE_NAS_FILE_SERVICE_ORIGIN || "http://127.0.0.1:8082";
 const streamServiceOrigin = process.env.LITE_NAS_STREAM_SERVICE_ORIGIN;
@@ -25,6 +26,12 @@ export default defineConfig({
     outDir: process.env.LITE_NAS_MOMENTS_OUT_DIR || "../../.build/moments",
   },
   plugins: [react(), missingStreamService],
+  test: {
+    coverage: {
+      include: ["src/**/*.{ts,tsx}"],
+      thresholds: { branches: 75, functions: 75, lines: 75, statements: 75 },
+    },
+  },
   server: {
     proxy: {
       "/api": {

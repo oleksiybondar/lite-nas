@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -141,6 +143,57 @@ func TestListingReturnsMetadataAndKeepsFlags(t *testing.T) {
 				t.Fatalf("file metadata = %+v", entry)
 			}
 		}
+	}
+}
+
+// TestRecursiveListingOmitsConfiguredOSMetadata covers file-service-svc/FR-008.
+func TestRecursiveListingOmitsConfiguredOSMetadata(t *testing.T) {
+	root := t.TempDir()
+	for _, directory := range []string{".Trashes", "pictures"} {
+		if err := os.Mkdir(filepath.Join(root, directory), 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"Thumbs.DB", "desktop.INI", ".DS_Store", "._photo.jpg", ".directory", ".hidden", ".keep", "notes.txt", ".Trashes/deleted.txt", "pictures/photo.jpg"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("content"), 0o640); err != nil {
+			t.Fatal(err)
+		}
+	}
+	service := mustService(t, root, authorizedRequests(new(int), "sudo"))
+	service.cfg.ListingIgnoredNames = mustLoadPackagedConfig(t).ListingIgnoredNames
+	request := httptest.NewRequest(http.MethodGet, "/ls"+root+"?recursive&files-only", nil)
+	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "token"})
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	var entries []listingEntry
+	if err := json.Unmarshal(response.Body.Bytes(), &entries); err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name)
+	}
+	sort.Strings(names)
+	if !slices.Equal(names, []string{".keep", "notes.txt", "photo.jpg"}) {
+		t.Fatalf("listing names = %v", names)
+	}
+}
+
+// TestListingFilterDoesNotDenyDirectReads covers the listing-only filter contract.
+func TestListingFilterDoesNotDenyDirectReads(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "Thumbs.db"), []byte("content"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	service := mustService(t, root, authorizedRequests(new(int), "sudo"))
+	service.cfg.ListingIgnoredNames = mustLoadPackagedConfig(t).ListingIgnoredNames
+	service.readerCommand = openWorkflowFile
+	request := httptest.NewRequest(http.MethodGet, filepath.Join(root, "Thumbs.db"), nil)
+	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "token"})
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("direct read status = %d", response.Code)
 	}
 }
 

@@ -114,7 +114,12 @@ func parseHeaderKeyValue(line *gen.HeaderLineContext) (string, string, bool) {
 		return "", "", false
 	}
 
-	return keyCtx.GetText(), parseValueAtom(line.ValueAtom()), true
+	values := line.AllValueAtom()
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, parseValueAtom(value))
+	}
+	return keyCtx.GetText(), strings.Join(parts, " "), true
 }
 
 func parseValueAtom(valueAtom gen.IValueAtomContext) string {

@@ -44,8 +44,10 @@ def upload_target(operator_cli_client: CLIClient) -> Generator[str, None, None]:
         operator_cli_client.execute(f"rm -f -- {shlex.quote(path)} {shlex.quote(path + '.upload')}")
 
 
-def multipart_body(destination: str, *, file_first: bool = False) -> tuple[bytes, str]:
-    """Encode the documented destination and file parts in the selected order."""
+def multipart_body(
+    destination: str, *, file_first: bool = False, private: bool = False
+) -> tuple[bytes, str]:
+    """Encode destination, optional visibility, and file parts in the selected order."""
     boundary = f"lite-nas-{uuid4().hex}"
     destination_part = (
         f'--{boundary}\r\nContent-Disposition: form-data; name="destination"\r\n\r\n'
@@ -60,13 +62,24 @@ def multipart_body(destination: str, *, file_first: bool = False) -> tuple[bytes
         + CONTENT
         + b"\r\n"
     )
-    parts = (file_part, destination_part) if file_first else (destination_part, file_part)
+    private_part = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="private"\r\n\r\ntrue\r\n'.encode()
+        if private
+        else b""
+    )
+    parts = (
+        (file_part, destination_part, private_part)
+        if file_first
+        else (destination_part, private_part, file_part)
+    )
     return b"".join(parts) + f"--{boundary}--\r\n".encode(), boundary
 
 
-def upload_conventional(api_client: RESTClient, cookie: str, destination: str) -> None:
-    """Publish the small fixture file through the destination-first multipart route."""
-    body, boundary = multipart_body(destination)
+def upload_conventional(
+    api_client: RESTClient, cookie: str, destination: str, *, private: bool = False
+) -> None:
+    """Publish the fixture file through the multipart route with selected visibility."""
+    body, boundary = multipart_body(destination, private=private)
     response = api_client.post(
         path="/f/upload",
         payload=body,
@@ -81,9 +94,9 @@ def upload_conventional(api_client: RESTClient, cookie: str, destination: str) -
 
 
 def start_upload(
-    api_client: RESTClient, cookie: str, destination: str, content: bytes
+    api_client: RESTClient, cookie: str, destination: str, content: bytes, *, private: bool = False
 ) -> tuple[str, int]:
-    """Create a resumable upload and return its ID and committed chunk size."""
+    """Create a resumable upload with selected visibility and return its ID and chunk size."""
     response = api_client.post(
         path=UPLOAD_ENDPOINT,
         payload={
@@ -91,6 +104,7 @@ def start_upload(
             "filename": "sample.txt",
             "size": len(content),
             "sha256": hashlib.sha256(content).hexdigest(),
+            "private": private,
         },
         headers={"Origin": ORIGIN, "Idempotency-Key": uuid4().hex},
         cookies={ACCESS_COOKIE: cookie},
@@ -195,14 +209,16 @@ def test_conventional_upload_publishes_file(
 
 # Requirements: file-service-svc/FR-004 and file-service-svc/TR-002.
 @pytest.mark.parametrize("upload_mode", ["conventional", "proprietary"])
-def test_uploaded_file_has_operator_permissions(
+@pytest.mark.parametrize("private", [False, True], ids=["shared", "private"])
+def test_uploaded_file_has_operator_permissions(  # noqa: PLR0913
     api_client: RESTClient,
     operator_cli_client: CLIClient,
     operator_cookie: str,
     upload_target: str,
     upload_mode: str,
+    private: bool,
 ) -> None:
-    """Test case: either upload protocol publishes with the operator's private permissions.
+    """Test case: both upload protocols publish the selected shared or private mode.
 
     Preparation:
     - The operator is authenticated and has a unique destination in their home.
@@ -212,12 +228,14 @@ def test_uploaded_file_has_operator_permissions(
     2. Inspect the published file's Unix UID, GID, and mode with stat.
 
     Expected result:
-    - The UID and GID match the operator's Unix identity and the mode is 0600.
+    - The UID and GID match the operator and the mode matches the visibility choice.
     """
     if upload_mode == "conventional":
-        upload_conventional(api_client, operator_cookie, upload_target)
+        upload_conventional(api_client, operator_cookie, upload_target, private=private)
     else:
-        upload_id, chunk_size = start_upload(api_client, operator_cookie, upload_target, CONTENT)
+        upload_id, chunk_size = start_upload(
+            api_client, operator_cookie, upload_target, CONTENT, private=private
+        )
         finished = False
         try:
             for offset in range(0, len(CONTENT), chunk_size):
@@ -237,8 +255,9 @@ def test_uploaded_file_has_operator_permissions(
     operator_cli_client.execute(f"stat -c '%u:%g:%a' -- {shlex.quote(upload_target)}")
     operator_cli_client.assert_exit_code(0)
     operator = getpwnam(SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN)
+    mode = "660" if private else "664"
     expect(operator_cli_client.output.splitlines()[-1]).to_be(
-        f"{operator.pw_uid}:{operator.pw_gid}:600"
+        f"{operator.pw_uid}:{operator.pw_gid}:{mode}"
     )
 
 

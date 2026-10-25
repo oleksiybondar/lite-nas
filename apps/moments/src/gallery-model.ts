@@ -8,6 +8,8 @@ export type GalleryItem = {
   url: string;
   filename: string;
   kind: "image" | "video" | "unsupported";
+  /** Authorized movie original verified to share this still's Apple content identifier. */
+  motionUrl?: string;
 };
 
 export const galleryFileUrlSchema = z
@@ -18,7 +20,8 @@ export const galleryFileUrlSchema = z
     try {
       const path = decodeURIComponent(value.slice(3));
       return (
-        path.startsWith("home/") && !path.split("/").some((part) => part === ".." || part === ".")
+        path.length > 0 &&
+        !path.split("/").some((part) => part === ".." || part === "." || part === "")
       );
     } catch {
       return false;
@@ -37,15 +40,25 @@ export const galleryDownloadUrl = (url: string): string | null => {
   return result.success ? `/d/${result.data.slice(3)}` : null;
 };
 
+/** Identifies a validated HEIC still for JPEG preview routing. */
+export const galleryIsHeic = (url: string): boolean => {
+  const result = galleryFileUrlSchema.safeParse(url);
+  return result.success && /\.hei[cf]$/i.test(result.data);
+};
+
 /** Adapts validated original-file paths into ordered presentation items. */
 export const galleryItemsFromPaths = (paths: readonly string[]): GalleryItem[] =>
   paths.map((url, index) => {
     const filename = decodeURIComponent(url.slice(url.lastIndexOf("/") + 1));
     const extension = filename.split(".").pop()?.toLowerCase();
     let kind: GalleryItem["kind"] = "unsupported";
-    if (extension && ["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(extension))
+    if (
+      extension &&
+      ["jpg", "jpeg", "png", "webp", "gif", "avif", "heic", "heif"].includes(extension)
+    )
       kind = "image";
-    else if (extension && ["mp4", "mov", "webm", "m4v"].includes(extension)) kind = "video";
+    else if (extension && ["mp4", "mov", "webm", "m4v", "avi", "mkv"].includes(extension))
+      kind = "video";
     return { id: `${index}:${url}`, url, filename, kind };
   });
 

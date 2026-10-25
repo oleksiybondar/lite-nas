@@ -1,6 +1,7 @@
 """Installed-system privacy checks for fixed File Service profile resources."""
 
 import base64
+import json
 import shlex
 from collections.abc import Generator
 from urllib.parse import urlsplit
@@ -104,7 +105,8 @@ def test_profile_document_round_trip(
     if response.status not in (200, 201):
         pytest.fail(f"profile publication failed: HTTP {response.status}")
     read = api_client.get(path=f"/f/profile/{resource}", cookies={ACCESS_COOKIE: operator_cookie})
-    expect(read.body).to_be({"systemTest": resource})
+    if json.loads(read.raw_body) != {"systemTest": resource}:
+        pytest.fail(f"profile round trip failed: HTTP {read.status}, body {read.raw_body!r}")
 
 
 # Requirements: file-service-svc/FR-012.
@@ -139,7 +141,7 @@ def test_profile_expression_text_remains_literal_data(
         if written.status not in (200, 201):
             pytest.fail(f"profile publication failed: HTTP {written.status}")
         read = api_client.get(path="/f/profile/ui", cookies={ACCESS_COOKIE: operator_cookie})
-        if read.body != document:
+        if json.loads(read.raw_body) != document:
             pytest.fail("profile expression was not returned literally")
         operator_cli_client.execute(f"test ! -e {shlex.quote(sentinel)}")
         operator_cli_client.assert_exit_code(0)

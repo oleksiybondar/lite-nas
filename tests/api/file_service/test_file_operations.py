@@ -23,7 +23,8 @@ def operation_tree(operator_cli_client: CLIClient) -> Generator[tuple[str, str],
     root = f"/home/{SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN}/.lite-nas-operation-{uuid4().hex}"
     source = f"{root}/source.txt"
     operator_cli_client.execute(
-        f"mkdir -m 0700 -- {shlex.quote(root)} && "
+        f"mkdir -m 0755 -- {shlex.quote(root)} && "
+        f"chmod 0755 -- {shlex.quote(root)} && "
         f"printf 'operation-source\\n' > {shlex.quote(source)} && "
         f"chmod 0600 -- {shlex.quote(source)}"
     )

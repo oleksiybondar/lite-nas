@@ -1,4 +1,5 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: playback state and its user-initiated controls compose one tile.
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: fallback and time seeking share the tile's video lifecycle.
 // biome-ignore-all lint/a11y/useMediaCaption: original files have no associated caption resource in the gallery contract.
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import Box from "@mui/material/Box";
@@ -9,27 +10,43 @@ import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useCarousel } from "./CarouselContext";
 import type { GalleryItem } from "./gallery-model";
+import { useStream } from "./StreamContext";
 import { useWall } from "./WallContext";
 
 /** Offers native wall playback without requesting a video until a user presses Play. */
 export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
+  const [mode, setMode] = useState<"original" | "transcode" | "failed">("original");
+  const [transcodeStart, setTranscodeStart] = useState(0);
+  const stream = useStream();
   const { selected } = useCarousel();
   const { activeVideoId, setActiveVideoId } = useWall();
   useEffect(() => {
     if (selected !== null || (activeVideoId !== null && activeVideoId !== item.id))
       videoRef.current?.pause();
   }, [activeVideoId, item.id, selected]);
+  useEffect(() => {
+    if (loaded && mode === "transcode") {
+      const video = videoRef.current;
+      const url = stream.transcode(item.url, transcodeStart);
+      if (video && url) {
+        video.src = url;
+        void video.play().catch(() => {
+          // Native controls remain available if automatic fallback playback is blocked.
+        });
+      }
+    }
+  }, [item.url, loaded, mode, stream, transcodeStart]);
   /** Starts this original only after a direct user action. */
   const play = (): void => {
     const video = videoRef.current;
     if (!video) return;
     setActiveVideoId(item.id);
     setLoaded(true);
-    setError(false);
-    if (!video.src) video.src = item.url;
+    setMode("original");
+    setTranscodeStart(0);
+    if (!video.src) video.src = stream.original(item.url) ?? "";
     void video.play().catch(() => {
       // Native controls remain available if the browser declines immediate playback.
     });
@@ -46,14 +63,52 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
     >
       <video
         ref={videoRef}
-        src={loaded ? item.url : undefined}
+        src={
+          loaded
+            ? ((mode === "transcode"
+                ? stream.transcode(item.url, transcodeStart)
+                : stream.original(item.url)) ?? undefined)
+            : undefined
+        }
         controls={loaded}
         playsInline
         preload="none"
-        onError={() => setError(true)}
+        onError={() => setMode((current) => (current === "original" ? "transcode" : "failed"))}
         aria-label={item.filename}
         style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
       />
+      {loaded && mode === "transcode" && (
+        <Stack direction="row" gap={1} sx={{ position: "absolute", top: 8, left: 8 }}>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() =>
+              setTranscodeStart(
+                Math.min(
+                  86400,
+                  Math.max(0, transcodeStart + Math.floor(videoRef.current?.currentTime ?? 0) - 30),
+                ),
+              )
+            }
+          >
+            Back 30s
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() =>
+              setTranscodeStart(
+                Math.min(
+                  86400,
+                  transcodeStart + Math.floor(videoRef.current?.currentTime ?? 0) + 30,
+                ),
+              )
+            }
+          >
+            Forward 30s
+          </Button>
+        </Stack>
+      )}
       {!loaded && (
         <Stack
           alignItems="center"
@@ -75,7 +130,7 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
           </Button>
         </Stack>
       )}
-      {error && (
+      {mode === "failed" && (
         <Typography
           sx={{
             position: "absolute",

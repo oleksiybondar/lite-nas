@@ -343,6 +343,17 @@ func describeEntry(path string, kind string, entry os.DirEntry) listingEntry {
 	return item
 }
 
+// listingNameIgnored matches configured basename patterns without affecting direct file access.
+func listingNameIgnored(name string, patterns []string) bool {
+	for _, pattern := range patterns {
+		matched, _ := filepath.Match(pattern, strings.ToLower(name))
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
 // list returns only entries whose paths receive a fresh RBAC read allow.
 func (s *fileService) list(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject) {
 	resolved, scope, ok := s.resolveReadScope(writer, request, subject, "/ls")
@@ -367,6 +378,9 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 			return err
 		}
 		for _, entry := range entries {
+			if listingNameIgnored(entry.Name(), s.cfg.ListingIgnoredNames) {
+				continue
+			}
 			if entry.Type()&os.ModeSymlink != 0 {
 				continue
 			}

@@ -69,6 +69,15 @@ func TestPackagedConfigDefinesReadAndWriteRoots(t *testing.T) {
 	}
 }
 
+// TestPackagedConfigDefinesListingFilters covers configurable OS metadata hiding.
+func TestPackagedConfigDefinesListingFilters(t *testing.T) {
+	config := mustLoadPackagedConfig(t)
+	want := []string{"thumbs.db", "ehthumbs.db", "thumbcache_*.db", "desktop.ini", ".ds_store", "._*", ".appledouble", ".spotlight-v100", ".trashes", ".fseventsd", ".temporaryitems", ".directory", ".hidden", ".trash", ".trash-*"}
+	if !slices.Equal(config.ListingIgnoredNames, want) {
+		t.Fatalf("listing ignored names = %v, want %v", config.ListingIgnoredNames, want)
+	}
+}
+
 // TestLoadServiceConfigRejectsUnsafeOverrides covers service config input validation.
 func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 	payload, err := os.ReadFile("../../configs/etc/lite-nas/file-service.conf")
@@ -91,6 +100,9 @@ func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 		{name: "relative read root", old: "read_roots=/home", new: "read_roots=relative"},
 		{name: "relative protected root", old: "protected_paths=/bin", new: "protected_paths=relative"},
 		{name: "malformed mask", old: "known_path_directories=/home/*/.lite-nas", new: "known_path_directories=/home/**/.lite-nas"},
+		{name: "listing path", old: "listing_ignored_names=Thumbs.db", new: "listing_ignored_names=folder/Thumbs.db"},
+		{name: "listing glob", old: "listing_ignored_names=Thumbs.db", new: "listing_ignored_names=[Thumbs.db"},
+		{name: "listing empty member", old: "listing_ignored_names=Thumbs.db", new: "listing_ignored_names=Thumbs.db,,"},
 		{name: "invalid docs switch", old: "enabled=false", new: "enabled=maybe"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -30,11 +30,13 @@ import { GalleryItemMenu } from "./GalleryItemMenu";
 import { GalleryViewerDetails } from "./GalleryViewerDetails";
 import { GalleryViewerMedia } from "./GalleryViewerMedia";
 import { galleryDownloadUrl, imageDelaySchema, videoAutoplaySchema } from "./gallery-model";
+import { useStream } from "./StreamContext";
 import { useWall } from "./WallContext";
 
 /** Presents the selected original in a modal while leaving the wall mounted. */
 export const GalleryViewer = (): ReactElement => {
   const { items, queue, metadata } = useGallery();
+  const stream = useStream();
   const {
     window: { visible: visibleWallItems },
   } = useWall();
@@ -64,7 +66,11 @@ export const GalleryViewer = (): ReactElement => {
     .map((item, index) => ({ item, index }))
     .filter(({ item, index }) => {
       if (selected === null || Math.abs(index - selected) > previewOffset) return false;
-      if (item.kind === "image") return queue.status(item.url) === "ready";
+      if (item.kind === "image")
+        return (
+          queue.status(item.url) === "ready" ||
+          (!!item.motionUrl && queue.status(item.url) === "error")
+        );
       return true;
     });
   useEffect(() => {
@@ -407,7 +413,7 @@ export const GalleryViewer = (): ReactElement => {
                       {item.kind === "image" ? (
                         <Box
                           component="img"
-                          src={item.url}
+                          src={stream.image(item.url) ?? undefined}
                           alt=""
                           loading="lazy"
                           decoding="async"

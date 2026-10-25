@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/helpers/logger.sh"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/helpers/sudo-guard.sh"
 
-runtime_tools=(apparmor_parser getfacl nats-server nginx openssl postfix ufw visudo)
+runtime_tools=(apparmor_parser ffmpeg getfacl heif-dec nats-server nginx openssl postfix ufw visudo)
 
 sudo.guard.requireRoot "scripts/install-runtime-dependencies.sh"
 
@@ -16,7 +16,7 @@ install_apt_packages() {
 		cat <<'MSG' >&2
 Missing required runtime dependencies, and apt-get is not available.
 
-Install ACL tools, AppArmor, NATS Server, nginx, OpenSSL, Postfix, sudo, and UFW manually, then re-run this script.
+Install ACL tools, AppArmor, ffmpeg, libheif-examples, libheif-plugin-libde265, NATS Server, nginx, OpenSSL, Postfix, sudo, and UFW manually, then re-run this script.
 On macOS, use Homebrew:
   brew install nats-server nginx openssl
 MSG
@@ -25,7 +25,7 @@ MSG
 
 	log.pushTask "Installing Debian/Ubuntu runtime packages"
 	apt-get update
-	apt-get install -y acl apparmor nats-server nginx openssl postfix sudo ufw
+	apt-get install -y acl apparmor ffmpeg libheif-examples libheif-plugin-libde265 nats-server nginx openssl postfix sudo ufw
 	log.popTask
 }
 
@@ -41,6 +41,11 @@ if [ "${#missing_runtime_tools[@]}" -gt 0 ]; then
 	install_apt_packages
 fi
 
+if command -v heif-dec >/dev/null 2>&1 && [[ "$(heif-dec --list-decoders 2>/dev/null)" != *libde265* ]]; then
+	log.info "Missing libheif HEVC decoder plugin"
+	install_apt_packages
+fi
+
 log.pushTask "Checking runtime dependencies"
 for tool in "${runtime_tools[@]}"; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
@@ -48,6 +53,10 @@ for tool in "${runtime_tools[@]}"; do
 		exit 1
 	fi
 done
+if [[ "$(heif-dec --list-decoders 2>/dev/null)" != *libde265* ]]; then
+	log.error "Missing libheif HEVC decoder plugin after installation attempt"
+	exit 1
+fi
 log.popTask
 
 log.info "Runtime dependencies are installed."

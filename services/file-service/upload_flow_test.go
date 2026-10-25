@@ -297,6 +297,60 @@ func TestCancelUploadPreservesRecordWhenCleanupFails(t *testing.T) {
 	}
 }
 
+// TestUploadResourceRejectsMalformedID covers opaque upload route validation.
+func TestUploadResourceRejectsMalformedID(t *testing.T) {
+	service, _ := mustWorkflowService(t, t.TempDir())
+	response := mustWorkflowRequest(t, service, http.MethodGet, "/proprietary/upload/not-an-id", "", nil)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("upload lookup status = %d, want 404", response.Code)
+	}
+}
+
+// TestUploadResourceHidesOtherOwnersRecord covers upload owner isolation.
+func TestUploadResourceHidesOtherOwnersRecord(t *testing.T) {
+	root := t.TempDir()
+	service, _ := mustWorkflowService(t, root)
+	id := mustStartResumableUpload(t, service, filepath.Join(root, "photo.jpg"), "photo")
+	service.store.records[id].Owner = "other"
+	response := mustWorkflowRequest(t, service, http.MethodGet, "/proprietary/upload/"+id, "", nil)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("other owner's upload status = %d, want 404", response.Code)
+	}
+}
+
+// TestUploadResourceExpiresActiveRecord covers stale upload rejection.
+func TestUploadResourceExpiresActiveRecord(t *testing.T) {
+	root := t.TempDir()
+	service, _ := mustWorkflowService(t, root)
+	id := mustStartResumableUpload(t, service, filepath.Join(root, "photo.jpg"), "photo")
+	service.store.records[id].Expires = time.Now().Add(-time.Minute)
+	response := mustWorkflowRequest(t, service, http.MethodGet, "/proprietary/upload/"+id, "", nil)
+	if response.Code != http.StatusGone {
+		t.Fatalf("expired upload status = %d, want 410", response.Code)
+	}
+}
+
+// TestUploadCompletionRejectsUnsupportedMethod covers completion route methods.
+func TestUploadCompletionRejectsUnsupportedMethod(t *testing.T) {
+	root := t.TempDir()
+	service, _ := mustWorkflowService(t, root)
+	id := mustStartResumableUpload(t, service, filepath.Join(root, "photo.jpg"), "photo")
+	response := mustWorkflowRequest(t, service, http.MethodPost, "/proprietary/upload/"+id+"/completion", "", nil)
+	if response.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("completion status = %d, want 405", response.Code)
+	}
+}
+
+// TestCancelCompletedUploadPreservesPublishedFile covers completed upload immutability.
+func TestCancelCompletedUploadPreservesPublishedFile(t *testing.T) {
+	request := httptest.NewRequest(http.MethodDelete, "/proprietary/upload/fixture", nil)
+	response := httptest.NewRecorder()
+	(&fileService{}).cancelUpload(response, request, fileaccess.Subject{}, &uploadRecord{State: "completed"})
+	if response.Code != http.StatusConflict {
+		t.Fatalf("completed upload cancellation status = %d, want 409", response.Code)
+	}
+}
+
 // TestCompleteUploadRejectsChecksumAndPublicationFailures covers final stage checks.
 func TestCompleteUploadRejectsChecksumAndPublicationFailures(t *testing.T) {
 	root := t.TempDir()

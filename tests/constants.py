@@ -20,6 +20,9 @@ DEPENDENCY_PACKAGES: list[str] = [
     "acl",
     "aide",
     "apparmor",
+    "ffmpeg",
+    "libheif-examples",
+    "libheif-plugin-libde265",
     "postfix",
     "sudo",
     "zfsutils-linux",
@@ -68,6 +71,7 @@ TEST_SUDO_PASSWORD: str = os.environ.get(
 SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",
     "lite-nas-web-gateway",
+    "lite-nas-stream-service",
     "lite-nas-system-metrics",
     "lite-nas-system-logging-manager",
     "lite-nas-security-logging-manager",

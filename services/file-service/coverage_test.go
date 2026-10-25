@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -48,6 +49,129 @@ func TestOperationInputsRejectMalformedRequests(t *testing.T) {
 	response := mustProtectedRequest(t, service, http.MethodPost, "/copy", `{"source":"/missing-source","destination":"/tmp/new"}`)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("missing source = %d %s", response.Code, response.Body.String())
+	}
+}
+
+// TestTransferRejectsUnsafeTargets covers symlink and recursive destination boundaries.
+func TestTransferRejectsUnsafeTargets(t *testing.T) {
+	root := t.TempDir()
+	service := mustService(t, root, authorizedRequests(new(int)))
+	sourceFile := filepath.Join(root, "source.txt")
+	mustWriteWorkflowFile(t, sourceFile, "source")
+	sourceDirectory := filepath.Join(root, "photos")
+	if err := os.Mkdir(sourceDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	sourceLink := filepath.Join(root, "source-link")
+	if err := os.Symlink(sourceFile, sourceLink); err != nil {
+		t.Fatal(err)
+	}
+	destinationLink := filepath.Join(root, "destination-link")
+	if err := os.Symlink(sourceFile, destinationLink); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name        string
+		source      string
+		destination string
+		want        int
+	}{
+		{name: "source symlink", source: sourceLink, destination: filepath.Join(root, "copy.txt"), want: http.StatusBadRequest},
+		{name: "destination symlink", source: sourceFile, destination: destinationLink, want: http.StatusConflict},
+		{name: "same file", source: sourceFile, destination: sourceFile, want: http.StatusConflict},
+		{name: "nested directory", source: sourceDirectory, destination: filepath.Join(sourceDirectory, "nested"), want: http.StatusConflict},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"source":%q,"destination":%q}`, test.source, test.destination)
+			response := mustProtectedRequest(t, service, http.MethodPost, "/copy", body)
+			if response.Code != test.want {
+				t.Fatalf("transfer status = %d, want %d", response.Code, test.want)
+			}
+		})
+	}
+}
+
+// TestUploadStoreRejectsDuplicateTargets covers durable target reservation recovery.
+func TestUploadStoreRejectsDuplicateTargets(t *testing.T) {
+	directory := t.TempDir()
+	for _, id := range []string{"first", "second"} {
+		record := uploadRecord{ID: id, Owner: "alice", Target: "/home/alice/photo.jpg", State: "active"}
+		data, err := json.Marshal(&record)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(directory, id+".json"), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := newUploadStore(directory); err == nil {
+		t.Fatal("duplicate active upload targets were accepted")
+	}
+}
+
+// TestUploadStoreRejectsOversizedRecord covers bounded durable metadata files.
+func TestUploadStoreRejectsOversizedRecord(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "large.json"), make([]byte, 4097), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newUploadStore(directory); err == nil {
+		t.Fatal("oversized upload metadata was accepted")
+	}
+}
+
+// TestUploadStoreRejectsFileAsDirectory covers invalid metadata storage paths.
+func TestUploadStoreRejectsFileAsDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "metadata")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newUploadStore(path); err == nil {
+		t.Fatal("regular file was accepted as the metadata directory")
+	}
+}
+
+// TestPersistRejectsOversizedRecord covers the single-record metadata limit.
+func TestPersistRejectsOversizedRecord(t *testing.T) {
+	store, err := newUploadStore(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := &uploadRecord{ID: "large", Owner: "alice", Target: "/home/alice/photo.jpg", Filename: strings.Repeat("x", 4096)}
+	if err := store.persist(record); err == nil {
+		t.Fatal("oversized record was persisted")
+	}
+}
+
+// TestPersistReportsUnavailableMetadataDirectory covers durable write failure.
+func TestPersistReportsUnavailableMetadataDirectory(t *testing.T) {
+	store := &uploadStore{directory: filepath.Join(t.TempDir(), "missing")}
+	record := &uploadRecord{ID: "one", Owner: "alice", Target: "/home/alice/photo.jpg"}
+	if err := store.persist(record); err == nil {
+		t.Fatal("missing metadata directory accepted a record")
+	}
+}
+
+// TestSwaggerAssetRoutesServeBundledFiles covers authenticated vendor assets.
+func TestSwaggerAssetRoutesServeBundledFiles(t *testing.T) {
+	service := mustService(t, t.TempDir(), authorizedRequests(new(int)))
+	service.cfg.DocsEnabled = true
+	for _, path := range []string{"/docs/swagger-ui-bundle.js", "/docs/LICENSE", "/docs/NOTICE"} {
+		t.Run(path, func(t *testing.T) {
+			response := mustProtectedRequest(t, service, http.MethodGet, path, "")
+			if response.Code != http.StatusOK {
+				t.Fatalf("asset status = %d, want 200", response.Code)
+			}
+		})
+	}
+}
+
+// TestSwaggerAssetRejectsUnknownEmbeddedName covers fixed asset resolution.
+func TestSwaggerAssetRejectsUnknownEmbeddedName(t *testing.T) {
+	response := httptest.NewRecorder()
+	(&fileService{}).serveSwaggerAsset(response, "/docs/missing.css")
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("unknown asset status = %d, want 404", response.Code)
 	}
 }
 

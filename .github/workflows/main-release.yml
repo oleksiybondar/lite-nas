@@ -157,6 +157,14 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Stream Service
+              artifact_name: stream-service-linux
+              build_script: scripts/build-stream-service-binary.sh
+              output_path: .build/stream-service/linux-amd64/stream-service
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Web gateway
               artifact_name: web-gateway-linux
               build_script: scripts/build-web-gateway-binary.sh
@@ -281,6 +289,14 @@ jobs:
               artifact_name: file-service-linux
               build_script: scripts/build-file-service-binary.sh
               output_path: .build/file-service/linux-arm64/file-service
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Stream Service
+              artifact_name: stream-service-linux
+              build_script: scripts/build-stream-service-binary.sh
+              output_path: .build/stream-service/linux-arm64/stream-service
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -455,6 +471,9 @@ jobs:
       - name: Build File Explorer
         run: scripts/build-file-explorer.sh
 
+      - name: Build Moments
+        run: scripts/build-moments.sh
+
       - name: Verify admin-panel asset output
         run: |
           test -f .build/admin-panel/index.html
@@ -495,6 +514,9 @@ jobs:
 
       - name: Test File Explorer
         run: scripts/test-file-explorer.sh --with-coverage
+
+      - name: Test Moments
+        run: npm --prefix apps/moments run test:unit:coverage
 
   build-release-package:
     name: LiteNAS release package (${{ matrix.arch }})
@@ -649,6 +671,12 @@ jobs:
           name: file-service-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/file-service
 
+      - name: Download Stream Service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/stream-service
+
       - name: Download web gateway build artifact
         uses: actions/download-artifact@v4
         with:
@@ -743,6 +771,8 @@ jobs:
           LITENAS_API_PASSWORD: testpassword
           LITENAS_OPERATOR_LOGIN: testoperator
           LITENAS_SECURITY_LOGIN: testsecurity
+          LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
+          LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
           LITENAS_TEST_PASSWORD: testpassword
         run: scripts/ci/prepare-system-test-users.sh
 
@@ -767,8 +797,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

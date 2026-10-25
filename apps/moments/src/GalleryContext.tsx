@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo } from "react";
 import { GalleryImageQueue } from "./GalleryImageQueue";
 import { GalleryMetadataReader } from "./GalleryMetadataReader";
 import type { GalleryItem } from "./gallery-model";
+import { composeLivePhotoItems } from "./LivePhotoMetadata";
 
 /** Stable collection metadata and one image request coordinator shared by both views. */
 export type GalleryState = {
@@ -22,7 +23,11 @@ export const GalleryProvider = ({
 }): ReactElement => {
   const queue = useMemo(() => new GalleryImageQueue(), []);
   const metadata = useMemo(() => new GalleryMetadataReader(), []);
-  const value = useMemo(() => ({ items, queue, metadata }), [items, queue, metadata]);
+  const composedItems = useMemo(() => composeLivePhotoItems(items), [items]);
+  const value = useMemo(
+    () => ({ items: composedItems, queue, metadata }),
+    [composedItems, queue, metadata],
+  );
   useEffect(
     () => () => {
       queue.dispose();

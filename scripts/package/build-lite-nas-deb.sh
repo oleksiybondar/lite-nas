@@ -33,6 +33,7 @@ network_metrics_cli_binary_path=""
 zfs_metrics_cli_binary_path=""
 file_writer_binary_path=""
 file_service_binary_path=""
+stream_service_binary_path=""
 web_gateway_binary_path=""
 moments_binary_path=""
 moments_assets_path=""
@@ -74,6 +75,7 @@ Options:
   --zfs-metrics-cli-binary=PATH      Use an existing zfs-metrics-cli binary.
   --file-writer-binary=PATH          Use an existing lite-nas-file-writer binary.
   --file-service-binary=PATH         Use an existing file-service binary.
+  --stream-service-binary=PATH       Use an existing stream-service binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
   --moments-binary=PATH              Use an existing Moments binary.
   --moments-assets=PATH              Use an existing Moments Vite build output.
@@ -86,8 +88,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -194,6 +196,10 @@ if args.has file-service-binary && ! file_service_binary_path="$(args.require_ar
 	log.error "Missing value for --file-service-binary"
 	usage >&2
 	exit 64
+fi
+if args.has stream-service-binary && ! stream_service_binary_path="$(args.require_arg stream-service-binary)"; then
+	log.error "Missing value for --stream-service-binary"
+	exit 2
 fi
 if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg web-gateway-binary)"; then
 	log.error "Missing value for --web-gateway-binary"
@@ -347,6 +353,11 @@ if [ -z "$file_service_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-file-service-binary.sh" \
 		"--output=${file_service_binary_path}"
 fi
+if [ -z "$stream_service_binary_path" ]; then
+	stream_service_binary_path="$output_dir/${package_name}-${package_arch}/stream-service"
+	"$LITE_NAS_REPO_ROOT/scripts/build-stream-service-binary.sh" \
+		"--output=${stream_service_binary_path}"
+fi
 
 if [ -z "$web_gateway_binary_path" ]; then
 	web_gateway_binary_path="$output_dir/${package_name}-${package_arch}/web-gateway"
@@ -468,6 +479,10 @@ if [ ! -f "$file_service_binary_path" ]; then
 	log.error "Missing file-service binary: $file_service_binary_path"
 	exit 1
 fi
+if [ ! -f "$stream_service_binary_path" ]; then
+	log.error "Missing stream-service binary: $stream_service_binary_path"
+	exit 1
+fi
 
 if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
@@ -563,6 +578,8 @@ install -D -m 0755 "$file_writer_binary_path" \
 	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer"
 install -D -m 0755 "$file_service_binary_path" \
 	"$package_root/usr/libexec/lite-nas/file-service"
+install -D -m 0755 "$stream_service_binary_path" \
+	"$package_root/usr/libexec/lite-nas/stream-service"
 install -d -m 0755 "$package_root/usr/bin"
 ln -sfn /usr/libexec/lite-nas/system-logging-manager-cli \
 	"$package_root/usr/bin/system-logging-manager-cli"
@@ -619,6 +636,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer" \
 	"$package_root/usr/libexec/lite-nas/file-service" \
+	"$package_root/usr/libexec/lite-nas/stream-service" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
 	"$package_root/usr/libexec/lite-nas/moments" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \

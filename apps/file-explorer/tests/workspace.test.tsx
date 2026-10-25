@@ -32,6 +32,11 @@ function renderThemed(element: React.ReactElement) {
   return render(<ThemeProvider theme={createTheme()}>{element}</ThemeProvider>);
 }
 
+/** Opens the second panel for workflows that use both persistent directories. */
+function showTwoPanels() {
+  fireEvent.click(screen.getByRole("button", { name: "Show two panels" }));
+}
+
 /** Opens the new-folder dialog with observable creation and close callbacks. */
 function renderNewFolderDialog(
   onCreate: (name: string, privateDirectory: boolean) => Promise<void> = vi.fn(),
@@ -97,6 +102,7 @@ async function renderTransferWorkspace() {
       </FileExplorerProvider>,
     );
   });
+  showTwoPanels();
   const left = document.querySelector<HTMLElement>(
     "[data-test-class='file-explorer-panel'][data-test-name='left']",
   ) as HTMLElement;
@@ -130,6 +136,7 @@ async function renderHiddenFilesWorkspace() {
       </FileExplorerProvider>,
     );
   });
+  showTwoPanels();
   return {
     left: document.querySelector<HTMLElement>(
       "[data-test-class='file-explorer-panel'][data-test-name='left']",
@@ -165,6 +172,7 @@ async function renderFailedListingWorkspace() {
       </FileExplorerProvider>,
     );
   });
+  showTwoPanels();
   return {
     left: document.querySelector<HTMLElement>(
       "[data-test-class='file-explorer-panel'][data-test-name='left']",
@@ -475,6 +483,7 @@ describe("File Explorer workspace", () => {
         </FileExplorerProvider>,
       );
     });
+    showTwoPanels();
     const panels = document.querySelectorAll<HTMLElement>(
       "[data-test-class='file-explorer-panel']",
     );

@@ -16,6 +16,7 @@ import { useGallery } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
 import { googleMapsUrl } from "./GalleryMaps";
 import type { GalleryItem } from "./gallery-model";
+import { useStream } from "./StreamContext";
 
 /** Chooses a familiar camera glyph from the reported device name. */
 const cameraIcon = (name: string): typeof PhotoCameraOutlinedIcon => {
@@ -35,6 +36,7 @@ export const GalleryPhotoTile = ({
   interested: boolean;
 }): ReactElement => {
   const { queue, metadata: reader } = useGallery();
+  const stream = useStream();
   const status = queue.status(item.url);
   const attempt = queue.attempt(item.url);
   const [details, setDetails] = useState<PhotoMetadata | null | undefined>(() =>
@@ -97,7 +99,7 @@ export const GalleryPhotoTile = ({
         {(status === "ready" || status === "loading") && (
           <Box
             component="img"
-            src={item.url}
+            src={stream.image(item.url) ?? undefined}
             alt={item.filename}
             onLoad={() => queue.complete(item.url, true, attempt)}
             onError={() => queue.fail(item.url, attempt)}
@@ -124,6 +126,23 @@ export const GalleryPhotoTile = ({
         )}
         {status === "error" && <Typography sx={{ p: 2 }}>Image unavailable</Typography>}
       </Box>
+      {item.motionUrl && status === "ready" && (
+        <Typography
+          variant="caption"
+          sx={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            px: 1,
+            borderRadius: 1,
+            color: "common.white",
+            bgcolor: "rgba(0,0,0,0.7)",
+            pointerEvents: "none",
+          }}
+        >
+          Live Photo
+        </Typography>
+      )}
       <Stack
         className="gallery-wall-hover"
         gap={0.5}

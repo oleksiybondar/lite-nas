@@ -43,6 +43,8 @@ source "$ENTRYPOINT_DIR/deploy/file-writer.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/file-service.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/stream-service.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/moments.sh"
@@ -72,6 +74,7 @@ network_metrics_cli_binary=""
 zfs_metrics_cli_binary=""
 file_writer_binary=""
 file_service_binary=""
+stream_service_binary=""
 web_gateway_binary=""
 moments_binary=""
 moments_assets=""
@@ -115,6 +118,7 @@ Options:
   --zfs-metrics-cli-binary PATH   Install an existing zfs-metrics-cli binary.
   --file-writer-binary PATH       Install an existing lite-nas-file-writer binary.
   --file-service-binary PATH      Install an existing file-service binary.
+  --stream-service-binary PATH    Install an existing stream-service binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
   --moments-binary PATH           Install an existing Moments binary.
   --moments-assets PATH           Install existing Moments Vite build output.
@@ -302,6 +306,14 @@ while [ "$#" -gt 0 ]; do
 		file_service_binary="$2"
 		shift 2
 		;;
+	--stream-service-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --stream-service-binary"
+			exit 2
+		fi
+		stream_service_binary="$2"
+		shift 2
+		;;
 	--web-gateway-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --web-gateway-binary"
@@ -412,7 +424,7 @@ deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -527,6 +539,10 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		build_args=("--output=$tmp_dir/file-service")
 		"$ENTRYPOINT_DIR/build-file-service-binary.sh" "${build_args[@]}"
 		file_service_binary="$tmp_dir/file-service"
+	fi
+	if [ -z "$stream_service_binary" ]; then
+		"$ENTRYPOINT_DIR/build-stream-service-binary.sh" --output="$tmp_dir/stream-service"
+		stream_service_binary="$tmp_dir/stream-service"
 	fi
 
 	if [ -z "$web_gateway_binary" ]; then
@@ -660,6 +676,10 @@ log.popTask
 
 log.pushTask "Deploying file-service"
 deploy.fileService.deploy "$file_service_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying stream-service"
+deploy.streamService.deploy "$stream_service_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying resources-monitor service"

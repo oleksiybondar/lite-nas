@@ -1,0 +1,39 @@
+[Unit]
+Description=LiteNAS Stream Service
+After=network-online.target nats-server.service
+Wants=network-online.target
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-stream-service
+Group=lite-nas-stream-service
+SupplementaryGroups=lite-nas lite-nas-fs-rd
+ExecStart=/usr/libexec/lite-nas/stream-service
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=no
+PrivateDevices=yes
+PrivateTmp=yes
+TemporaryFileSystem=/tmp:rw,size=64M,mode=1777
+ProtectHome=read-only
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+MemoryMax=1G
+CPUQuota=200%
+# Two HEIC grid conversions may each create dozens of decoder workers.
+TasksMax=256
+UMask=0077
+ReadOnlyPaths=/home /etc/lite-nas
+ReadWritePaths=/var/log/lite-nas/stream-service.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

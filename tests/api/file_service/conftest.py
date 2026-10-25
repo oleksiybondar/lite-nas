@@ -29,11 +29,13 @@ def injection_name(sentinel: str) -> str:
 
 
 def login_cookie(api_client: RESTClient, login: str, password: str) -> str:
-    """Log in through the browser API and return the access cookie value."""
+    """Return an access cookie without retaining it in the shared REST session."""
     response = api_client.post(path=LOGIN_ENDPOINT, payload={"login": login, "password": password})
     if response.status != HTTPStatus.OK or ACCESS_COOKIE not in response.cookies:
         pytest.fail(f"login did not issue {ACCESS_COOKIE}: HTTP {response.status}")
-    return str(response.cookies[ACCESS_COOKIE])
+    cookie = str(response.cookies[ACCESS_COOKIE])
+    api_client.session.cookies.clear()
+    return cookie
 
 
 def must_finished_job(api_client: RESTClient, cookie: str, job_id: str) -> None:

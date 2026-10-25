@@ -26,6 +26,7 @@ def acl_file(operator_cli_client: CLIClient) -> Generator[str, None, None]:
         operator_cli_client.execute(
             f"setfacl -m {shlex.quote('u:' + TEST_SUDO_LOGIN + ':--x')} -- {shlex.quote(home)} && "
             f"mkdir -m 0755 -- {shlex.quote(root)} && "
+            f"chmod 0755 -- {shlex.quote(root)} && "
             f"printf 'acl-fixture\\n' > {shlex.quote(path)} && "
             f"chmod 0644 -- {shlex.quote(path)}"
         )

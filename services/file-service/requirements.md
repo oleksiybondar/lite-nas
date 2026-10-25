@@ -442,6 +442,11 @@ effective path access as decided by RBAC.
   including `recursive` descends only into eligible directories.
 - Including `files-only` omits directory entries while including eligible
   regular files within the requested traversal scope.
+- `filesystem.listing_ignored_names` accepts comma-separated, case-insensitive
+  basename patterns for OS-generated metadata. Matching entries are omitted
+  from `/ls` results, and matching directories are not traversed. An empty
+  setting disables this presentation filter; direct file reads and mutations
+  remain subject to their existing authorization rules.
 - Symlink targets are resolved and checked as absolute host paths; symlink
   listing behavior is documented.
 - Denied entries are omitted without exposing their names or metadata. An RBAC

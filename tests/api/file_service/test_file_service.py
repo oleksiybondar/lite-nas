@@ -3,6 +3,7 @@
 import pytest
 from constants import (
     SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
+    SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
 )
 from hyperiontf import RESTClient, expect
 
@@ -88,7 +89,6 @@ def test_anonymous_operator_file_read_is_denied(
 
 
 # Requirements: file-service-svc/FR-001 and file-service-svc/IR-001.
-@pytest.mark.usefixtures("operator_cookie")
 def test_login_cookie_reaches_file_service(api_client: RESTClient) -> None:
     """Test case: a browser-style login cookie reaches File Service through Nginx.
 
@@ -103,6 +103,13 @@ def test_login_cookie_reaches_file_service(api_client: RESTClient) -> None:
     Expected result:
     - File Service authenticates the session and returns the window resource.
     """
+    api_client.post(
+        path="/api/auth/login",
+        payload={
+            "login": SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
+            "password": SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
+        },
+    )
     response = api_client.get(path="/f/proprietary/upload-window")
     expect(response.status).to_be(200)
 

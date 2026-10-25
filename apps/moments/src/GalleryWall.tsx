@@ -59,7 +59,7 @@ export const GalleryWall = (): ReactElement => {
         <Box>
           <Typography variant="h5">Demo gallery</Typography>
           <Typography color="text.secondary" variant="body2">
-            {items.length} original files
+            {items.length} media items
           </Typography>
         </Box>
         <TextField

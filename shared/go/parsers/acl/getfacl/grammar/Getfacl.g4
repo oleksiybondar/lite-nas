@@ -12,7 +12,7 @@ line
     ;
 
 headerLine
-    : HASH WS* headerKey COLON WS* valueAtom?
+    : HASH WS* headerKey COLON WS* valueAtom*
     ;
 
 commentLine

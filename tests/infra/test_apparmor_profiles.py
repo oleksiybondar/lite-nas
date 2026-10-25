@@ -14,16 +14,27 @@ APPARMOR_PROFILE_CASES = [
     pytest.param("/usr/libexec/lite-nas/system-metrics", id="system-metrics-profile"),
     pytest.param("/usr/libexec/lite-nas/zfs-metrics", id="zfs-metrics-profile"),
     pytest.param(
-        "/usr/libexec/lite-nas/system-logging-manager", id="system-logging-manager-profile"
+        "/usr/libexec/lite-nas/system-logging-manager",
+        id="system-logging-manager-profile",
     ),
     pytest.param(
-        "/usr/libexec/lite-nas/security-logging-manager", id="security-logging-manager-profile"
+        "/usr/libexec/lite-nas/security-logging-manager",
+        id="security-logging-manager-profile",
     ),
-    pytest.param("/usr/libexec/lite-nas/system-email-notifier", id="system-email-notifier-profile"),
     pytest.param(
-        "/usr/libexec/lite-nas/security-email-notifier", id="security-email-notifier-profile"
+        "/usr/libexec/lite-nas/system-email-notifier",
+        id="system-email-notifier-profile",
+    ),
+    pytest.param(
+        "/usr/libexec/lite-nas/security-email-notifier",
+        id="security-email-notifier-profile",
     ),
     pytest.param("/usr/libexec/lite-nas/web-gateway", id="web-gateway-profile"),
+    pytest.param(
+        "/usr/libexec/lite-nas/stream-service",
+        marks=pytest.mark.StreamService,
+        id="stream-service-profile",
+    ),
     pytest.param("/usr/libexec/lite-nas/system-metrics-cli", id="system-metrics-cli-profile"),
     pytest.param(
         "/usr/libexec/lite-nas/lite-nas-file-writer",
@@ -32,7 +43,8 @@ APPARMOR_PROFILE_CASES = [
     ),
     pytest.param("/usr/libexec/lite-nas/zfs-metrics-cli", id="zfs-metrics-cli-profile"),
     pytest.param(
-        "/usr/libexec/lite-nas/system-logging-manager-cli", id="system-logging-manager-cli-profile"
+        "/usr/libexec/lite-nas/system-logging-manager-cli",
+        id="system-logging-manager-cli-profile",
     ),
     pytest.param(
         "/usr/libexec/lite-nas/security-logging-manager-cli",

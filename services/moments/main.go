@@ -77,15 +77,15 @@ func validateListener(address string) error {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+	if err := run(ctx, configPath); err != nil && !errors.Is(err, context.Canceled) {
 		_, _ = fmt.Fprintf(os.Stderr, "moments: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 // run assembles the shared auth client and serves the Moments skeleton API.
-func run(ctx context.Context) error {
-	cfg, err := loadConfig(configPath)
+func run(ctx context.Context, path string) error {
+	cfg, err := loadConfig(path)
 	if err != nil {
 		return err
 	}

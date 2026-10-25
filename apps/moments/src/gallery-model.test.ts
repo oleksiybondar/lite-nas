@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import {
   galleryDownloadUrl,
   galleryFixtureSchema,
+  galleryIsHeic,
   galleryItemsFromPaths,
   imageDelaySchema,
 } from "./gallery-model";
@@ -50,4 +51,12 @@ test("download uses the attachment route for the same original path", () => {
 
 test("download rejects a URL outside the original File Service route", () => {
   expect(galleryDownloadUrl("https://example.com/photo.jpeg")).toBeNull();
+});
+
+test("HEIC items are images in the gallery", () => {
+  expect(galleryItemsFromPaths(["/f/home/test/IMG_2063.HEIC"])[0].kind).toBe("image");
+});
+
+test("HEIC originals are recognized for JPEG preview routing", () => {
+  expect(galleryIsHeic("/f/home/test/IMG_2063.HEIC")).toBe(true);
 });

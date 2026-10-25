@@ -22,7 +22,9 @@ def injection_tree(operator_cli_client: CLIClient) -> Generator[tuple[str, str],
     """Create a disposable home tree and remove its separate execution sentinel."""
     root = f"/home/{SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN}/.lite-nas-injection-{uuid4().hex}"
     sentinel = f"{root}.sentinel"
-    operator_cli_client.execute(f"mkdir -m 0700 -- {shlex.quote(root)}")
+    operator_cli_client.execute(
+        f"mkdir -m 0755 -- {shlex.quote(root)} && chmod 0755 -- {shlex.quote(root)}"
+    )
     operator_cli_client.assert_exit_code(0)
     try:
         yield root, sentinel
@@ -33,6 +35,13 @@ def injection_tree(operator_cli_client: CLIClient) -> Generator[tuple[str, str],
 def assert_no_sentinel(operator_cli_client: CLIClient, sentinel: str) -> None:
     """Verify that no command embedded in an API operand created the sentinel."""
     operator_cli_client.execute(f"test ! -e {shlex.quote(sentinel)}")
+    operator_cli_client.assert_exit_code(0)
+
+
+def must_create_traversable_directory(operator_cli_client: CLIClient, path: str) -> None:
+    """Create an operator-owned directory that File Service can traverse and inspect."""
+    quoted = shlex.quote(path)
+    operator_cli_client.execute(f"mkdir -m 0755 -- {quoted} && chmod 0755 -- {quoted}")
     operator_cli_client.assert_exit_code(0)
 
 
@@ -69,8 +78,7 @@ def test_download_url_treats_shell_syntax_as_filename(  # noqa: PLR0913
         headers={"Range": "bytes=0-0"},
         cookies={ACCESS_COOKIE: operator_cookie},
     ).execute()
-    expected = HTTPStatus.PARTIAL_CONTENT if method == "GET" else HTTPStatus.OK
-    if response.status != expected:
+    if response.status != HTTPStatus.PARTIAL_CONTENT:
         pytest.fail(f"literal download path failed: HTTP {response.status}")
     assert_no_sentinel(operator_cli_client, sentinel)
 
@@ -95,8 +103,7 @@ def test_listing_url_treats_shell_syntax_as_directory_name(
     """
     root, sentinel = injection_tree
     target = f"{root}/{injection_name(sentinel)}"
-    operator_cli_client.execute(f"mkdir -m 0700 -- {shlex.quote(target)}")
-    operator_cli_client.assert_exit_code(0)
+    must_create_traversable_directory(operator_cli_client, target)
     response = api_client.get(
         path=f"/ls{quote(target, safe='/')}", cookies={ACCESS_COOKIE: operator_cookie}
     )
@@ -125,8 +132,7 @@ def test_directory_delete_url_treats_shell_syntax_as_directory_name(
     """
     root, sentinel = injection_tree
     target = f"{root}/{injection_name(sentinel)}"
-    operator_cli_client.execute(f"mkdir -m 0700 -- {shlex.quote(target)}")
-    operator_cli_client.assert_exit_code(0)
+    must_create_traversable_directory(operator_cli_client, target)
     response = api_client.delete(
         path=f"/f{quote(target, safe='/')}",
         headers={"Origin": ORIGIN},

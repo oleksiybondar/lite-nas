@@ -50,6 +50,8 @@ create_systemd_validation_root() {
 		"$systemd_root/etc/systemd/system/lite-nas-web-gateway.service"
 	cp configs/etc/systemd/system/lite-nas-file-service.service \
 		"$systemd_root/etc/systemd/system/lite-nas-file-service.service"
+	cp configs/etc/systemd/system/lite-nas-stream-service.service \
+		"$systemd_root/etc/systemd/system/lite-nas-stream-service.service"
 	cp configs/etc/systemd/system/lite-nas-system-logging-manager.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-logging-manager.service"
 	cp configs/etc/systemd/system/lite-nas-security-logging-manager.service \
@@ -63,7 +65,7 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-integrity.service \
 		"$systemd_root/etc/systemd/system/lite-nas-integrity.service"
 
-	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity; do
+	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -132,7 +134,8 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-resources-monitor.service \
 		lite-nas-integrity.service \
 		lite-nas-web-gateway.service \
-		lite-nas-file-service.service
+		lite-nas-file-service.service \
+		lite-nas-stream-service.service
 	log.popTask
 fi
 

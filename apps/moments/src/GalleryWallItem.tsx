@@ -1,4 +1,5 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: each wall item owns its focus and hover lifecycle.
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: still and video fallback share one tile's controls.
 import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -6,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactElement, ReactNode } from "react";
 import { useState } from "react";
+import { useGallery } from "./GalleryContext";
 import { GalleryItemMenu } from "./GalleryItemMenu";
 import type { GalleryTile } from "./GalleryLayout";
 import { GalleryPhotoTile } from "./GalleryPhotoTile";
@@ -26,7 +28,18 @@ export const GalleryWallItem = ({
 }): ReactElement => {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const { queue } = useGallery();
   const interested = hovered || focused;
+  const motionUrl =
+    item.kind === "image" && queue.status(item.url) === "error" ? item.motionUrl : undefined;
+  const videoItem: GalleryItem | null = motionUrl
+    ? {
+        ...item,
+        kind: "video",
+        url: motionUrl,
+        filename: decodeURIComponent(motionUrl.split("/").at(-1) ?? ""),
+      }
+    : null;
   return (
     <Box
       onMouseEnter={() => setHovered(true)}
@@ -50,10 +63,10 @@ export const GalleryWallItem = ({
         },
       }}
     >
-      {item.kind === "image" && (
+      {item.kind === "image" && !videoItem && (
         <GalleryPhotoTile item={item} onOpen={onOpen} interested={interested} />
       )}
-      {item.kind === "video" && <GalleryVideoTile item={item} />}
+      {(item.kind === "video" || videoItem) && <GalleryVideoTile item={videoItem ?? item} />}
       {item.kind === "unsupported" && (
         <Box
           component="button"
@@ -99,7 +112,7 @@ export const GalleryWallItem = ({
           },
         }}
       >
-        {item.kind === "video" && (
+        {(item.kind === "video" || videoItem) && (
           <IconButton
             onClick={onOpen}
             size="small"

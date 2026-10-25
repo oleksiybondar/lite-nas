@@ -129,6 +129,8 @@ jobs:
             dir: ./services/web-gateway
           - name: File service
             dir: ./services/file-service
+          - name: Stream service
+            dir: ./services/stream-service
           - name: ZFS metrics service
             dir: ./services/zfs-metrics
           - name: Security logging manager CLI app
@@ -243,6 +245,9 @@ jobs:
       - name: Build File Explorer
         run: scripts/build-file-explorer.sh
 
+      - name: Build Moments
+        run: scripts/build-moments.sh
+
       - name: Verify admin-panel asset output
         run: |
           test -f .build/admin-panel/index.html
@@ -286,6 +291,9 @@ jobs:
       - name: Test File Explorer
         run: scripts/test-file-explorer.sh --with-coverage
 
+      - name: Test Moments
+        run: npm --prefix apps/moments run test:unit:coverage
+
   shared-go-build-and-test:
     name: Shared Go build and test (${{ matrix.arch }})
     needs:
@@ -307,6 +315,9 @@ jobs:
         uses: ./.github/actions/shared-go-build-test
         with:
           run_tests: "true"
+
+      - name: Test Moments service with coverage
+        run: scripts/ci/go-test-module.sh ./services/moments --with-coverage
 
   service-build-and-test:
     name: ${{ matrix.component.name }} build and test (${{ matrix.arch }})
@@ -443,6 +454,15 @@ jobs:
               output_path: .build/file-service/linux-amd64/file-service
               test_script: scripts/test-file-service.sh --with-coverage
               apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Stream Service
+              artifact_name: stream-service-linux
+              build_script: scripts/build-stream-service-binary.sh
+              output_path: .build/stream-service/linux-amd64/stream-service
+              test_script: scripts/test-stream-service.sh --with-coverage
+              apt_packages: "ffmpeg libheif-examples libheif-plugin-libde265"
           - arch: amd64
             runner: ubuntu-latest
             component:
@@ -587,6 +607,15 @@ jobs:
               output_path: .build/file-service/linux-arm64/file-service
               test_script: scripts/test-file-service.sh --with-coverage
               apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Stream Service
+              artifact_name: stream-service-linux
+              build_script: scripts/build-stream-service-binary.sh
+              output_path: .build/stream-service/linux-arm64/stream-service
+              test_script: scripts/test-stream-service.sh --with-coverage
+              apt_packages: "ffmpeg libheif-examples libheif-plugin-libde265"
           - arch: arm64
             runner: ubuntu-24.04-arm
             component:
@@ -911,6 +940,12 @@ jobs:
           name: file-service-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/file-service
 
+      - name: Download Stream Service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/stream-service
+
       - name: Download web gateway build artifact
         uses: actions/download-artifact@v4
         with:
@@ -1005,6 +1040,8 @@ jobs:
           LITENAS_API_PASSWORD: testpassword
           LITENAS_OPERATOR_LOGIN: testoperator
           LITENAS_SECURITY_LOGIN: testsecurity
+          LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
+          LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
           LITENAS_TEST_PASSWORD: testpassword
         run: scripts/ci/prepare-system-test-users.sh
 
@@ -1029,8 +1066,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login
