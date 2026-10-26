@@ -175,3 +175,22 @@ Critical-path upload checks use the configured admin and operator accounts.
 REST client logs redact access and refresh cookie
 values and shorten large transfer bodies before they are written to the
 HyperionTF report.
+
+## Moments API and REST contracts
+
+`api/moments/` checks gallery search, album and collection lifecycle, collection
+file and directory membership, and search/path injection behavior on an installed
+Moments host. It creates operator-owned temporary source paths and removes the
+gallery metadata and paths after each case. Set `LITENAS_MOMENTS_API_URL` when
+the standalone Moments host is not `https://moments.localhost`. The suite uses
+the configured `LITENAS_OPERATOR_LOGIN` and `LITENAS_OPERATOR_PASSWORD` account.
+
+`api/test_rest_contracts.py` marks live JSON Schema checks with `contract`. The
+gateway current-user, File Service stat, and Moments gallery-list checks
+validate actual JSON responses with HyperionTF's
+`response.validate_json_schema()`. Stream Service serves media bytes, so its
+contract case validates its published OpenAPI JSON document instead. Schemas
+live in `schemas/rest_contracts.py` and reflect the service DTOs and published
+route definitions. From `tests/`, run
+`../.venv/bin/pytest -c pytest.ini api/moments api/test_rest_contracts.py` on an
+installed system.
