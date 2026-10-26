@@ -18,12 +18,22 @@ test("the materialized wall remains bounded after a long scroll", () => {
   expect(galleryWindow(tiles, 120000, 600).rendered.length).toBeLessThanOrEqual(60);
 });
 
-test("wall demand admits only eight viewport originals at a time", () => {
+test("wall demand admits ten viewport originals by default", () => {
   const items = tiles.map((tile) => ({
     id: `${tile.index}`,
     url: `/f/home/test/${tile.index}.jpg`,
     filename: `${tile.index}.jpg`,
     kind: "image" as const,
   }));
-  expect(wallImageRequests(items, tiles.slice(0, 40), () => "queued")).toHaveLength(8);
+  expect(wallImageRequests(items, tiles.slice(0, 40), () => "queued")).toHaveLength(10);
+});
+
+test("wall demand follows the configured image load limit", () => {
+  const items = tiles.map((tile) => ({
+    id: `${tile.index}`,
+    url: `/f/home/test/${tile.index}.jpg`,
+    filename: `${tile.index}.jpg`,
+    kind: "image" as const,
+  }));
+  expect(wallImageRequests(items, tiles.slice(0, 40), () => "queued", 3)).toHaveLength(3);
 });

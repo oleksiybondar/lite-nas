@@ -9,3 +9,5 @@ export {
   monitoringPollingSettingsSchema,
 } from "./monitoring/schema";
 export type { MonitoringPollingSettings } from "./monitoring/types";
+export { PreferencesPageHeader } from "./preferences/PreferencesPageHeader";
+export { PreferencesTabs } from "./preferences/PreferencesTabs";

@@ -1,3 +1,4 @@
+import { loginDestination } from "@lite-nas/profile";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Paper from "@mui/material/Paper";
@@ -6,6 +7,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { FormEvent, ReactElement } from "react";
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { loadMe, login } from "./api";
 import { MomentsLayout } from "./MomentsLayout";
 import { MomentsPublicHeader } from "./MomentsPublicHeader";
@@ -13,6 +15,8 @@ import type { Me } from "./schemas";
 
 /** Collects credentials for the existing LiteNAS browser login flow. */
 export const Login = ({ onSuccess }: { onSuccess: (me: Me) => void }): ReactElement => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +26,12 @@ export const Login = ({ onSuccess }: { onSuccess: (me: Me) => void }): ReactElem
     setError(null);
     setIsSubmitting(true);
     try {
-      await login({ login: username, password });
+      const requested = loginDestination(location.search);
+      const destination = await login({ login: username, password }, requested);
       const current = await loadMe();
       if (!current) throw new Error("Session unavailable.");
       onSuccess(current);
+      navigate(destination, { replace: true });
     } catch {
       setError("Sign in failed.");
     } finally {

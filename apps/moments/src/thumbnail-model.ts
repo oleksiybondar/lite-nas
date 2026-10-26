@@ -5,7 +5,7 @@ import { galleryFileUrlSchema } from "./gallery-model";
 
 /** Maximum editable image layers in one in-memory thumbnail recipe. */
 export const MAX_THUMBNAIL_LAYERS = 35;
-/** Maximum fixture images included by one random generation action. */
+/** Maximum gallery images included by one random generation action. */
 export const MAX_RANDOM_THUMBNAIL_LAYERS = 25;
 
 const uploadedImageSchema = z

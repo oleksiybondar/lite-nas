@@ -8,11 +8,16 @@ import {
   type FetchUnauthorizedContext,
   type FetchUnauthorizedResult,
 } from "@helpers/fetch-request-builder";
-import { router } from "@routes/router";
+import { authSessionResponseSchema } from "@schemas/auth/session";
 import type { PropsWithChildren, ReactElement } from "react";
 
-const loginPath = "/login";
 const unauthorizedStatus = 401;
+const sessionExpiredEvent = "lite-nas-admin-session-expired";
+
+/** Clears stale auth state so the route guard redirects to login. */
+const expireSession = (): void => {
+  window.dispatchEvent(new Event(sessionExpiredEvent));
+};
 
 /**
  * Provides the app API client to React components.
@@ -74,8 +79,8 @@ export const ApiProvider = ({ children }: PropsWithChildren): ReactElement => {
  * Creates a request builder with the app's shared unauthorized response flow.
  *
  * A `401` from the original API request attempts `/api/auth/refresh`. A
- * successful refresh retries the original request once. A refresh `401` means
- * the session cannot be recovered, so the router moves the user to `/login`.
+ * successful refresh retries the original request once. Failed renewal clears
+ * auth state so the route guard moves the user to `/login`.
  */
 const makeApiRequest = (url: string): ApiRequestBuilder => {
   return createApiRequestBuilder(makeFetchRequest(url));
@@ -95,27 +100,43 @@ const makeFetchRequest = (url: string): FetchRequestBuilder => {
  *
  * A 401 response attempts to refresh the browser session through the gateway
  * refresh endpoint. When refresh succeeds, the original request is retried once
- * and exposed to the API layer. When refresh fails with 401, the app navigates
- * to the login route and marks the response as non-notifiable for API hooks.
+ * and exposed to the API layer. When refresh fails, the route guard navigates
+ * to login and the response is non-notifiable for API hooks.
  */
 const onUnauthorizedHandler = async ({
   response,
   retry,
 }: FetchUnauthorizedContext): Promise<FetchUnauthorizedResult> => {
-  const refreshResponse = await refreshAuth();
+  let refreshResponse: Response;
+  try {
+    refreshResponse = await refreshAuth();
+  } catch {
+    expireSession();
+    return { notifyHooks: false, response };
+  }
 
   if (!refreshResponse.ok) {
-    if (refreshResponse.status === unauthorizedStatus) {
-      void router.navigate(loginPath);
-    }
+    expireSession();
     return {
-      notifyHooks: refreshResponse.status !== unauthorizedStatus,
+      notifyHooks: false,
       response,
     };
   }
 
+  try {
+    authSessionResponseSchema.parse(await refreshResponse.clone().json());
+  } catch {
+    expireSession();
+    return { notifyHooks: false, response };
+  }
+
+  const retried = await retry();
+  if (retried.status === unauthorizedStatus) {
+    expireSession();
+  }
+
   return {
-    notifyHooks: true,
-    response: await retry(),
+    notifyHooks: retried.status !== unauthorizedStatus,
+    response: retried,
   };
 };

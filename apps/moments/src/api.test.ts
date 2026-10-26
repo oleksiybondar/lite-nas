@@ -1,7 +1,44 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { loadMe, login, logout, request, saveSharedMode } from "./api";
+import {
+  loadGalleryConcurrency,
+  loadMe,
+  loadMomentsConfig,
+  login,
+  logout,
+  momentsApiPath,
+  request,
+  saveGalleryConcurrency,
+  saveSharedMode,
+} from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("embedded Moments uses its dedicated API mount", () => {
+  vi.stubGlobal("window", { location: { pathname: "/apps/moments/" } });
+  expect(momentsApiPath("/api/galleries")).toBe("/apps/moments/api/galleries");
+});
+
+test("Moments picker configuration accepts a clean absolute working directory", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ workingDir: "/NASPool/Photos" }), { status: 200 }),
+      ),
+  );
+  await expect(loadMomentsConfig()).resolves.toBe("/NASPool/Photos");
+});
+
+test("Moments picker configuration rejects a relative working directory", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ workingDir: "Photos" }), { status: 200 })),
+  );
+  await expect(loadMomentsConfig()).rejects.toThrow();
+});
 
 // Requirements: moments/FR-001
 test("current user response is validated before use", async () => {
@@ -53,6 +90,29 @@ test("profile request retries once after refreshing an expired access cookie", a
   await expect(request("/f/profile/ui")).resolves.toHaveProperty("status", 200);
 });
 
+test("simultaneous expired requests share one cookie refresh", async () => {
+  let completeRefresh: (response: Response) => void = () => undefined;
+  const refresh = new Promise<Response>((resolve) => {
+    completeRefresh = resolve;
+  });
+  const fetchMock = vi.fn((path: string) => {
+    if (path.endsWith("/auth/refresh")) return refresh;
+    return Promise.resolve(
+      new Response(null, { status: fetchMock.mock.calls.length <= 2 ? 401 : 200 }),
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const requests = Promise.all([request("/f/one"), request("/f/two")]);
+  await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBe(3));
+  completeRefresh(
+    new Response(JSON.stringify({ data: { authenticated: true, user: { id: "1" } } }), {
+      status: 200,
+    }),
+  );
+  await requests;
+  expect(fetchMock.mock.calls.filter(([path]) => path === "/api/auth/refresh")).toHaveLength(1);
+});
+
 // Requirements: moments/FR-001. Login sends a validated credential pair.
 test("login accepts a valid authenticated session response", async () => {
   vi.stubGlobal(
@@ -63,7 +123,36 @@ test("login accepts a valid authenticated session response", async () => {
       }),
     ),
   );
-  await expect(login({ login: "alice", password: "secret" })).resolves.toBeUndefined();
+  await expect(login({ login: "alice", password: "secret" })).resolves.toBe("/");
+});
+
+test("login sends the requested return path", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        data: { authenticated: true, user: { id: "alice" }, redirect_to: "/galleries/saved" },
+      }),
+    ),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  await login({ login: "alice", password: "secret" }, "/galleries/saved");
+  expect(fetchMock.mock.calls[0][0]).toBe("/api/auth/login?redirect_to=%2Fgalleries%2Fsaved");
+});
+
+test("login uses the validated return path echoed by the backend", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { authenticated: true, user: { id: "alice" }, redirect_to: "/galleries/saved" },
+        }),
+      ),
+    ),
+  );
+  await expect(login({ login: "alice", password: "secret" }, "/galleries/saved")).resolves.toBe(
+    "/galleries/saved",
+  );
 });
 
 // Requirements: moments/FR-001. Invalid credentials never reach the transport.
@@ -83,6 +172,48 @@ test("logout accepts a successful revocation response", async () => {
 test("shared appearance writes a validated profile document", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
   await expect(saveSharedMode("light")).resolves.toBeUndefined();
+});
+
+test("Moments gallery settings load from the authenticated profile file", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ gallery: { maxConcurrentImageLoads: 12 } }), { status: 200 }),
+      ),
+  );
+  await expect(loadGalleryConcurrency()).resolves.toBe(12);
+});
+
+test("Moments gallery settings default to ten when the profile file is absent", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+  await expect(loadGalleryConcurrency()).resolves.toBe(10);
+});
+
+test("Moments gallery settings use a validated browser value when the profile file is absent", async () => {
+  vi.stubGlobal("window", { localStorage: { getItem: () => "12" } });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+  await expect(loadGalleryConcurrency()).resolves.toBe(12);
+});
+
+test("Moments gallery settings write a grouped document through File Service", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await saveGalleryConcurrency(12);
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/f/profile/moments",
+    expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ document: { gallery: { maxConcurrentImageLoads: 12 } } }),
+    }),
+  );
+});
+
+test("Moments gallery settings reject invalid concurrency before writing", async () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(saveGalleryConcurrency(21)).rejects.toThrow();
 });
 
 // Requirements: moments/FR-001. Auth failures cannot trigger recursive refresh.

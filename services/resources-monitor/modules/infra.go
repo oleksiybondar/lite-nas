@@ -1,11 +1,11 @@
 package modules
 
 import (
-	"context"
 	"time"
 
+	"lite-nas/shared/loggingmanagerauth"
+
 	serviceconfig "lite-nas/services/resources-monitor/config"
-	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	sharedfileio "lite-nas/shared/fileio"
 	"lite-nas/shared/messaging"
 	sharedmodules "lite-nas/shared/modules"
@@ -83,77 +83,7 @@ func buildCoreAuthInfra(
 	}
 
 	core.Server = server
-	core.Client = authTokenClient{
-		client:       core.Client,
-		tokenManager: core.AuthTokenManager,
-	}
+	core.Client = loggingmanagerauth.NewClient(core.Client, core.AuthTokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
 	return core, nil
-}
-
-type authTokenClient struct {
-	client       messaging.Client
-	tokenManager interface {
-		Token() (string, time.Time, error)
-		Refresh(context.Context) error
-		Login(context.Context) error
-	}
-}
-
-func (client authTokenClient) Publish(ctx context.Context, subject string, payload any) error {
-	accessToken, err := client.currentToken(ctx)
-	if err != nil {
-		return err
-	}
-	return client.client.Publish(ctx, subject, withAccessToken(payload, accessToken))
-}
-
-func (client authTokenClient) Request(ctx context.Context, subject string, request any, response any) error {
-	accessToken, err := client.currentToken(ctx)
-	if err != nil {
-		return err
-	}
-	return client.client.Request(ctx, subject, withAccessToken(request, accessToken), response)
-}
-
-func (client authTokenClient) Drain() error {
-	return client.client.Drain()
-}
-
-func (client authTokenClient) Close() {
-	client.client.Close()
-}
-
-func (client authTokenClient) currentToken(ctx context.Context) (string, error) {
-	accessToken, _, err := client.tokenManager.Token()
-	if err == nil {
-		return accessToken, nil
-	}
-	if refreshErr := client.tokenManager.Refresh(ctx); refreshErr == nil {
-		accessToken, _, err = client.tokenManager.Token()
-		if err == nil {
-			return accessToken, nil
-		}
-	}
-	if loginErr := client.tokenManager.Login(ctx); loginErr != nil {
-		return "", loginErr
-	}
-	accessToken, _, err = client.tokenManager.Token()
-	return accessToken, err
-}
-
-func withAccessToken(payload any, accessToken string) any {
-	switch typed := payload.(type) {
-	case loggingmanagercontract.AlertPayload:
-		typed.AccessToken = accessToken
-		return typed
-	case loggingmanagercontract.AlertOccurrencePayload:
-		typed.AccessToken = accessToken
-		return typed
-	case loggingmanagercontract.UpdateAlertStateInput:
-		typed.AccessToken = accessToken
-		return typed
-	default:
-		return payload
-	}
 }

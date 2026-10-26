@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -17,6 +19,7 @@ import (
 	"time"
 
 	"lite-nas/shared/browserauth"
+	rbaccontract "lite-nas/shared/contracts/rbac"
 )
 
 // roundTripFunc supplies controlled File Service responses without a listener.
@@ -32,6 +35,11 @@ func mustGalleryRouter(t *testing.T, user string) http.Handler {
 
 // mustGalleryRouterWithAuth reuses the isolated transport and storage fixture.
 func mustGalleryRouterWithAuth(t *testing.T, auth browserauth.AuthService) http.Handler {
+	return mustGalleryRouterWithLookup(t, auth, nil)
+}
+
+// mustGalleryRouterWithLookup supplies an optional RBAC lookup for share tests.
+func mustGalleryRouterWithLookup(t *testing.T, auth browserauth.AuthService, users subjectLookup) http.Handler {
 	t.Helper()
 	store, err := openGalleryStore(filepath.Join(t.TempDir(), "moments.db"))
 	if err != nil {
@@ -60,7 +68,15 @@ func mustGalleryRouterWithAuth(t *testing.T, auth browserauth.AuthService) http.
 	if err := os.MkdirAll(thumbnailDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return newRouterWithRuntime(auth, "", store, files, thumbnailDir)
+	return newRouterWithRuntime(auth, "", store, files, thumbnailDir, "/home", users)
+}
+
+// subjectLookupFunc resolves one controlled login during gallery route tests.
+type subjectLookupFunc func(context.Context, string, any, any) error
+
+// Request implements the narrow RBAC request boundary in galleryController.
+func (fn subjectLookupFunc) Request(ctx context.Context, subject string, request any, response any) error {
+	return fn(ctx, subject, request, response)
 }
 
 // actorAuth derives controlled test identities from validated token text.
@@ -72,6 +88,122 @@ func (actorAuth) Me(_ time.Time, token string) (browserauth.Session, error) {
 		return browserauth.Session{}, browserauth.ErrUnauthorized
 	}
 	return browserauth.Session{UserID: token}, nil
+}
+
+// TestShareByUsernameStoresResolvedUID covers a login entered in the owner form.
+func TestShareByUsernameStoresResolvedUID(t *testing.T) {
+	lookup := subjectLookupFunc(func(_ context.Context, subject string, request any, response any) error {
+		if subject != rbaccontract.GetSubjectRolesRPCSubject || request.(rbaccontract.GetSubjectRolesRequest).Username != "oleksiybondar" {
+			t.Fatal("unexpected RBAC lookup")
+		}
+		response.(*rbaccontract.GetSubjectRolesResponse).UID = "1002"
+		return nil
+	})
+	router := mustGalleryRouterWithLookup(t, authStub{session: browserauth.Session{UserID: "1001"}}, lookup)
+	id := mustCreateCollection(t, router)
+	mustGalleryRequest(t, router, http.MethodPost, "/api/galleries/"+id+"/shares", `{"username":"oleksiybondar"}`, http.StatusOK)
+	body := mustGalleryRequest(t, router, http.MethodGet, "/api/galleries/"+id+"/shares", "", http.StatusOK)
+	shares := mustGalleryJSON[struct {
+		UserIDs []string `json:"userIds"`
+	}](t, body)
+	if len(shares.UserIDs) != 1 || shares.UserIDs[0] != "1002" {
+		t.Fatalf("shared user IDs = %+v", shares.UserIDs)
+	}
+}
+
+// TestShareByUsernameRejectsOptionOperand keeps an option-shaped login out of the RBAC command.
+func TestShareByUsernameRejectsOptionOperand(t *testing.T) {
+	router := mustGalleryRouter(t, "1001")
+	id := mustCreateCollection(t, router)
+	mustGalleryRequest(t, router, http.MethodPost, "/api/galleries/"+id+"/shares", `{"username":"--help"}`, http.StatusUnprocessableEntity)
+}
+
+// TestShareByUsernameRejectsMissingAccount covers an unresolved host login.
+func TestShareByUsernameRejectsMissingAccount(t *testing.T) {
+	lookup := subjectLookupFunc(func(_ context.Context, _ string, _ any, _ any) error { return nil })
+	router := mustGalleryRouterWithLookup(t, authStub{session: browserauth.Session{UserID: "1001"}}, lookup)
+	id := mustCreateCollection(t, router)
+	mustGalleryRequest(t, router, http.MethodPost, "/api/galleries/"+id+"/shares", `{"username":"missing"}`, http.StatusNotFound)
+}
+
+// TestGalleryStoreMigratesThumbnailPath preserves deployed databases created before cover paths.
+func TestGalleryStoreMigratesThumbnailPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`CREATE TABLE galleries (
+		id TEXT PRIMARY KEY, type TEXT, name TEXT, description TEXT, owner_id TEXT,
+		visibility TEXT, upload_directory TEXT, wall_strategy TEXT, thumbnail_json TEXT,
+		thumbnail_asset TEXT, created_at TEXT, updated_at TEXT
+	)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openGalleryStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.close() })
+	var value sql.NullString
+	if err := store.db.QueryRow(`SELECT thumbnail_path FROM galleries LIMIT 1`).Scan(&value); err != sql.ErrNoRows {
+		t.Fatalf("thumbnail path migration query = %v, want no rows", err)
+	}
+}
+
+// TestThumbnailPathRoundTrips verifies owner-selected NAS image paths in gallery metadata.
+func TestThumbnailPathRoundTrips(t *testing.T) {
+	router := mustGalleryRouter(t, "1001")
+	id := mustCreateCollection(t, router)
+	body := mustGalleryRequest(t, router, http.MethodPatch, "/api/galleries/"+id,
+		`{"thumbnailPath":"/home/alice/photos/photo.jpg"}`, http.StatusOK)
+	updated := mustGalleryJSON[struct {
+		ThumbnailPath string `json:"thumbnailPath"`
+	}](t, body)
+	if updated.ThumbnailPath != "/home/alice/photos/photo.jpg" {
+		t.Fatalf("thumbnail path = %q", updated.ThumbnailPath)
+	}
+}
+
+// Requirements: moments-backend/FR-003. A selected layout is stored with each gallery type.
+func TestGalleryCreatePersistsSelectedLayout(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{name: "album", body: `{"type":"ALBUM","name":"Photos","uploadDirectory":"/home/alice/photos","wallRenderStrategy":"grid"}`},
+		{name: "collection", body: `{"type":"COLLECTION","name":"Saved","wallRenderStrategy":"grid"}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			router := mustGalleryRouter(t, "alice")
+			body := mustGalleryRequest(t, router, http.MethodPost, "/api/galleries", test.body, http.StatusOK)
+			gallery := mustGalleryJSON[struct {
+				WallRenderStrategy string `json:"wallRenderStrategy"`
+			}](t, body)
+			if gallery.WallRenderStrategy != "grid" {
+				t.Fatalf("layout = %q, want grid", gallery.WallRenderStrategy)
+			}
+		})
+	}
+}
+
+// Requirements: moments-backend/FR-003. An owner's layout edit survives a later read.
+func TestGalleryPatchPersistsSelectedLayout(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustCreateCollection(t, router)
+	mustGalleryRequest(t, router, http.MethodPatch, "/api/galleries/"+id,
+		`{"wallRenderStrategy":"masonry"}`, http.StatusOK)
+	body := mustGalleryRequest(t, router, http.MethodGet, "/api/galleries/"+id, "", http.StatusOK)
+	gallery := mustGalleryJSON[struct {
+		WallRenderStrategy string `json:"wallRenderStrategy"`
+	}](t, body)
+	if gallery.WallRenderStrategy != "masonry" {
+		t.Fatalf("layout = %q, want masonry", gallery.WallRenderStrategy)
+	}
 }
 
 // mustCreateCollection executes the expected successful setup action.
@@ -92,6 +224,28 @@ func mustCreateCollection(t *testing.T, router http.Handler) string {
 		t.Fatal(err)
 	}
 	return gallery.ID
+}
+
+// TestGalleryCreateDefaultsPublic covers the omitted visibility on both gallery types.
+func TestGalleryCreateDefaultsPublic(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{name: "album", body: `{"type":"ALBUM","name":"Photos","uploadDirectory":"/home/alice/photos"}`},
+		{name: "collection", body: `{"type":"COLLECTION","name":"Saved"}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			router := mustGalleryRouter(t, "1001")
+			body := mustGalleryRequest(t, router, http.MethodPost, "/api/galleries", test.body, http.StatusOK)
+			created := mustGalleryJSON[struct {
+				Visibility string `json:"visibility"`
+			}](t, body)
+			if created.Visibility != "PUBLIC" {
+				t.Fatalf("visibility = %q, want PUBLIC", created.Visibility)
+			}
+		})
+	}
 }
 
 // mustCreateCollectionAs prepares a gallery with one controlled test principal.

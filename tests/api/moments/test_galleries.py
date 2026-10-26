@@ -35,12 +35,52 @@ def test_create_and_read_gallery(
     """
     directory = moments_source[0] if kind == "ALBUM" else None
     gallery_id = must_create_gallery(
-        moments_client, moments_cookie, gallery_ids, kind, f"test-{uuid4().hex}", directory
+        moments_client,
+        moments_cookie,
+        gallery_ids,
+        kind,
+        f"test-{uuid4().hex}",
+        directory,
     )
     response = moments_client.get(
         path=f"/api/galleries/{gallery_id}", cookies={ACCESS_COOKIE: moments_cookie}
     )
     expect(response.body["type"]).to_be(kind)
+
+
+# Requirements: moments-backend/FR-002.
+@pytest.mark.parametrize("kind", ["ALBUM", "COLLECTION"])
+def test_new_gallery_defaults_to_public(
+    moments_client: RESTClient,
+    moments_cookie: str,
+    moments_source: tuple[str, str],
+    gallery_ids: list[str],
+    kind: str,
+) -> None:
+    """Test case: an album or collection without visibility is public.
+
+    Preparation:
+    - The operator owns a source directory.
+
+    Action:
+    - Create the selected gallery type without a visibility field.
+
+    Expected result:
+    - Its stored visibility is PUBLIC.
+    """
+    directory = moments_source[0] if kind == "ALBUM" else None
+    gallery_id = must_create_gallery(
+        moments_client,
+        moments_cookie,
+        gallery_ids,
+        kind,
+        f"default-public-{uuid4().hex}",
+        directory,
+    )
+    response = moments_client.get(
+        path=f"/api/galleries/{gallery_id}", cookies={ACCESS_COOKIE: moments_cookie}
+    )
+    expect(response.body["visibility"]).to_be("PUBLIC")
 
 
 # Requirements: moments-backend/FR-001 and FR-005.
@@ -97,7 +137,12 @@ def test_owner_can_rename_gallery(
     """
     directory = moments_source[0] if kind == "ALBUM" else None
     gallery_id = must_create_gallery(
-        moments_client, moments_cookie, gallery_ids, kind, f"old-{uuid4().hex}", directory
+        moments_client,
+        moments_cookie,
+        gallery_ids,
+        kind,
+        f"old-{uuid4().hex}",
+        directory,
     )
     new_name = f"renamed-{uuid4().hex}"
     response = moments_client.patch(
@@ -106,6 +151,39 @@ def test_owner_can_rename_gallery(
         cookies={ACCESS_COOKIE: moments_cookie},
     )
     expect(response.body["name"]).to_be(new_name)
+
+
+# Requirements: moments-backend/FR-006.
+def test_owner_can_select_nas_image_as_cover(
+    moments_client: RESTClient,
+    moments_cookie: str,
+    moments_source: tuple[str, str],
+    gallery_ids: list[str],
+) -> None:
+    """Test case: an owned gallery stores an authorized NAS image cover path.
+
+    Preparation:
+    - The operator creates a disposable collection and owns a source photo.
+
+    Action:
+    - PATCH the gallery with the photo's absolute host path.
+
+    Expected result:
+    - The gallery response returns the selected thumbnailPath.
+    """
+    gallery_id = must_create_gallery(
+        moments_client,
+        moments_cookie,
+        gallery_ids,
+        "COLLECTION",
+        f"cover-{uuid4().hex}",
+    )
+    response = moments_client.patch(
+        path=f"/api/galleries/{gallery_id}",
+        payload={"thumbnailPath": moments_source[1]},
+        cookies={ACCESS_COOKIE: moments_cookie},
+    )
+    expect(response.body["thumbnailPath"]).to_be(moments_source[1])
 
 
 # Requirements: moments-backend/FR-001.
@@ -130,7 +208,12 @@ def test_owner_can_delete_gallery(
     """
     directory = moments_source[0] if kind == "ALBUM" else None
     gallery_id = must_create_gallery(
-        moments_client, moments_cookie, gallery_ids, kind, f"delete-{uuid4().hex}", directory
+        moments_client,
+        moments_cookie,
+        gallery_ids,
+        kind,
+        f"delete-{uuid4().hex}",
+        directory,
     )
     deleted = moments_client.delete(
         path=f"/api/galleries/{gallery_id}", cookies={ACCESS_COOKIE: moments_cookie}

@@ -18,7 +18,7 @@ import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
 import { router } from "@routes/router";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
 import { TestProfileBoundary } from "@tests/unit/test-utils/profile-boundary";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
@@ -333,6 +333,7 @@ describe("theme creation", () => {
   });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: these app-shell checks share the router navigation stub and cleanup.
 describe("application providers", () => {
   beforeEach(() => {
     vi.spyOn(router, "navigate").mockResolvedValue(undefined);
@@ -365,14 +366,19 @@ describe("application providers", () => {
     expect(screen.getByText("Themed child")).toBeInTheDocument();
   });
 
-  test("renders login from the app shell for anonymous sessions", async () => {
+  test("the app shell redirects anonymous sessions to login", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(responseWithStatus(401)));
 
     await act(async () => {
       render(<App />);
     });
 
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(router.navigate).toHaveBeenCalledWith(
+        expect.objectContaining({ pathname: "/login" }),
+        expect.objectContaining({ replace: true, state: { from: "/" } }),
+      ),
+    );
   });
 
   test("renders dashboard from the app shell for authenticated sessions", async () => {

@@ -13,11 +13,11 @@ export type AuthMeUserDTO = {
   /**
    * Optional display name returned by future identity providers.
    */
-  full_name?: string;
+  full_name?: string | undefined;
   /**
    * Optional avatar image URL returned by future identity providers.
    */
-  avatar_url?: string;
+  avatar_url?: string | undefined;
 };
 
 /**
@@ -92,6 +92,8 @@ export type AuthSessionDTO = {
    * Authenticated principal identity available in session responses.
    */
   user: AuthSessionUserDTO;
+  /** Validated app-local destination echoed by the login endpoint when requested. */
+  redirect_to?: string;
 };
 
 /**
@@ -123,7 +125,7 @@ export type AuthContextValue = {
   /**
    * Attempts to create a browser session with the submitted credentials.
    */
-  login: (login: string, password: string) => Promise<Response>;
+  login: (login: string, password: string, redirectTo?: string) => Promise<Response>;
   /**
    * Attempts to expire the current browser session.
    */

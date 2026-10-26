@@ -116,6 +116,25 @@ func TestLoginReturnsGatewayCompatibleSessionData(t *testing.T) {
 	}
 }
 
+// TestLoginEchoesValidatedReturnPath covers the shared browser login destination.
+func TestLoginEchoesValidatedReturnPath(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/login?redirect_to=%2Fgalleries%2Fgallery-id", strings.NewReader(`{"login":"alice","password":"secret"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	newRouter(authStub{session: browserauth.Session{UserID: "alice"}}, "").ServeHTTP(response, request)
+	var body struct {
+		Data struct {
+			RedirectTo string `json:"redirect_to"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Data.RedirectTo != "/galleries/gallery-id" {
+		t.Fatalf("redirect_to = %q, want /galleries/gallery-id", body.Data.RedirectTo)
+	}
+}
+
 // Requirements: moments/IR-002
 func TestListenerRejectsExternalBind(t *testing.T) {
 	if err := validateListener("0.0.0.0:9091"); err == nil {
@@ -268,6 +287,69 @@ func TestPackagedMomentsConfigLoads(t *testing.T) {
 	}
 }
 
+// TestPackagedMomentsWorkingDir records the shipped picker start directory.
+func TestPackagedMomentsWorkingDir(t *testing.T) {
+	config, err := loadConfig("../../configs/etc/lite-nas/moments.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.WorkingDir != "/home" {
+		t.Fatalf("working directory = %q, want /home", config.WorkingDir)
+	}
+}
+
+// TestMomentsConfigDefaultsWorkingDir preserves older configs without the new key.
+func TestMomentsConfigDefaultsWorkingDir(t *testing.T) {
+	payload, err := os.ReadFile("../../configs/etc/lite-nas/moments.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "moments.conf")
+	changed := strings.Replace(string(payload), "working_dir=/home\n", "", 1)
+	if changed == string(payload) {
+		t.Fatal("packaged working directory setting is missing")
+	}
+	if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := loadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.WorkingDir != "/home" {
+		t.Fatalf("working directory = %q, want /home", config.WorkingDir)
+	}
+}
+
+// TestMomentsConfigReturnsWorkingDirectory verifies the configured picker start path.
+func TestMomentsConfigReturnsWorkingDirectory(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	request.AddCookie(&http.Cookie{Name: "lite-nas-at", Value: "access"})
+	response := httptest.NewRecorder()
+	newRouterWithRuntime(authStub{session: mustMomentsSession()}, "", nil, fileServiceClient{}, "", "/NASPool/Photos", nil).ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.Code)
+	}
+	var body struct {
+		WorkingDir string `json:"workingDir"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.WorkingDir != "/NASPool/Photos" {
+		t.Fatalf("workingDir = %q", body.WorkingDir)
+	}
+}
+
+// TestMomentsConfigRequiresAuthentication protects the configured host path.
+func TestMomentsConfigRequiresAuthentication(t *testing.T) {
+	response := httptest.NewRecorder()
+	newRouter(authStub{}, "").ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/config", nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", response.Code)
+	}
+}
+
 // TestMomentsConfigRejectsUnsafeSettings covers invalid listener and cookie scopes.
 func TestMomentsConfigRejectsUnsafeSettings(t *testing.T) {
 	payload, err := os.ReadFile("../../configs/etc/lite-nas/moments.conf")
@@ -285,6 +367,7 @@ func TestMomentsConfigRejectsUnsafeSettings(t *testing.T) {
 		{"external file service", "file_service_url=http://127.0.0.1:8082", "file_service_url=http://example.com:8082"},
 		{"relative database path", "database_path=/var/lib/lite-nas/moments/moments.db", "database_path=relative.db"},
 		{"relative thumbnail path", "thumbnail_dir=/var/lib/lite-nas/moments/thumbnails", "thumbnail_dir=thumbnails"},
+		{"relative working directory", "working_dir=/home", "working_dir=Photos"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "moments.conf")

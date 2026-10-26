@@ -1,6 +1,5 @@
 import { useApi } from "@hooks/useApi";
 import { ApiProvider } from "@providers/ApiProvider";
-import { router } from "@routes/router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 
@@ -36,6 +35,7 @@ describe("ApiProvider request methods", () => {
   });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: renewal and concurrent renewal cover the same provider contract.
 describe("ApiProvider unauthorized handling", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -44,7 +44,7 @@ describe("ApiProvider unauthorized handling", () => {
   test("refreshes and retries protected requests after unauthorized responses", async () => {
     const fetchMock = mockFetch(
       responseWithStatus(401),
-      responseWithStatus(204),
+      sessionResponse(),
       responseWithStatus(200),
     );
 
@@ -69,8 +69,8 @@ describe("ApiProvider unauthorized handling", () => {
     });
   });
 
-  test("navigates to login when session refresh is unauthorized", async () => {
-    const navigate = vi.spyOn(router, "navigate").mockResolvedValue(undefined);
+  test("expires auth state when session refresh is unauthorized", async () => {
+    const dispatch = vi.spyOn(window, "dispatchEvent");
     mockFetch(responseWithStatus(401), responseWithStatus(401));
 
     render(
@@ -81,8 +81,68 @@ describe("ApiProvider unauthorized handling", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
 
     await waitFor(() => {
-      expect(navigate).toHaveBeenCalledWith("/login");
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "lite-nas-admin-session-expired" }),
+      );
     });
+  });
+
+  test("expires auth state when a renewed request is still unauthorized", async () => {
+    const dispatch = vi.spyOn(window, "dispatchEvent");
+    mockFetch(responseWithStatus(401), sessionResponse(), responseWithStatus(401));
+
+    render(
+      <ApiProvider>
+        <ApiConsumer />
+      </ApiProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
+
+    await waitFor(() => {
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "lite-nas-admin-session-expired" }),
+      );
+    });
+  });
+
+  test("expires auth state when refresh returns malformed session data", async () => {
+    const dispatch = vi.spyOn(window, "dispatchEvent");
+    mockFetch(responseWithStatus(401), new Response("{}", { status: 200 }));
+    render(
+      <ApiProvider>
+        <ApiConsumer />
+      </ApiProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
+    await waitFor(() =>
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "lite-nas-admin-session-expired" }),
+      ),
+    );
+  });
+
+  test("simultaneous unauthorized requests share one gateway refresh", async () => {
+    let completeRefresh: (response: Response) => void = () => undefined;
+    const refresh = new Promise<Response>((resolve) => {
+      completeRefresh = resolve;
+    });
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: the test transport returns a held refresh response and staged protected responses.
+    const fetchMock = vi.fn((path: string) => {
+      if (path === "/api/auth/refresh") return refresh;
+      return Promise.resolve(responseWithStatus(fetchMock.mock.calls.length <= 2 ? 401 : 200));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <ApiProvider>
+        <ApiConsumer />
+      </ApiProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run concurrent requests" }));
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(3));
+    completeRefresh(sessionResponse());
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(5));
+    expect(fetchMock.mock.calls.filter(([path]) => path === "/api/auth/refresh")).toHaveLength(1);
   });
 });
 
@@ -111,6 +171,15 @@ const ApiConsumer = (): ReactElement => {
       >
         Run protected request
       </button>
+      <button
+        onClick={() => {
+          void get("/api/first").execute();
+          void get("/api/second").execute();
+        }}
+        type="button"
+      >
+        Run concurrent requests
+      </button>
     </>
   );
 };
@@ -135,3 +204,9 @@ const mockFetch = (...responses: Response[]) => {
 const responseWithStatus = (status: number): Response => {
   return new Response(null, { status });
 };
+
+/** Creates the gateway session envelope issued after cookie rotation. */
+const sessionResponse = (): Response =>
+  new Response(JSON.stringify({ data: { authenticated: true, user: { id: "admin-id" } } }), {
+    status: 200,
+  });

@@ -63,7 +63,7 @@ func (c AuthController) Login(
 			browserauth.AccessCookie(session, c.cookieDomain),
 			browserauth.RefreshCookie(session, c.cookieDomain),
 		},
-		Body: buildSessionBody(now, session),
+		Body: buildSessionBody(now, session, browserauth.RedirectPath(input.RedirectTo)),
 	}, nil
 }
 
@@ -91,7 +91,7 @@ func (c AuthController) Refresh(
 			browserauth.AccessCookie(session, c.cookieDomain),
 			browserauth.RefreshCookie(session, c.cookieDomain),
 		},
-		Body: buildSessionBody(now, session),
+		Body: buildSessionBody(now, session, ""),
 	}, nil
 }
 
@@ -153,12 +153,13 @@ func (c AuthController) Me(
 	}, nil
 }
 
-func buildSessionBody(now time.Time, session services.Session) authdto.SessionBody {
+func buildSessionBody(now time.Time, session services.Session, redirectTo string) authdto.SessionBody {
 	return authdto.NewSessionBody(now, authdto.SessionData{
 		Authenticated: true,
 		User: authdto.AuthUser{
 			ID: session.UserID,
 		},
+		RedirectTo: redirectTo,
 	})
 }
 

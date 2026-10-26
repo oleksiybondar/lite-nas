@@ -3,16 +3,12 @@
 ## Current state
 
 The authenticated app shell, embedded and standalone mounts, shared profile and
-appearance settings, fixture-backed gallery, and browser-only thumbnail maker
-are implemented. The gallery includes virtualized mosaic, justified, masonry,
-and grid layouts; bounded image requests; a modal viewer; video playback;
-filename-based Live Photo pairing for the demo; downloads; EXIF details; and
-slideshow controls. These are existing behavior to preserve, not missing work.
-The demo loads `public/dev-fixtures/gallery.json` and converts its `/f/` URLs to
-local presentation items. It does not consume a Moments media response or call
-File Service `/ls/` for gallery contents. The header's shared file/folder
-selection dialogs do use File Service, but currently only display the selected
-path; they do not populate the gallery.
+appearance settings, and live gallery feed are implemented. Albums resolve
+their media through File Service `/ls/`; collections use saved references.
+The gallery includes virtualized mosaic, justified, masonry, and grid layouts;
+bounded image requests; a modal viewer; video playback; filename-based Live
+Photo pairing; downloads; EXIF details; and slideshow controls. The former
+fixture gallery and standalone picker playbook pages have been removed.
 See the [app README](README.md),
 [implemented requirements](../../requirements/moments-skeleton.md), and
 [Moments architecture](../../docs/moments-architecture.md). The implemented
@@ -36,10 +32,9 @@ and the [Stream Service README](../../services/stream-service/README.md).
    listing failures separately from an empty album. Treat omitted entries as
    outside the caller's File Service visibility, even when gallery metadata is
    visible. Preserve current wall
-   and viewer behavior, including layout switching and bounded loading. Handle
+   and viewer behavior, including the saved layout and bounded loading. Handle
    missing or inaccessible files and stale references without breaking the
-   rest of the gallery. Keep the fixture available only for the agreed demo or
-   development use. The full listing response and item list occupy memory;
+   rest of the gallery. The full listing response and item list occupy memory;
    virtualized rendering and bounded media requests do not bound their size.
    Measure this cost on target hardware and document a practical limit or
    future File Service paging need if it becomes unacceptable.
@@ -71,11 +66,11 @@ and the [Stream Service README](../../services/stream-service/README.md).
    app-owned image upload. The current thumbnail maker's exported recipe,
    local uploads, and data URLs remain browser-only unless a separate
    compatible contract is agreed.
-6. **Persist gallery-specific preferences.** Use the existing shared profile
-   settings contract for general appearance preferences. Persist wall layout
-   or album-specific choices only after the service contract defines scope,
-   precedence, and defaults. Map to the four existing wall layout identifiers;
-   do not use proposed strategy names from the gallery reference.
+6. **Persist gallery-specific preferences.** The owner now selects a wall
+   layout for each album or collection through the existing Moments metadata
+   contract. Use the shared profile settings contract for general appearance
+   preferences. Define scope, precedence, and defaults before adding any other
+   album-specific choices.
 7. **Validate the existing gallery under realistic use.** Measure wall
    scrolling, media requests, browser-owned memory, and NAS responsiveness on
    representative large collections and constrained networks. Check keyboard
@@ -102,12 +97,11 @@ the verified LiteNAS contracts as the integration authority.
   a gallery to another user does not change its files' Unix ACLs or File
   Service access. A visible gallery can contain media that the viewer cannot
   read; handle those media failures without changing File Service policy.
-- The fixture's same-folder filename Live Photo pairing is demo behavior, not
+- Same-folder filename Live Photo pairing is a browser fallback, not
   a durable identity contract. Use a backend association only after its source
   and semantics are defined.
-- The demo's local layout state and thumbnail recipes are not persisted API
-  formats. Keep current local behavior until compatible persistence is
-  specified.
+- The wall uses the saved `wallRenderStrategy` from gallery metadata. Layout
+  changes belong to the owner create/edit workflow.
 - Do not add profile/settings endpoints, remote thumbnail storage, or extra
   collection behavior solely because a
   source design document proposes them. Include them only when the LiteNAS
@@ -117,12 +111,12 @@ the verified LiteNAS contracts as the integration authority.
 
 - The app uses validated Moments metadata for album/collection workflows and
   a validated direct File Service recursive listing for production album media
-  instead of relying on the fixture.
+  from the configured gallery source.
 - Uploads and media access continue through File and Stream Service, with
   refresh and errors presented clearly.
 - Album and collection rescans have explicit progress and successful scans
   replace the displayed media-type and extracted-tag metadata for that gallery.
-- Existing wall, viewer, thumbnail maker, authentication, and appearance
+- Existing wall, viewer, authentication, and appearance
   behavior remain intact unless an agreed contract requires a focused change.
 - Gallery request and memory bounds, accessibility, and lifecycle behavior
   have been checked against representative data and documented results.

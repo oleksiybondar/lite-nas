@@ -1,11 +1,19 @@
 import { expect, test } from "vitest";
 import { GalleryImageQueue } from "./GalleryImageQueue";
 
-test("image queue grants at most two original download slots", () => {
+test("image queue grants ten original download slots by default", () => {
   const queue = new GalleryImageQueue();
   const urls = Array.from({ length: 12 }, (_, index) => `/f/home/test/${index}.jpg`);
   queue.want(urls);
-  expect(urls.filter((url) => queue.status(url) === "loading")).toHaveLength(2);
+  expect(urls.filter((url) => queue.status(url) === "loading")).toHaveLength(10);
+});
+
+test("image queue uses the configured parallel download limit", () => {
+  const queue = new GalleryImageQueue(3);
+  queue.want(Array.from({ length: 5 }, (_, index) => `/f/home/test/${index}.jpg`));
+  expect(
+    [0, 1, 2, 3, 4].filter((index) => queue.status(`/f/home/test/${index}.jpg`) === "loading"),
+  ).toHaveLength(3);
 });
 
 test("a settled image grants its slot to the next needed original", () => {

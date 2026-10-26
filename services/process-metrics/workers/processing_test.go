@@ -29,87 +29,41 @@ func TestProcessingWorkerFirstSnapshotUsesZeroCPUPct(t *testing.T) {
 	}
 }
 
-// Requirements: process-metrics-svc/FR-001
-func TestProcessingWorkerCalculatesCPUPctFromConsecutiveSnapshots(t *testing.T) {
-	t.Parallel()
-
-	previousStartTime := time.Unix(100, 0).UTC()
-	currentStartTime := previousStartTime
-	previous := &metrics.ProcessMetricsSnapshot{
-		SystemTotalCPUTicks: 1000,
-		Processes: []metrics.ProcessMetric{
-			{
-				PID:       100,
-				PPID:      1,
-				Name:      "alpha",
-				StartTime: &previousStartTime,
-				CPU: metrics.ProcessCPU{
-					TotalTicks: 50,
-				},
-			},
-		},
-	}
-	current := metrics.ProcessMetricsSnapshot{
-		SystemTotalCPUTicks: 1100,
-		Processes: []metrics.ProcessMetric{
-			{
-				PID:       100,
-				PPID:      1,
-				Name:      "alpha",
-				StartTime: &currentStartTime,
-				CPU: metrics.ProcessCPU{
-					TotalTicks: 75,
-				},
-			},
-		},
-	}
-
-	processed := buildProcessedProcessSnapshot(previous, current)
-
-	if got := processed.Processes[0].CPU.CPUPct; got != 25 {
-		t.Fatalf("CPUPct = %v, want 25", got)
+// processSnapshotFixture builds the same process identity with a chosen CPU sample.
+func processSnapshotFixture(systemTicks, processTicks uint64, startTime time.Time) metrics.ProcessMetricsSnapshot {
+	return metrics.ProcessMetricsSnapshot{
+		SystemTotalCPUTicks: systemTicks,
+		Processes: []metrics.ProcessMetric{{
+			PID:       100,
+			PPID:      1,
+			Name:      "alpha",
+			StartTime: &startTime,
+			CPU:       metrics.ProcessCPU{TotalTicks: processTicks},
+		}},
 	}
 }
 
 // Requirements: process-metrics-svc/FR-001
-func TestProcessingWorkerResetsCPUPctWhenPIDWasReused(t *testing.T) {
+func TestProcessingWorkerCPUPctUsesProcessIdentity(t *testing.T) {
 	t.Parallel()
 
-	previousStartTime := time.Unix(100, 0).UTC()
-	currentStartTime := time.Unix(200, 0).UTC()
-	previous := &metrics.ProcessMetricsSnapshot{
-		SystemTotalCPUTicks: 1000,
-		Processes: []metrics.ProcessMetric{
-			{
-				PID:       100,
-				PPID:      1,
-				Name:      "alpha",
-				StartTime: &previousStartTime,
-				CPU: metrics.ProcessCPU{
-					TotalTicks: 50,
-				},
-			},
-		},
-	}
-	current := metrics.ProcessMetricsSnapshot{
-		SystemTotalCPUTicks: 1100,
-		Processes: []metrics.ProcessMetric{
-			{
-				PID:       100,
-				PPID:      1,
-				Name:      "alpha",
-				StartTime: &currentStartTime,
-				CPU: metrics.ProcessCPU{
-					TotalTicks: 75,
-				},
-			},
-		},
-	}
-
-	processed := buildProcessedProcessSnapshot(previous, current)
-
-	if got := processed.Processes[0].CPU.CPUPct; got != 0 {
-		t.Fatalf("CPUPct = %v, want 0", got)
+	for _, test := range []struct {
+		name             string
+		currentStartTime time.Time
+		want             float64
+	}{
+		{name: "consecutive snapshot", currentStartTime: time.Unix(100, 0).UTC(), want: 25},
+		{name: "reused PID", currentStartTime: time.Unix(200, 0).UTC(), want: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			previous := processSnapshotFixture(1000, 50, time.Unix(100, 0).UTC())
+			current := processSnapshotFixture(1100, 75, test.currentStartTime)
+			processed := buildProcessedProcessSnapshot(&previous, current)
+			if got := processed.Processes[0].CPU.CPUPct; got != test.want {
+				t.Fatalf("CPUPct = %v, want %v", got, test.want)
+			}
+		})
 	}
 }
 

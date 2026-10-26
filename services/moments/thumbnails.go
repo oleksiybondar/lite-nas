@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
@@ -115,8 +116,9 @@ func (c galleryController) putThumbnail(ctx context.Context, input *thumbnailInp
 	}
 	old := g.ThumbnailAsset
 	g.ThumbnailAsset.String, g.ThumbnailAsset.Valid = name, true
+	g.ThumbnailPath = sql.NullString{}
 	g.UpdatedAt = timestamp()
-	if _, err := c.store.db.ExecContext(ctx, `UPDATE galleries SET thumbnail_asset=?,updated_at=? WHERE id=? AND owner_id=?`, name, g.UpdatedAt, g.ID, user); err != nil {
+	if _, err := c.store.db.ExecContext(ctx, `UPDATE galleries SET thumbnail_asset=?,thumbnail_path=NULL,updated_at=? WHERE id=? AND owner_id=?`, name, g.UpdatedAt, g.ID, user); err != nil {
 		_ = os.Remove(filepath.Join(c.thumbnailDir, name))
 		return nil, huma.Error500InternalServerError("thumbnail update failed")
 	}

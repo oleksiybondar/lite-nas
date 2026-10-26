@@ -768,6 +768,43 @@
         }
       }
     },
+    "/f/profile/moments": {
+      "get": {
+        "operationId": "getMomentsProfile",
+        "tags": ["Profile"],
+        "summary": "Read the current user's Moments settings",
+        "responses": {
+          "200": { "description": "The moments.json document." },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "operationId": "putMomentsProfile",
+        "tags": ["Profile"],
+        "summary": "Save the current user's Moments settings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["document"],
+                "additionalProperties": false,
+                "properties": { "document": { "type": "object" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Saved moments.json." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
     "/f/profile/avatar": {
       "get": {
         "operationId": "getOwnAvatar",

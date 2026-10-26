@@ -157,11 +157,15 @@ func TestProfileResourceRejectsUnmappedName(t *testing.T) {
 
 // TestProfileResourceRejectsUnsupportedMethod covers fixed profile mutation methods.
 func TestProfileResourceRejectsUnsupportedMethod(t *testing.T) {
-	request := httptest.NewRequest(http.MethodDelete, "/profile/ui", nil)
-	response := httptest.NewRecorder()
-	(&fileService{}).profileResource(response, request, mustCurrentProfileSubject(t))
-	if response.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("status = %d, want 405", response.Code)
+	for _, path := range []string{"/profile/ui", "/profile/moments"} {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodDelete, path, nil)
+			response := httptest.NewRecorder()
+			(&fileService{}).profileResource(response, request, mustCurrentProfileSubject(t))
+			if response.Code != http.StatusMethodNotAllowed {
+				t.Fatalf("status = %d, want 405", response.Code)
+			}
+		})
 	}
 }
 

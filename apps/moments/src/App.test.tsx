@@ -2,15 +2,28 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "./App";
-import { loadMe, login, logout, request, saveSharedMode } from "./api";
+import {
+  loadGalleryConcurrency,
+  loadMe,
+  loadMomentsConfig,
+  login,
+  logout,
+  request,
+  saveGalleryConcurrency,
+  saveSharedMode,
+} from "./api";
 import type { Me } from "./schemas";
 
 vi.mock("./api", () => ({
+  sessionExpiredEvent: "lite-nas-moments-session-expired",
+  loadMomentsConfig: vi.fn(),
+  loadGalleryConcurrency: vi.fn(),
   loadMe: vi.fn(),
   login: vi.fn(),
   logout: vi.fn(),
   request: vi.fn(),
   saveSharedMode: vi.fn(),
+  saveGalleryConcurrency: vi.fn(),
 }));
 
 const me: Me = {
@@ -22,7 +35,10 @@ const me: Me = {
 };
 
 /** Gives the shell unavailable optional resources while keeping auth controlled. */
-function renderMomentsApp(): void {
+function renderMomentsApp(concurrency = 10): void {
+  vi.mocked(loadMomentsConfig).mockResolvedValue("/home/oleksiybondar");
+  vi.mocked(loadGalleryConcurrency).mockResolvedValue(concurrency);
+  vi.mocked(saveGalleryConcurrency).mockResolvedValue(undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "fetch",
@@ -54,15 +70,57 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  window.localStorage.removeItem("moments-image-concurrency");
+  window.history.replaceState({}, "", "/");
+});
+
+test.each([
+  "/galleries/00000000-0000-4000-8000-000000000001",
+  "/apps/moments/galleries/00000000-0000-4000-8000-000000000001",
+])("a signed-in user opening %s stays on the gallery route", async (path) => {
+  window.history.replaceState({}, "", path);
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  expect(await screen.findByText("Could not open this gallery.")).toBeTruthy();
+});
+
+test("My collections navigation updates the browser URL", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  const button = await screen.findByRole("button", { name: "My collections" });
+  await act(async () => {
+    fireEvent.click(button);
+  });
+  expect(window.location.pathname).toBe("/mine");
 });
 
 // Requirements: moments/FR-001. Signing in replaces the public form with the gallery shell.
 test("successful sign in opens the authenticated Moments home", async () => {
   vi.mocked(loadMe).mockResolvedValueOnce(null).mockResolvedValueOnce(me);
-  vi.mocked(login).mockResolvedValue(undefined);
+  vi.mocked(login).mockResolvedValue("/");
   renderMomentsApp();
   await submitLogin();
   expect(await screen.findByTestId("moments-home")).toBeTruthy();
+});
+
+test("an anonymous gallery link keeps its destination on the login URL", async () => {
+  const galleryPath = "/galleries/00000000-0000-4000-8000-000000000001";
+  window.history.replaceState({}, "", galleryPath);
+  vi.mocked(loadMe).mockResolvedValue(null);
+  renderMomentsApp();
+  await screen.findByTestId("moments-login");
+  expect(window.location.search).toBe(`?redirect_to=${encodeURIComponent(galleryPath)}`);
+});
+
+test("sign in returns to the gallery from a reloadable login URL", async () => {
+  const galleryPath = "/galleries/00000000-0000-4000-8000-000000000001";
+  window.history.replaceState({}, "", `/login?redirect_to=${encodeURIComponent(galleryPath)}`);
+  vi.mocked(loadMe).mockResolvedValueOnce(null).mockResolvedValueOnce(me);
+  vi.mocked(login).mockResolvedValue(galleryPath);
+  renderMomentsApp();
+  await submitLogin();
+  await screen.findByText("Could not open this gallery.");
+  expect(window.location.pathname).toBe(galleryPath);
 });
 
 // Requirements: moments/FR-001. Failed credentials leave the user on the form.
@@ -82,26 +140,44 @@ test("user menu opens Moments appearance settings", async () => {
   await waitFor(() => expect(screen.getByTestId("preferences-theme-settings-title")).toBeTruthy());
 });
 
-// Requirements: moments/FR-003. Authenticated users can open the thumbnail maker demo.
-test("thumbnail maker is available from Moments navigation", async () => {
+test("settings sidebar opens gallery preferences", async () => {
   vi.mocked(loadMe).mockResolvedValue(me);
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
-    fillRect: vi.fn(),
-  } as unknown as CanvasRenderingContext2D);
   renderMomentsApp();
-  fireEvent.click(await screen.findByRole("button", { name: "Thumbnail maker" }));
-  await screen.findByText("Gallery fixture could not be loaded.");
-  expect(screen.getByTestId("thumbnail-maker")).toBeTruthy();
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+  expect(screen.getByLabelText("Maximum concurrent gallery image loads")).toBeTruthy();
 });
 
-test.each([
-  ["Select folder", "file-selection-folder"],
-  ["Select file", "file-selection-file"],
-])("moments/FR-004 opens the %s page", async (label, testId) => {
+test("Moments title returns from settings to the home feed", async () => {
   vi.mocked(loadMe).mockResolvedValue(me);
   renderMomentsApp();
-  fireEvent.click(await screen.findByRole("button", { name: label }));
-  expect(await screen.findByTestId(testId)).toBeTruthy();
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("link", { name: "Moments" }));
+  expect(await screen.findByTestId("moments-home")).toBeTruthy();
+});
+
+test("gallery settings save image concurrency to the user profile", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+  fireEvent.change(screen.getByLabelText("Maximum concurrent gallery image loads"), {
+    target: { value: "12" },
+  });
+  await waitFor(() => expect(saveGalleryConcurrency).toHaveBeenCalledWith(12));
+});
+
+test("gallery settings load the user's saved concurrency", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp(12);
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+  await waitFor(() =>
+    expect(screen.getByLabelText("Maximum concurrent gallery image loads")).toHaveProperty(
+      "value",
+      "12",
+    ),
+  );
 });
 
 // Requirements: moments/FR-002. Authenticated users can inspect their profile.
@@ -118,6 +194,14 @@ test("logging out closes the authenticated shell", async () => {
   vi.mocked(logout).mockResolvedValue(undefined);
   renderMomentsApp();
   await chooseUserAction("user-menu-logout-button");
+  expect(await screen.findByTestId("moments-login")).toBeTruthy();
+});
+
+test("an expired session returns Moments to sign in", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  await screen.findByTestId("moments-home");
+  fireEvent(window, new Event("lite-nas-moments-session-expired"));
   expect(await screen.findByTestId("moments-login")).toBeTruthy();
 });
 

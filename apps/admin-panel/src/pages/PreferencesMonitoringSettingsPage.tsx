@@ -1,7 +1,7 @@
 import { MonitoringPollingSettingsCard } from "@components/monitoring/MonitoringPollingSettingsCard";
 import { MonitoringSettingsTabs } from "@components/monitoring/MonitoringSettingsTabs";
+import { PreferencesPageHeader } from "@lite-nas/settings";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 
 /**
@@ -10,26 +10,11 @@ import type { ReactElement } from "react";
 export const PreferencesMonitoringSettingsPage = (): ReactElement => {
   return (
     <Stack data-testid="preferences-monitoring-settings-page" maxWidth="720px" spacing={3}>
-      <Stack data-testid="preferences-monitoring-settings-header" spacing={1}>
-        <Typography
-          color="primary"
-          data-testid="preferences-monitoring-settings-overline"
-          variant="overline"
-        >
-          Preferences
-        </Typography>
-        <Typography data-testid="preferences-monitoring-settings-title" variant="h1">
-          Monitoring
-        </Typography>
-        <Typography
-          color="text.secondary"
-          data-testid="preferences-monitoring-settings-summary"
-          variant="body1"
-        >
-          Configure how performance telemetry views bootstrap history, poll live updates, and retain
-          cached points in this browser.
-        </Typography>
-      </Stack>
+      <PreferencesPageHeader
+        testIdPrefix="preferences-monitoring-settings"
+        title="Monitoring"
+        summary="Configure how performance telemetry views bootstrap history, poll live updates, and retain cached points in this browser."
+      />
       <MonitoringSettingsTabs value="metrics" />
       <Stack data-testid="preferences-monitoring-settings-performance-section" spacing={2}>
         <MonitoringPollingSettingsCard

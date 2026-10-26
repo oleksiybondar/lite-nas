@@ -1,5 +1,7 @@
 /** Limits original-image downloads shared by the wall and active viewer. */
 export class GalleryImageQueue {
+  /** Bounds simultaneous original downloads for this gallery instance. */
+  constructor(readonly maxConcurrent = 10) {}
   private readonly listeners = new Set<() => void>();
   private readonly ready = new Map<string, number>();
   private readonly failed = new Set<string>();
@@ -104,10 +106,10 @@ export class GalleryImageQueue {
     return changed;
   }
 
-  /** Grants at most two download slots to desired original images. */
+  /** Grants at most the configured number of original download slots. */
   private pump(): void {
     for (const url of this.desired) {
-      if (this.active.size >= 2) break;
+      if (this.active.size >= this.maxConcurrent) break;
       if (this.isSettledOrActive(url)) continue;
       this.active.set(url, ++this.nextAttempt);
     }

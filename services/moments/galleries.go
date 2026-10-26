@@ -26,6 +26,12 @@ type galleryController struct {
 	files        fileServiceClient
 	scans        *scanManager
 	thumbnailDir string
+	users        subjectLookup
+}
+
+// subjectLookup is the existing RBAC RPC used to resolve logins to stable IDs.
+type subjectLookup interface {
+	Request(context.Context, string, any, any) error
 }
 
 // GalleryAuth is the existing header-or-cookie access token boundary.
@@ -46,6 +52,7 @@ type galleryBody struct {
 	WallStrategy        string          `json:"wallRenderStrategy"`
 	ThumbnailGeneration json.RawMessage `json:"thumbnailGeneration,omitempty"`
 	ThumbnailImageURL   *string         `json:"thumbnailImageUrl"`
+	ThumbnailPath       *string         `json:"thumbnailPath"`
 	Tags                []galleryTag    `json:"tags"`
 	CreatedAt           string          `json:"createdAt"`
 	UpdatedAt           string          `json:"updatedAt"`
@@ -81,6 +88,7 @@ type createGalleryInput struct {
 		UploadDirectory     *string         `json:"uploadDirectory,omitempty" maxLength:"4096"`
 		WallStrategy        string          `json:"wallRenderStrategy,omitempty" enum:"mosaic,justified,masonry,grid"`
 		ThumbnailGeneration json.RawMessage `json:"thumbnailGeneration,omitempty"`
+		ThumbnailPath       *string         `json:"thumbnailPath,omitempty" maxLength:"4096"`
 	}
 }
 
@@ -114,6 +122,7 @@ type patchGalleryInput struct {
 		UploadDirectory     *string         `json:"uploadDirectory,omitempty" maxLength:"4096"`
 		WallStrategy        *string         `json:"wallRenderStrategy,omitempty" enum:"mosaic,justified,masonry,grid"`
 		ThumbnailGeneration json.RawMessage `json:"thumbnailGeneration,omitempty"`
+		ThumbnailPath       *string         `json:"thumbnailPath,omitempty" maxLength:"4096"`
 	}
 }
 
@@ -155,6 +164,29 @@ func validateGalleryPath(path *string) error {
 		return huma.Error422UnprocessableEntity("path must be clean and absolute")
 	}
 	return nil
+}
+
+// resolveThumbnailPath accepts only an image file readable by the owner through File Service.
+func (c galleryController) resolveThumbnailPath(ctx context.Context, auth GalleryAuth, path *string) (*string, error) {
+	if path == nil {
+		return nil, nil
+	}
+	if err := validateGalleryPath(path); err != nil {
+		return nil, err
+	}
+	token := accessToken(auth.Authorization, auth.AccessToken)
+	resolved, err := c.files.stat(ctx, token, *path, "file")
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := c.files.metadata(ctx, token, resolved)
+	if err != nil {
+		return nil, err
+	}
+	if metadata.MediaType != "IMAGE" {
+		return nil, huma.Error422UnprocessableEntity("thumbnail path must be an image")
+	}
+	return &resolved, nil
 }
 
 // validateThumbnailGeneration bounds opaque frontend JSON without interpreting it.
@@ -212,6 +244,9 @@ func galleryView(g galleryRecord) galleryBody {
 		url := "/api/galleries/" + g.ID + "/thumbnail/image"
 		view.ThumbnailImageURL = &url
 	}
+	if g.ThumbnailPath.Valid {
+		view.ThumbnailPath = &g.ThumbnailPath.String
+	}
 	return view
 }
 
@@ -265,6 +300,10 @@ func (c galleryController) create(ctx context.Context, input *createGalleryInput
 	if err := validateThumbnailGeneration(input.Body.ThumbnailGeneration); err != nil {
 		return nil, err
 	}
+	thumbnailPath, err := c.resolveThumbnailPath(ctx, input.GalleryAuth, input.Body.ThumbnailPath)
+	if err != nil {
+		return nil, err
+	}
 	if input.Body.Type == "ALBUM" {
 		if err := validateGalleryPath(input.Body.UploadDirectory); err != nil {
 			return nil, err
@@ -279,7 +318,7 @@ func (c galleryController) create(ctx context.Context, input *createGalleryInput
 	}
 	visibility := input.Body.Visibility
 	if visibility == "" {
-		visibility = "PRIVATE"
+		visibility = "PUBLIC"
 	}
 	strategy := input.Body.WallStrategy
 	if strategy == "" {
@@ -297,9 +336,12 @@ func (c galleryController) create(ctx context.Context, input *createGalleryInput
 	if len(input.Body.ThumbnailGeneration) > 0 {
 		g.ThumbnailJSON = sql.NullString{String: string(input.Body.ThumbnailGeneration), Valid: true}
 	}
-	_, err = c.store.db.ExecContext(ctx, `INSERT INTO galleries (`+galleryColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+	if thumbnailPath != nil {
+		g.ThumbnailPath = sql.NullString{String: *thumbnailPath, Valid: true}
+	}
+	_, err = c.store.db.ExecContext(ctx, `INSERT INTO galleries (`+galleryColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		g.ID, g.Type, g.Name, g.Description, g.OwnerID, g.Visibility, g.UploadDirectory,
-		g.WallStrategy, g.ThumbnailJSON, g.ThumbnailAsset, g.CreatedAt, g.UpdatedAt)
+		g.WallStrategy, g.ThumbnailJSON, g.ThumbnailAsset, g.ThumbnailPath, g.CreatedAt, g.UpdatedAt)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("gallery creation failed")
 	}
@@ -414,7 +456,7 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 	for rows.Next() {
 		var g galleryRecord
 		if err := rows.Scan(&g.ID, &g.Type, &g.Name, &g.Description, &g.OwnerID, &g.Visibility,
-			&g.UploadDirectory, &g.WallStrategy, &g.ThumbnailJSON, &g.ThumbnailAsset, &g.CreatedAt, &g.UpdatedAt); err != nil {
+			&g.UploadDirectory, &g.WallStrategy, &g.ThumbnailJSON, &g.ThumbnailAsset, &g.ThumbnailPath, &g.CreatedAt, &g.UpdatedAt); err != nil {
 			return nil, huma.Error500InternalServerError("gallery list failed")
 		}
 		output.Body.Items = append(output.Body.Items, galleryView(g))
@@ -479,14 +521,21 @@ func (c galleryController) patch(ctx context.Context, input *patchGalleryInput) 
 	if len(input.Body.ThumbnailGeneration) > 0 {
 		g.ThumbnailJSON = sql.NullString{String: string(input.Body.ThumbnailGeneration), Valid: true}
 	}
+	if input.Body.ThumbnailPath != nil {
+		resolved, err := c.resolveThumbnailPath(ctx, input.GalleryAuth, input.Body.ThumbnailPath)
+		if err != nil {
+			return nil, err
+		}
+		g.ThumbnailPath = sql.NullString{String: *resolved, Valid: true}
+	}
 	g.UpdatedAt = timestamp()
 	tx, err := c.store.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("gallery update failed")
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `UPDATE galleries SET name=?,description=?,visibility=?,upload_directory=?,wall_strategy=?,thumbnail_json=?,updated_at=? WHERE id=? AND owner_id=?`,
-		g.Name, g.Description, g.Visibility, g.UploadDirectory, g.WallStrategy, g.ThumbnailJSON, g.UpdatedAt, g.ID, user)
+	_, err = tx.ExecContext(ctx, `UPDATE galleries SET name=?,description=?,visibility=?,upload_directory=?,wall_strategy=?,thumbnail_json=?,thumbnail_path=?,updated_at=? WHERE id=? AND owner_id=?`,
+		g.Name, g.Description, g.Visibility, g.UploadDirectory, g.WallStrategy, g.ThumbnailJSON, g.ThumbnailPath, g.UpdatedAt, g.ID, user)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("gallery update failed")
 	}

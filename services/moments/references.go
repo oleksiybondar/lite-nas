@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+
+	rbaccontract "lite-nas/shared/contracts/rbac"
 )
 
 // collectionReference is one explicit file or directory membership entry.
@@ -43,6 +46,22 @@ type shareInput struct {
 	UserID string `path:"userId" minLength:"1" maxLength:"128"`
 }
 
+// shareUsernameInput accepts one host login for owner-controlled sharing.
+type shareUsernameInput struct {
+	GalleryAuth
+	ID   string `path:"galleryId" format:"uuid"`
+	Body struct {
+		Username string `json:"username" required:"true" minLength:"1" maxLength:"128" pattern:"^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
+	}
+}
+
+// shareUsernameOutput reports the resolved stable user ID after membership is added.
+type shareUsernameOutput struct {
+	Body struct {
+		UserID string `json:"userId"`
+	}
+}
+
 // sharesOutput contains the explicit members visible to the owner.
 type sharesOutput struct {
 	Body struct {
@@ -58,8 +77,43 @@ func mountReferenceRoutes(api huma.API, c galleryController) {
 	huma.Post(api, "/api/collections/{galleryId}/directories", c.addDirectory)
 	huma.Delete(api, "/api/collections/{galleryId}/directories", c.removeDirectory)
 	huma.Get(api, "/api/galleries/{galleryId}/shares", c.shares)
+	huma.Post(api, "/api/galleries/{galleryId}/shares", c.addShareByUsername)
 	huma.Put(api, "/api/galleries/{galleryId}/shares/{userId}", c.addShare)
 	huma.Delete(api, "/api/galleries/{galleryId}/shares/{userId}", c.removeShare)
+}
+
+// addShareByUsername resolves a host login to the same stable UID used by sessions.
+func (c galleryController) addShareByUsername(ctx context.Context, input *shareUsernameInput) (*shareUsernameOutput, error) {
+	owner, err := c.userID(input.GalleryAuth)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.ownedGallery(ctx, input.ID, owner); err != nil {
+		return nil, err
+	}
+	if c.users == nil {
+		return nil, huma.Error503ServiceUnavailable("user lookup unavailable")
+	}
+	var resolved rbaccontract.GetSubjectRolesResponse
+	if err := c.users.Request(ctx, rbaccontract.GetSubjectRolesRPCSubject,
+		rbaccontract.GetSubjectRolesRequest{Username: input.Body.Username}, &resolved); err != nil {
+		return nil, huma.Error503ServiceUnavailable("user lookup unavailable")
+	}
+	uid, err := strconv.ParseUint(resolved.UID, 10, 32)
+	if err != nil || uid == 0 || strconv.FormatUint(uid, 10) != resolved.UID {
+		return nil, huma.Error404NotFound("user not found")
+	}
+	if resolved.UID == owner {
+		return nil, huma.Error422UnprocessableEntity("owner cannot be shared with self")
+	}
+	if _, err := c.store.db.ExecContext(ctx,
+		`INSERT INTO gallery_shares(gallery_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING`,
+		input.ID, resolved.UID, timestamp()); err != nil {
+		return nil, huma.Error500InternalServerError("share update failed")
+	}
+	output := &shareUsernameOutput{}
+	output.Body.UserID = resolved.UID
+	return output, nil
 }
 
 // references lists only membership in a gallery the caller may read.

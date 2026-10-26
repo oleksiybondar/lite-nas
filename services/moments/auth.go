@@ -20,8 +20,9 @@ type authController struct {
 
 // loginInput validates submitted credentials at the HTTP boundary.
 type loginInput struct {
-	UserAgent string `header:"User-Agent"`
-	Body      struct {
+	UserAgent  string `header:"User-Agent"`
+	RedirectTo string `query:"redirect_to" maxLength:"2048"`
+	Body       struct {
 		Login    string `json:"login" required:"true" pattern:"^(?:[A-Za-z0-9._-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$"`
 		Password string `json:"password" required:"true" minLength:"4"`
 	}
@@ -38,6 +39,29 @@ type refreshInput struct {
 type meInput struct {
 	Authorization string `header:"Authorization"`
 	AccessToken   string `cookie:"lite-nas-at"`
+}
+
+// configOutput exposes the configured initial browser directory to signed-in users.
+type configOutput struct {
+	Body struct {
+		WorkingDir string `json:"workingDir"`
+	}
+}
+
+// config verifies a session before returning the operator-configured picker path.
+func (c authController) config(workingDir string) func(context.Context, *meInput) (*configOutput, error) {
+	return func(_ context.Context, input *meInput) (*configOutput, error) {
+		session, err := c.service.Me(time.Now(), accessToken(input.Authorization, input.AccessToken))
+		if err != nil {
+			return nil, authError(err)
+		}
+		if session.UserID == "" {
+			return nil, huma.Error401Unauthorized("invalid authentication")
+		}
+		output := &configOutput{}
+		output.Body.WorkingDir = workingDir
+		return output, nil
+	}
 }
 
 // responseMeta is the browser auth response metadata shared with the gateway.
@@ -63,6 +87,7 @@ type sessionBody struct {
 type sessionData struct {
 	Authenticated bool        `json:"authenticated"`
 	User          sessionUser `json:"user"`
+	RedirectTo    string      `json:"redirect_to,omitempty"`
 }
 
 // sessionUser identifies the authenticated principal.
@@ -106,7 +131,9 @@ func (c authController) login(ctx context.Context, input *loginInput) (*sessionO
 	if err != nil {
 		return nil, authError(err)
 	}
-	return c.sessionResponse(session), nil
+	output := c.sessionResponse(session)
+	output.Body.Data.RedirectTo = browserauth.RedirectPath(input.RedirectTo)
+	return output, nil
 }
 
 // refresh rotates the cookie session through Auth Service.

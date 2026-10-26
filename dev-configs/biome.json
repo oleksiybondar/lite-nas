@@ -9,7 +9,7 @@
       "!**/dist",
       "!**/build",
       "!services/file-service/swagger-ui",
-      "!shared/go/swaggerui/assets/swagger-ui-bundle.js",
+      "!shared/go/swaggerui/assets",
       "!configs/etc/lite-nas/*-email-notifier/*.html",
       "!**/coverage",
       "!**/.claude",

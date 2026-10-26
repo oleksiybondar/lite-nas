@@ -178,7 +178,8 @@ HyperionTF report.
 
 ## Moments API and REST contracts
 
-`api/moments/` checks gallery search, album and collection lifecycle, collection
+`api/moments/` checks the authenticated working directory on standalone and
+embedded hosts, gallery search, album and collection lifecycle, collection
 file and directory membership, and search/path injection behavior on an installed
 Moments host. It creates operator-owned temporary source paths and removes the
 gallery metadata and paths after each case. Set `LITENAS_MOMENTS_API_URL` when

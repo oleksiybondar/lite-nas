@@ -16,6 +16,9 @@ export type OperationJob = z.infer<typeof operationJobSchema>;
 /** One validated direct child and its nullable filesystem metadata. */
 export type FileEntry = z.infer<typeof directoryEntrySchema>;
 
+/** Optional host request function used by embedded pickers for session renewal. */
+export type FileServiceRequest = (path: string, init?: RequestInit) => Promise<Response>;
+
 /** Preview renderer selected from the allowlisted file extension. */
 export type FilePreviewKind = "image" | "pdf" | "media" | "text";
 
@@ -193,9 +196,13 @@ export async function getOperationJob(id: string): Promise<OperationJob> {
 }
 
 /** Reads one authorized directory and sorts its direct children. */
-export async function listDirectory(path: string, signal: AbortSignal): Promise<FileEntry[]> {
+export async function listDirectory(
+  path: string,
+  signal: AbortSignal,
+  request: FileServiceRequest = fetch,
+): Promise<FileEntry[]> {
   hostPathSchema.parse(path);
-  const response = await fetch(fileServicePath("/ls", path), {
+  const response = await request(fileServicePath("/ls", path), {
     credentials: "same-origin",
     signal,
   });

@@ -1,7 +1,6 @@
 package workers
 
 import (
-	"errors"
 	"fmt"
 
 	"lite-nas/shared/cliargs"
@@ -39,25 +38,19 @@ func NewArgsProcessor(defaultConfigPath string) ArgsProcessor {
 
 // Process parses CLI args into one validated invocation.
 func (p argsProcessor) Process(args []string) (Invocation, error) {
-	return cliargs.Process(
+	return cliargs.ProcessWithConfig(
 		args,
 		Invocation{
 			ConfigPath: p.defaultConfigPath,
 			Mode:       ModeCurrent,
 		},
+		func(invocation *Invocation) *string { return &invocation.ConfigPath },
 		applyArg,
-		finalizeInvocation,
+		nil,
 	)
 }
 
 func applyArg(invocation Invocation, arg string) (Invocation, error) {
-	if handled, err := cliargs.ApplyHelpAndConfigArg(arg, &invocation.ConfigPath); handled {
-		if err != nil {
-			return Invocation{}, err
-		}
-		return invocation, nil
-	}
-
 	switch arg {
 	case "--history":
 		invocation.Mode = ModeHistory
@@ -65,12 +58,4 @@ func applyArg(invocation Invocation, arg string) (Invocation, error) {
 	default:
 		return Invocation{}, fmt.Errorf("unknown argument: %s", arg)
 	}
-}
-
-func finalizeInvocation(invocation Invocation) (Invocation, error) {
-	if invocation.ConfigPath == "" {
-		return Invocation{}, errors.New("config path must not be empty")
-	}
-
-	return invocation, nil
 }

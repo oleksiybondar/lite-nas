@@ -16,6 +16,8 @@ same-origin schema. File Service docs require an authenticated user.
 
 | Route | Purpose |
 | --- | --- |
+| `POST /api/auth/login?redirect_to=...` | Issue session cookies and echo a validated app-local path in `data.redirect_to`; unsafe paths resolve to `/`. The browser performs navigation. |
+| `GET /api/config` | Return the authenticated user's configured `workingDir` used to start file and folder pickers. |
 | `POST /api/galleries` | Create an `ALBUM` or `COLLECTION`. Albums require an authorized, existing `uploadDirectory`. |
 | `GET /api/galleries` | List accessible albums and collections together, newest first. `page` defaults to 1; `size` defaults to 20 and is capped at 500. The response has `items` and `metadata` (`page`, `size`, `total_count`, `total_pages`). Repeated `ownerId`, `type`, `visibility`, `mediaType`, and `location` filters use OR within a field and AND across fields. Use `type=ALBUM` or `type=COLLECTION` for a narrower search. `q` searches name, description, user tags, and every published scan tag. |
 | `GET/PATCH/DELETE /api/galleries/{galleryId}` | Read, owner-edit, or delete gallery metadata. Deletion never deletes original files. |
@@ -23,6 +25,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `POST/DELETE /api/collections/{galleryId}/files` | Add or remove `{ "path": "/absolute/path" }`. |
 | `POST/DELETE /api/collections/{galleryId}/directories` | Add or remove a directory reference with the same body shape. |
 | `GET /api/galleries/{galleryId}/shares` | Owner-visible member IDs. |
+| `POST /api/galleries/{galleryId}/shares` | Owner adds a member by `{ "username": "oleksiybondar" }`; Moments resolves the login through RBAC and stores its stable UID. |
 | `PUT/DELETE /api/galleries/{galleryId}/shares/{userId}` | Owner-controlled read-only sharing. |
 | `PUT/GET/DELETE /api/galleries/{galleryId}/thumbnail/image` | Store, serve, or remove an optional uploaded PNG/JPEG cover. PUT accepts `image/png`, `image/jpeg`, or `application/octet-stream`. |
 | `POST/GET /api/galleries/{galleryId}/scans` | Start a full rescan or page the owner's job history. |
@@ -42,10 +45,15 @@ The browser continues to load an album's files directly from
 `GET /ls/<uploadDirectory>?recursive&files-only`; Moments does not proxy the
 full album file listing.
 
+Owners may set `wallRenderStrategy` to `mosaic`, `justified`, `masonry`, or
+`grid` on creation or PATCH. Moments stores the choice per album or collection,
+returns it in gallery metadata, and defaults to `mosaic` when omitted.
+
 Every gallery operation requires a valid LiteNAS access token. The owner may
 mutate metadata. Explicit members have read-only metadata access. `PUBLIC`
 means readable by **authenticated** LiteNAS users; it never grants Unix file
-access. Unknown and hidden private galleries both return 404. Only the owner
+access. New albums and collections default to `PUBLIC` unless creation
+specifies `PRIVATE`. Unknown and hidden private galleries both return 404. Only the owner
 can see shared-member IDs and scan jobs. The service does not store a second
 profile or appearance settings document; those remain with File Service.
 
@@ -54,12 +62,17 @@ both tag types. User tags belong to the gallery itself and survive rescans and
 source-directory changes. Scan tags are read-only and track the currently
 published media; rescan publication replaces only those media associations.
 
-`thumbnailGeneration` is an optional JSON value on create or PATCH, limited to
-16 MiB and stored unchanged. It may contain frontend-generated data URLs. The
-uploaded image is a separate optional field, exposed as `thumbnailImageUrl`.
-The browser chooses which to render. Uploaded images are limited to 16 MiB,
-PNG/JPEG, 8192 pixels on either side, and 50 million pixels. An upload never
-reads an original file path through Moments.
+`thumbnailPath` is an optional clean absolute image path on create or PATCH.
+Moments checks its read permission and image class with File Service, then
+stores the canonical path. Clients render it through File Service or Stream
+Service. `thumbnailGeneration` is an optional JSON value on create or PATCH,
+limited to 16 MiB and stored unchanged. It may contain frontend-generated data
+URLs. An uploaded image is a separate optional field, exposed as
+`thumbnailImageUrl`. Uploading a cover clears `thumbnailPath`; clients show a
+selected path first, then an uploaded image, then the first accessible gallery
+image. Uploaded images are limited to 16 MiB, PNG/JPEG, 8192 pixels on either
+side, and 50 million pixels. An upload never reads an original file path
+through Moments.
 
 ## File Service media operations
 
@@ -108,7 +121,11 @@ The installed configuration is `/etc/lite-nas/moments.conf`. The database
 is `/var/lib/lite-nas/moments/moments.db`, and uploaded covers are under
 `/var/lib/lite-nas/moments/thumbnails`. Deployment provisions these directories
 for the nonroot `lite-nas-moments` account and updates the systemd and AppArmor
-write scope. SQLite foreign keys, WAL, and a busy timeout are enabled. The
+write scope. The `[storage] working_dir` setting is a clean absolute host path; it defaults to
+`/home` and can be set to a media root such as `/NASPool/Photos`. It controls the
+picker's initial directory and does not change File Service authorization.
+
+SQLite foreign keys, WAL, and a busy timeout are enabled. The
 schema is created idempotently on startup; there was no earlier Moments
 metadata schema to migrate.
 

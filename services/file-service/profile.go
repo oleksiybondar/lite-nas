@@ -120,6 +120,8 @@ func (s *fileService) profileResource(writer http.ResponseWriter, request *http.
 		name = "ui.json"
 	case "/profile/admin-panel":
 		name = "admin-panel.json"
+	case "/profile/moments":
+		name = "moments.json"
 	case "/profile/avatar":
 		name = "avatar.image"
 	default:

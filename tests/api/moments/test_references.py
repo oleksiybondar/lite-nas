@@ -101,3 +101,31 @@ def test_remove_collection_reference(  # noqa: PLR0913
         cookies={ACCESS_COOKIE: moments_cookie},
     )
     expect(path not in {item["path"] for item in response.body["items"]}).to_be(True)
+
+
+# Requirements: moments-backend/FR-004.
+def test_sharing_rejects_unknown_username(
+    moments_client: RESTClient,
+    moments_cookie: str,
+    gallery_ids: list[str],
+) -> None:
+    """Test case: a private gallery cannot be shared with an unknown login.
+
+    Preparation:
+    - The operator creates a disposable private collection.
+
+    Action:
+    - Submit a unique nonexistent host login to the username share route.
+
+    Expected result:
+    - The API reports that the account was not found.
+    """
+    gallery_id = must_create_gallery(
+        moments_client, moments_cookie, gallery_ids, "COLLECTION", f"share-{uuid4().hex}"
+    )
+    response = moments_client.post(
+        path=f"/api/galleries/{gallery_id}/shares",
+        payload={"username": f"missing-{uuid4().hex}"},
+        cookies={ACCESS_COOKIE: moments_cookie},
+    )
+    expect(response.status).to_be(HTTPStatus.NOT_FOUND)

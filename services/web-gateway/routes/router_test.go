@@ -310,6 +310,25 @@ func TestRouterLoginReturnsCookies(t *testing.T) {
 	webtest.AssertCookieCount(t, recorder, 2)
 }
 
+// TestRouterLoginEchoesValidatedReturnPath covers browserauth/FR-001.
+func TestRouterLoginEchoesValidatedReturnPath(t *testing.T) {
+	t.Parallel()
+	handler := routerFixture(nil)
+	request := webtest.NewRequest(http.MethodPost, "/api/auth/login?redirect_to=%2Fsystem%3Ftab%3Dnetwork", []byte(`{"login":"john.doe","password":"pass"}`))
+	recorder := webtest.ServeRequest(handler, request)
+	var body struct {
+		Data struct {
+			RedirectTo string `json:"redirect_to"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Data.RedirectTo != "/system?tab=network" {
+		t.Fatalf("redirect_to = %q, want /system?tab=network", body.Data.RedirectTo)
+	}
+}
+
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
 func TestRouterProtectedAuthEndpointRejectsMissingToken(t *testing.T) {
 	t.Parallel()

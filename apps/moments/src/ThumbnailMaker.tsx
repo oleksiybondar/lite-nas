@@ -1,4 +1,4 @@
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: demo controls keep each user action close to its handler.
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: thumbnail controls keep each user action close to its handler.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: the initial builder keeps its reviewable UI sections together.
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import DownloadIcon from "@mui/icons-material/Download";
@@ -16,7 +16,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { PointerEvent, ReactElement } from "react";
 import { memo, useEffect, useRef, useState } from "react";
-import { type GalleryItem, galleryFixtureSchema, galleryItemsFromPaths } from "./gallery-model";
+import type { GalleryItem } from "./gallery-model";
 import { streamProtocol } from "./StreamContext";
 import {
   beginThumbnail,
@@ -85,7 +85,7 @@ const readUpload = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-/** Offers a searchable, bounded list of fixture stills with lazy image previews. */
+/** Offers a searchable, bounded list of gallery stills with lazy image previews. */
 const GalleryImagePicker = ({
   items,
   label,
@@ -210,9 +210,15 @@ const NumericInput = ({
   );
 };
 
-/** Edits and renders a fixture-backed thumbnail recipe entirely in browser memory. */
-export const ThumbnailMaker = (): ReactElement => {
-  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+/** Edits a gallery thumbnail and sends its rendered image to the owning workflow. */
+export const ThumbnailMaker = ({
+  items,
+  onSave,
+}: {
+  items: readonly GalleryItem[];
+  onSave: (image: Blob) => Promise<void>;
+}): ReactElement => {
+  const gallery = items.filter((item) => item.kind === "image");
   const [documentValue, setDocument] = useState<ThumbnailDocument>(initialDocument);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [template, setTemplate] = useState<Template>("scatter");
@@ -220,6 +226,7 @@ export const ThumbnailMaker = (): ReactElement => {
   const [randomCount, setRandomCount] = useState(5);
   const [jsonText, setJsonText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<Map<string, ThumbnailImage>>(new Map());
   const previewCacheRef = useRef<Map<string, ThumbnailImage>>(new Map());
   const previewAbortRef = useRef<AbortController | null>(null);
@@ -231,25 +238,6 @@ export const ThumbnailMaker = (): ReactElement => {
   const sourceSnapshotRef = useRef<Map<string, string>>(new Map());
   const imageRequestRef = useRef(0);
   const selected = documentValue.layers.find((layer) => layer.id === selectedId) ?? null;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch(`${import.meta.env.BASE_URL}dev-fixtures/gallery.json`, {
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Gallery fixture unavailable");
-        const value: unknown = await response.json();
-        return galleryItemsFromPaths(galleryFixtureSchema.parse(value).items).filter(
-          (item) => item.kind === "image",
-        );
-      })
-      .then(setGallery)
-      .catch(() => {
-        if (!controller.signal.aborted) setMessage("Gallery fixture could not be loaded.");
-      });
-    return () => controller.abort();
-  }, []);
 
   useEffect(() => {
     const nextSources = new Map(documentValue.layers.map((layer) => [layer.id, layer.src]));
@@ -412,7 +400,7 @@ export const ThumbnailMaker = (): ReactElement => {
     }
   };
 
-  /** Picks up to the random-selection limit of distinct fixture images. */
+  /** Picks up to the random-selection limit of distinct gallery images. */
   const randomize = (): void => {
     if (gallery.length === 0) {
       setMessage("Gallery images are not ready.");
@@ -556,33 +544,48 @@ export const ThumbnailMaker = (): ReactElement => {
     if (layer) startDrag(event, layer, "move");
   };
 
-  /** Exports the currently visible recipe after validating every field. */
-  const exportImage = async (format: "png" | "jpeg"): Promise<void> => {
+  /** Renders the validated recipe at export resolution for download or storage. */
+  const renderImage = async (format: "png" | "jpeg"): Promise<Blob> => {
     const result = thumbnailDocumentSchema.safeParse(documentValue);
-    if (!result.success) {
-      setMessage("Add at least one valid image before exporting.");
-      return;
+    if (!result.success) throw new Error("Add at least one valid image first.");
+    if (images.size !== result.data.layers.length) throw new Error("Wait for previews to load.");
+    const [width, height] = thumbnailExportSize(result.data, images);
+    const canvas = window.document.createElement("canvas");
+    const context = beginThumbnail(canvas, result.data, width, height, format === "jpeg");
+    for (const layer of result.data.layers) {
+      const original = await loadOriginalThumbnailImage(layer.src);
+      drawThumbnailLayer(context, result.data, layer, original, width, height);
+      if (original.source instanceof HTMLImageElement) original.source.removeAttribute("src");
     }
-    try {
-      if (images.size !== result.data.layers.length) throw new Error("Wait for previews to load");
-      const [width, height] = thumbnailExportSize(result.data, images);
-      const canvas = window.document.createElement("canvas");
-      const context = beginThumbnail(canvas, result.data, width, height, format === "jpeg");
-      for (const layer of result.data.layers) {
-        const original = await loadOriginalThumbnailImage(layer.src);
-        drawThumbnailLayer(context, result.data, layer, original, width, height);
-        if (original.source instanceof HTMLImageElement) original.source.removeAttribute("src");
-      }
+    return new Promise((resolve, reject) =>
       canvas.toBlob(
-        (blob) => {
-          if (blob) downloadBlob(blob, `moments-thumbnail.${format === "jpeg" ? "jpg" : "png"}`);
-          else setMessage("Image export failed.");
-        },
+        (blob) => (blob ? resolve(blob) : reject(new Error("Image rendering failed."))),
         `image/${format}`,
         format === "jpeg" ? 0.94 : undefined,
-      );
-    } catch {
-      setMessage("Image export failed. Wait for previews to load and check the image sources.");
+      ),
+    );
+  };
+
+  /** Downloads a rendered image without altering the gallery cover. */
+  const exportImage = async (format: "png" | "jpeg"): Promise<void> => {
+    try {
+      const blob = await renderImage(format);
+      downloadBlob(blob, `moments-thumbnail.${format === "jpeg" ? "jpg" : "png"}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Image export failed.");
+    }
+  };
+
+  /** Publishes the rendered PNG as this gallery's saved cover. */
+  const saveImage = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      await onSave(await renderImage("png"));
+      setMessage(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save thumbnail.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -652,10 +655,10 @@ export const ThumbnailMaker = (): ReactElement => {
   return (
     <Stack spacing={3} data-testid="thumbnail-maker">
       <Box>
-        <Typography variant="h4">Thumbnail maker</Typography>
+        <Typography variant="h4">Generate gallery cover</Typography>
         <Typography color="text.secondary">
-          Arrange up to {MAX_THUMBNAIL_LAYERS} gallery or uploaded images. Everything stays in this
-          browser until you download it.
+          Arrange up to {MAX_THUMBNAIL_LAYERS} gallery or uploaded images, then save the cover or
+          download it.
         </Typography>
       </Box>
       {message && (
@@ -1069,6 +1072,13 @@ export const ThumbnailMaker = (): ReactElement => {
             <Stack spacing={2}>
               <Typography variant="h6">Export and import</Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button
+                  variant="contained"
+                  disabled={saving || documentValue.layers.length === 0}
+                  onClick={() => void saveImage()}
+                >
+                  {saving ? "Saving…" : "Save as gallery cover"}
+                </Button>
                 <Button startIcon={<DownloadIcon />} onClick={() => void exportImage("png")}>
                   Download PNG
                 </Button>

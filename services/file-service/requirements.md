@@ -629,9 +629,10 @@ server-side jobs that continue after the initiating browser request ends.
 
 File Service MUST resolve `/home/<username>/.lite-nas` from the authenticated
 Unix subject, never from a browser-supplied write path. Authenticated `GET`
-and `PUT` at `/f/profile/ui`, `/f/profile/admin-panel`, and
-`/f/profile/avatar` address fixed filenames `ui.json`, `admin-panel.json`,
-and `avatar.image`. The first write MUST create the directory as the verified
+and `PUT` at `/f/profile/ui`, `/f/profile/admin-panel`,
+`/f/profile/moments`, and `/f/profile/avatar` address fixed filenames
+`ui.json`, `admin-panel.json`, `moments.json`, and `avatar.image`.
+The first write MUST create the directory as the verified
 non-root Unix user using the known-path directory mode. An existing directory
 MUST be a real directory owned by that user. JSON writes MUST be bounded,
 Huma-validated envelopes containing a document object and published through

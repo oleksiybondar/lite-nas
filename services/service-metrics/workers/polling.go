@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"lite-nas/shared/metrics"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 const (
@@ -48,60 +49,29 @@ func NewPollingWorker(
 	}
 }
 
+// sharedWorker binds service collection to the common polling lifecycle.
+func (w PollingWorker) sharedWorker() sharedworkers.PollingWorker[metrics.ServiceMetricsSnapshot] {
+	return sharedworkers.NewPollingWorker(w.ticks, w.output, w.errors, func(_ context.Context) (metrics.ServiceMetricsSnapshot, error) { return w.poll() })
+}
+
 // Start launches the polling worker in a separate goroutine.
 func (w PollingWorker) Start(ctx context.Context) {
-	go w.run(ctx)
+	w.sharedWorker().Start(ctx)
 }
 
-// run executes the polling loop until the provided context is canceled.
-func (w PollingWorker) run(ctx context.Context) {
-	for {
-		if !w.waitNextPoll(ctx) {
-			return
-		}
-
-		w.pollAndSend(ctx)
-	}
-}
-
-// waitNextPoll blocks until the next poll tick arrives or the context is
-// canceled.
+// waitNextPoll blocks until the next tick, cancellation, or channel closure.
 func (w PollingWorker) waitNextPoll(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case _, ok := <-w.ticks:
-		return ok
-	}
+	return w.sharedWorker().WaitNextPoll(ctx)
 }
 
-// pollAndSend performs one polling cycle and forwards the resulting snapshot.
+// pollAndSend runs one service collection cycle and forwards its result.
 func (w PollingWorker) pollAndSend(ctx context.Context) {
-	snapshot, err := w.poll()
-	if err != nil {
-		w.emitError(ctx, err)
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		return
-	case w.output <- snapshot:
-	}
+	w.sharedWorker().PollAndSend(ctx)
 }
 
-// emitError reports one polling error to the runtime when possible.
+// emitError forwards one collection error when the receiver is ready.
 func (w PollingWorker) emitError(ctx context.Context, err error) {
-	if err == nil {
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		return
-	case w.errors <- err:
-	default:
-	}
+	w.sharedWorker().EmitError(ctx, err)
 }
 
 // poll reads all service sources required for one snapshot cycle.

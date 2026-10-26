@@ -12,11 +12,13 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@lite-nas/profile": "file:../../shared/ts/profile",
+    "@lite-nas/settings": "file:../../shared/ts/settings",
     "@lite-nas/theme": "file:../../shared/ts/theme",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
     "zod": "^4.4.3",
     "@lite-nas/file-browser": "file:../../shared/ts/file-browser"
   },

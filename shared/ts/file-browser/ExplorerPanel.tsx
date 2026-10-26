@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 
 import { FileEntryItem } from "./FileEntryItem";
 import { useFileExplorer } from "./FileExplorerContext";
-import type { FileEntry } from "./file-service";
+import type { FileEntry, FileServiceRequest } from "./file-service";
 import {
   type FileExtensionFilter,
   filterFileEntries,
@@ -35,7 +35,7 @@ interface DirectoryListing {
 }
 
 /** Loads one directory and ignores responses from an obsolete panel request. */
-function useDirectoryListing(directory: string): DirectoryListing {
+function useDirectoryListing(directory: string, request?: FileServiceRequest): DirectoryListing {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,7 +44,7 @@ function useDirectoryListing(directory: string): DirectoryListing {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    void listDirectory(directory, controller.signal)
+    void listDirectory(directory, controller.signal, request)
       .then(setEntries)
       .catch((caught: unknown) => {
         if (!controller.signal.aborted) {
@@ -58,7 +58,7 @@ function useDirectoryListing(directory: string): DirectoryListing {
         }
       });
     return () => controller.abort();
-  }, [directory]);
+  }, [directory, request]);
 
   return { entries, loading, error };
 }
@@ -176,6 +176,7 @@ export function ExplorerPanel({
   singleSelection,
   onOpenFile,
   showFiles = true,
+  request,
 }: {
   panel: 0 | 1;
   refresh: number;
@@ -185,6 +186,7 @@ export function ExplorerPanel({
   singleSelection?: boolean;
   onOpenFile?: (entry: FileEntry) => void;
   showFiles?: boolean;
+  request?: FileServiceRequest;
 }): ReactElement {
   const { panels, activePanel, setActivePanel, navigate, back, select, clearSelection } =
     useFileExplorer();
@@ -244,6 +246,7 @@ export function ExplorerPanel({
           select={select}
           clearSelection={clearSelection}
           open={open}
+          request={request}
         />
       </Stack>
     </Paper>
@@ -300,6 +303,7 @@ function PanelDirectory({
   select,
   clearSelection,
   open,
+  request,
 }: {
   panel: 0 | 1;
   directory: string;
@@ -314,8 +318,9 @@ function PanelDirectory({
   select: (panel: 0 | 1, entry: FileEntry, multiple: boolean) => void;
   clearSelection: (panel: 0 | 1) => void;
   open: (entry: FileEntry) => void;
+  request?: FileServiceRequest;
 }): ReactElement {
-  const { entries, loading, error } = useDirectoryListing(directory);
+  const { entries, loading, error } = useDirectoryListing(directory, request);
   const visibleEntries = filterFileEntries(
     visibleFileEntries(entries, showHidden),
     extensionFilter,

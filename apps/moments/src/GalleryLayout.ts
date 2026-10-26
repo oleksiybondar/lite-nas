@@ -5,7 +5,7 @@ import type { GalleryItem } from "./gallery-model";
 
 /** Stable wall geometry, calculated without requesting original media. */
 export type GalleryTile = { index: number; x: number; y: number; width: number; height: number };
-/** Layout choices accepted by the fixture and the wall selector. */
+/** Layout choices persisted in gallery metadata and rendered by the media wall. */
 export const galleryLayoutModeSchema = z.enum(["mosaic", "justified", "masonry", "grid"]);
 export type GalleryLayoutMode = z.infer<typeof galleryLayoutModeSchema>;
 type GalleryPlan = { tiles: GalleryTile[]; height: number };
@@ -45,7 +45,7 @@ const planGrid = (count: number, columns: number, cell: number): GalleryPlan => 
   return { tiles, height: Math.ceil(count / columns) * (height + gap) - gap };
 };
 
-/** Provides deterministic demo proportions until item dimensions come from metadata. */
+/** Provides deterministic proportions until item dimensions come from metadata. */
 const fallbackRatio = (item: GalleryItem, index: number): number =>
   item.kind === "video" ? 16 / 9 : [1, 1.35, 0.85, 1.6, 0.75][index % 5];
 

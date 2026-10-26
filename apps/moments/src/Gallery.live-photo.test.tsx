@@ -68,7 +68,7 @@ function renderLivePhotoGallery(
   render(
     <StreamProvider>
       <ThemeProvider theme={createAppTheme("default", "dark")}>
-        <Gallery items={items} defaultLayout="mosaic" />
+        <Gallery items={items} layout="mosaic" />
       </ThemeProvider>
     </StreamProvider>,
   );
@@ -256,12 +256,11 @@ test("transcoded movie can seek forward in the wall", async () => {
   );
 });
 
-// Requirements: moments/FR-003. The wall accepts an explicit layout change.
-test("gallery wall can switch to even grid layout", async () => {
+// Requirements: moments/FR-003. Visitors see the saved layout without a local override.
+test("gallery wall has no visitor layout selector", async () => {
   renderLivePhotoGallery(galleryItemsFromPaths(["/f/home/test/photo.jpg"]));
-  fireEvent.mouseDown(await screen.findByRole("combobox", { name: "Layout" }));
-  fireEvent.click(screen.getByRole("option", { name: "Even grid" }));
-  expect(screen.getByRole("combobox", { name: "Layout" }).textContent).toBe("Even grid");
+  await screen.findByRole("button", { name: "Open photo.jpg" });
+  expect(screen.queryByRole("combobox", { name: "Layout" })).toBeNull();
 });
 
 // Requirements: moments/FR-003. Viewer navigation changes the selected original.

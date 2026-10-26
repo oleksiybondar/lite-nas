@@ -1,22 +1,60 @@
 # Moments
 
-Moments contains browser authentication, a fixture-backed demo gallery on its
-home page, a browser-only thumbnail maker, the shared user dropdown, and
-shared profile/appearance settings.
-The gallery reads `public/dev-fixtures/gallery.json` and uses the existing
-`/f/` File Service route. The fixture paths must exist and be authorized on the
-running host. Collection, wall, and viewer providers share one headless image
-queue through the collection provider.
+Moments contains browser authentication, a paged gallery feed on its home page,
+owned and shared gallery views, the shared user dropdown, and a settings sidebar
+with Profile, Appearance, and Gallery tabs. Gallery cards and collection
+membership come from the Moments API. The settings heading and tabs use the
+shared `@lite-nas/settings` preferences components also used by Admin Panel.
+Opening a gallery changes the browser URL to `/galleries/<id>` on the standalone
+host or `/apps/moments/galleries/<id>` in the embedded app. These links can be
+shared with people who have access to the gallery. The route reads the gallery
+from the API after sign-in, so opening a saved link or using browser Back/Forward
+returns to the same view. Vite's built entry point sets its asset base from the
+current mount, and both Nginx hosts send browser routes to `index.html`.
+When sign-in is needed, Moments keeps the requested route in
+`/login?redirect_to=...`; the login API echoes a validated destination and the
+SPA returns there after authentication. Admin Panel uses the same return-path
+rule for its protected routes.
+Album media and referenced collection
+directories are read through the caller's File Service permissions. The
+configured `workingDir` from `/api/config` starts both file and folder pickers.
+Owners can create albums and collections with a description, visibility, and
+user tags, then edit those fields in a modal from the gallery detail view.
+The edit modal also starts an on-demand media scan, shows its progress and
+result, and lets the owner cancel an active job. Scan status polling continues
+while the gallery view remains open so the backend can renew the worker token.
+An album card's collection menu adds or removes its source directory in an
+owned collection without changing the album's files.
+New albums and collections start as public; owners can select private in the
+create or edit modal.
+Private galleries accept login names for sharing; Moments resolves each login
+to a stable user ID before granting access.
+On the admin host, the embedded app reaches the same Moments API through
+`/apps/moments/api/`; the admin gateway retains its own `/api/` routes.
+Collection, wall, and viewer providers share one image queue. The Gallery
+settings tab controls its parallel image load limit, which defaults to ten and
+is saved in the signed-in user's `~/.lite-nas/moments.json` under `gallery`.
+The Profile, Appearance, and Gallery tabs separate the settings groups;
+appearance remains shared through `~/.lite-nas/ui.json`.
+The feed has search and filters for type, visibility, media type, and location;
+the media type filter accepts multiple values using the backend's repeated
+`mediaType` query parameter. Any selected media type may match a gallery, and
+changing a filter restarts pagination at the first page.
 
-The fixture stores `defaultLayout` and an `items` array. The demo's Layout
-dropdown starts with that default and offers mosaic, justified rows, masonry,
-and an even grid. Selecting a layout resets the wall scroll position; it does
-not rewrite the bundled fixture. Without item dimensions, masonry and justified
-rows use deterministic placeholder proportions.
+Feed cards show a selected NAS cover through File Service or an uploaded cover
+stored by Moments. Without either, a card lazily uses the first accessible
+image from that album or collection, including HEIC previews through Stream
+Service. Empty galleries show a placeholder.
+
+The gallery wall uses its saved render strategy from Moments. Owners choose
+mosaic, justified rows, masonry, or an even grid when creating or editing an
+album or collection. A saved change updates the open wall and resets its scroll
+position. Without item dimensions, masonry and justified rows use deterministic
+placeholder proportions.
 
 The wall renders only nearby tiles, requests only images intersecting its
-viewport, pauses new image requests during scrolling, and limits loading to
-eight pending and two active originals. Loaded image tiles rise and fade in,
+viewport, pauses new image requests during scrolling, and limits active
+originals to the configured amount. Loaded image tiles rise and fade in,
 with reduced motion respected. Each tile is a `GalleryWallItem` component that
 owns its position, hover and focus state, and an optional hover action area;
 photo and video components handle their own media. Wall video tiles use native HTML5 video without
@@ -33,49 +71,18 @@ reads and caches small parsed results. Photos with GPS coordinates offer a
 **Show on map** link that opens Google Maps when selected. The carousel also
 shows available EXIF details beside the selected file name and shares that
 cache. Its download icon requests the selected original through File Service's
-`/d/` attachment route. Wall and carousel items share a three-dot menu with a
-disabled Add to collection entry until collection support is available. The
-path-only demo fixture has no tag values to display.
-Album and gallery metadata APIs are not implemented yet. Appearance preferences
-apply to both embedded and standalone views.
+`/d/` attachment route. Wall and carousel items share a three-dot menu for
+adding files to owned collections, creating a new collection, and removing an
+explicit file from an owned collection.
+Appearance preferences apply to both embedded and standalone views.
 
-## Thumbnail maker demo
-
-Open **Thumbnail maker** from the Moments header after signing in. It uses the
-same `public/dev-fixtures/gallery.json` photo paths as the gallery. You can add
-photos through the searchable picker, generate a random selection of 1–25
-photos, or upload PNG, JPEG, WebP, or GIF files. Uploaded images are embedded
-as data URLs in browser memory and in downloaded JSON; they are not sent to a
-backend. Each image may be up to 20 MB, and one thumbnail supports 1–35 images.
-Transparent PNGs start without a backing frame and remain unframed when a
-template is applied.
-
-The editor offers scattered photos, a curved card ribbon, grid, and featured
-photo layouts. New scattered layouts spread images across the canvas and fit
-their outer corners. The ribbon starts with a transparent background. Drag the
-selected image to move it; use the corner handle to resize and the top handle
-to rotate. Numeric controls set position, size, frame ratio, rotation, zoom,
-and crop focus. Whole-composition controls move, zoom, or fit all images
-together; drag mode moves it with the pointer and uses the wheel to zoom. The layer
-list controls selection and drawing order. Frames, color and grain effects,
-shadow, canvas aspect ratio, and paper or solid backgrounds are saved in a
-versioned JSON recipe. Older demo recipes without composition settings load
-with a neutral transform. Paste a downloaded recipe into the import field to
-render it again. PNG and JPG download from the same canvas renderer as the
-preview, with pixel area at least equivalent to
-1920×1080 and a maximum canvas dimension of 4096 pixels. JPG fills a
-transparent background with white; PNG retains transparency.
-
-The image picker lists at most twelve matches at a time and loads only the
-highlighted photo preview after a short pause. Selected images decode two at a
-time into bounded working previews. The layer list uses those decoded previews
-without new image requests. Export loads originals one at a time so editing
-does not retain all full-resolution images in memory.
-
-The thumbnail maker uses bundled frontend libraries and browser canvas APIs;
-it does not load scripts, fonts, or images from an internet CDN. Gallery photos
-still need the local authenticated File and Stream Service routes. Uploaded
-photos can be edited without those media routes after Moments has loaded.
+Owned collections offer **Add file** and **Add folder** pickers backed by File
+Service. In the edit modal, owners of albums and collections can choose an
+existing NAS image, upload a PNG/JPEG cover, or generate one with the reusable
+thumbnail editor.
+Generated images are uploaded to the Moments thumbnail route. The editor also
+retains image and recipe downloads. These controls live in gallery detail
+rather than standalone navigation pages.
 
 ## Local build and deployment
 
@@ -117,7 +124,7 @@ TLS certificate paths.
 
 The existing File Service snippet handles uploads under `/f/`, along with
 source files under `/f/`, downloads under `/d/`, and listings under `/ls/`.
-The demo fixture stores `/f/` file URLs. `StreamContext` validates them and
+The gallery source provides `/f/` file URLs. `StreamContext` validates them and
 derives the original `/s/`, transcoded `/s/transcode/`, and HEIC/HEIF JPEG
 `/s/preview/` routes for the gallery. Components use standard HTML5 image and
 video elements; the context owns the LiteNAS URL contract for future callers.

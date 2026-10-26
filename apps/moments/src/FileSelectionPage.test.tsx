@@ -60,6 +60,23 @@ test("moments/FR-004 selects the starting folder", async () => {
   expect(onSelect).toHaveBeenCalledWith("/home/oleksiybondar");
 });
 
+test("moments/FR-004 picker listings use the supplied renewing request", async () => {
+  const request = vi.fn(
+    async (_path: string, _init?: RequestInit) =>
+      new Response(JSON.stringify([entry("pictures", "directory")]), { status: 200 }),
+  );
+  render(
+    <FileSelectionPage
+      kind="directory"
+      initialDirectory="/home/oleksiybondar"
+      onSelect={vi.fn()}
+      request={request}
+    />,
+  );
+  await screen.findByText("pictures");
+  expect(request.mock.calls[0][0]).toBe("/ls/home/oleksiybondar");
+});
+
 test("moments/FR-004 hides dot-prefixed files and folders by default", async () => {
   stubListing();
   render(

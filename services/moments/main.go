@@ -37,6 +37,7 @@ type serviceConfig struct {
 	DatabasePath   string
 	FileServiceURL string
 	ThumbnailDir   string
+	WorkingDir     string
 }
 
 // loadConfig reads the service listener, messaging, and browser cookie scope.
@@ -73,6 +74,10 @@ func loadConfig(path string) (serviceConfig, error) {
 	if fileaccess.ValidateHostPath(thumbnailDir) != nil || thumbnailDir == "/" {
 		return serviceConfig{}, errors.New("thumbnail_dir must be clean and absolute")
 	}
+	workingDir := iniFile.Section("storage").Key("working_dir").MustString("/home")
+	if fileaccess.ValidateHostPath(workingDir) != nil {
+		return serviceConfig{}, errors.New("working_dir must be clean and absolute")
+	}
 	parsed, err := url.Parse(fileServiceURL)
 	if err != nil || parsed.Scheme != "http" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
@@ -80,7 +85,7 @@ func loadConfig(path string) (serviceConfig, error) {
 	if err := validateListener(parsed.Host); err != nil {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
 	}
-	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir}, nil
+	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir}, nil
 }
 
 // validateListener keeps the Moments API behind the local Nginx proxy.
@@ -135,7 +140,7 @@ func run(ctx context.Context, path string) error {
 	defer store.close()
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,
-		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir),
+		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir, cfg.WorkingDir, infra.Client),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -173,11 +178,11 @@ func newRouterWithDependencies(auth browserauth.AuthService, cookieDomain string
 
 // newRouterWithClient keeps File Service transport injectable at the HTTP boundary.
 func newRouterWithClient(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient) http.Handler {
-	return newRouterWithRuntime(auth, cookieDomain, store, files, "")
+	return newRouterWithRuntime(auth, cookieDomain, store, files, "", "/home", nil)
 }
 
-// newRouterWithRuntime mounts API routes with provisioned service-owned thumbnails.
-func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient, thumbnailDir string) http.Handler {
+// newRouterWithRuntime mounts API routes with provisioned thumbnails and picker configuration.
+func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient, thumbnailDir, workingDir string, users subjectLookup) http.Handler {
 	router := chi.NewMux()
 	config := huma.DefaultConfig("LiteNAS Moments", "0.1.0")
 	config.OpenAPIPath = "/api/openapi"
@@ -194,8 +199,9 @@ func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, sto
 	huma.Post(api, "/api/auth/refresh", controller.refresh)
 	huma.Post(api, "/api/auth/logout", controller.logout)
 	huma.Get(api, "/api/auth/me", controller.me)
+	huma.Get(api, "/api/config", controller.config(workingDir))
 	if store != nil {
-		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: newScanManager(store, auth, files), thumbnailDir: thumbnailDir})
+		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: newScanManager(store, auth, files), thumbnailDir: thumbnailDir, users: users})
 	}
 	return browserauth.SameOrigin(router)
 }

@@ -17,7 +17,7 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { ExplorerPanel } from "./ExplorerPanel";
 import { FileExplorerProvider, useFileExplorer } from "./FileExplorerContext";
-import type { FileExtensionFilter } from "./file-service";
+import type { FileExtensionFilter, FileServiceRequest } from "./file-service";
 import { filterFileEntries, visibleFileEntries } from "./file-service";
 import { hostPathSchema } from "./schemas";
 
@@ -28,6 +28,7 @@ export interface FileSelectionPageProps {
   extensionFilter?: FileExtensionFilter;
   showHeading?: boolean;
   onSelect: (path: string) => void;
+  request?: FileServiceRequest;
 }
 
 /** Props shared by the modal folder and file selectors. */
@@ -105,6 +106,7 @@ function FileSelectionControls({
   extensionFilter,
   showHeading = true,
   onSelect,
+  request,
 }: FileSelectionPageProps): ReactElement {
   const explorer = useFileExplorer();
   const [showHidden, setShowHidden] = useState(false);
@@ -143,6 +145,7 @@ function FileSelectionControls({
           singleSelection
           showFiles={kind === "file"}
           onOpenFile={(entry) => explorer.select(0, entry, false)}
+          request={request}
         />
       </Box>
       <Paper variant="outlined" sx={{ flex: "0 0 auto", p: 1 }}>

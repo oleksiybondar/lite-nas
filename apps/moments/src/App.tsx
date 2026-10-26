@@ -1,4 +1,9 @@
-import { loadLocalSharedUi, loadSharedUiPreference } from "@lite-nas/profile";
+import {
+  loadLocalSharedUi,
+  loadSharedUiPreference,
+  loginDestination,
+  loginRedirectPath,
+} from "@lite-nas/profile";
 import { createAppTheme, type ThemeMode } from "@lite-nas/theme";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -6,7 +11,8 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
 import type { ReactElement } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { loadMe, request } from "./api";
+import { BrowserRouter, Navigate, useLocation } from "react-router-dom";
+import { loadMe, request, sessionExpiredEvent } from "./api";
 import { Login } from "./Login";
 import { MomentsLayout } from "./MomentsLayout";
 import { MomentsPublicHeader } from "./MomentsPublicHeader";
@@ -27,35 +33,74 @@ export const App = (): ReactElement => {
   }, []);
 
   useEffect(() => {
+    const expire = (): void => setMe(null);
+    window.addEventListener(sessionExpiredEvent, expire);
+    return () => window.removeEventListener(sessionExpiredEvent, expire);
+  }, []);
+
+  useEffect(() => {
     if (!me) return;
     void loadSharedUiPreference(request).then((value) => {
       if (value) setMode(value.preferredMode);
     });
   }, [me]);
 
-  let content: ReactElement;
-  if (me === undefined) {
-    content = (
-      <MomentsLayout header={<MomentsPublicHeader />}>
-        <Container sx={{ py: 8, my: "auto" }}>Loading Moments…</Container>
-      </MomentsLayout>
-    );
-  } else if (me === null) {
-    content = <Login onSuccess={setMe} />;
-  } else {
-    content = (
-      <MomentsShell me={me} mode={mode} onModeChange={setMode} onSignedOut={() => setMe(null)} />
-    );
-  }
-
   return (
     <StreamProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Box sx={{ bgcolor: "background.default", color: "text.primary", minHeight: "100vh" }}>
-          {content}
+          <BrowserRouter
+            basename={
+              window.location.pathname.startsWith("/apps/moments/") ? "/apps/moments" : undefined
+            }
+          >
+            <SessionContent
+              me={me}
+              mode={mode}
+              onModeChange={setMode}
+              onSignedOut={() => setMe(null)}
+              onSignedIn={setMe}
+            />
+          </BrowserRouter>
         </Box>
       </ThemeProvider>
     </StreamProvider>
   );
+};
+
+/** Keeps the requested route in the login URL until the browser session is restored. */
+const SessionContent = ({
+  me,
+  mode,
+  onModeChange,
+  onSignedOut,
+  onSignedIn,
+}: {
+  me: Me | null | undefined;
+  mode: ThemeMode;
+  onModeChange: (mode: ThemeMode) => void;
+  onSignedOut: () => void;
+  onSignedIn: (me: Me) => void;
+}): ReactElement => {
+  const location = useLocation();
+  if (me === undefined)
+    return (
+      <MomentsLayout header={<MomentsPublicHeader />}>
+        <Container sx={{ py: 8, my: "auto" }}>Loading Moments…</Container>
+      </MomentsLayout>
+    );
+  if (me === null) {
+    if (location.pathname !== "/login")
+      return (
+        <Navigate
+          replace
+          to={loginRedirectPath(location.pathname + location.search + location.hash)}
+        />
+      );
+    return <Login onSuccess={onSignedIn} />;
+  }
+  if (location.pathname === "/login")
+    return <Navigate replace to={loginDestination(location.search)} />;
+  return <MomentsShell me={me} mode={mode} onModeChange={onModeChange} onSignedOut={onSignedOut} />;
 };

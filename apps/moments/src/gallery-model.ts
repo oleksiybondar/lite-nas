@@ -1,8 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: URL decoding and file-kind selection are one validated adapter.
 import { z } from "zod";
-import { galleryLayoutModeSchema } from "./GalleryLayout";
 
-/** Media supported by the fixture-backed gallery viewer. */
+/** Media supported by the gallery viewer. */
 export type GalleryItem = {
   id: string;
   url: string;
@@ -27,12 +26,6 @@ export const galleryFileUrlSchema = z
       return false;
     }
   }, "Expected an original File Service path");
-
-/** Validates the demo's file paths and its initial wall layout. */
-export const galleryFixtureSchema = z.strictObject({
-  defaultLayout: galleryLayoutModeSchema,
-  items: z.array(galleryFileUrlSchema),
-});
 
 /** Derives the attachment route from a validated original File Service URL. */
 export const galleryDownloadUrl = (url: string): string | null => {

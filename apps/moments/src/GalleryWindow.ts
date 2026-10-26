@@ -31,9 +31,10 @@ export const wallImageRequests = (
   items: readonly GalleryItem[],
   visible: readonly GalleryTile[],
   status: (url: string) => string,
+  maxRequests = 10,
 ): string[] =>
   visible
     .filter((tile) => items[tile.index].kind === "image")
     .map((tile) => items[tile.index].url)
     .filter((url) => status(url) !== "ready" && status(url) !== "error")
-    .slice(0, 8);
+    .slice(0, maxRequests);

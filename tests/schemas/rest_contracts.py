@@ -15,13 +15,25 @@ AUTH_ME_SCHEMA: dict[str, object] = {
                 "user": {
                     "type": "object",
                     "required": ["id", "login"],
-                    "properties": {"id": {"type": "string"}, "login": {"type": "string"}},
+                    "properties": {
+                        "id": {"type": "string"},
+                        "login": {"type": "string"},
+                    },
                 },
                 "roles": {"type": "array", "items": {"type": "string"}},
                 "scopes": {"type": "array", "items": {"type": "string"}},
             },
         },
     },
+}
+
+MOMENTS_CONFIG_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "required": ["workingDir"],
+    "properties": {
+        "workingDir": {"type": "string", "pattern": "^/", "minLength": 1},
+    },
+    "additionalProperties": False,
 }
 
 FILE_STAT_SCHEMA: dict[str, object] = {
@@ -46,6 +58,7 @@ GALLERY_SCHEMA: dict[str, object] = {
         "uploadDirectory",
         "wallRenderStrategy",
         "thumbnailImageUrl",
+        "thumbnailPath",
         "tags",
         "createdAt",
         "updatedAt",
@@ -60,6 +73,7 @@ GALLERY_SCHEMA: dict[str, object] = {
         "uploadDirectory": {"type": ["string", "null"]},
         "wallRenderStrategy": {"enum": ["mosaic", "justified", "masonry", "grid"]},
         "thumbnailImageUrl": {"type": ["string", "null"]},
+        "thumbnailPath": {"type": ["string", "null"]},
         "tags": {"type": "array"},
         "createdAt": {"type": "string"},
         "updatedAt": {"type": "string"},

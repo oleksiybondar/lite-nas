@@ -119,7 +119,7 @@ galleries
 |name                     |Required nonblank bounded string                                                          |
 |description              |Nullable bounded string                                                                   |
 |owner_id                 |Required immutable authenticated stable UID, indexed                                      |
-|visibility               |Required PUBLIC or PRIVATE, default PRIVATE (proposed secure default)               |
+|visibility               |PUBLIC or PRIVATE; new galleries default to PUBLIC when omitted                      |
 |upload_directory         |Required nonblank path for ALBUM; null for COLLECTION, with CHECK constraint if compatible|
 |wall_render_strategy_json|Nullable, opaque JSON (could be a simple string strategy identifier)                      |
 |created_at, updated_at |UTC timestamps                                                                            |

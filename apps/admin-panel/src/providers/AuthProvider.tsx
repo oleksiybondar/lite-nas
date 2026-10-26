@@ -1,15 +1,11 @@
 import { AuthContext } from "@contexts/auth-context";
 import type { ApiContextValue } from "@dto/api/api";
-import type {
-  AuthContextValue,
-  AuthMeDTO,
-  AuthMeResponseDTO,
-  AuthSessionResponseDTO,
-  LoginRequestDTO,
-} from "@dto/auth/auth";
+import type { AuthContextValue, AuthMeDTO, LoginRequestDTO } from "@dto/auth/auth";
 import { createFetchRequestBuilder } from "@helpers/fetch-request-builder";
 import { useApi } from "@hooks/useApi";
+import { authDestination } from "@lite-nas/profile";
 import { loginRequestSchema } from "@schemas/auth/login";
+import { authMeResponseSchema, authSessionResponseSchema } from "@schemas/auth/session";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -49,9 +45,14 @@ const useAuthProviderValue = (): AuthContextValue => {
 
   useEffect(() => {
     if (!isAuthInited) {
-      void loadMe();
+      void loadMe().catch(() => undefined);
     }
   }, [isAuthInited, loadMe]);
+
+  useEffect(() => {
+    window.addEventListener("lite-nas-admin-session-expired", resetAuthState);
+    return () => window.removeEventListener("lite-nas-admin-session-expired", resetAuthState);
+  }, [resetAuthState]);
 
   return { isAuthInited, isAuthenticated, login, logout, me };
 };
@@ -96,7 +97,7 @@ const useLoadMe = (
         return response;
       }
 
-      const { data } = (await response.json()) as AuthMeResponseDTO;
+      const { data } = authMeResponseSchema.parse(await response.json());
       applyMe(data);
       return response;
     } catch (error) {
@@ -114,13 +115,17 @@ const useLogin = (
   resetAuthState: () => void,
 ): AuthContextValue["login"] => {
   return useCallback(
-    (loginValue: string, password: string): Promise<Response> => {
+    (loginValue: string, password: string, redirectTo?: string): Promise<Response> => {
       const payload = loginRequestSchema.parse({
         login: loginValue,
         password,
       }) satisfies LoginRequestDTO;
 
-      return createFetchRequestBuilder(loginPath)
+      const path =
+        redirectTo === undefined
+          ? loginPath
+          : `${loginPath}?${new URLSearchParams({ redirect_to: authDestination(redirectTo) })}`;
+      return createFetchRequestBuilder(path)
         .method("POST")
         .credentials("include")
         .payload(payload)
@@ -142,7 +147,6 @@ const useLogout = (resetAuthState: () => void): AuthContextValue["logout"] => {
       .credentials("include")
       .payload({})
       .onSuccess((response) => handleAuthFailure(response, resetAuthState))
-      .onError(({ response }) => handleAuthFailure(response, resetAuthState))
       .execute();
   }, [resetAuthState]);
 };
@@ -155,15 +159,15 @@ const handleLoginSuccess = async (
   loadMe: () => Promise<Response>,
   resetAuthState: () => void,
 ): Promise<Response> => {
-  const { data } = (await response.clone().json()) as AuthSessionResponseDTO;
+  const { data } = authSessionResponseSchema.parse(await response.clone().json());
 
   if (!data.authenticated) {
     resetAuthState();
     return response;
   }
 
-  await loadMe();
-  return response;
+  const current = await loadMe();
+  return current.ok ? response : current;
 };
 
 /**

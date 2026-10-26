@@ -60,13 +60,14 @@ export const loadSharedUiPreference = async (
   return loadLocalSharedUi();
 };
 
+export { authDestination, loginDestination, loginRedirectPath } from "./auth-redirect";
 export { ProfilePreferencesPanel } from "./ProfilePreferencesPanel";
 export { UserMenu } from "./UserMenu";
 
 /** Reads a profile JSON file through an app-supplied authenticated request pipeline. */
 export const readProfileDocument = async <T>(
   request: (url: string) => Promise<Response>,
-  file: "ui" | "admin-panel",
+  file: "ui" | "admin-panel" | "moments",
   schema: z.ZodType<T>,
 ): Promise<T | null> => {
   const response = await request(`/f/profile/${file}`);
@@ -79,7 +80,7 @@ export const readProfileDocument = async <T>(
 /** Saves a validated profile JSON file through an app-supplied authenticated request pipeline. */
 export const writeProfileDocument = async <T>(
   request: (url: string, body: { document: T }) => Promise<Response>,
-  file: "ui" | "admin-panel",
+  file: "ui" | "admin-panel" | "moments",
   schema: z.ZodType<T>,
   document: T,
 ): Promise<void> => {

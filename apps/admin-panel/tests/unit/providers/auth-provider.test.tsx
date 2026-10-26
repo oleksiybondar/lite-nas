@@ -5,7 +5,7 @@ import type { ApiRequestBuilder } from "@helpers/api-request-builder";
 import { useAuth } from "@hooks/useAuth";
 import { AuthProvider } from "@providers/AuthProvider";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { PropsWithChildren, ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 describe("AuthProvider initialization", () => {
   afterEach(() => {
@@ -27,8 +27,23 @@ describe("AuthProvider initialization", () => {
       expect(screen.getByTestId("auth-state")).toHaveTextContent("ready:no:anonymous");
     });
   });
+
+  test("rejects malformed current-user data during initialization", async () => {
+    renderWithApi(<AuthConsumer />, responseWithJson(200, { data: { authenticated: true } }));
+    await waitFor(() =>
+      expect(screen.getByTestId("auth-state")).toHaveTextContent("ready:no:anonymous"),
+    );
+  });
+
+  test("clears an authenticated session after protected request renewal fails", async () => {
+    renderWithApi(<AuthConsumer />, responseWithJson(200, { data: authenticatedMe }));
+    await screen.findByText("ready:yes:admin");
+    fireEvent(window, new Event("lite-nas-admin-session-expired"));
+    expect(screen.getByTestId("auth-state")).toHaveTextContent("ready:no:anonymous");
+  });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: the command cases share one provider fixture and cleanup.
 describe("AuthProvider commands", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -54,7 +69,7 @@ describe("AuthProvider commands", () => {
     fireEvent.click(screen.getByRole("button", { name: "Login" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/auth/login", {
+      expect(fetchMock).toHaveBeenCalledWith("/api/auth/login?redirect_to=%2Fsystem", {
         body: JSON.stringify({ login: "admin", password: "passw" }),
         credentials: "include",
         headers: expect.any(Headers),
@@ -86,6 +101,31 @@ describe("AuthProvider commands", () => {
       expect(screen.getByTestId("auth-state")).toHaveTextContent("ready:no:anonymous");
     });
   });
+
+  test("failed current-user reload keeps login unsuccessful", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
+        ),
+    );
+    renderWithApi(<AuthConsumer />, responseWithStatus(401), responseWithStatus(401));
+    await screen.findByText("ready:no:anonymous");
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+    await waitFor(() => expect(screen.getByTestId("login-status")).toHaveTextContent("failed"));
+  });
+
+  test("failed logout keeps the authenticated session visible", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(responseWithStatus(503));
+    vi.stubGlobal("fetch", fetchMock);
+    renderWithApi(<AuthConsumer />, responseWithJson(200, { data: authenticatedMe }));
+    await screen.findByText("ready:yes:admin");
+    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(screen.getByTestId("auth-state")).toHaveTextContent("ready:yes:admin");
+  });
 });
 
 /**
@@ -93,6 +133,7 @@ describe("AuthProvider commands", () => {
  */
 const AuthConsumer = (): ReactElement => {
   const { isAuthInited, isAuthenticated, login, logout, me } = useAuth();
+  const [loginStatus, setLoginStatus] = useState("idle");
 
   return (
     <>
@@ -102,12 +143,15 @@ const AuthConsumer = (): ReactElement => {
       </span>
       <button
         onClick={() => {
-          void login("admin", "passw");
+          void login("admin", "passw", "/system").then((response) =>
+            setLoginStatus(response.ok ? "ok" : "failed"),
+          );
         }}
         type="button"
       >
         Login
       </button>
+      <span data-testid="login-status">{loginStatus}</span>
       <button
         onClick={() => {
           void logout();

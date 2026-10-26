@@ -32,18 +32,7 @@ func newSnapshotClientStub[T any, R any](
 	want T,
 	assign func(*R, T),
 ) *metricsClientStub {
-	t.Helper()
-
-	return &metricsClientStub{
-		requestFunc: func(_ context.Context, _ string, _ any, response any) error {
-			typed, ok := response.(*R)
-			if !ok {
-				t.Fatalf("response type = %T, want %T", response, new(R))
-			}
-			assign(typed, want)
-			return nil
-		},
-	}
+	return newMetricsResponseClientStub(t, want, assign)
 }
 
 // newHistoryClientStub builds one client stub that populates a history RPC response.
@@ -51,6 +40,15 @@ func newHistoryClientStub[T any, R any](
 	t *testing.T,
 	want []T,
 	assign func(*R, []T),
+) *metricsClientStub {
+	return newMetricsResponseClientStub(t, want, assign)
+}
+
+// newMetricsResponseClientStub writes one typed result into an RPC response fixture.
+func newMetricsResponseClientStub[T any, R any](
+	t *testing.T,
+	want T,
+	assign func(*R, T),
 ) *metricsClientStub {
 	t.Helper()
 

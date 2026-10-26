@@ -40,6 +40,7 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			wall_strategy TEXT NOT NULL DEFAULT 'mosaic' CHECK(wall_strategy IN ('mosaic','justified','masonry','grid')),
 			thumbnail_json TEXT,
 			thumbnail_asset TEXT,
+			thumbnail_path TEXT,
 			created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
 			CHECK ((type='ALBUM' AND upload_directory IS NOT NULL) OR (type='COLLECTION' AND upload_directory IS NULL))
 		)`,
@@ -108,6 +109,35 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			return nil, fmt.Errorf("initialize Moments database: %w", err)
 		}
 	}
+	columns, err := db.Query(`PRAGMA table_info(galleries)`)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("inspect Moments gallery schema: %w", err)
+	}
+	hasThumbnailPath := false
+	for columns.Next() {
+		var index, required, primaryKey int
+		var name, dataType string
+		var defaultValue sql.NullString
+		if err := columns.Scan(&index, &name, &dataType, &required, &defaultValue, &primaryKey); err != nil {
+			_ = columns.Close()
+			_ = db.Close()
+			return nil, fmt.Errorf("inspect Moments gallery schema: %w", err)
+		}
+		hasThumbnailPath = hasThumbnailPath || name == "thumbnail_path"
+	}
+	err = columns.Err()
+	_ = columns.Close()
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("inspect Moments gallery schema: %w", err)
+	}
+	if !hasThumbnailPath {
+		if _, err := db.Exec(`ALTER TABLE galleries ADD COLUMN thumbnail_path TEXT`); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("migrate Moments gallery schema: %w", err)
+		}
+	}
 	return &galleryStore{db: db}, nil
 }
 
@@ -119,21 +149,21 @@ func timestamp() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
 // galleryRecord is the service-owned persisted gallery representation.
 type galleryRecord struct {
-	ID, Type, Name, Description, OwnerID, Visibility string
-	UploadDirectory, ThumbnailJSON, ThumbnailAsset   sql.NullString
-	WallStrategy                                     string
-	CreatedAt, UpdatedAt                             string
+	ID, Type, Name, Description, OwnerID, Visibility              string
+	UploadDirectory, ThumbnailJSON, ThumbnailAsset, ThumbnailPath sql.NullString
+	WallStrategy                                                  string
+	CreatedAt, UpdatedAt                                          string
 }
 
 // scanGallery reads one gallery row without exposing existence to the caller.
 func scanGallery(row *sql.Row) (galleryRecord, error) {
 	var g galleryRecord
 	err := row.Scan(&g.ID, &g.Type, &g.Name, &g.Description, &g.OwnerID, &g.Visibility,
-		&g.UploadDirectory, &g.WallStrategy, &g.ThumbnailJSON, &g.ThumbnailAsset, &g.CreatedAt, &g.UpdatedAt)
+		&g.UploadDirectory, &g.WallStrategy, &g.ThumbnailJSON, &g.ThumbnailAsset, &g.ThumbnailPath, &g.CreatedAt, &g.UpdatedAt)
 	return g, err
 }
 
-const galleryColumns = `id,type,name,description,owner_id,visibility,upload_directory,wall_strategy,thumbnail_json,thumbnail_asset,created_at,updated_at`
+const galleryColumns = `id,type,name,description,owner_id,visibility,upload_directory,wall_strategy,thumbnail_json,thumbnail_asset,thumbnail_path,created_at,updated_at`
 
 // galleryByID fetches a gallery for a visibility or ownership check.
 func (store *galleryStore) galleryByID(ctx context.Context, id string) (galleryRecord, error) {

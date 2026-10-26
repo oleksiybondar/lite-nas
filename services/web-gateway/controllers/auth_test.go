@@ -299,7 +299,7 @@ func TestAuthControllerMapsUnexpectedServiceErrorToInternalError(t *testing.T) {
 func TestBuildSessionBodyReturnsAuthenticatedEnvelope(t *testing.T) {
 	t.Parallel()
 
-	body := buildSessionBody(time.Unix(100, 0), authSessionFixture())
+	body := buildSessionBody(time.Unix(100, 0), authSessionFixture(), "")
 	if !body.Data.Authenticated {
 		t.Fatalf("Authenticated = false, want true")
 	}

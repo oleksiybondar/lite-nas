@@ -48,25 +48,19 @@ func NewArgsProcessor(defaultConfigPath string) ArgsProcessor {
 
 // Process parses the CLI arguments into a validated invocation.
 func (p argsProcessor) Process(args []string) (Invocation, error) {
-	return cliargs.Process(
+	return cliargs.ProcessWithConfig(
 		args,
 		Invocation{
 			ConfigPath: p.defaultConfigPath,
 			Mode:       ModeCurrent,
 		},
+		func(invocation *Invocation) *string { return &invocation.ConfigPath },
 		applyArg,
 		finalizeInvocation,
 	)
 }
 
 func applyArg(invocation Invocation, arg string) (Invocation, error) {
-	if handled, err := cliargs.ApplyHelpAndConfigArg(arg, &invocation.ConfigPath); handled {
-		if err != nil {
-			return Invocation{}, err
-		}
-		return invocation, nil
-	}
-
 	switch arg {
 	case "--history":
 		invocation.Mode = ModeHistory
@@ -80,10 +74,6 @@ func applyArg(invocation Invocation, arg string) (Invocation, error) {
 }
 
 func finalizeInvocation(invocation Invocation) (Invocation, error) {
-	if invocation.ConfigPath == "" {
-		return Invocation{}, errors.New("config path must not be empty")
-	}
-
 	if invocation.Mode == ModeHistory {
 		return finalizeHistoryInvocation(invocation)
 	}

@@ -4,12 +4,20 @@ import { GalleryImageQueue } from "./GalleryImageQueue";
 import { GalleryMetadataReader } from "./GalleryMetadataReader";
 import type { GalleryItem } from "./gallery-model";
 import { composeLivePhotoItems } from "./LivePhotoMetadata";
+import type { GalleryRecord } from "./schemas";
 
 /** Stable collection metadata and one image request coordinator shared by both views. */
 export type GalleryState = {
   items: readonly GalleryItem[];
   queue: GalleryImageQueue;
   metadata: GalleryMetadataReader;
+  collectionActions?: {
+    collections: readonly GalleryRecord[];
+    canRemove: (path: string) => boolean;
+    add: (collectionId: string, path: string) => Promise<void>;
+    remove: (path: string) => Promise<void>;
+    createAndAdd: (name: string, path: string) => Promise<void>;
+  };
 };
 const GalleryContext = createContext<GalleryState | null>(null);
 
@@ -17,16 +25,20 @@ const GalleryContext = createContext<GalleryState | null>(null);
 export const GalleryProvider = ({
   items,
   children,
+  collectionActions,
+  maxConcurrent = 10,
 }: {
   items: readonly GalleryItem[];
   children: ReactNode;
+  collectionActions?: GalleryState["collectionActions"];
+  maxConcurrent?: number;
 }): ReactElement => {
-  const queue = useMemo(() => new GalleryImageQueue(), []);
+  const queue = useMemo(() => new GalleryImageQueue(maxConcurrent), [maxConcurrent]);
   const metadata = useMemo(() => new GalleryMetadataReader(), []);
   const composedItems = useMemo(() => composeLivePhotoItems(items), [items]);
   const value = useMemo(
-    () => ({ items: composedItems, queue, metadata }),
-    [composedItems, queue, metadata],
+    () => ({ items: composedItems, queue, metadata, collectionActions }),
+    [composedItems, queue, metadata, collectionActions],
   );
   useEffect(
     () => () => {

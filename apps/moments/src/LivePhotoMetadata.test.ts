@@ -1,33 +1,8 @@
 import { expect, test } from "vitest";
-import fixture from "../public/dev-fixtures/gallery.json";
 import { galleryItemsFromPaths } from "./gallery-model";
 import { composeLivePhotoItems } from "./LivePhotoMetadata";
 
 const paths = ["/f/home/test/IMG_2062.HEIC", "/f/home/test/IMG_2062.MOV"];
-
-// Requirements: moments/FR-003. The requested pair leads the bundled demo gallery.
-test("IMG_2062 still and movie are the first fixture paths", () => {
-  expect(fixture.items.slice(0, 2)).toEqual([
-    "/f/home/oleksiybondar/Pictures/IMG_2062.HEIC",
-    "/f/home/oleksiybondar/Pictures/IMG_2062.MOV",
-  ]);
-});
-
-// Requirements: moments/FR-003. Full fixture processing keeps the Live Photo first.
-test("the full fixture composes IMG_2062 as its first media item", () => {
-  const composed = composeLivePhotoItems(galleryItemsFromPaths(fixture.items));
-  expect(composed[0]).toMatchObject({
-    url: "/f/home/oleksiybondar/Pictures/IMG_2062.HEIC",
-    motionUrl: "/f/home/oleksiybondar/Pictures/IMG_2062.MOV",
-  });
-});
-
-// Requirements: moments/FR-003. Fixture processing keeps standalone HEIC files visible.
-test("the full fixture keeps IMG_1864 as a standalone HEIC image", () => {
-  const composed = composeLivePhotoItems(galleryItemsFromPaths(fixture.items));
-  const still = composed.find((item) => item.filename === "IMG_1864.HEIC");
-  expect(still?.kind === "image" && still.motionUrl === undefined).toBe(true);
-});
 
 // Requirements: moments/FR-003. Same-folder HEIC/MOV companions become one item.
 test("matching filename companions compose one Live Photo", () => {

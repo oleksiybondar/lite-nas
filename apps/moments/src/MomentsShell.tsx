@@ -1,24 +1,44 @@
-// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: shell navigation stays together while the demo views are reviewed.
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: shell navigation stays together for gallery and settings views.
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: shell view routing stays explicit for the current screens.
 
-import { FileSelectionDialog, FolderSelectionDialog } from "@lite-nas/file-browser";
 import type { ThemeMode } from "@lite-nas/theme";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
-import { useState } from "react";
-import { logout, saveSharedMode } from "./api";
-import { DemoGallery } from "./DemoGallery";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import {
+  loadGalleryConcurrency,
+  loadMomentsConfig,
+  logout,
+  saveGalleryConcurrency,
+  saveSharedMode,
+} from "./api";
+import { GalleryFeed, type GalleryFeedScope } from "./GalleryFeed";
+import { GalleryRoute } from "./GalleryRoute";
 import { MomentsHeader } from "./MomentsHeader";
 import { MomentsLayout } from "./MomentsLayout";
-import { Settings } from "./Settings";
+import { Settings, type SettingsView } from "./Settings";
 import type { Me } from "./schemas";
-import { ThumbnailMaker } from "./ThumbnailMaker";
+import { imageConcurrencySchema } from "./schemas";
 import { useProfileAvatar } from "./useProfileAvatar";
 
-/** Provides the authenticated header, demo gallery, and shared settings views. */
+/** Feed routes retain the same scope names used by the gallery query. */
+const feedRoutes: Record<string, GalleryFeedScope> = {
+  "/": "home",
+  "/mine": "mine",
+  "/shared": "shared",
+};
+
+/** Settings URLs select the matching sidebar tab. */
+const settingsRoutes: Record<string, SettingsView> = {
+  "/settings/profile": "profile",
+  "/settings/appearance": "appearance",
+  "/settings/gallery": "gallery",
+};
+
+/** Provides the authenticated header, live gallery views, and shared settings. */
 export const MomentsShell = ({
   me,
   mode,
@@ -30,13 +50,49 @@ export const MomentsShell = ({
   onModeChange: (mode: ThemeMode) => void;
   onSignedOut: () => void;
 }): ReactElement => {
-  const [view, setView] = useState<"home" | "thumbnail" | "profile" | "appearance">("home");
-  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
-  const [fileDialogOpen, setFileDialogOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const scope = feedRoutes[location.pathname] ?? "home";
+  const settingsView = settingsRoutes[location.pathname] ?? "appearance";
+  const [workingDir, setWorkingDir] = useState<string | null>(null);
+  const [configError, setConfigError] = useState(false);
+  const [maxConcurrent, setMaxConcurrent] = useState(() => {
+    const stored = Number(window.localStorage.getItem("moments-image-concurrency"));
+    const parsed = imageConcurrencySchema.safeParse(stored);
+    return parsed.success ? parsed.data : 10;
+  });
   const [message, setMessage] = useState<string | null>(null);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [galleryMessage, setGalleryMessage] = useState<string | null>(null);
+  const galleryChanged = useRef(false);
   const avatar = useProfileAvatar();
+
+  useEffect(() => {
+    let active = true;
+    void loadMomentsConfig()
+      .then((path) => {
+        if (active) setWorkingDir(path);
+      })
+      .catch(() => {
+        if (active) setConfigError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void loadGalleryConcurrency().then((value) => {
+      if (active && !galleryChanged.current) setMaxConcurrent(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const showFeed = (scope: GalleryFeedScope): void => {
+    navigate(scope === "home" ? "/" : `/${scope}`);
+  };
 
   const saveMode = async (value: ThemeMode): Promise<void> => {
     try {
@@ -62,12 +118,10 @@ export const MomentsShell = ({
           username={me.user.login}
           fullName={me.user.full_name}
           avatarUrl={avatar ?? me.user.avatar_url}
-          onHome={() => setView("home")}
-          onThumbnailMaker={() => setView("thumbnail")}
-          onSelectFolder={() => setFolderDialogOpen(true)}
-          onSelectFile={() => setFileDialogOpen(true)}
-          onProfile={() => setView("profile")}
-          onApplicationSettings={() => setView("appearance")}
+          onMine={() => showFeed("mine")}
+          onShared={() => showFeed("shared")}
+          onProfile={() => navigate("/settings/profile")}
+          onApplicationSettings={() => navigate("/settings/appearance")}
           onLogout={() => void onLogout()}
         />
       }
@@ -84,47 +138,76 @@ export const MomentsShell = ({
           flexDirection: "column",
         }}
       >
-        {view === "home" && (
-          <Box data-testid="moments-home">
-            {(selectedFolder || selectedFile) && (
-              <Stack spacing={0.5} sx={{ mb: 2 }}>
-                {selectedFolder && (
-                  <Typography variant="body2">Selected folder: {selectedFolder}</Typography>
-                )}
-                {selectedFile && (
-                  <Typography variant="body2">Selected file: {selectedFile}</Typography>
-                )}
-              </Stack>
-            )}
-            <DemoGallery />
-          </Box>
+        {configError && (
+          <Typography color="error">Could not load Moments configuration.</Typography>
         )}
-        {view === "thumbnail" && <ThumbnailMaker />}
-        {(view === "profile" || view === "appearance") && (
-          <Settings
-            view={view}
-            username={me.user.login}
-            avatarUrl={avatar}
-            fallbackAvatarUrl={me.user.avatar_url}
-            mode={mode}
-            message={message}
-            onModeChange={onModeChange}
-            onSaveMode={(value) => void saveMode(value)}
+        <Routes>
+          {["/", "/mine", "/shared"].map((path) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <Box data-testid="moments-home">
+                  {workingDir ? (
+                    <GalleryFeed
+                      key={scope}
+                      scope={scope}
+                      userId={me.user.id}
+                      workingDir={workingDir}
+                      onOpen={(gallery) => navigate(`/galleries/${gallery.id}`)}
+                    />
+                  ) : (
+                    !configError && <Typography>Loading Moments…</Typography>
+                  )}
+                </Box>
+              }
+            />
+          ))}
+          <Route
+            path="/galleries/:id"
+            element={
+              <GalleryRoute
+                userId={me.user.id}
+                maxConcurrent={maxConcurrent}
+                workingDir={workingDir ?? "/home"}
+              />
+            }
           />
-        )}
+          {["profile", "appearance", "gallery"].map((tab) => (
+            <Route
+              key={tab}
+              path={`/settings/${tab}`}
+              element={
+                <Settings
+                  view={settingsView}
+                  onViewChange={(value) => navigate(`/settings/${value}`)}
+                  username={me.user.login}
+                  avatarUrl={avatar}
+                  fallbackAvatarUrl={me.user.avatar_url}
+                  mode={mode}
+                  message={message}
+                  onModeChange={onModeChange}
+                  onSaveMode={(value) => void saveMode(value)}
+                  maxConcurrent={maxConcurrent}
+                  galleryMessage={galleryMessage}
+                  onMaxConcurrentChange={(value) => {
+                    galleryChanged.current = true;
+                    setMaxConcurrent(value);
+                    void saveGalleryConcurrency(value)
+                      .then(() => setGalleryMessage(null))
+                      .catch(() =>
+                        setGalleryMessage(
+                          "Saved in this browser, but the user file could not be updated.",
+                        ),
+                      );
+                  }}
+                />
+              }
+            />
+          ))}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Container>
-      <FolderSelectionDialog
-        open={folderDialogOpen}
-        onClose={() => setFolderDialogOpen(false)}
-        initialDirectory="/home/oleksiybondar"
-        onSelect={setSelectedFolder}
-      />
-      <FileSelectionDialog
-        open={fileDialogOpen}
-        onClose={() => setFileDialogOpen(false)}
-        initialDirectory="/home/oleksiybondar"
-        onSelect={setSelectedFile}
-      />
     </MomentsLayout>
   );
 };

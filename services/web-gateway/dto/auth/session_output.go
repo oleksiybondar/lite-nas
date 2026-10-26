@@ -33,6 +33,7 @@ type SessionBody struct {
 type SessionData struct {
 	Authenticated bool     `json:"authenticated"`
 	User          AuthUser `json:"user"`
+	RedirectTo    string   `json:"redirect_to,omitempty"`
 }
 
 // NewSessionBody creates the session response body with common metadata set.

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from "vitest";
-import { loadThumbnailPreviews } from "./ThumbnailCanvas";
+import { loadThumbnailPreviews, renderThumbnail, thumbnailExportSize } from "./ThumbnailCanvas";
 import { newThumbnailLayer, thumbnailDocumentSchema } from "./thumbnail-model";
 
 afterEach(() => {
@@ -41,4 +41,61 @@ test("preview loading limits concurrent original decodes", async () => {
   });
   await loadThumbnailPreviews(document, new Map(), () => {}, new AbortController().signal);
   expect(peak).toBe(2);
+});
+
+test("gallery cover rendering draws a styled photo onto the output canvas", () => {
+  const drawImage = vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+    beginPath: vi.fn(),
+    clip: vi.fn(),
+    drawImage,
+    fill: vi.fn(),
+    fillRect: vi.fn(),
+    restore: vi.fn(),
+    rotate: vi.fn(),
+    roundRect: vi.fn(),
+    save: vi.fn(),
+    scale: vi.fn(),
+    translate: vi.fn(),
+  } as unknown as CanvasRenderingContext2D);
+  const layer = {
+    ...newThumbnailLayer("/f/home/Photos/photo.jpg", "photo.jpg"),
+    frame: "polaroid" as const,
+    effect: "grain" as const,
+    shadow: true,
+  };
+  const recipe = thumbnailDocumentSchema.parse({
+    version: 1,
+    aspect: "16:9",
+    background: "paper",
+    layers: [layer],
+  });
+  const image = {
+    source: document.createElement("canvas"),
+    width: 800,
+    height: 600,
+    originalWidth: 800,
+    originalHeight: 600,
+  };
+  renderThumbnail(document.createElement("canvas"), recipe, new Map([[layer.id, image]]), 800);
+  expect(drawImage).toHaveBeenCalledOnce();
+});
+
+test("export size uses original photo resolution", () => {
+  const layer = newThumbnailLayer("/f/home/Photos/photo.jpg", "photo.jpg");
+  const recipe = thumbnailDocumentSchema.parse({
+    version: 1,
+    aspect: "16:9",
+    background: "white",
+    layers: [layer],
+  });
+  const image = {
+    source: document.createElement("canvas"),
+    width: 800,
+    height: 600,
+    originalWidth: 2400,
+    originalHeight: 1800,
+  };
+  const [width] = thumbnailExportSize(recipe, new Map([[layer.id, image]]));
+  expect(width).toBeGreaterThan(800);
 });

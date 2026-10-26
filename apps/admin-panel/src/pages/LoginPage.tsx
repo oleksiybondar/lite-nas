@@ -1,21 +1,30 @@
 import { PublicAppLayout } from "@components/layout/PublicAppLayout";
 import { useAuth } from "@hooks/useAuth";
+import { authDestination, loginDestination } from "@lite-nas/profile";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { authSessionResponseSchema } from "@schemas/auth/session";
 import type { FormEvent, ReactElement } from "react";
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 /**
  * Browser login page rendered when the auth guard resolves an anonymous state.
  */
 export const LoginPage = (): ReactElement => {
   const { login } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const from = (location.state as { from?: unknown } | null)?.from;
+  const destination = loginDestination(location.search, from);
   const { error, isSubmitting, onSubmit, password, setPassword, setUsername, username } =
-    useLoginForm(login);
+    useLoginForm(login, destination, (returned) => {
+      void navigate(authDestination(returned ?? destination), { replace: true });
+    });
 
   return (
     <PublicAppLayout>
@@ -78,7 +87,11 @@ type LoginAction = ReturnType<typeof useAuth>["login"];
 /**
  * Owns login form state and submit side effects.
  */
-const useLoginForm = (login: LoginAction) => {
+const useLoginForm = (
+  login: LoginAction,
+  destination: string,
+  onAuthenticated: (redirectTo?: string) => void,
+) => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState("");
@@ -90,9 +103,11 @@ const useLoginForm = (login: LoginAction) => {
     setIsSubmitting(true);
 
     try {
-      const response = await login(username, password);
+      const response = await login(username, password, destination);
       if (!response.ok) {
         setError("Login failed.");
+      } else {
+        onAuthenticated(await readLoginRedirect(response));
       }
     } catch {
       setError("Login failed.");
@@ -102,4 +117,13 @@ const useLoginForm = (login: LoginAction) => {
   };
 
   return { error, isSubmitting, onSubmit, password, setPassword, setUsername, username };
+};
+
+/** Reads the echoed path while preserving login links across older gateway deployments. */
+const readLoginRedirect = async (response: Response): Promise<string | undefined> => {
+  try {
+    return authSessionResponseSchema.parse(await response.clone().json()).data.redirect_to;
+  } catch {
+    return undefined;
+  }
 };
