@@ -10,11 +10,14 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/danielgtaylor/huma/v2"
 
 	"lite-nas/services/file-service/filesystem"
 	rbaccontract "lite-nas/shared/contracts/rbac"
@@ -62,6 +65,11 @@ func fileIdentity(info os.FileInfo) (uint64, uint64) {
 	return uint64(stat.Dev), stat.Ino
 }
 
+// filePathInput bounds the decoded path at the HTTP adapter boundary.
+type filePathInput struct {
+	Path string `json:"path" minLength:"1" maxLength:"4096"`
+}
+
 // hostPath maps a decoded route suffix to one unambiguous absolute host path.
 func hostPath(request *http.Request, prefix string) (string, error) {
 	escaped := request.URL.EscapedPath()
@@ -74,6 +82,13 @@ func hostPath(request *http.Request, prefix string) (string, error) {
 	}
 	path := strings.TrimPrefix(decoded, prefix)
 	if !strings.HasPrefix(path, "/") || fileaccess.ValidateHostPath(path) != nil {
+		return "", fileaccess.ErrInvalidPath
+	}
+	registry := huma.NewMapRegistry("#/components/schemas/", huma.DefaultSchemaNamer)
+	schema := registry.Schema(reflect.TypeOf(filePathInput{}), true, "FilePathInput")
+	result := &huma.ValidateResult{}
+	huma.Validate(registry, schema, huma.NewPathBuffer(nil, 0), huma.ModeWriteToServer, map[string]any{"path": path}, result)
+	if len(result.Errors) != 0 {
 		return "", fileaccess.ErrInvalidPath
 	}
 	return path, nil

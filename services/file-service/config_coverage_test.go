@@ -103,7 +103,7 @@ func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 		{name: "listing path", old: "listing_ignored_names=Thumbs.db", new: "listing_ignored_names=folder/Thumbs.db"},
 		{name: "listing glob", old: "listing_ignored_names=Thumbs.db", new: "listing_ignored_names=[Thumbs.db"},
 		{name: "listing empty member", old: "listing_ignored_names=Thumbs.db", new: "listing_ignored_names=Thumbs.db,,"},
-		{name: "invalid docs switch", old: "enabled=false", new: "enabled=maybe"},
+		{name: "invalid docs switch", old: "enabled=true", new: "enabled=maybe"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			changed := strings.Replace(string(payload), test.old, test.new, 1)

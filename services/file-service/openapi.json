@@ -127,6 +127,50 @@
       }
     },
     "schemas": {
+      "MediaTag": {
+        "type": "object",
+        "required": ["category", "value"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Source metadata field name."
+          },
+          "value": {
+            "type": "string",
+            "description": "Value actually embedded in the source file."
+          }
+        }
+      },
+      "MediaMetadata": {
+        "type": "object",
+        "required": ["path", "mediaType", "contentType", "width", "height", "tags"],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": ["IMAGE", "VIDEO", "AUDIO", "OTHER"]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "width": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "height": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaTag"
+            }
+          }
+        }
+      },
       "HostPath": {
         "type": "string",
         "minLength": 1,
@@ -504,6 +548,96 @@
     }
   },
   "paths": {
+    "/f/metadata/{absolutePath}": {
+      "get": {
+        "operationId": "getMediaMetadata",
+        "tags": ["Browsing"],
+        "summary": "Extract authorized media metadata",
+        "description": "Authenticates the current user and repeats File Service read authorization for this path. Dimensions are returned when the built-in decoder supports the image. Tags contain only fields read from the source; an empty array is valid. Live Photo pairing is gallery-level work, not asserted by this single-file operation.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/absolutePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source-backed metadata for an authorized regular file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/f/stat/{absolutePath}": {
+      "get": {
+        "operationId": "statAuthorizedPath",
+        "tags": ["Browsing"],
+        "summary": "Inspect one authorized source path",
+        "description": "Returns the File Service canonical path and kind after a fresh Auth/RBAC read check. Moments uses this to validate gallery source references.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/absolutePath"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized source path and kind.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["path", "kind"],
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": ["file", "directory"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
     "/ls/{absolutePath}": {
       "get": {
         "operationId": "listDirectory",

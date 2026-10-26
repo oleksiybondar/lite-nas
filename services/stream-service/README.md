@@ -1,5 +1,8 @@
 # Stream Service
 
+The bundled Swagger UI is available at `/s/docs` on either LiteNAS host, with
+the machine-readable contract at `/s/openapi.json`.
+
 Stream Service serves an authorized source file through a loopback HTTP listener.
 Nginx mounts it at `/s/` on both the admin and Moments HTTPS origins. The suffix
 after `/s/` is the absolute host path: `/s/home/alice/movie.mov` addresses

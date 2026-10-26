@@ -18,6 +18,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"lite-nas/shared/fileaccess"
+	"lite-nas/shared/swaggerui"
 )
 
 // streamService authenticates each media request and sends only authorized files.
@@ -43,6 +44,14 @@ type transcodeInput struct {
 
 // ServeHTTP handles original media requests and repeats Auth and RBAC checks for ranges.
 func (s *streamService) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	if request.URL.Path == "/docs" || strings.HasPrefix(request.URL.Path, "/docs/") {
+		swaggerui.Serve(writer, request, "/s", "LiteNAS Stream Service API", "/s/openapi.json")
+		return
+	}
+	if request.URL.Path == "/openapi.json" {
+		serveOpenAPI(writer, request)
+		return
+	}
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	transcode := strings.HasPrefix(request.URL.Path, "/transcode/")

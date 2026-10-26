@@ -12,6 +12,10 @@ profile /usr/libexec/lite-nas/moments flags=(attach_disconnected,mediate_deleted
   /etc/lite-nas/certificates/auth/token-signing.crt r,
   /proc/sys/net/core/somaxconn r,
   /var/log/lite-nas/moments.log rw,
+  /var/lib/lite-nas/moments/ rw,
+  /var/lib/lite-nas/moments/moments.db{,-shm,-wal,-journal} rwk,
+  /var/lib/lite-nas/moments/thumbnails/ rw,
+  /var/lib/lite-nas/moments/thumbnails/* rwk,
 
   include if exists <local/usr.libexec.lite-nas.moments>
 }

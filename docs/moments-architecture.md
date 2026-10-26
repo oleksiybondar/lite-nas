@@ -1,14 +1,16 @@
 # Moments Architecture
 
-Moments is LiteNAS's personal photo and media application. Its current browser
-experience includes a fixture-backed gallery and a browser-only thumbnail maker.
-Album, tag, upload, and persistent gallery metadata remain future service work.
+Moments is LiteNAS's personal photo and media application. Its browser gallery
+still uses a fixture, while the Go backend now provides persistent gallery
+metadata, collection references, sharing, uploaded covers, and on-demand media
+rescans. The browser-only thumbnail maker remains separate from stored covers.
 
 ## Current boundaries
 
 - The React app and loopback Go service provide authentication, shared profile
   and appearance settings, and embedded and standalone hosting. The Go service
-  does not yet expose album or gallery metadata APIs.
+  now exposes metadata routes under `/api/galleries`; its Swagger UI is at
+  `/api/docs` on the standalone Moments host.
 - The demo gallery reads the validated, ordered
   `apps/moments/public/dev-fixtures/gallery.json` fixture. Its paths point to
   existing files available to the signed-in user. The fixture is bundled with
@@ -19,9 +21,9 @@ Album, tag, upload, and persistent gallery metadata remain future service work.
 - Stream Service supplies the `/s/` media route, including original streaming,
   HEIC/HEIF JPEG previews, and a video transcode fallback. Nginx exposes the
   route on embedded and standalone hosts; Vite proxies it during development.
-- The planned Moments metadata API will own album identities, tags,
-  pagination, persisted settings, and cover descriptors. Its contract must be
-  decided before the browser integrates it.
+- The Moments metadata API owns gallery identities, shares, collection
+  references, scan-derived tags, pagination, and optional cover data. The
+  [backend API guide](../services/moments/README.md) documents its contract.
 
 ## Gallery demo
 
@@ -58,16 +60,15 @@ a bounded queue, and export reads originals sequentially. The maker has no
 backend storage, album cover association, or persistence beyond a downloaded
 recipe or image.
 
-## Remaining service integration
+## Remaining browser integration
 
-Define the Moments metadata API before replacing fixture records with
-validated album/media responses. Settle ordering, pagination, stable media
-identity, URL construction, dimensions, Live Photo association, and persisted
-layout and cover settings in the service contract. Keep File Service as the
-authorized file boundary and Stream Service as the media delivery boundary.
-The current frontend recipe is a demo format; a persisted album cover
-descriptor needs its own agreed contract and a policy for moved or missing
-source files.
+Replace fixture records with the metadata API and direct File Service
+`/ls/<album-directory>?recursive&files-only` listings. The backend scan result
+endpoint supplies extracted dimensions, tags, and same-directory Live Photo
+pairs. The browser still needs adapters for these routes and an upload/refresh
+workflow. Keep File Service as the authorized file boundary and Stream Service
+as the media delivery boundary. Uploaded cover images and the optional opaque
+generation JSON are now persisted separately by Moments.
 
 See [implemented requirements](../requirements/moments-skeleton.md), the
 [app task](../apps/moments/task.md), the

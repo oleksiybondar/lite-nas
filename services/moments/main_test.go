@@ -57,6 +57,21 @@ func TestMeRequiresAuthentication(t *testing.T) {
 	}
 }
 
+// TestSwaggerUIUsesGeneratedMomentsSchema covers moments-backend/IR-002.
+func TestSwaggerUIUsesGeneratedMomentsSchema(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/openapi.json", nil)
+	response := httptest.NewRecorder()
+	store, err := openGalleryStore(filepath.Join(t.TempDir(), "moments.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.close()
+	newRouterWithStore(authStub{}, "", store).ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "/api/galleries") {
+		t.Fatalf("OpenAPI response = %d %q", response.Code, response.Body.String())
+	}
+}
+
 // Requirements: moments/FR-002
 func TestAuthMutationRejectsForeignOrigin(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
@@ -267,6 +282,9 @@ func TestMomentsConfigRejectsUnsafeSettings(t *testing.T) {
 		{"invalid cookie domain", "cookie_domain=", "cookie_domain=/invalid"},
 		{"missing token issuer", "issuer=lite-nas-auth", "issuer="},
 		{"missing HTTP address", "address=127.0.0.1:9091", "address="},
+		{"external file service", "file_service_url=http://127.0.0.1:8082", "file_service_url=http://example.com:8082"},
+		{"relative database path", "database_path=/var/lib/lite-nas/moments/moments.db", "database_path=relative.db"},
+		{"relative thumbnail path", "thumbnail_dir=/var/lib/lite-nas/moments/thumbnails", "thumbnail_dir=thumbnails"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "moments.conf")

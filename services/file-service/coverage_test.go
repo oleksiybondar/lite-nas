@@ -168,8 +168,9 @@ func TestSwaggerAssetRoutesServeBundledFiles(t *testing.T) {
 
 // TestSwaggerAssetRejectsUnknownEmbeddedName covers fixed asset resolution.
 func TestSwaggerAssetRejectsUnknownEmbeddedName(t *testing.T) {
-	response := httptest.NewRecorder()
-	(&fileService{}).serveSwaggerAsset(response, "/docs/missing.css")
+	service := mustService(t, t.TempDir(), authorizedRequests(new(int)))
+	service.cfg.DocsEnabled = true
+	response := mustProtectedRequest(t, service, http.MethodGet, "/docs/missing.css", "")
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("unknown asset status = %d, want 404", response.Code)
 	}

@@ -26,7 +26,7 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0027
 ReadOnlyPaths=/etc/lite-nas /usr/share/lite-nas/moments
-ReadWritePaths=/var/log/lite-nas/moments.log
+ReadWritePaths=/var/log/lite-nas/moments.log /var/lib/lite-nas/moments
 StandardOutput=null
 StandardError=journal
 

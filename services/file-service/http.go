@@ -92,6 +92,10 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 		s.uploadResource(writer, request, subject)
 	case strings.HasPrefix(path, "/ls/") && request.Method == http.MethodGet:
 		s.list(writer, request, subject)
+	case strings.HasPrefix(path, "/metadata/"):
+		s.mediaMetadataResource(writer, request, subject)
+	case strings.HasPrefix(path, "/stat/"):
+		s.statResource(writer, request, subject)
 	case strings.HasPrefix(path, "/download/") && (request.Method == http.MethodGet || request.Method == http.MethodHead):
 		s.download(writer, request, subject, true)
 	case strings.HasPrefix(path, "/download/") || strings.HasPrefix(path, "/ls/"):

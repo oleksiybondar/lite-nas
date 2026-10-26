@@ -392,7 +392,9 @@ command details. The current private-file reader uses fixed `/bin/cat` through
 
 The service exposes its authenticated Swagger UI at `/f/docs` and its OpenAPI
 document at `/f/openapi.json` when `api_docs.enabled=true`. The packaged
-configuration sets this option to `false`; the service default is `true`.
+configuration enables it; both routes still require authentication.
+The standalone Moments host serves `/api/docs` and `/api/openapi.json`.
+Stream Service serves `/s/docs` and `/s/openapi.json` on both hosts.
 
 In the browser flow, the file mounts use the existing `lite-nas-at` access
 cookie on the same HTTPS origin. The cookie is `Secure`, `HttpOnly`,

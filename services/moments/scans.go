@@ -1,0 +1,495 @@
+package main
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"net/http"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
+
+	"lite-nas/shared/browserauth"
+)
+
+// scanJob is the durable, caller-visible snapshot of one full rescan.
+type scanJob struct {
+	ID              string  `json:"id"`
+	GalleryID       string  `json:"galleryId"`
+	Status          string  `json:"status"`
+	TotalItems      *int    `json:"totalItems"`
+	ProcessedItems  int     `json:"processedItems"`
+	SuccessfulItems int     `json:"successfulItems"`
+	FailedItems     int     `json:"failedItems"`
+	CreatedAt       string  `json:"createdAt"`
+	StartedAt       *string `json:"startedAt"`
+	FinishedAt      *string `json:"finishedAt"`
+	ErrorSummary    *string `json:"errorSummary"`
+}
+
+// scanOutput gives start and polling routes the same progress shape.
+type scanOutput struct {
+	Status int
+	Body   scanJob
+}
+
+// scanIDInput validates a scan identifier and caller credentials.
+type scanIDInput struct {
+	GalleryAuth
+	ID string `path:"scanId" format:"uuid"`
+}
+
+// scanListInput bounds job history for one visible gallery.
+type scanListInput struct {
+	GalleryAuth
+	ID     string `path:"galleryId" format:"uuid"`
+	Limit  int    `query:"limit" minimum:"1" maximum:"100"`
+	Offset int    `query:"offset" minimum:"0" maximum:"100000"`
+}
+
+// scanListOutput pages scan history without exposing another user's jobs.
+type scanListOutput struct {
+	Body struct {
+		Items []scanJob `json:"items"`
+	}
+}
+
+// activeScan holds the user token only in process memory and a cancellation handle.
+type activeScan struct {
+	jobID  string
+	token  string
+	cancel context.CancelFunc
+}
+
+// scanManager bounds concurrent work and owns user-token renewal.
+type scanManager struct {
+	store  *galleryStore
+	auth   browserauth.AuthService
+	files  fileServiceClient
+	mu     sync.Mutex
+	active map[string]*activeScan
+	seats  chan struct{}
+}
+
+// newScanManager creates the bounded scan worker state.
+func newScanManager(store *galleryStore, auth browserauth.AuthService, files fileServiceClient) *scanManager {
+	return &scanManager{store: store, auth: auth, files: files, active: make(map[string]*activeScan), seats: make(chan struct{}, 2)}
+}
+
+// mountScanRoutes registers start, status, history, and cancellation.
+func mountScanRoutes(api huma.API, c galleryController) {
+	huma.Post(api, "/api/galleries/{galleryId}/scans", c.startScan)
+	huma.Get(api, "/api/galleries/{galleryId}/scans", c.listScans)
+	huma.Get(api, "/api/scans/{scanId}", c.getScan)
+	huma.Delete(api, "/api/scans/{scanId}", c.cancelScan)
+}
+
+// scanFromRow reads a durable job without materializing credentials.
+func scanFromRow(row *sql.Row) (scanJob, string, error) {
+	var job scanJob
+	var owner string
+	var total sql.NullInt64
+	var started, finished, summary sql.NullString
+	err := row.Scan(&job.ID, &job.GalleryID, &owner, &job.Status, &total,
+		&job.ProcessedItems, &job.SuccessfulItems, &job.FailedItems,
+		&job.CreatedAt, &started, &finished, &summary)
+	if total.Valid {
+		value := int(total.Int64)
+		job.TotalItems = &value
+	}
+	if started.Valid {
+		job.StartedAt = &started.String
+	}
+	if finished.Valid {
+		job.FinishedAt = &finished.String
+	}
+	if summary.Valid {
+		job.ErrorSummary = &summary.String
+	}
+	return job, owner, err
+}
+
+const scanColumns = `id,gallery_id,requested_by,status,total_items,processed_items,successful_items,failed_items,created_at,started_at,finished_at,error_summary`
+
+// lookupScan enforces same-user polling and hides other users' job IDs.
+func (c galleryController) lookupScan(ctx context.Context, id, user string) (scanJob, error) {
+	job, owner, err := scanFromRow(c.store.db.QueryRowContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE id=?`, id))
+	if errors.Is(err, sql.ErrNoRows) || owner != user {
+		return scanJob{}, huma.Error404NotFound("scan not found")
+	}
+	if err != nil {
+		return scanJob{}, huma.Error500InternalServerError("scan lookup failed")
+	}
+	return job, nil
+}
+
+// startScan authorizes the gallery and starts a full scan with the current user JWT.
+func (c galleryController) startScan(ctx context.Context, input *galleryIDInput) (*scanOutput, error) {
+	user, err := c.userID(input.GalleryAuth)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.ownedGallery(ctx, input.ID, user); err != nil {
+		return nil, err
+	}
+	job, err := c.scans.start(input.ID, user, accessToken(input.Authorization, input.AccessToken))
+	if err != nil {
+		return nil, err
+	}
+	return &scanOutput{Status: http.StatusAccepted, Body: job}, nil
+}
+
+// listScans returns only jobs initiated by the authenticated owner.
+func (c galleryController) listScans(ctx context.Context, input *scanListInput) (*scanListOutput, error) {
+	user, err := c.userID(input.GalleryAuth)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.ownedGallery(ctx, input.ID, user); err != nil {
+		return nil, err
+	}
+	limit := input.Limit
+	if limit == 0 {
+		limit = 50
+	}
+	rows, err := c.store.db.QueryContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE gallery_id=? AND requested_by=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`, input.ID, user, limit, input.Offset)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("scan history failed")
+	}
+	defer rows.Close()
+	output := &scanListOutput{}
+	output.Body.Items = []scanJob{}
+	for rows.Next() {
+		var job scanJob
+		var owner string
+		var total sql.NullInt64
+		var started, finished, summary sql.NullString
+		if err := rows.Scan(&job.ID, &job.GalleryID, &owner, &job.Status, &total,
+			&job.ProcessedItems, &job.SuccessfulItems, &job.FailedItems,
+			&job.CreatedAt, &started, &finished, &summary); err != nil {
+			return nil, huma.Error500InternalServerError("scan history failed")
+		}
+		if total.Valid {
+			value := int(total.Int64)
+			job.TotalItems = &value
+		}
+		if started.Valid {
+			job.StartedAt = &started.String
+		}
+		if finished.Valid {
+			job.FinishedAt = &finished.String
+		}
+		if summary.Valid {
+			job.ErrorSummary = &summary.String
+		}
+		output.Body.Items = append(output.Body.Items, job)
+	}
+	if rows.Err() != nil {
+		return nil, huma.Error500InternalServerError("scan history failed")
+	}
+	return output, nil
+}
+
+// getScan permits same-user polling to refresh the in-memory access JWT.
+func (c galleryController) getScan(ctx context.Context, input *scanIDInput) (*scanOutput, error) {
+	user, err := c.userID(input.GalleryAuth)
+	if err != nil {
+		return nil, err
+	}
+	job, err := c.lookupScan(ctx, input.ID, user)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.ownedGallery(ctx, job.GalleryID, user); err != nil {
+		return nil, err
+	}
+	c.scans.renew(job.GalleryID, job.ID, accessToken(input.Authorization, input.AccessToken))
+	return &scanOutput{Status: http.StatusOK, Body: job}, nil
+}
+
+// cancelScan stops active work and keeps its previous published metadata.
+func (c galleryController) cancelScan(ctx context.Context, input *scanIDInput) (*scanOutput, error) {
+	user, err := c.userID(input.GalleryAuth)
+	if err != nil {
+		return nil, err
+	}
+	job, err := c.lookupScan(ctx, input.ID, user)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.ownedGallery(ctx, job.GalleryID, user); err != nil {
+		return nil, err
+	}
+	c.scans.cancel(job.GalleryID, job.ID)
+	return &scanOutput{Status: http.StatusOK, Body: job}, nil
+}
+
+// start reserves one gallery and one global worker seat before persisting a job.
+func (m *scanManager) start(galleryID, user, token string) (scanJob, error) {
+	m.mu.Lock()
+	if _, exists := m.active[galleryID]; exists {
+		m.mu.Unlock()
+		return scanJob{}, huma.Error409Conflict("gallery scan already active")
+	}
+	select {
+	case m.seats <- struct{}{}:
+	default:
+		m.mu.Unlock()
+		return scanJob{}, huma.Error429TooManyRequests("scan capacity reached")
+	}
+	workerCtx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	job := scanJob{ID: uuid.NewString(), GalleryID: galleryID, Status: "PENDING", CreatedAt: timestamp()}
+	_, err := m.store.db.Exec(`INSERT INTO media_scan_jobs(id,gallery_id,requested_by,status,created_at) VALUES(?,?,?,?,?)`, job.ID, galleryID, user, job.Status, job.CreatedAt)
+	if err != nil {
+		cancel()
+		<-m.seats
+		m.mu.Unlock()
+		return scanJob{}, huma.Error500InternalServerError("scan creation failed")
+	}
+	m.active[galleryID] = &activeScan{jobID: job.ID, token: token, cancel: cancel}
+	m.mu.Unlock()
+	go m.run(workerCtx, job, user)
+	return job, nil
+}
+
+// renew replaces only the active job's volatile token after same-user validation.
+func (m *scanManager) renew(galleryID, jobID, token string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if active := m.active[galleryID]; active != nil && active.jobID == jobID {
+		active.token = token
+	}
+}
+
+// cancel signals the exact active job; the worker persists terminal status.
+func (m *scanManager) cancel(galleryID, jobID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if active := m.active[galleryID]; active != nil && active.jobID == jobID {
+		active.cancel()
+	}
+}
+
+// currentToken reads the latest same-user credential without logging it.
+func (m *scanManager) currentToken(galleryID, jobID string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if active := m.active[galleryID]; active != nil && active.jobID == jobID {
+		return active.token
+	}
+	return ""
+}
+
+// scanMedia is one staged, gallery-scoped source record.
+type scanMedia struct {
+	Path          string
+	Type          string
+	Width, Height *int
+	LivePath      *string
+	Tags          []scanTag
+}
+
+// scanTag is a normalized source or generated media-type association.
+type scanTag struct {
+	Category string `json:"category"`
+	Value    string `json:"value"`
+}
+
+// run discovers authorized files, extracts metadata, then atomically publishes success.
+func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
+	defer func() {
+		m.mu.Lock()
+		if active := m.active[job.GalleryID]; active != nil && active.jobID == job.ID {
+			active.cancel()
+			delete(m.active, job.GalleryID)
+		}
+		m.mu.Unlock()
+		<-m.seats
+	}()
+	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status='DISCOVERING',started_at=? WHERE id=?`, timestamp(), job.ID)
+	g, err := m.store.galleryByID(ctx, job.GalleryID)
+	if err != nil || g.OwnerID != user {
+		m.finish(job.ID, "FAILED", "gallery unavailable")
+		return
+	}
+	paths, err := m.discover(ctx, job, g)
+	if err != nil {
+		m.finish(job.ID, "FAILED", "source discovery failed")
+		return
+	}
+	if len(paths) > 10000 {
+		m.finish(job.ID, "FAILED", "gallery exceeds scan limit")
+		return
+	}
+	total := len(paths)
+	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status='RUNNING',total_items=? WHERE id=?`, total, job.ID)
+	media := make([]scanMedia, 0, total)
+	failed := 0
+	for index, path := range paths {
+		if ctx.Err() != nil {
+			m.finish(job.ID, "CANCELLED", "scan cancelled or timed out")
+			return
+		}
+		token := m.currentToken(job.GalleryID, job.ID)
+		session, authErr := m.auth.Me(time.Now(), token)
+		if authErr != nil || session.UserID != user {
+			m.finish(job.ID, "FAILED", "user access token expired; restart scan")
+			return
+		}
+		info, fetchErr := m.files.metadata(ctx, token, path)
+		if fetchErr != nil {
+			failed++
+		} else {
+			item := scanMedia{Path: info.Path, Type: info.MediaType, Width: info.Width, Height: info.Height}
+			item.Tags = append(item.Tags, scanTag{Category: "MEDIA_TYPE", Value: info.MediaType})
+			if extension := strings.TrimPrefix(filepath.Ext(info.Path), "."); extension != "" {
+				item.Tags = append(item.Tags, scanTag{Category: "FILE_TYPE", Value: strings.ToUpper(extension)})
+			}
+			for _, tag := range info.Tags {
+				if tag.Category != "" && tag.Value != "" && len(tag.Category) <= 64 && len(tag.Value) <= 256 {
+					item.Tags = append(item.Tags, scanTag{Category: tag.Category, Value: tag.Value})
+				}
+			}
+			media = append(media, item)
+		}
+		if index%10 == 9 || index == len(paths)-1 {
+			_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET processed_items=?,successful_items=?,failed_items=? WHERE id=?`, index+1, len(media), failed, job.ID)
+		}
+	}
+	if failed != 0 {
+		m.finish(job.ID, "PARTIAL", "some files could not be extracted; previous metadata retained")
+		return
+	}
+	pairLivePhotos(media)
+	if err := m.publish(ctx, job, user, g.UpdatedAt, media); err != nil {
+		m.finish(job.ID, "FAILED", "metadata publication failed")
+		return
+	}
+	m.finish(job.ID, "COMPLETED", "")
+}
+
+// discover resolves every source through the caller-authorized File Service API.
+func (m *scanManager) discover(ctx context.Context, job scanJob, g galleryRecord) ([]string, error) {
+	token := m.currentToken(job.GalleryID, job.ID)
+	seen := map[string]struct{}{}
+	appendPaths := func(paths []string) {
+		for _, path := range paths {
+			seen[path] = struct{}{}
+		}
+	}
+	if g.Type == "ALBUM" {
+		paths, err := m.files.listing(ctx, token, g.UploadDirectory.String)
+		if err != nil {
+			return nil, err
+		}
+		appendPaths(paths)
+	} else {
+		rows, err := m.store.db.QueryContext(ctx, `SELECT reference_type,path FROM gallery_references WHERE gallery_id=? ORDER BY reference_type,path`, g.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var kind, path string
+			if err := rows.Scan(&kind, &path); err != nil {
+				return nil, err
+			}
+			if kind == "FILE" {
+				canonical, err := m.files.stat(ctx, token, path, "file")
+				if err != nil {
+					return nil, err
+				}
+				seen[canonical] = struct{}{}
+			} else {
+				paths, err := m.files.listing(ctx, token, path)
+				if err != nil {
+					return nil, err
+				}
+				appendPaths(paths)
+			}
+		}
+		if rows.Err() != nil {
+			return nil, rows.Err()
+		}
+	}
+	paths := make([]string, 0, len(seen))
+	for path := range seen {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
+// pairLivePhotos marks a same-directory, case-sensitive still/MOV pair.
+func pairLivePhotos(media []scanMedia) {
+	movies := map[string]string{}
+	for _, item := range media {
+		if strings.EqualFold(filepath.Ext(item.Path), ".mov") {
+			movies[strings.TrimSuffix(item.Path, filepath.Ext(item.Path))] = item.Path
+		}
+	}
+	for index := range media {
+		if media[index].Type != "IMAGE" {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(media[index].Path))
+		if ext != ".heic" && ext != ".heif" && ext != ".jpg" && ext != ".jpeg" {
+			continue
+		}
+		if movie, found := movies[strings.TrimSuffix(media[index].Path, filepath.Ext(media[index].Path))]; found {
+			media[index].Type = "LIVE_PHOTO"
+			media[index].LivePath = &movie
+			media[index].Tags = append(media[index].Tags, scanTag{Category: "MEDIA_TYPE", Value: "LIVE_PHOTO"})
+		}
+	}
+}
+
+// publish swaps only the target gallery's scan-derived rows in one transaction.
+func (m *scanManager) publish(ctx context.Context, job scanJob, user, sourceVersion string, media []scanMedia) error {
+	tx, err := m.store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var owner, version string
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id,updated_at FROM galleries WHERE id=?`, job.GalleryID).Scan(&owner, &version); err != nil || owner != user || version != sourceVersion {
+		return errors.New("gallery source changed during scan")
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=?`, job.GalleryID); err != nil {
+		return err
+	}
+	for _, item := range media {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO gallery_media(gallery_id,path,media_type,width,height,live_photo_path) VALUES(?,?,?,?,?,?)`, job.GalleryID, item.Path, item.Type, item.Width, item.Height, item.LivePath); err != nil {
+			return err
+		}
+		for _, tag := range item.Tags {
+			key := norm.NFC.String(strings.ToLower(strings.TrimSpace(tag.Value)))
+			if key == "" {
+				continue
+			}
+			id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(tag.Category+"\x00"+key)).String()
+			if _, err := tx.ExecContext(ctx, `INSERT INTO tags(id,category,value,normalized_key) VALUES(?,?,?,?) ON CONFLICT(category,normalized_key) DO NOTHING`, id, tag.Category, tag.Value, key); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO gallery_media_tags(gallery_id,path,tag_id) VALUES(?,?,?)`, job.GalleryID, item.Path, id); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+// finish records a terminal status without persisting a bearer token.
+func (m *scanManager) finish(id, status, summary string) {
+	var value any
+	if summary != "" {
+		value = summary
+	}
+	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status=?,finished_at=?,error_summary=? WHERE id=?`, status, timestamp(), value, id)
+}

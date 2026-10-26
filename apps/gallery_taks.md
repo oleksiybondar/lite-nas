@@ -3,7 +3,7 @@
 ## High-Performance Virtualized Mixed-Media Gallery
 
 **Version:** 2.1 — Integrated with LiteNAS planning
-**Status:** Fixture gallery implemented; service integration and scale validation remain
+**Status:** Fixture gallery implemented; `/ls/` gallery discovery, metadata integration, and scale validation remain
 **Technology:** React, TypeScript, Material UI, Motion for React  
 **Architecture:** Bounded media loading, virtualized views, original-media-first transport
 **Primary constraint:** NAS-friendly performance with bounded media requests
@@ -16,10 +16,16 @@ the [Moments app task](moments/task.md), and the
 [Moments service task](../services/moments/task.md). The latter documents backend
 ownership and decisions still required. TypeScript examples below are proposed
 view-local models, not implemented HTTP DTOs or approved API routes.
+The implemented transport contracts are in [File Service requirements](../services/file-service/requirements.md)
+and the [Stream Service README](../services/stream-service/README.md).
 
 The fixture-backed gallery demo is implemented. It reads authorized media
 through File and Stream Service, including optional HEIC/HEIF previews and video
-transcode fallback. The detailed sections below preserve original-media-first
+transcode fallback. Its item list comes only from bundled
+`public/dev-fixtures/gallery.json`; there is no gallery `/ls/` request, Moments
+media response adapter, album loading, or stable backend media ID yet. Shared
+file/folder dialogs elsewhere in the app use `/ls/` for selection but do not
+feed the gallery. The detailed sections below preserve original-media-first
 design goals and candidate structures; they are not a checklist of missing
 components or a statement of the current transport contract. The
 [app README](moments/README.md) describes current behavior. Albums, persisted
@@ -72,22 +78,28 @@ React Browser Application
     Raspberry Pi
 ```
 
-The diagram shows the original-file route. The implemented gallery also uses
-Stream Service's `/s/` route for playback and optional format fallbacks.
-Moments metadata APIs described below are planned; the current gallery uses a
-bundled fixture.
+The diagram shows the original-file route. The deployed Nginx mounts also
+expose File Service `/ls/` for authorized listings, `/d/` for downloads, and
+Stream Service `/s/` for original playback and format fallbacks. Moments
+metadata APIs described below are planned; the current gallery uses a bundled
+fixture.
 
-**Planned Moments metadata backend:**
+**Planned Moments metadata backend (contract undecided):**
 
 - Maintains gallery metadata.
 - Returns gallery configuration.
-- Returns the ordered list of media items.
-- Provides file references/download URLs.
+- Provides album/source metadata; the browser uses File Service `/ls/` for
+  album media. A collection-specific reference response needs its own contract.
+- Must not imply that a gallery reference grants read access to its file.
 - Does not process or transform media.
 
 **File service:**
 
 - Exposes existing original files.
+- Returns authorized `/ls/` entries with `path`, `name`, `kind`, and nullable
+  size, owner, group, permissions, and modification time. `recursive` and
+  `files-only` are presence-based flags; the response is one JSON array with
+  no pagination, media dimensions, EXIF tags, or Live Photo association.
 - Reads files directly from the NAS.
 - Does not produce derived media.
 - Does not generate previews or thumbnails.
@@ -106,19 +118,14 @@ fallback routes are documented in the [app README](moments/README.md).
 
 ## 2.1 Original Files Only
 
-The frontend uses original media when the browser can display them.
-
-Examples include:
-
-- JPG/JPEG
-- PNG
-- TIFF
-- HEIC
-- HEIF
-- MP4
-- MOV
-- AVI
-- Other formats supported by the underlying storage and file service
+The frontend requests original media first when the browser can display it.
+Current gallery classification covers JPG/JPEG, PNG, WebP, GIF, AVIF,
+HEIC/HEIF, MP4, MOV, WebM, M4V, AVI, and MKV. Classification does not promise
+browser decoding: HEIC/HEIF images use Stream Service JPEG preview, and a
+video can use the explicit transcode fallback after native playback fails.
+Files outside the current gallery allowlist remain available through File
+Service but are not gallery media items. Adding TIFF or another source format
+requires a separate browser rendering decision.
 
 There must be no assumption that an optimized browser-friendly variant exists.
 
@@ -285,30 +292,24 @@ Use the existing theme, responsive breakpoints, typography, and palette.
 
 ## 5. High-Level Architecture
 
-Implement three principal contexts:
+The implemented gallery composes three principal contexts:
 
 1. `GalleryContext`
 2. `WallContext`
 3. `CarouselContext`
 
-Use independent headless services for:
-
-- Image transport.
-- Global request coordination.
-- Resource tracking.
-- Layout planning.
-- Layout algorithms.
-- Carousel playback behavior.
+The existing `GalleryImageQueue`, `GalleryWindow`, `GalleryLayout`, and media
+components cover request coordination, virtualization, layout, and playback.
+The design examples below do not require splitting these into new layers.
 
 ## 5.1 Context Hierarchy
 
 ```tsx
 <GalleryProvider>
   <WallProvider>
-    <GalleryWall />
-
     <CarouselProvider>
-      <CarouselModal />
+      <GalleryWall />
+      <GalleryViewer />
     </CarouselProvider>
   </WallProvider>
 </GalleryProvider>
@@ -328,13 +329,11 @@ The MUI modal may use a React portal without losing context access.
 
 **CarouselContext:** Which media item is selected, which nearby items are needed, and how playback/navigation behaves?
 
-**ImageLazyLoader:** How requested images are acquired and marked ready.
+**GalleryImageQueue:** How image requests are bounded and marked ready across
+wall and viewer.
 
-**ImageRequestCoordinator:** How global network concurrency and priorities are enforced.
-
-**ImageResourceRegistry:** How shared image request states and references are tracked.
-
-**WallLayoutPlanner:** How wall geometry is calculated.
+**GalleryWindow and GalleryLayout:** How visible tiles and geometry are
+calculated.
 
 **Presentation components:** How state is rendered.
 
@@ -342,133 +341,72 @@ These boundaries must remain explicit.
 
 ---
 
-## 6. Backend Metadata Contract
+## 6. Data and Transport Contracts
 
-The planned Moments application backend returns gallery metadata as JSON once
-its API contract is defined. For the first demo, adapt validated File Service
-listing data into a view-local model instead.
+There is no implemented Moments gallery DTO. The current fixture contains
+`defaultLayout` and an ordered array of `/f/` file URLs. The browser derives
+index-prefixed item IDs, filenames, and media kind from those URLs; those IDs
+are valid only for that fixture presentation. The fixture also applies an
+unambiguous same-folder HEIC/HEIF and MOV filename pairing for Live Photo
+motion. None of these rules defines persistent backend identity.
 
-It is a thin metadata service, not a media-processing backend.
+## 6.1 File Service listing
 
-The JSON contains:
+`GET /ls/{absolute-host-path...}` returns only entries the authenticated user
+may list. `?recursive&files-only` enables both flags by presence. Each entry
+has an absolute host `path`, `name`, `kind` (`file` or `directory`), and nullable
+`size`, `owner`, `group`, `permissions`, and `last_modified`. The response is a
+single JSON array; it has no pagination or media-specific fields. Denied
+entries are omitted and an authorization dependency failure fails the listing.
+Validate the response before adapting paths to local gallery items. For the
+agreed album flow, call `/ls/<album-directory>?recursive&files-only` once,
+derive any nested grouping from each absolute `path`, and compose the full
+ordered frontend list. A large recursive response is currently materialized in
+full by File Service and held in browser memory; measure this separately from
+the bounded image queue and virtualized wall.
 
-- Gallery identity.
-- Gallery configuration.
-- Ordered media items.
-- Original file download URLs.
-- Available descriptive and geometric metadata.
+## 6.2 Media access
 
-## 6.1 Gallery Item Model
+The same absolute host file maps to `/f/<path>` for an inline original read,
+`/d/<path>` for an attachment download, and `/s/<path>` for authorized original
+playback. Stream Service also exposes `/s/preview/<path>` for an HEIC/HEIF JPEG
+preview and `/s/transcode/<path>?start=<seconds>` for an explicit compatibility
+stream. The current `StreamContext` derives these routes from validated `/f/`
+URLs. Every request is separately authenticated and authorized; metadata or a
+gallery membership reference is not a file access grant.
 
-```typescript
-type GalleryMediaType =
-  | "image"
-  | "video"
-  | "live-photo";
+## 6.3 Planned Moments metadata
 
-interface GalleryItem {
-  id: string;
+The Moments API must define album/collection identity, ownership, source
+references, filters, ordering, and settings before the gallery consumes it.
+For albums, the browser obtains the full file list directly from File Service
+`/ls/`; Moments does not need to return media pages for that workflow. If dimensions or
+associations become available from an agreed extraction contract, they can
+improve layout and Live Photo handling. Until then, keep fallback geometry and
+present unassociated files safely. Scrolling must not trigger repeated source
+metadata extraction or require sidecar files.
 
-  type: GalleryMediaType;
+An explicit on-demand Moments rescan will use a new user-authorized File
+Service media-tag endpoint, preferably over NATS. Its internal Go job will
+rebuild the selected album's or collection's actual media-type and extracted
+tag associations and expose progress. The initiating user's access JWT stays
+in Moments process memory; progress polling can replace it only with a valid
+JWT for the same user. A normal `/ls/` refresh updates the
+visible file list only; it does not implicitly start extraction. The gallery
+must distinguish tags from the last successful scan from newly listed files
+that have not been rescanned.
 
-  // Single primary original-file URL
-  url: string;
+Moments visibility and sharing govern which gallery metadata appears in the
+app; they do not change Unix ACLs or File Service authorization. A user may
+see a shared or public gallery while `/ls/`, `/f/`, `/d/`, or `/s/` denies some
+source files. The UI must present that state safely without treating a Moments
+membership as a file grant.
 
-  // Source dimensions, when known
-  width?: number;
-  height?: number;
-
-  // Optional original file metadata
-  filename?: string;
-  mimeType?: string;
-  fileSize?: number;
-  durationMs?: number;
-
-  // Optional relationship to another
-  // existing original file
-  associatedMediaId?: string;
-}
-```
-
-`associatedMediaId` can be used for compound media such as Live Photos if the backend already exposes an
-appropriate association.
-
-This does not create or require a second URL on the same item.
-
-If a Live Photo relationship is not available, the frontend must not guess unrelated files.
-
-The backend's current DTO may be mapped into this internal representation without changing the backend API
-unnecessarily.
-
-## 6.2 Gallery Metadata
-
-```typescript
-interface GalleryMetadata {
-  id: string;
-  title: string;
-
-  settings: GallerySettings;
-
-  items: GalleryItem[];
-}
-```
-
-The full media list can remain in GalleryContext.
-
-It contains metadata, not decoded media payloads.
-
-## 6.3 Source Dimensions
-
-Width and height should be included when already available in the gallery database.
-
-They are useful for calculating layout geometry before media downloads.
-
-However:
-
-- Do not generate preview images to obtain dimensions.
-- Do not repeatedly inspect original files on every gallery request.
-- Do not create filesystem sidecars.
-- Do not force expensive metadata rescanning during wall scrolling.
-
-If dimensions are unavailable, use a fallback geometry strategy.
-
-The frontend must function without requiring backend-generated previews or additional files.
-
-## 6.4 Backend Layout Configuration
-
-Persistent layout mode is planned for Moments metadata. The first demo may use
-an application default or local view state until a settings API is defined.
-
-```typescript
-type GalleryLayoutMode =
-  | "mosaic"
-  | "justified";
-
-interface GallerySettings {
-  wall: {
-    layout: {
-      mode: GalleryLayoutMode;
-      targetSize: number;
-      gap: number;
-      allowCropping: boolean;
-    };
-  };
-
-  carousel: {
-    autoplay: {
-      videoAutoplay: boolean;
-      slideshowEnabled: boolean;
-      imageDelayMs: 1000 | 3000 | 5000;
-    };
-  };
-}
-```
-
-Only meaningful gallery-level choices need to be persisted.
-
-Operational tuning parameters may also have application-level defaults.
-
-Viewport width is a runtime input and must not be stored in gallery metadata.
+The four implemented layout identifiers are `mosaic`, `justified`, `masonry`,
+and `grid`. Layout selection is currently local page state. Persist only an
+agreed gallery-specific preference using an agreed Moments contract; the shared
+light/dark appearance preference already uses File Service `/f/profile/ui`.
+Viewport dimensions and request concurrency remain runtime values.
 
 ---
 
@@ -499,7 +437,11 @@ Use granular subscriptions, stable external stores, or equivalent techniques whe
 
 ---
 
-## 8. ImageLazyLoader
+## 8. Image Loading Design Reference
+
+The interfaces and class names in this section predate the implemented
+`GalleryImageQueue`. Keep them as performance behavior examples; do not add
+parallel loader, registry, or coordinator classes solely to match these names.
 
 Implement a reusable, headless image-loading service.
 
@@ -1407,96 +1349,52 @@ The exact motion interaction may be refined during implementation.
 
 ## 24. UI Component Structure
 
-Suggested structure:
+The current app keeps gallery files directly under `apps/moments/src/`. Its
+relevant composition is:
 
 ```text
-gallery/
-├── types/
-│   ├── gallery.types.ts
-│   ├── media.types.ts
-│   ├── layout.types.ts
-│   └── loader.types.ts
-│
-├── context/
-│   ├── GalleryContext.tsx
-│   ├── WallContext.tsx
-│   └── CarouselContext.tsx
-│
-├── services/
-│   ├── ImageLazyLoader.ts
-│   ├── ImageRequestCoordinator.ts
-│   └── ImageResourceRegistry.ts
-│
-├── layout/
-│   ├── WallLayoutPlanner.ts
-│   ├── MosaicLayoutStrategy.ts
-│   └── JustifiedLayoutStrategy.ts
-│
-├── hooks/
-│   ├── useGallery.ts
-│   ├── useWall.ts
-│   ├── useCarousel.ts
-│   ├── useImageResource.ts
-│   ├── useWallVirtualization.ts
-│   └── useCarouselPlayback.ts
-│
-├── components/
-│   ├── Gallery.tsx
-│   ├── GalleryWall.tsx
-│   ├── GalleryMediaTile.tsx
-│   ├── GallerySkeleton.tsx
-│   │
-│   ├── carousel/
-│   │   ├── CarouselModal.tsx
-│   │   ├── CarouselContent.tsx
-│   │   ├── CarouselControls.tsx
-│   │   ├── CarouselSlide.tsx
-│   │   ├── CarouselAutoplayControls.tsx
-│   │   └── CarouselMediaRenderer.tsx
-│   │
-│   └── media/
-│       ├── ImageRenderer.tsx
-│       ├── VideoRenderer.tsx
-│       ├── LivePhotoRenderer.tsx
-│       └── UnsupportedMediaRenderer.tsx
-│
-└── tests/
-    ├── loader/
-    ├── layout/
-    ├── virtualization/
-    ├── media/
-    └── carousel/
+Gallery.tsx
+├── GalleryContext.tsx
+├── WallContext.tsx
+├── CarouselContext.tsx
+├── GalleryWall.tsx
+└── GalleryViewer.tsx
+GalleryImageQueue.ts
+GalleryWindow.ts
+GalleryLayout.ts
+gallery-model.ts
+StreamContext.tsx
 ```
 
-Adapt to existing repository conventions.
+Add a File Service listing adapter and a Moments metadata adapter near the
+existing API/model code when their contracts are ready. Keep the current
+component tree unless a measured issue requires a structural change.
 
 ---
 
 ## 25. Critical State Ownership Rules
 
-1. GalleryContext owns gallery metadata and shared infrastructure references.
+1. GalleryContext owns the adapted media list and shared image request queue.
 
 2. WallContext owns scrolling, virtualization, loading triggers, and wall presentation state.
 
 3. CarouselContext owns navigation, media selection, and playback timing.
 
-4. ImageLazyLoader owns image transport, readiness tracking, and group completion.
+4. GalleryImageQueue owns bounded image transport and request readiness.
 
-5. ImageRequestCoordinator enforces the common network budget.
+5. GalleryWindow and GalleryLayout own the existing virtualization and pure geometry calculations.
 
-6. ImageResourceRegistry manages shared resource identity and consumer references.
+6. Presentation components must not create independent uncontrolled loading queues.
 
-7. WallLayoutPlanner owns pure geometry calculations.
+7. Releasing queue bookkeeping must not invalidate resources still required by the wall or viewer.
 
-8. Presentation components must not create independent uncontrolled loading queues.
+8. No view is permitted to eagerly download every original media file. The
+   agreed `/ls/` flow does receive a complete metadata/path list.
 
-9. A loader bookkeeping release must not invalidate resources still required by the wall or carousel.
+9. No requirement may silently assume a persistent thumbnail, poster, or
+   transcoded file exists. Stream Service's on-demand fallback routes are explicit.
 
-10. No view is permitted to eagerly load the full gallery.
-
-11. No requirement may silently assume a thumbnail, poster, or transcoded file exists.
-
-12. Original-file compatibility limitations must be handled explicitly.
+10. Original-file compatibility limitations must be handled explicitly.
 
 ---
 
@@ -1511,7 +1409,7 @@ The implementation must handle:
 - Unsupported images.
 - Unsupported videos.
 - Missing original files.
-- Expired URLs.
+- Expired browser sessions.
 - Large downloads.
 - Slow NAS response.
 - Network interruption.
@@ -1596,10 +1494,14 @@ tasks. The browser-only thumbnail maker is documented separately in the
 [app README](moments/README.md).
 
 - Replace fixture collection records with validated, authorized album/media
-  responses once the Moments metadata contract is defined. Settle media
-  identity, ordering, pagination, dimensions, and Live Photo association first.
+  data once the Moments metadata contract is defined. Add a gallery adapter
+  for direct File Service `/ls/<album-directory>?recursive&files-only`; this
+  integration does not exist today. Settle media identity, ordering,
+  large-directory costs,
+  dimensions, and Live Photo association first.
 - Persist gallery layout settings through an agreed service or profile contract.
-- Integrate album tags, filtering, uploads, and stored cover descriptors through
+- Integrate explicit album/collection full rescan progress, extracted media
+  tags, filtering, uploads, and stored cover descriptors through
   the respective app and service tasks.
 - Measure scrolling, media request volume, browser memory, and NAS response on
   realistic large galleries and constrained networks. Tune based on those
@@ -1610,8 +1512,12 @@ tasks. The browser-only thumbnail maker is documented separately in the
 
 ## 30. Remaining Acceptance Criteria
 
-- [ ] Gallery data and layout settings come from documented, validated metadata
-  responses instead of the bundled fixture.
+- [ ] The gallery no longer relies on the bundled fixture for production
+  content; full recursive File Service listings are validated and mapped to
+  the local view model. Persisted layout is covered by an agreed setting.
+- [ ] An explicit Moments rescan rebuilds one album's or collection's
+  extracted media-type and tag metadata through a user-authorized File Service
+  operation, and the UI reports progress, completion, and failure.
 - [ ] Large-gallery and constrained-network measurements confirm bounded DOM,
   media requests, and application-owned memory without unacceptable NAS impact.
 - [ ] Accessibility and lifecycle behavior has been checked across wall,

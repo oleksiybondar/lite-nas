@@ -26,6 +26,8 @@ deploy.moments.deploy() {
 
 	install -D -m 0755 "$binary_path" /usr/libexec/lite-nas/moments
 	install -D -m 0640 -o lite-nas-moments -g lite-nas "$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/moments.conf" /etc/lite-nas/moments.conf
+	install -d -m 0750 -o lite-nas-moments -g lite-nas-moments /var/lib/lite-nas/moments
+	install -d -m 0750 -o lite-nas-moments -g lite-nas-moments /var/lib/lite-nas/moments/thumbnails
 	install -d -m 0751 /var/log/lite-nas
 	if [ ! -f /var/log/lite-nas/moments.log ]; then
 		install -D -m 0640 -o lite-nas-moments -g lite-nas-moments /dev/null /var/log/lite-nas/moments.log

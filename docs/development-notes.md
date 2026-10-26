@@ -177,8 +177,8 @@ separate planned boundary:
   regular files. Configured `filesystem.protected_paths` are
   excluded from uploads and deletes.
 - Its authenticated Swagger UI is available at `/f/docs`, with the OpenAPI
-  document at `/f/openapi.json`; development and test configurations enable
-  them, while production disables them through `api_docs.enabled`.
+  document at `/f/openapi.json`; the packaged configuration enables them and
+  both routes require authentication. `api_docs.enabled` can disable them.
 - File Service adds public `GET /ls/{absolute-path...}` with presence-based
   `recursive` and `files-only` query flags, separately from its `/f/`
   file-operation mount. For example,
