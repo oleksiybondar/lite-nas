@@ -1,58 +1,45 @@
 # Security Monitoring Skeleton — Implementation Task Specification
 
-**Version:** 0.3 — consolidated architecture review draft
-**Status:** Draft for architecture and implementation review
+**Version:** 0.4 — repository-aligned implementation plan
+**Status:** TASK-000 complete; security services and FSM work pending
 **Scope:** Five new single-process/multi-worker Go services; mandatory channel-based worker/NATS architecture and
 AGENTS.md rule; explicit instantiated-plugin injection architecture for Log Analysis; reusable table-driven FSM engine;
 mandatory migration of applicable existing monitoring logic; and all previously agreed integrations, security,
 packaging, CI/CD, tests, demos, and documentation
-**Repository inspection:** Not yet performed. Names of actual packages, NATS subjects, CLI commands, config keys, and
-logging APIs **must be discovered**, not invented.
+**Repository inspection:** TASK-000 worker and messaging walkthrough completed. The verified baseline is below;
+remaining service-specific contracts and runtime choices still require inspection before implementation.
 
 ## 0. Mandatory first microtask — TASK-000: Worker pipelines, NATS channel adapters, and AGENTS.md
 
-**Ordering: TASK-000 MUST be completed first**, before implementing the FSM engine, plugins, or new services. This is a
-foundational repo-wide architecture rule, not merely documentation.
+**Completed foundation:** Root `AGENTS.md` now defines the worker, channel,
+NATS, and compiled-plugin construction rules. `docs/development-notes.md`
+maps the concrete APIs and gives a two-process pipeline example. No shared
+adapter was added: the existing email notifier handler demonstrates a channel
+bridge, and no reusable gap has yet been demonstrated.
 
-1. Inspect the existing shared Go worker/polling package, channel usage, NATS communication package, and existing
-   `AGENTS.md` instructions (including nested instructions if present). Establish where reusable infrastructure
-   already implements these conventions.
-2. Document and enforce **one OS process per deployed service**, with independently scheduled goroutine workers within
-   that process. Between independently running workers, use **typed, bounded Go channels**; normal helper/function
-   calls within a worker remain appropriate.
-3. Require NATS publisher/subscriber workers or existing package channel adapters to bridge local Go channels to the
-   existing NATS transport. **Between processes, NATS remains the transport; Go channels never cross service process
-   boundaries.** Do not create a competing NATS implementation.
-4. Define channel ownership, direction, fan-out versus work-queue semantics, buffering, backpressure, cancellation,
-   closing, recovery, errors, and graceful shutdown. In particular, security-relevant observations MUST NOT be
-   silently dropped. Multiple consumers of one Go channel divide messages rather than each receiving a copy; explicit
-   fan-out is required when every consumer needs a message.
-5. Extend shared worker/NATS channel-adapter helpers only where demonstrated gaps exist; document the actual project
-   package names and APIs discovered rather than inventing them.
-6. Add the following normative statement to the existing root `AGENTS.md`, or create it according to repository
-   conventions, reconciling it with applicable existing guidance:
+| Concern | Verified repository implementation |
+| --- | --- |
+| Worker lifecycle | `shared/go/workers`: `Worker.Start(context.Context)`, `BaseWorker`, `TimerWorker`, `NewPollingTimerWorker`, `PollingWorker[T]` |
+| Outbound NATS | `shared/go/messaging.Client`: `Publish`, `Request`, `Drain`, `Close` |
+| Inbound NATS | `shared/go/messaging.Server`: `Subscribe`, `RegisterRPC`, middleware, `Drain`, `Close`; callbacks receive `Envelope` |
+| Channel bridge | `shared/go/emailnotifier/subscription.go` validates and forwards an alert into a bounded channel; no generic shared adapter exists |
+| Channel pipeline | `services/system-metrics/modules` wires bounded polling and processing channels; its runtime publishes output through `messaging.Client` |
+| Existing exception | `services/resources-monitor/runtime.go` subscribes a processor callback directly, so the planned worker pipeline is not an already universal pattern |
 
-> **Mandatory Go service worker and plugin architecture.** Each Go service is a single deployed OS process composed of
-  multiple goroutine-based workers as required. Independently scheduled workers MUST communicate via typed, bounded Go
-  channels and MUST reuse the repository's shared worker lifecycle/polling and NATS communication packages. NATS
-  publishers and subscribers MUST be integrated into the internal channel pipelines through established/shared
-  adapters. Inter-service messaging uses NATS, never cross-process Go channels. Workers MUST have explicit
-  cancellation, channel ownership, backpressure, fan-out, failure handling, and safe shutdown semantics. Synchronous
-  function calls are permitted inside a worker for parsing, validation, FSM evaluation, and similar internal logic,
-  not as a replacement for communication between independently running workers. In Log Analysis, plugin types MUST be
-  compiled into the program, configured plugin instances MUST be constructed at startup, and the resulting initialized
-  instance map/collection MUST be injected into listener/dispatcher workers; listeners MUST NOT dynamically import,
-  instantiate, or resolve plugin constructors. Detection plugins MUST use the generic shared table-driven FSM package.
-  Agents MUST inspect existing shared modules and project conventions before introducing new abstractions; documented
-  exceptions require justification.
+For new services, the runtime owns channel creation, producer/consumer direction,
+capacity and closing. Bounded sends must define cancellation and backpressure.
+Multiple receivers divide messages; explicitly fan out when each plugin needs
+one. Security observations and effect failures need an observable, handled path.
+Stop producers and callbacks before closing channels, account for pending work,
+then drain messaging connections. `PollingWorker[T].EmitError` has a
+nonblocking send and can discard errors, so security pipelines must not rely on
+it as their sole failure path. Current messaging uses core NATS, with no durable
+acknowledgment or replay guarantee. Any required delivery or reconciliation
+strategy remains a per-service design task.
 
-1. Add a small architecture example/diagram to developer documentation showing both intra-process channels and
-   inter-process NATS, plus the Log Analysis construction/injection pattern from §4.3.
-
-**TASK-000 acceptance:** Applicable `AGENTS.md` updated; existing worker/NATS APIs mapped; concrete channel
-pipeline/fan-out/backpressure rules documented; plugin injection instruction explicitly included; any necessary common
-adapters scoped; coding agents can use the instructions without guessing package identifiers. Implementation of all five
-services and TASK-FSM-002 MUST conform to these conventions.
+**TASK-000 acceptance: complete for architecture and documentation.** Future
+implementations must follow these rules and validate their own topology and
+shutdown behavior with tests.
 
 ## 1. Objective
 
@@ -61,7 +48,7 @@ scoped services:
 
 | ID | Service | Primary responsibility |
 | --- | --- | --- |
-| SVC-001 | Log Analysis | Analyze selected rsyslog/audit logs with configurable patterns and thresholds; report security events; request existing auth-service lockdown where configured. |
+| SVC-001 | Log Analysis | Analyze selected rsyslog/audit logs with configurable patterns and thresholds; report security events; request auth-service lockdown where configured, after the auth prerequisite is implemented. |
 | SVC-002 | Mount Monitor | Detect mount/unmount activity, report informational operational events, and publish mount lifecycle notifications via NATS. |
 | SVC-003 | Antivirus | Consume mount events, select eligible mounts, scan with existing/appropriate ClamAV integration, report detections and notify by email. |
 | SVC-004 | System Service Monitor | Periodically inspect configured systemd units, distinguish relevant states, report operational failures, and publish service-state notifications via NATS. |
@@ -72,14 +59,13 @@ platform. A small reusable FSM engine is expressly in scope.
 
 ### 1.1 Out of scope unless existing contracts demand otherwise
 
-- Reimplementing the Security Logging Manager, Operational Logging Manager, NATS, Authentication Service lockdown, or
-  mail transport.
+- Reimplementing the Security Logging Manager, System Logging Manager, NATS,
+  Authentication Service lockdown inside SVC-001, or mail transport.
 - A generic syslog analytics platform, large rules library, or complex detection DSL.
 - Dynamically loaded executable Go plugins, user-defined code in configuration, and implementation of future
   force-logout/password-expiry/account-disable actions.
 - New quarantine, deletion, or automatic unmount features in Antivirus.
 - Arbitrary systemd service management, unconstrained root privileges, or new administrative API surfaces.
-- New lockdown enforcement: existing Authentication Service owns enforcement.
 
 ## 2. Governing implementation approach
 
@@ -101,10 +87,17 @@ platform. A small reusable FSM engine is expressly in scope.
 - **NATS** is the internal service messaging backbone. Use existing contracts, subjects, access-control and subscription
   conventions; update subscriptions/publication permissions for new services.
 - **Security Logging Manager** owns security event registration, updates, and lifecycle.
-- **Operational Logging Manager** receives operational/service/mount events at the stated severities.
-- **Authentication Service** already handles lockdown. SVC-001 only requests it using the existing NATS contract.
-- **Email capability** already exists for some critical failures. Discover whether it is a dedicated service, shared Go
-  module, or other existing mechanism; reuse it.
+- **System Logging Manager** is the existing operational alert manager; confirm
+  its alert contract and severity mapping for mount and service events.
+- **Authentication Service lockdown is not implemented yet.**
+  `shared/go/contracts/auth` declares `SetLockdownRPCSubject`,
+  `SetLockdownRequest`, and `LockdownChangedEvent`, but
+  `services/auth/runtime.go` does not register the lockdown RPC or enforce
+  lockdown. SVC-001 must not publish a request and claim enforcement until this
+  prerequisite and its authorization/ACL path are implemented and tested.
+- **Email capability** is implemented by `system-email-notifier` and
+  `security-email-notifier` through `shared/go/emailnotifier`; they consume
+  logging-manager alert events and deliver through local SMTP/Postfix.
 - **Shared Go modules** contain polling/worker utilities and baseline configuration. Extend shared worker support only
   if genuinely needed and in existing project style.
 - UNIX commands follow existing CLI execution conventions and secure process execution rules in §11.
@@ -136,8 +129,8 @@ platform. A small reusable FSM engine is expressly in scope.
 
 Receive or read **selected logs forwarded via rsyslog** using a repository-compatible input mechanism; apply a small set
 of configuration-driven patterns and conditions; raise/update Security Logging Manager events. For configured critical
-detections, use existing email infrastructure. Some configured detections may request **lockdown through the existing
-Authentication Service NATS contract**.
+detections, use the existing security email notifier path. Lockdown-triggering
+rules require the auth-service lockdown prerequisite described in §2.1.
 
 ### 4.2 Rules and configuration
 
@@ -163,9 +156,9 @@ logs in team demos. No sample key names in this document are normative.
 **Normative architecture: configured instances are constructed at startup and injected into the listener, NOT
 instantiated or dynamically imported by the listener.**
 
-- Organize built-in detection types under a project-conventional `plugins/` Go package/folder (actual path discovered in
-  repository). Each is a statically compiled Go implementation of a common plugin API with the project worker
-  lifecycle conventions.
+- Organize built-in detection types under a service-local `plugins/` Go
+  package/folder. Each is a statically compiled Go implementation of a common
+  plugin API with the project worker lifecycle conventions.
 - Config contains an explicit enabled plugin **instance list**; each entry selects an approved compiled plugin type,
   assigns a stable instance ID, and provides validated instance-specific settings. Instantiate exactly the configured
   instances using the startup composition root and a static type-to-constructor registry. Multiple configured
@@ -186,7 +179,8 @@ instantiated or dynamically imported by the listener.**
   when independent rule consumers must each inspect them.
 - Plugin workers receive observations through typed, bounded input channels, invoke their shared FSM engine **within the
   worker**, and either continue waiting/accumulating state or emit a typed detection/effect intent on an output
-  channel. Alert/reporting/NATS email adapters run as downstream workers consuming output channels.
+  channel. Reporting and NATS publisher workers consume typed effect intents;
+  the existing security email notifier consumes alert events separately.
 - Plugin configurations contain rule/instance references and parameters, not dynamic code/import paths or arbitrary
   executable functions. Connection topology, subscriptions, and backpressure must be validated at startup and
   demonstrated with at least two categories sharing one source.
@@ -223,11 +217,18 @@ instantiated or dynamically imported by the listener.**
 
 1. Detection satisfies a rule with an explicit lockdown action.
 2. SVC-001 validates the rule/action policy and deduplicates repeat requests for the same incident.
-3. SVC-001 publishes the **existing auth-service lockdown request** using the discovered NATS subject and payload.
-4. Update NATS publisher/subscriber/authorization configuration to allow only necessary message flow.
-5. Authentication Service remains responsible for evaluating/enforcing the lockdown.
-6. Report and correlate publication/acknowledgment/failure as far as the existing contract supports. Never assume that
-   successful publish proves successful enforcement.
+3. First implement and verify auth-service handling of
+   `authcontract.SetLockdownRPCSubject` and `SetLockdownRequest` with its
+   enforcement and authorization policy. The declared subject is
+   `auth.rpc.lockdown.set`; declaration alone is not a working RPC.
+4. SVC-001 sends the validated request via `messaging.Client.Request`, then
+   handles the response or failure. Align NATS ACLs with the actual subject:
+   `configs/etc/nats-server/authorization.conf` currently lists older
+   `auth.cmd.lockdown.set` and `auth.events.lockdown` names.
+5. Authentication Service owns enforcement and the state-change event.
+6. Report and correlate RPC responses and failures as far as the implemented
+   contract supports. A successful transport request alone does not prove
+   enforcement.
 
 **Acceptance examples:** isolated mistype; mistype then success; repeated failed attempts; many accounts from one
 source; duplicate audit records; counter expiration; absent metadata; malformed log line; email threshold; lockdown
@@ -341,7 +342,7 @@ tests, and any exclusions are documented. The assessment alone is insufficient i
 
 - Detect relevant new mounts, unmounts, and changes to observed mount identity/state using an unprivileged mechanism
   compatible with existing OS/project conventions.
-- Emit **informational** operational events for mounts and unmounts using the Operational Logging Manager.
+- Emit **informational** operational events for mounts and unmounts using the System Logging Manager.
 - Broadcast mount lifecycle notifications over NATS for independent consumers, including SVC-003.
 - Include enough validated metadata for consumers to identify the mount and determine applicability, subject to the
   project's existing event contract (e.g. location, source, filesystem type, stable or best-available identity,
@@ -363,7 +364,7 @@ tests, and any exclusions are documented. The assessment alone is insufficient i
   unmounts or changed mount identity.
 - Report malware findings as security events through the existing lifecycle. Report scan failures/incomplete scans
   separately from clean scans. Operational scan progress and result handling must follow existing logging conventions.
-- Send malware-detection email using the discovered existing mechanism; deduplicate notifications per incident as
+- Send malware-detection email using the existing security alert notifier path; deduplicate notifications per incident as
   appropriate.
 - Prevent duplicate simultaneous scanning of the same eligible mount. Bound concurrency and resource use.
 - Do not automatically remove/quarantine files or unmount filesystems without a separately approved requirement.
@@ -378,7 +379,7 @@ tests, and any exclusions are documented. The assessment alone is insufficient i
   polling**.
 - Differentiate as accurately as systemd permits: active, inactive/stopped, failed, auto-restart in progress, persistent
   failure/start-rate-limit condition, and restored service.
-- Report service-down/persistent-error conditions to the **Operational Logging Manager at error level** and publish
+- Report service-down/persistent-error conditions to the **System Logging Manager at error level** and publish
   relevant state changes over NATS.
 - Include the observed condition, unit name, relevant systemd state/result fields, timestamps, and available restart
   counts. Avoid asserting an intentional user stop or root cause unless evidence actually supports it.
@@ -496,8 +497,9 @@ payloads.
   configuration/ACL structure.
 - SVC-002 publishes mount lifecycle; SVC-003 subscribes.
 - SVC-004 publishes relevant service state changes; SVC-005 subscribes.
-- SVC-001 publishes an **existing** Authentication Service lockdown request when authorized by configuration; the auth
-  service subscribes through its existing implementation.
+- Once auth-service implements and registers its declared lockdown RPC, SVC-001
+  requests lockdown using that RPC when authorized by configuration. Align its
+  subject and ACL first; do not treat the DTO declaration as enforcement.
 - Update publisher/subscriber permissions, subscriptions, deployment NATS config, and tests accordingly. Give each
   service only required subjects and rights.
 - Ensure consumers handle duplicate messages and re-observe authoritative host state when necessary. Determine whether
@@ -506,8 +508,9 @@ payloads.
 
 ## 14. Email notification integration
 
-- Identify existing critical-failure email delivery path: shared Go module, internal service, or existing framework.
-- Reuse its existing authentication, templates/formatting conventions, retry strategy, and rate limiting when available.
+- Reuse `system-email-notifier` / `security-email-notifier` and
+  `shared/go/emailnotifier` through the existing alert-event path. Check the
+  actual notifier retry and deduplication behavior before promising delivery.
 - SVC-001: configured critical rules. SVC-003: virus/malware detected. SVC-005: critical protected-service
   disablement/interference and any additional critical incidents explicitly configured.
 - Deduplicate repeated alerts and avoid email floods. Notification failures must not suppress core event reporting.
@@ -518,7 +521,8 @@ payloads.
 The feature is incomplete until integrated into the **existing** delivery workflows.
 
 - Update Go build/test scripts for all five services using project conventions.
-- Update existing `.deb` build scripts, package metadata, binary installation, service units, configuration
+- Extend the existing main `lite-nas` `.deb` build scripts and package metadata
+  for these Go services; update binary installation, service units, configuration
   defaults/examples, AppArmor profiles, directories, group/user provisioning, and package lifecycle hooks.
 - Update deployment/install/upgrade scripts to provision users/groups and permissions **idempotently**; install valid
   security profiles and systemd units; reload policy; enable/start services according to existing deployment policy;
@@ -537,7 +541,7 @@ The feature is incomplete until integrated into the **existing** delivery workfl
 
 ### 16.1 Cross-service acceptance
 
-- [ ] TASK-000 is complete before the remaining implementation: mandatory `AGENTS.md` instruction, shared worker/NATS
+- [x] TASK-000 completed before the remaining implementation: mandatory `AGENTS.md` instruction, shared worker/NATS
   reuse, typed bounded Go channels, fan-out, and clearly documented backpressure/shutdown.
 - [ ] Each service executes as one process with multiple internal goroutine workers where applicable, and inter-service
   communication uses the existing NATS package.
@@ -602,15 +606,16 @@ The feature is incomplete until integrated into the **existing** delivery workfl
 
 ## 17. Implementation order (TASK-000 is a hard prerequisite; subsequent work can be staged)
 
-0. **First microtask TASK-000:** inspect shared worker/NATS implementations, codify channel-pipeline and
-   plugin-injection rules in `AGENTS.md`, define/document adapters and lifecycle behavior. Complete its acceptance
-   before new service/FSM implementation.
-1. Repository inventory; map concrete contracts and the existing delivery approach; document unresolved gaps.
+0. **Completed — TASK-000:** worker/NATS walkthrough, root `AGENTS.md` rules,
+   developer diagram, and channel-lifecycle guidance. No common adapter gap was
+   demonstrated.
+1. Finish service-specific inventory and map remaining contracts. Implement
+   auth-service lockdown and align its NATS ACL before enabling SVC-001 lockdown.
 2. Wire common config/worker/NATS/logging/email integrations and security-account/systemd/AppArmor conventions.
 3. Implement SVC-002, then SVC-003 integration.
 4. Implement SVC-004, then SVC-005 integration.
 5. Implement shared FSM engine and its three detection behaviors (TASK-FSM-001); use it in SVC-001 with sample audit
-   records, rule-format demos, and existing auth lockdown integration.
+   records, rule-format demos, and the verified auth lockdown integration.
 6. Assess and migrate applicable FSM-like logic in existing monitoring services (TASK-FSM-002); verify behavioral
    compatibility.
 7. Extend full packaging, pipelines, deployment, security and integration tests alongside each service; finish with
@@ -623,9 +628,9 @@ soon as it becomes runnable.
 
 The assignee **MUST** document the findings before implementation decisions are finalized:
 
-- [ ] Existing root/nested `AGENTS.md` and worker pipeline rules; update with mandatory single-process/multi-worker
+- [x] Existing root/nested `AGENTS.md` and worker pipeline rules; update with mandatory single-process/multi-worker
   channels and plugin instance injection (TASK-000).
-- [ ] Existing shared worker/polling APIs, channel ownership/fan-out/backpressure, NATS channel bridges and reusable
+- [x] Existing shared worker/polling APIs, channel ownership/fan-out/backpressure, NATS channel bridges and reusable
   extension points.
 - [ ] Existing state stores, FSM/correlation patterns, and monitoring-service migration candidates; document suitable
   and unsuitable consumers.
@@ -633,8 +638,10 @@ The assignee **MUST** document the findings before implementation decisions are 
 - [ ] Existing CLI execution helpers and safe command conventions.
 - [ ] Logging managers' concrete APIs, event types, lifecycle and update semantics.
 - [ ] NATS subjects, payload schemas, client/permissions configuration, delivery semantics, and subscriptions.
-- [ ] Authentication Service lockdown subject, payload and enforcement contract.
-- [ ] Existing email module/service integration.
+- [ ] Authentication Service lockdown: declared subject and DTOs identified;
+  implement and verify the missing RPC handler, enforcement and ACL alignment.
+- [x] Existing email module/service integration (`shared/go/emailnotifier`,
+  `system-email-notifier`, `security-email-notifier`).
 - [ ] rsyslog routing, audit-log format and representative authentication records.
 - [ ] ClamAV deployment and permissions/scanner execution model.
 - [ ] Existing service users, primary/supplementary groups, group naming and provisioning approach.
@@ -661,21 +668,24 @@ The assignee **MUST** document the findings before implementation decisions are 
 - **AD-012:** Unprivileged UNIX/systemd inspection; sudo only for exact, exceptional authorized operations, never
   polling.
 - **SEC-003:** Validate all trust-boundary inputs and defend against shell/argument injection.
-- **AD-013:** Lightweight configurable auth-failure rules; authorized lockdown requests reuse existing auth-service NATS
-  contract; rule schema evolves through demos.
+- **AD-013:** Lightweight configurable auth-failure rules; authorized lockdown
+  requests use the declared auth-service RPC after its implementation and ACL
+  alignment; rule schema evolves through demos.
 - **AD-014:** Shared typed table-driven FSM library used *inside* statically compiled plugin workers; configured plugin
   **instances** constructed at startup, injected into listeners as map/collection, log-source/category/rule routing
   and channel-based detection outputs; named guards/actions, keyed state, deadline inputs.
 - **AD-015:** Mandatory assessment and migration of suitable existing monitoring logic to the new FSM engine; only
   justified unsuitable candidates may be excluded.
-- **AD-016 / TASK-000:** Each service is one OS process with multiple Go workers connected via typed/bounded channels.
-  Reuse existing worker and NATS communication packages; channel adapters bridge NATS. Place mandatory architecture
-  and plugin-injection rules in `AGENTS.md` as the **first implementation microtask**.
+- **AD-016 / TASK-000 (complete):** Each new service is one OS process with
+  workers connected via typed/bounded channels where independently scheduled
+  work requires them. Reuse existing worker and NATS communication packages;
+  validated handlers and outbound workers bridge NATS. The mandatory rules are
+  in `AGENTS.md`.
 
 ### 19.2 Implementation choices intentionally unresolved
 
-1. Exact rsyslog transport/file selection, audit parsing/correlation, and detection thresholds; specific existing NATS
-   channel-adapter APIs and shared worker interfaces (must be discovered in TASK-000).
+1. Exact rsyslog transport/file selection, audit parsing/correlation, and detection thresholds. The shared worker and
+   messaging APIs are mapped in TASK-000; a generic shared NATS channel adapter does not exist.
 2. JSON/YAML/other rules file and full schema (follow existing project + team demos).
 3. Whether event state is in-memory or must be persisted to ensure correct replay/update behavior, especially across
    cooldown, restart, and high-impact action effects.
@@ -685,8 +695,10 @@ The assignee **MUST** document the findings before implementation decisions are 
    properties.
 7. Watchdog behavior on manually stopped services, authorized maintenance, auto re-enable policy, and restricted
    recovery command mechanism.
-8. Existing mail path and its delivery guarantees.
-9. Actual NATS subjects/ACL/config files, logging managers' lifecycle and deployment script locations.
+8. Delivery guarantees of the existing email notifier path, especially retry
+   and deduplication for new security events.
+9. Remaining service-specific NATS subjects/ACLs and manager lifecycle details.
+   Auth lockdown constants exist, but the RPC handler and matching ACL do not.
 
 **Rule:** Open choices must be resolved from code and evidence, with documented rationale and team review where
 meaningful. They must not be silently invented or treated as permission to weaken security.

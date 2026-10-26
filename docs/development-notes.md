@@ -340,6 +340,55 @@ shared runtime validation layer.
 For packaging/runtime orchestration policy and CI parity expectations, see
 [Packaging Runtime Flow](./packaging-runtime-flow.md).
 
+## Go Worker and NATS Pipeline Baseline
+
+The deployed Go services each run as one process. `shared/go/workers` provides
+`Worker.Start(context.Context)`, `BaseWorker`, `TimerWorker`,
+`NewPollingTimerWorker`, and generic `PollingWorker[T]`. A worker's `Start`
+launches a goroutine; the shared worker package does not wait for it to stop or
+own pipeline channels. The service runtime owns cancellation and channel wiring.
+`PollingWorker[T]` blocks when sending a result to its output, unless canceled;
+its optional error send is nonblocking and can drop an error. Security pipelines
+must handle their own errors explicitly instead of relying on that optional
+error channel.
+
+`shared/go/messaging` provides `Client.Publish` and `Client.Request` for
+outbound messages, plus `Server.Subscribe` and `Server.RegisterRPC` for inbound
+handlers. The server invokes subscription callbacks with an `Envelope`; it
+does not provide a generic channel adapter. `shared/go/emailnotifier` is the
+working inbound example: its subscription handler decodes and validates an
+alert, then sends it into a bounded channel consumed by its email worker.
+`system-metrics` shows timer → polling → processing channels, followed by a
+runtime loop that publishes through the shared messaging client.
+`resources-monitor` currently processes NATS subscription callbacks directly;
+new channel pipelines must be wired explicitly rather than assumed to exist in
+all existing services.
+
+```text
+One service process:
+  log reader worker --typed, bounded channel--> dispatcher worker
+    --explicit fan-out--> initialized plugin instance workers
+    --typed effect channel--> publisher worker --shared messaging Client--> NATS
+
+Another service process:
+  NATS --shared messaging Server.Subscribe--> validating handler
+    --typed, bounded channel--> consumer worker
+
+Startup: compiled plugin constructors + validated config
+  --> initialized instance map --> injected into dispatcher
+```
+
+The runtime owns each channel and documents its capacity, producer, consumers,
+and close policy. Multiple receivers on one channel divide messages; explicit
+fan-out is required when every plugin must see an observation. A bounded send
+blocks its producer until a receiver makes room or cancellation occurs. A
+security observation must have a handled error or durable recovery path if it
+cannot be delivered. Stop callbacks and producers before closing their output
+channels; then let consumers finish or record pending work and drain NATS.
+The current shared messaging layer uses core NATS publish/subscribe; it does
+not supply durable replay or acknowledgments. A successful `Publish` call does
+not prove a consumer processed the message.
+
 ## Logging Managers Duplication (Current Intent)
 
 `system-logging-manager` and `security-logging-manager` are intentionally kept

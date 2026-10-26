@@ -40,6 +40,34 @@ repository working style after explicit user instructions.
 - If a design choice is uncertain, stop and ask a focused question instead of
   filling the gap with assumptions.
 
+## Go Service Workers and Messaging
+
+- Deploy each Go service as one OS process. Run independently scheduled work as
+  goroutine workers in that process, using `lite-nas/shared/workers` for its
+  existing lifecycle and polling primitives. Connect independent workers with
+  typed, bounded Go channels. Ordinary synchronous calls within a worker are
+  appropriate for parsing, validation, and state evaluation.
+- Use `lite-nas/shared/messaging` for communication between processes. Bridge
+  NATS subscriptions into local worker channels with a validated handler, and
+  have an outbound worker consume typed intents before calling the shared
+  messaging client. The existing example is
+  `shared/go/emailnotifier/subscription.go`; there is no general shared NATS
+  channel adapter today. Add shared adapter code only for demonstrated reuse.
+- Specify the owner, producer, consumer, capacity, and close policy for each
+  channel. One channel with multiple receivers is a work queue, not broadcast;
+  explicitly send a copy to each destination when all consumers need an event.
+  Bound queues and define backpressure and cancellation at every send. Do not
+  silently discard security observations or effects. Route errors to an
+  observable, handled path. On shutdown, stop producers, finish or explicitly
+  account for pending effects, then drain NATS where possible. Only a producer
+  that owns a channel may close it; do not close a channel while a NATS callback
+  can still send to it.
+- Construct compiled Log Analysis plugin types and all configured instances at
+  startup. Inject the initialized instance collection into listener/dispatcher
+  workers. Listeners must not load code, resolve constructors, or create plugin
+  instances. Detection plugins use the planned shared table-driven FSM package
+  once it exists. Inspect current contracts before adding abstractions.
+
 ## Git and Repository Operations
 
 Agents may:
