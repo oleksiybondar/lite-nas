@@ -50,6 +50,10 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	lockdown, err := openLockdownStore(lockdownStatePath)
+	if err != nil {
+		return err
+	}
 
 	runtimeDeps := authRuntime{
 		Auth:              authModule,
@@ -58,6 +62,10 @@ func run(ctx context.Context) error {
 		ServiceTokenStore: newServiceTokenStore(time.Now),
 		Validator:         newRequestValidator(),
 		Client:            infra.Client,
+		Lockdown:          lockdown,
+	}
+	if err := lockdown.replayPending(ctx, infra.Client); err != nil {
+		return err
 	}
 	if err := registerRPCHandlers(infra.Server, runtimeDeps); err != nil {
 		return err
@@ -84,6 +92,7 @@ type authRuntime struct {
 	ServiceTokenStore *serviceTokenStore
 	Validator         requestValidator
 	Client            messaging.Client
+	Lockdown          *lockdownStore
 }
 
 type authTokenRuntime struct {
@@ -239,6 +248,11 @@ func registerServiceRPCHandlers(server messaging.Server, runtimeDeps authRuntime
 	}); err != nil {
 		return err
 	}
+	if err := server.RegisterRPC(authcontract.SetLockdownRPCSubject, func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		return handleSetLockdownRPC(ctx, runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -248,10 +262,28 @@ func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authc
 	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
 	}
+	if runtimeDeps.Lockdown != nil {
+		// Hold the read lock through session issuance so a completed lockdown
+		// RPC cannot race a newly admitted user login.
+		runtimeDeps.Lockdown.mu.RLock()
+		defer runtimeDeps.Lockdown.mu.RUnlock()
+		if runtimeDeps.Lockdown.state.Lockdown {
+			return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+		}
+	}
 
 	result, authenticated := authenticatePrincipal(runtimeDeps, request)
 	if !authenticated {
 		return loginResponseFromPAM(result), nil
+	}
+	// Serialize token issuance with policy changes. Authentication can take
+	// time, so acquire the read lock only after PAM has returned.
+	if runtimeDeps.Lockdown != nil {
+		runtimeDeps.Lockdown.mu.RLock()
+		defer runtimeDeps.Lockdown.mu.RUnlock()
+		if runtimeDeps.Lockdown.state.Lockdown {
+			return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+		}
 	}
 
 	login := resolvedLogin(result.Username, request.Username)
@@ -353,6 +385,13 @@ func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (aut
 	var request authcontract.RefreshRequest
 	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.RefreshResponse{}, nil
+	}
+	if runtimeDeps.Lockdown != nil {
+		runtimeDeps.Lockdown.mu.RLock()
+		defer runtimeDeps.Lockdown.mu.RUnlock()
+		if runtimeDeps.Lockdown.state.Lockdown {
+			return authcontract.RefreshResponse{}, nil
+		}
 	}
 
 	refreshToken, record, rotated := rotateRefreshToken(runtimeDeps, request)

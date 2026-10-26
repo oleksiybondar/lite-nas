@@ -108,6 +108,9 @@ assert_cmd "package depends on OS ffmpeg" assert_depends_contains "ffmpeg"
 assert_cmd "package depends on HEIC decoder tools" assert_depends_contains "libheif-examples"
 assert_cmd "package depends on HEIC HEVC plugin" assert_depends_contains "libheif-plugin-libde265"
 assert_cmd "package depends on aide" assert_depends_contains "aide"
+assert_cmd "package depends on ClamAV" assert_depends_contains "clamav"
+assert_cmd "package depends on USBGuard" assert_depends_contains "usbguard"
+assert_cmd "package depends on rsyslog" assert_depends_contains "rsyslog"
 assert_cmd "package includes postinst maintainer script" test -f "$package_control/postinst"
 assert_cmd "postinst invokes package runtime" grep -Fq "\"\$DEPLOY_RUNTIME_SCRIPT\" --mode \"\$mode\" \"\$@\"" "$package_control/postinst"
 
@@ -125,6 +128,18 @@ assert_cmd "system-metrics binary packaged" assert_executable usr/libexec/lite-n
 assert_cmd "zfs-metrics binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics
 assert_cmd "resources-monitor binary packaged" assert_executable usr/libexec/lite-nas/resources-monitor
 assert_cmd "litenas-integrity binary packaged" assert_executable usr/libexec/lite-nas/litenas-integrity
+for security_service in mount-monitor antivirus system-service-monitor service-watchdog log-analysis; do
+	assert_cmd "$security_service config packaged" assert_file "$packaged_config_root/lite-nas/$security_service.conf"
+	assert_cmd "$security_service unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-$security_service.service"
+	assert_cmd "$security_service AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.$security_service"
+done
+assert_cmd "Log Analysis rules packaged" assert_file "$packaged_config_root/lite-nas/log-analysis/rules.json"
+assert_cmd "Watchdog sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-service-watchdog"
+assert_cmd "mount-monitor binary packaged" assert_executable usr/libexec/lite-nas/mount-monitor
+assert_cmd "antivirus binary packaged" assert_executable usr/libexec/lite-nas/antivirus
+assert_cmd "system-service-monitor binary packaged" assert_executable usr/libexec/lite-nas/system-service-monitor
+assert_cmd "service-watchdog binary packaged" assert_executable usr/libexec/lite-nas/service-watchdog
+assert_cmd "log-analysis binary packaged" assert_executable usr/libexec/lite-nas/log-analysis
 assert_cmd "system-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/system-logging-manager-cli
 assert_cmd "security-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/security-logging-manager-cli
 assert_cmd "system-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/system-metrics-cli

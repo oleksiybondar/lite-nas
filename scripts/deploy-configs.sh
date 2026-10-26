@@ -115,6 +115,16 @@ validate_sudoers_drop_ins() {
 }
 
 log.pushTask "Deploying etc configs"
+security_monitor_saved="$(mktemp -d)"
+trap 'rm -rf "$security_monitor_saved"' EXIT
+for config_name in mount-monitor.conf antivirus.conf system-service-monitor.conf service-watchdog.conf log-analysis.conf; do
+	if [ -f "$target_dir/lite-nas/$config_name" ]; then
+		cp -p "$target_dir/lite-nas/$config_name" "$security_monitor_saved/$config_name"
+	fi
+done
+if [ -d "$target_dir/lite-nas/log-analysis" ]; then
+	cp -a "$target_dir/lite-nas/log-analysis" "$security_monitor_saved/log-analysis"
+fi
 old_moments_link=/usr/share/lite-nas/nginx/moments.conf
 if [ "$target_dir" = "/etc" ] && [ -L "$old_moments_link" ] && [ "$(readlink "$old_moments_link")" = "/usr/share/lite-nas/moments/nginx/moments.conf" ]; then
 	rm -f "$old_moments_link"
@@ -128,6 +138,14 @@ for config_entry in "${config_entries[@]}"; do
 	fi
 	cp -a "$config_entry" "$target_dir/"
 done
+for config_name in mount-monitor.conf antivirus.conf system-service-monitor.conf service-watchdog.conf log-analysis.conf; do
+	if [ -f "$security_monitor_saved/$config_name" ]; then
+		cp -p "$security_monitor_saved/$config_name" "$target_dir/lite-nas/$config_name"
+	fi
+done
+if [ -d "$security_monitor_saved/log-analysis" ]; then
+	cp -a "$security_monitor_saved/log-analysis" "$target_dir/lite-nas/"
+fi
 log.popTask
 
 # visudo checks the live sudoers include directory ownership during validation.

@@ -19,9 +19,15 @@ identity_ca_common_name="${LITE_NAS_AUTH_IDENTITY_CA_COMMON_NAME:-lite-nas-auth-
 auth_identity_owner_user="${LITE_NAS_AUTH_IDENTITY_OWNER_USER:-lite-nas-auth-service}"
 resources_monitor_identity_user="${LITE_NAS_RESOURCES_MONITOR_IDENTITY_USER:-lite-nas-resources-monitor}"
 integrity_identity_user="${LITE_NAS_INTEGRITY_IDENTITY_USER:-lite-nas-integrity}"
+mount_monitor_identity_user="${LITE_NAS_MOUNT_MONITOR_IDENTITY_USER:-lite-nas-mount-monitor}"
+antivirus_identity_user="${LITE_NAS_ANTIVIRUS_IDENTITY_USER:-lite-nas-antivirus}"
+system_service_monitor_identity_user="${LITE_NAS_SYSTEM_SERVICE_MONITOR_IDENTITY_USER:-lite-nas-system-service-monitor}"
+service_watchdog_identity_user="${LITE_NAS_SERVICE_WATCHDOG_IDENTITY_USER:-lite-nas-service-watchdog}"
+log_analysis_identity_user="${LITE_NAS_LOG_ANALYSIS_IDENTITY_USER:-lite-nas-log-analysis}"
 system_logging_manager_cli_identity_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sys-log-mgr-cli}"
 security_logging_manager_cli_identity_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sec-log-mgr-cli}"
 rotate_only_if_missing=0
+identity_users=("$auth_identity_owner_user" "$resources_monitor_identity_user" "$integrity_identity_user" "$mount_monitor_identity_user" "$antivirus_identity_user" "$system_service_monitor_identity_user" "$service_watchdog_identity_user" "$log_analysis_identity_user" "$system_logging_manager_cli_identity_user" "$security_logging_manager_cli_identity_user")
 
 usage() {
 	cat <<'MSG'
@@ -80,12 +86,7 @@ ensure_litenas_group() {
 
 ensure_identity_groups() {
 	local identity_group
-	for identity_group in \
-		"$auth_identity_owner_user" \
-		"$resources_monitor_identity_user" \
-		"$integrity_identity_user" \
-		"$system_logging_manager_cli_identity_user" \
-		"$security_logging_manager_cli_identity_user"; do
+	for identity_group in "${identity_users[@]}"; do
 		if getent group "$identity_group" >/dev/null 2>&1; then
 			continue
 		fi
@@ -98,23 +99,6 @@ ensure_directories() {
 	install -d -m 0750 -o root -g "$litenas_group" "$litenas_config_dir"
 	install -d -m 0750 -o root -g "$litenas_group" "$certificate_dir"
 	install -d -m 0750 -o root -g "$litenas_group" "$identity_certificate_dir"
-}
-
-required_certificates_exist() {
-	[ -f "$certificate_dir/token-signing.key" ] &&
-		[ -f "$certificate_dir/token-signing.crt" ] &&
-		[ -f "$identity_certificate_dir/root-ca.key" ] &&
-		[ -f "$identity_certificate_dir/root-ca.crt" ] &&
-		[ -f "$identity_certificate_dir/$auth_identity_owner_user/client.key" ] &&
-		[ -f "$identity_certificate_dir/$auth_identity_owner_user/client.crt" ] &&
-		[ -f "$identity_certificate_dir/$resources_monitor_identity_user/client.key" ] &&
-		[ -f "$identity_certificate_dir/$resources_monitor_identity_user/client.crt" ] &&
-		[ -f "$identity_certificate_dir/$integrity_identity_user/client.key" ] &&
-		[ -f "$identity_certificate_dir/$integrity_identity_user/client.crt" ] &&
-		[ -f "$identity_certificate_dir/$system_logging_manager_cli_identity_user/client.key" ] &&
-		[ -f "$identity_certificate_dir/$system_logging_manager_cli_identity_user/client.crt" ] &&
-		[ -f "$identity_certificate_dir/$security_logging_manager_cli_identity_user/client.key" ] &&
-		[ -f "$identity_certificate_dir/$security_logging_manager_cli_identity_user/client.crt" ]
 }
 
 rotate_certificate() {
@@ -215,14 +199,11 @@ rotate_identity_certificates() {
 	local identity_user
 	create_identity_root_ca_if_missing
 
-	for identity_user in \
-		"$auth_identity_owner_user" \
-		"$resources_monitor_identity_user" \
-		"$integrity_identity_user" \
-		"$system_logging_manager_cli_identity_user" \
-		"$security_logging_manager_cli_identity_user"; do
+	for identity_user in "${identity_users[@]}"; do
 		ensure_identity_leaf_directory "$identity_user"
-		rotate_identity_leaf_certificate "$identity_user"
+		if [ "$rotate_only_if_missing" -eq 0 ] || [ ! -f "$identity_certificate_dir/$identity_user/client.key" ] || [ ! -f "$identity_certificate_dir/$identity_user/client.crt" ]; then
+			rotate_identity_leaf_certificate "$identity_user"
+		fi
 	done
 }
 
@@ -265,12 +246,7 @@ normalize_certificate_permissions() {
 		chmod 0600 "$identity_certificate_dir/root-ca.srl"
 	fi
 
-	for identity_user in \
-		"$auth_identity_owner_user" \
-		"$resources_monitor_identity_user" \
-		"$integrity_identity_user" \
-		"$system_logging_manager_cli_identity_user" \
-		"$security_logging_manager_cli_identity_user"; do
+	for identity_user in "${identity_users[@]}"; do
 		identity_owner="$(owner_for_identity "$identity_user")"
 		chown "$identity_owner" "$identity_certificate_dir/$identity_user"
 		chmod 0750 "$identity_certificate_dir/$identity_user"
@@ -287,18 +263,11 @@ ensure_identity_groups
 ensure_directories
 log.popTask
 
-if [ "$rotate_only_if_missing" -eq 1 ] && required_certificates_exist; then
-	log.info "LiteNAS auth token signing certificate already exists; skipping rotation."
-	log.pushTask "Normalizing LiteNAS auth token certificate permissions"
-	normalize_certificate_permissions
-	deploy.normalizeEtcPermissions /etc
+if [ "$rotate_only_if_missing" -eq 0 ] || [ ! -f "$certificate_dir/token-signing.key" ] || [ ! -f "$certificate_dir/token-signing.crt" ]; then
+	log.pushTask "Rotating LiteNAS auth token signing certificate"
+	rotate_certificate
 	log.popTask
-	exit 0
 fi
-
-log.pushTask "Rotating LiteNAS auth token signing certificate"
-rotate_certificate
-log.popTask
 
 log.pushTask "Rotating LiteNAS auth identity certificates"
 rotate_identity_certificates

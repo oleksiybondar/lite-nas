@@ -64,8 +64,13 @@ create_systemd_validation_root() {
 		"$systemd_root/etc/systemd/system/lite-nas-resources-monitor.service"
 	cp configs/etc/systemd/system/lite-nas-integrity.service \
 		"$systemd_root/etc/systemd/system/lite-nas-integrity.service"
+	cp configs/etc/systemd/system/lite-nas-mount-monitor.service "$systemd_root/etc/systemd/system/lite-nas-mount-monitor.service"
+	cp configs/etc/systemd/system/lite-nas-antivirus.service "$systemd_root/etc/systemd/system/lite-nas-antivirus.service"
+	cp configs/etc/systemd/system/lite-nas-system-service-monitor.service "$systemd_root/etc/systemd/system/lite-nas-system-service-monitor.service"
+	cp configs/etc/systemd/system/lite-nas-service-watchdog.service "$systemd_root/etc/systemd/system/lite-nas-service-watchdog.service"
+	cp configs/etc/systemd/system/lite-nas-log-analysis.service "$systemd_root/etc/systemd/system/lite-nas-log-analysis.service"
 
-	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity; do
+	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog log-analysis; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -87,11 +92,37 @@ log.requireCommand "shellcheck" "Run ./scripts/install-dev-dependencies.sh or sc
 shellcheck -s sh "${maintainer_scripts[@]}"
 log.popTask
 
+log.pushTask "Validating Watchdog recovery and shutdown policy"
+watchdog_config="configs/etc/lite-nas/service-watchdog.conf"
+watchdog_sudoers="configs/etc/sudoers.d/lite-nas-service-watchdog"
+watchdog_unit="configs/etc/systemd/system/lite-nas-service-watchdog.service"
+IFS=, read -r -a protected_units <<<"$(sed -n 's/^units=//p' "$watchdog_config")"
+if [ "${#protected_units[@]}" -eq 0 ]; then
+	log.error "Watchdog has no protected units"
+	exit 1
+fi
+watchdog_after="$(sed -n 's/^After=//p' "$watchdog_unit")"
+for protected_unit in "${protected_units[@]}"; do
+	if ! grep -Fxq "lite-nas-service-watchdog ALL=(root) NOPASSWD: /usr/bin/systemctl start $protected_unit" "$watchdog_sudoers"; then
+		log.error "Watchdog sudoers is missing exact unit: $protected_unit"
+		exit 1
+	fi
+	if [[ " $watchdog_after " != *" $protected_unit "* ]]; then
+		log.error "Watchdog shutdown ordering is missing unit: $protected_unit"
+		exit 1
+	fi
+done
+if [ "$(wc -l <"$watchdog_sudoers")" -ne "${#protected_units[@]}" ]; then
+	log.error "Watchdog sudoers contains an unexpected command"
+	exit 1
+fi
+log.popTask
+
 if command -v nats-server >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
 	log.pushTask "Validating NATS configuration"
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
-	cp -a configs/etc/. "$tmp_dir/"
+	cp -R configs/etc/. "$tmp_dir/"
 	openssl req \
 		-x509 \
 		-newkey rsa:2048 \
@@ -133,6 +164,11 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-service-metrics.service \
 		lite-nas-resources-monitor.service \
 		lite-nas-integrity.service \
+		lite-nas-mount-monitor.service \
+		lite-nas-antivirus.service \
+		lite-nas-system-service-monitor.service \
+		lite-nas-service-watchdog.service \
+		lite-nas-log-analysis.service \
 		lite-nas-web-gateway.service \
 		lite-nas-file-service.service \
 		lite-nas-stream-service.service

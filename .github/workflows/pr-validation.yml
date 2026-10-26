@@ -107,6 +107,16 @@ jobs:
             dir: ./services/resources-monitor
           - name: LiteNAS integrity service
             dir: ./services/litenas-integrity
+          - name: Mount monitor service
+            dir: ./services/mount-monitor
+          - name: Antivirus service
+            dir: ./services/antivirus
+          - name: System service monitor
+            dir: ./services/system-service-monitor
+          - name: Service watchdog
+            dir: ./services/service-watchdog
+          - name: Log analysis service
+            dir: ./services/log-analysis
           - name: Network metrics service
             dir: ./services/network-metrics
           - name: Process metrics service
@@ -367,6 +377,51 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Mount Monitor
+              artifact_name: mount-monitor-linux
+              build_script: scripts/build-mount-monitor-binary.sh
+              output_path: .build/mount-monitor/linux-amd64/mount-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/mount-monitor
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Antivirus
+              artifact_name: antivirus-linux
+              build_script: scripts/build-antivirus-binary.sh
+              output_path: .build/antivirus/linux-amd64/antivirus
+              test_script: scripts/ci/go-test-module.sh ./services/antivirus
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: System Service Monitor
+              artifact_name: system-service-monitor-linux
+              build_script: scripts/build-system-service-monitor-binary.sh
+              output_path: .build/system-service-monitor/linux-amd64/system-service-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/system-service-monitor
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Service Watchdog
+              artifact_name: service-watchdog-linux
+              build_script: scripts/build-service-watchdog-binary.sh
+              output_path: .build/service-watchdog/linux-amd64/service-watchdog
+              test_script: scripts/ci/go-test-module.sh ./services/service-watchdog
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Log Analysis
+              artifact_name: log-analysis-linux
+              build_script: scripts/build-log-analysis-binary.sh
+              output_path: .build/log-analysis/linux-amd64/log-analysis
+              test_script: scripts/ci/go-test-module.sh ./services/log-analysis
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Network metrics
               artifact_name: network-metrics-linux
               build_script: scripts/build-network-metrics-binary.sh
@@ -516,6 +571,51 @@ jobs:
               build_script: scripts/build-litenas-integrity-binary.sh
               output_path: .build/litenas-integrity/linux-arm64/litenas-integrity
               test_script: scripts/ci/go-test-module.sh ./services/litenas-integrity
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Mount Monitor
+              artifact_name: mount-monitor-linux
+              build_script: scripts/build-mount-monitor-binary.sh
+              output_path: .build/mount-monitor/linux-arm64/mount-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/mount-monitor
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Antivirus
+              artifact_name: antivirus-linux
+              build_script: scripts/build-antivirus-binary.sh
+              output_path: .build/antivirus/linux-arm64/antivirus
+              test_script: scripts/ci/go-test-module.sh ./services/antivirus
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: System Service Monitor
+              artifact_name: system-service-monitor-linux
+              build_script: scripts/build-system-service-monitor-binary.sh
+              output_path: .build/system-service-monitor/linux-arm64/system-service-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/system-service-monitor
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Service Watchdog
+              artifact_name: service-watchdog-linux
+              build_script: scripts/build-service-watchdog-binary.sh
+              output_path: .build/service-watchdog/linux-arm64/service-watchdog
+              test_script: scripts/ci/go-test-module.sh ./services/service-watchdog
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Log Analysis
+              artifact_name: log-analysis-linux
+              build_script: scripts/build-log-analysis-binary.sh
+              output_path: .build/log-analysis/linux-arm64/log-analysis
+              test_script: scripts/ci/go-test-module.sh ./services/log-analysis
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -838,6 +938,36 @@ jobs:
           name: litenas-integrity-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/litenas-integrity
 
+      - name: Download mount-monitor build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mount-monitor-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/mount-monitor
+
+      - name: Download antivirus build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: antivirus-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/antivirus
+
+      - name: Download system-service-monitor build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-service-monitor-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-service-monitor
+
+      - name: Download service-watchdog build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: service-watchdog-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/service-watchdog
+
+      - name: Download log-analysis build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: log-analysis-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/log-analysis
+
       - name: Download network metrics build artifact
         uses: actions/download-artifact@v4
         with:
@@ -1066,8 +1196,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

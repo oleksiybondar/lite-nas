@@ -31,7 +31,7 @@ root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
 server_alt_names="${LITE_NAS_NATS_SERVER_ALT_NAMES:-DNS:localhost,DNS:lite-nas,DNS:lite-nas.local,IP:127.0.0.1}"
 
-read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-network-metrics lite-nas-process-metrics lite-nas-disk-metrics lite-nas-service-metrics lite-nas-zfs-metrics lite-nas-zfs-metrics-cli lite-nas-system-metrics-cli lite-nas-network-metrics-cli lite-nas-sys-log-mgr lite-nas-sec-log-mgr lite-nas-sys-log-mgr-cli lite-nas-sec-log-mgr-cli lite-nas-sys-email-notifier lite-nas-sec-email-notifier lite-nas-web-gateway lite-nas-moments lite-nas-auth-service lite-nas-resources-monitor lite-nas-integrity lite-nas-rbac-service lite-nas-file-service lite-nas-stream-service}"
+read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-network-metrics lite-nas-process-metrics lite-nas-disk-metrics lite-nas-service-metrics lite-nas-zfs-metrics lite-nas-zfs-metrics-cli lite-nas-system-metrics-cli lite-nas-network-metrics-cli lite-nas-sys-log-mgr lite-nas-sec-log-mgr lite-nas-sys-log-mgr-cli lite-nas-sec-log-mgr-cli lite-nas-sys-email-notifier lite-nas-sec-email-notifier lite-nas-web-gateway lite-nas-moments lite-nas-auth-service lite-nas-resources-monitor lite-nas-integrity lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis lite-nas-rbac-service lite-nas-file-service lite-nas-stream-service}"
 rotate_only_if_missing=0
 
 usage() {
@@ -263,6 +263,9 @@ subjectAltName = DNS:${ENV::LITE_NAS_CERTIFICATE_USER}
 EOF
 
 	for certificate_user in "${certificate_users[@]}"; do
+		if [ "$rotate_only_if_missing" -eq 1 ] && [ -f "$litenas_transport_certificates_dir/$certificate_user/client.key" ] && client_certificate_matches_identity "$certificate_user"; then
+			continue
+		fi
 		log.info "Rotating NATS client certificate: $certificate_user"
 		LITE_NAS_CERTIFICATE_USER="$certificate_user" \
 			create_signed_certificate "$certificate_user" "$litenas_transport_certificates_dir/$certificate_user" "client" "$extension_file"
@@ -341,7 +344,9 @@ fi
 log.pushTask "Rotating NATS certificates"
 create_root_ca_if_missing
 publish_client_ca_certificate
-rotate_server_certificate
+if [ "$rotate_only_if_missing" -eq 0 ] || [ ! -f "$nats_certificate_dir/server.key" ] || [ ! -f "$nats_certificate_dir/server.crt" ]; then
+	rotate_server_certificate
+fi
 rotate_client_certificates
 log.popTask
 

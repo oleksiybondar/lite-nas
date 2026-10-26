@@ -340,7 +340,11 @@ func (service *integrityService) recordIntegrityFailure(ctx context.Context, out
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	if service.active == nil {
+	effect, err := integrityTransition(ctx, service.active != nil, integrityFailure)
+	if err != nil {
+		return err
+	}
+	if effect == integrityCreate {
 		eventID := service.nextEventIDLocked()
 		payload := loggingmanagercontract.AlertPayload{
 			EventID:      eventID,
@@ -375,7 +379,11 @@ func (service *integrityService) normalizeActiveIncident(ctx context.Context, me
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	if service.active == nil {
+	effect, err := integrityTransition(ctx, service.active != nil, integrityRecovered)
+	if err != nil {
+		return err
+	}
+	if effect != integrityNormalize {
 		return nil
 	}
 

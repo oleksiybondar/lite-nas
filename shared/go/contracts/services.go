@@ -18,6 +18,11 @@ const (
 	ServiceSecurityLoggingManager = "security-logging-manager"
 	ServiceWebGateway             = "web-gateway"
 	ServiceRBAC                   = "rbac-service"
+	ServiceMountMonitor           = "mount-monitor"
+	ServiceAntivirus              = "antivirus"
+	ServiceSystemServiceMonitor   = "system-service-monitor"
+	ServiceWatchdog               = "service-watchdog"
+	ServiceLogAnalysis            = "log-analysis"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"
 	AppNetworkMetricsCLI       = "network-metrics-cli"

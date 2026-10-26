@@ -54,6 +54,8 @@ source "$ENTRYPOINT_DIR/deploy/file-explorer.sh"
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/litenas-integrity.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/security-monitor.sh"
 
 auth_service_binary=""
 rbac_service_binary=""
@@ -82,6 +84,11 @@ admin_panel_assets=""
 file_explorer_assets=""
 resources_monitor_binary=""
 litenas_integrity_binary=""
+mount_monitor_binary=""
+antivirus_binary=""
+system_service_monitor_binary=""
+service_watchdog_binary=""
+log_analysis_binary=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -126,6 +133,11 @@ Options:
   --file-explorer-assets PATH     Install existing File Explorer Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
   --litenas-integrity-binary PATH Install an existing litenas-integrity binary.
+  --mount-monitor-binary PATH Install an existing mount-monitor binary.
+  --antivirus-binary PATH Install an existing antivirus binary.
+  --system-service-monitor-binary PATH Install an existing system-service-monitor binary.
+  --service-watchdog-binary PATH Install an existing service-watchdog binary.
+  --log-analysis-binary PATH Install an existing log-analysis binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
   --no-nats-config                Keep the current NATS configuration unchanged during bootstrap.
@@ -375,6 +387,51 @@ while [ "$#" -gt 0 ]; do
 		litenas_integrity_binary="$2"
 		shift 2
 		;;
+	--mount-monitor-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --mount-monitor-binary"
+			usage >&2
+			exit 2
+		fi
+		mount_monitor_binary="$2"
+		shift 2
+		;;
+	--antivirus-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --antivirus-binary"
+			usage >&2
+			exit 2
+		fi
+		antivirus_binary="$2"
+		shift 2
+		;;
+	--system-service-monitor-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --system-service-monitor-binary"
+			usage >&2
+			exit 2
+		fi
+		system_service_monitor_binary="$2"
+		shift 2
+		;;
+	--service-watchdog-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --service-watchdog-binary"
+			usage >&2
+			exit 2
+		fi
+		service_watchdog_binary="$2"
+		shift 2
+		;;
+	--log-analysis-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --log-analysis-binary"
+			usage >&2
+			exit 2
+		fi
+		log_analysis_binary="$2"
+		shift 2
+		;;
 	--no-start)
 		should_start=0
 		shift
@@ -422,6 +479,7 @@ deploy.fileService.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
+deploy.securityMonitor.requireTools
 
 tmp_dir=""
 if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
@@ -581,6 +639,32 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 	fi
 fi
 
+if [ -z "$tmp_dir" ]; then
+	tmp_dir="$(mktemp -d)"
+	trap 'rm -rf "$tmp_dir"' EXIT
+fi
+
+if [ -z "$mount_monitor_binary" ]; then
+	"$ENTRYPOINT_DIR/build-mount-monitor-binary.sh" "--output=$tmp_dir/mount-monitor"
+	mount_monitor_binary="$tmp_dir/mount-monitor"
+fi
+if [ -z "$antivirus_binary" ]; then
+	"$ENTRYPOINT_DIR/build-antivirus-binary.sh" "--output=$tmp_dir/antivirus"
+	antivirus_binary="$tmp_dir/antivirus"
+fi
+if [ -z "$system_service_monitor_binary" ]; then
+	"$ENTRYPOINT_DIR/build-system-service-monitor-binary.sh" "--output=$tmp_dir/system-service-monitor"
+	system_service_monitor_binary="$tmp_dir/system-service-monitor"
+fi
+if [ -z "$service_watchdog_binary" ]; then
+	"$ENTRYPOINT_DIR/build-service-watchdog-binary.sh" "--output=$tmp_dir/service-watchdog"
+	service_watchdog_binary="$tmp_dir/service-watchdog"
+fi
+if [ -z "$log_analysis_binary" ]; then
+	"$ENTRYPOINT_DIR/build-log-analysis-binary.sh" "--output=$tmp_dir/log-analysis"
+	log_analysis_binary="$tmp_dir/log-analysis"
+fi
+
 if [ "$should_bootstrap" -eq 1 ]; then
 	log.pushTask "Preparing shared LiteNAS infrastructure"
 	deploy.liteNAS.bootstrap "$manage_nats_config"
@@ -688,6 +772,26 @@ log.popTask
 
 log.pushTask "Deploying litenas-integrity service"
 deploy.liteNASIntegrity.deploy "$litenas_integrity_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying mount-monitor service"
+deploy.securityMonitor.deploy "mount-monitor" "$mount_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying antivirus service"
+deploy.securityMonitor.deploy "antivirus" "$antivirus_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying system-service-monitor service"
+deploy.securityMonitor.deploy "system-service-monitor" "$system_service_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying service-watchdog service"
+deploy.securityMonitor.deploy "service-watchdog" "$service_watchdog_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying log-analysis service"
+deploy.securityMonitor.deploy "log-analysis" "$log_analysis_binary" "$should_start"
 log.popTask
 
 log.pushTask "Normalizing deployed LiteNAS permissions"

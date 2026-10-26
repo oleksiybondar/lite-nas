@@ -16,6 +16,11 @@ scripts/build-security-logging-manager.sh
 scripts/build-system-email-notifier.sh
 scripts/build-security-email-notifier.sh
 scripts/build-resources-monitor.sh
+scripts/build-mount-monitor.sh
+scripts/build-antivirus.sh
+scripts/build-system-service-monitor.sh
+scripts/build-service-watchdog.sh
+scripts/build-log-analysis.sh
 scripts/build-network-metrics.sh
 scripts/build-process-metrics.sh
 scripts/build-disk-metrics.sh

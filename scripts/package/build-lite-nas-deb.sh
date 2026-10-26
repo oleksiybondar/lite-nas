@@ -39,6 +39,11 @@ moments_binary_path=""
 moments_assets_path=""
 resources_monitor_binary_path=""
 litenas_integrity_binary_path=""
+mount_monitor_binary_path=""
+antivirus_binary_path=""
+system_service_monitor_binary_path=""
+service_watchdog_binary_path=""
+log_analysis_binary_path=""
 admin_panel_assets_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
@@ -81,6 +86,11 @@ Options:
   --moments-assets=PATH              Use an existing Moments Vite build output.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
   --litenas-integrity-binary=PATH    Use an existing litenas-integrity binary.
+  --mount-monitor-binary=PATH  Use an existing mount-monitor binary.
+  --antivirus-binary=PATH  Use an existing antivirus binary.
+  --system-service-monitor-binary=PATH  Use an existing system-service-monitor binary.
+  --service-watchdog-binary=PATH  Use an existing service-watchdog binary.
+  --log-analysis-binary=PATH  Use an existing log-analysis binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
@@ -88,8 +98,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary log-analysis-binary admin-panel-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary log-analysis-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -219,6 +229,26 @@ fi
 if args.has resources-monitor-binary && ! resources_monitor_binary_path="$(args.require_arg resources-monitor-binary)"; then
 	log.error "Missing value for --resources-monitor-binary"
 	usage >&2
+	exit 64
+fi
+if args.has mount-monitor-binary && ! mount_monitor_binary_path="$(args.require_arg mount-monitor-binary)"; then
+	log.error "Missing value for --mount-monitor-binary"
+	exit 64
+fi
+if args.has antivirus-binary && ! antivirus_binary_path="$(args.require_arg antivirus-binary)"; then
+	log.error "Missing value for --antivirus-binary"
+	exit 64
+fi
+if args.has system-service-monitor-binary && ! system_service_monitor_binary_path="$(args.require_arg system-service-monitor-binary)"; then
+	log.error "Missing value for --system-service-monitor-binary"
+	exit 64
+fi
+if args.has service-watchdog-binary && ! service_watchdog_binary_path="$(args.require_arg service-watchdog-binary)"; then
+	log.error "Missing value for --service-watchdog-binary"
+	exit 64
+fi
+if args.has log-analysis-binary && ! log_analysis_binary_path="$(args.require_arg log-analysis-binary)"; then
+	log.error "Missing value for --log-analysis-binary"
 	exit 64
 fi
 if args.has litenas-integrity-binary && ! litenas_integrity_binary_path="$(args.require_arg litenas-integrity-binary)"; then
@@ -379,6 +409,26 @@ if [ -z "$resources_monitor_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-resources-monitor-binary.sh" \
 		"--output=${resources_monitor_binary_path}"
 fi
+if [ -z "$mount_monitor_binary_path" ]; then
+	mount_monitor_binary_path="$output_dir/${package_name}-${package_arch}/mount-monitor"
+	"$LITE_NAS_REPO_ROOT/scripts/build-mount-monitor-binary.sh" "--output=$mount_monitor_binary_path"
+fi
+if [ -z "$antivirus_binary_path" ]; then
+	antivirus_binary_path="$output_dir/${package_name}-${package_arch}/antivirus"
+	"$LITE_NAS_REPO_ROOT/scripts/build-antivirus-binary.sh" "--output=$antivirus_binary_path"
+fi
+if [ -z "$system_service_monitor_binary_path" ]; then
+	system_service_monitor_binary_path="$output_dir/${package_name}-${package_arch}/system-service-monitor"
+	"$LITE_NAS_REPO_ROOT/scripts/build-system-service-monitor-binary.sh" "--output=$system_service_monitor_binary_path"
+fi
+if [ -z "$service_watchdog_binary_path" ]; then
+	service_watchdog_binary_path="$output_dir/${package_name}-${package_arch}/service-watchdog"
+	"$LITE_NAS_REPO_ROOT/scripts/build-service-watchdog-binary.sh" "--output=$service_watchdog_binary_path"
+fi
+if [ -z "$log_analysis_binary_path" ]; then
+	log_analysis_binary_path="$output_dir/${package_name}-${package_arch}/log-analysis"
+	"$LITE_NAS_REPO_ROOT/scripts/build-log-analysis-binary.sh" "--output=$log_analysis_binary_path"
+fi
 if [ -z "$litenas_integrity_binary_path" ]; then
 	litenas_integrity_binary_path="$output_dir/${package_name}-${package_arch}/litenas-integrity"
 	"$LITE_NAS_REPO_ROOT/scripts/build-litenas-integrity-binary.sh" \
@@ -499,6 +549,26 @@ if [ ! -f "$resources_monitor_binary_path" ]; then
 	log.error "Missing resources-monitor binary: $resources_monitor_binary_path"
 	exit 1
 fi
+if [ ! -f "$mount_monitor_binary_path" ]; then
+	log.error "Missing mount-monitor binary: $mount_monitor_binary_path"
+	exit 1
+fi
+if [ ! -f "$antivirus_binary_path" ]; then
+	log.error "Missing antivirus binary: $antivirus_binary_path"
+	exit 1
+fi
+if [ ! -f "$system_service_monitor_binary_path" ]; then
+	log.error "Missing system-service-monitor binary: $system_service_monitor_binary_path"
+	exit 1
+fi
+if [ ! -f "$service_watchdog_binary_path" ]; then
+	log.error "Missing service-watchdog binary: $service_watchdog_binary_path"
+	exit 1
+fi
+if [ ! -f "$log_analysis_binary_path" ]; then
+	log.error "Missing log-analysis binary: $log_analysis_binary_path"
+	exit 1
+fi
 if [ ! -f "$litenas_integrity_binary_path" ]; then
 	log.error "Missing litenas-integrity binary: $litenas_integrity_binary_path"
 	exit 1
@@ -601,6 +671,11 @@ package.copyTree "$moments_assets_path" \
 	"$package_root/usr/libexec/lite-nas/moments-assets"
 install -D -m 0755 "$resources_monitor_binary_path" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor"
+install -D -m 0755 "$mount_monitor_binary_path" "$package_root/usr/libexec/lite-nas/mount-monitor"
+install -D -m 0755 "$antivirus_binary_path" "$package_root/usr/libexec/lite-nas/antivirus"
+install -D -m 0755 "$system_service_monitor_binary_path" "$package_root/usr/libexec/lite-nas/system-service-monitor"
+install -D -m 0755 "$service_watchdog_binary_path" "$package_root/usr/libexec/lite-nas/service-watchdog"
+install -D -m 0755 "$log_analysis_binary_path" "$package_root/usr/libexec/lite-nas/log-analysis"
 install -D -m 0755 "$litenas_integrity_binary_path" \
 	"$package_root/usr/libexec/lite-nas/litenas-integrity"
 package.copyTree "$admin_panel_assets_path" \
@@ -629,6 +704,11 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor" \
 	"$package_root/usr/libexec/lite-nas/litenas-integrity" \
+	"$package_root/usr/libexec/lite-nas/mount-monitor" \
+	"$package_root/usr/libexec/lite-nas/antivirus" \
+	"$package_root/usr/libexec/lite-nas/system-service-monitor" \
+	"$package_root/usr/libexec/lite-nas/service-watchdog" \
+	"$package_root/usr/libexec/lite-nas/log-analysis" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \

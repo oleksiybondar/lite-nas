@@ -149,6 +149,11 @@ stream_service_binary_path="$(resolve_binary_path stream-service stream-service)
 web_gateway_binary_path="$(resolve_binary_path web-gateway web-gateway)"
 resources_monitor_binary_path="$(resolve_binary_path resources-monitor resources-monitor)"
 litenas_integrity_binary_path="$(resolve_binary_path litenas-integrity litenas-integrity)"
+mount_monitor_binary_path="$(resolve_binary_path mount-monitor mount-monitor)"
+antivirus_binary_path="$(resolve_binary_path antivirus antivirus)"
+system_service_monitor_binary_path="$(resolve_binary_path system-service-monitor system-service-monitor)"
+service_watchdog_binary_path="$(resolve_binary_path service-watchdog service-watchdog)"
+log_analysis_binary_path="$(resolve_binary_path log-analysis log-analysis)"
 admin_panel_assets_path="$(resolve_admin_panel_assets_path)"
 
 require_input_path "auth-service binary" "$auth_service_binary_path"
@@ -174,6 +179,11 @@ require_input_path "stream-service binary" "$stream_service_binary_path"
 require_input_path "web-gateway binary" "$web_gateway_binary_path"
 require_input_path "resources-monitor binary" "$resources_monitor_binary_path"
 require_input_path "litenas-integrity binary" "$litenas_integrity_binary_path"
+require_input_path "mount-monitor binary" "$mount_monitor_binary_path"
+require_input_path "antivirus binary" "$antivirus_binary_path"
+require_input_path "system-service-monitor binary" "$system_service_monitor_binary_path"
+require_input_path "service-watchdog binary" "$service_watchdog_binary_path"
+require_input_path "log-analysis binary" "$log_analysis_binary_path"
 require_input_path "admin-panel assets" "$admin_panel_assets_path"
 
 package_args=(
@@ -200,6 +210,11 @@ package_args=(
 	--web-gateway-binary="$web_gateway_binary_path"
 	--resources-monitor-binary="$resources_monitor_binary_path"
 	--litenas-integrity-binary="$litenas_integrity_binary_path"
+	--mount-monitor-binary="$mount_monitor_binary_path"
+	--antivirus-binary="$antivirus_binary_path"
+	--system-service-monitor-binary="$system_service_monitor_binary_path"
+	--service-watchdog-binary="$service_watchdog_binary_path"
+	--log-analysis-binary="$log_analysis_binary_path"
 	--admin-panel-assets="$admin_panel_assets_path"
 )
 

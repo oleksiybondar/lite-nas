@@ -11,6 +11,7 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	"lite-nas/shared/eventmanager"
+	"lite-nas/shared/fsm"
 	sharedlogger "lite-nas/shared/logger"
 	sharedloggingenum "lite-nas/shared/loggingmanager/enum"
 	"lite-nas/shared/messaging"
@@ -26,6 +27,56 @@ type Processor struct {
 	client  messaging.Client
 	logger  sharedlogger.Logger
 	clock   func() time.Time
+}
+
+// lifecycleState is derived from the event manager after each successful
+// external operation, so failed sends cannot advance the local lifecycle.
+type (
+	lifecycleState  string
+	lifecycleInput  string
+	lifecycleEffect string
+)
+
+const (
+	lifecycleNormal  lifecycleState  = "normal"
+	lifecycleActive  lifecycleState  = "active"
+	lifecycleMatched lifecycleInput  = "matched"
+	lifecycleCleared lifecycleInput  = "cleared"
+	effectCreate     lifecycleEffect = "create"
+	effectOccurrence lifecycleEffect = "occurrence"
+	effectNormalize  lifecycleEffect = "normalize"
+)
+
+// lifecycleMachine makes alert create, occurrence, and normalization paths
+// inspectable as one table while the event manager retains correlation data.
+var lifecycleMachine = newLifecycleMachine()
+
+func newLifecycleMachine() *fsm.Machine[lifecycleState, lifecycleInput, struct{}, lifecycleEffect] {
+	action := func(effect lifecycleEffect) fsm.Action[struct{}, lifecycleInput, lifecycleEffect] {
+		return func(_ context.Context, data struct{}, _ lifecycleInput) (struct{}, []lifecycleEffect, error) {
+			return data, []lifecycleEffect{effect}, nil
+		}
+	}
+	machine, err := fsm.New(fsm.Definition[lifecycleState, lifecycleInput, struct{}, lifecycleEffect]{
+		Initial: lifecycleNormal,
+		States:  []lifecycleState{lifecycleNormal, lifecycleActive},
+		Inputs:  []lifecycleInput{lifecycleMatched, lifecycleCleared},
+		Rows: []fsm.Row[lifecycleState, lifecycleInput]{
+			{From: lifecycleNormal, On: lifecycleMatched, To: lifecycleActive, Action: string(effectCreate)},
+			{From: lifecycleNormal, On: lifecycleCleared, To: lifecycleNormal},
+			{From: lifecycleActive, On: lifecycleMatched, To: lifecycleActive, Action: string(effectOccurrence)},
+			{From: lifecycleActive, On: lifecycleCleared, To: lifecycleNormal, Action: string(effectNormalize)},
+		},
+		Actions: map[string]fsm.Action[struct{}, lifecycleInput, lifecycleEffect]{
+			string(effectCreate):     action(effectCreate),
+			string(effectOccurrence): action(effectOccurrence),
+			string(effectNormalize):  action(effectNormalize),
+		},
+	})
+	if err != nil {
+		panic(err)
+	} // Static table failure is a programmer error.
+	return machine
 }
 
 // ActiveEvent stores in-memory state for one active alert rule key.
@@ -147,19 +198,29 @@ func (p *Processor) handleRuleTransition(
 	activeEvent ActiveEvent,
 	isActive bool,
 ) {
-	if !isActive {
-		if extractedValue.IsMatch {
-			p.handleNewToActive(ctx, rule, extractedValue)
-		}
-		return
+	state := lifecycleNormal
+	if isActive {
+		state = lifecycleActive
 	}
-
+	input := lifecycleCleared
 	if extractedValue.IsMatch {
-		p.handleActiveToActive(ctx, activeEvent, extractedValue.Value)
+		input = lifecycleMatched
+	}
+	transition, err := lifecycleMachine.Step(ctx, fsm.Instance[lifecycleState, struct{}]{State: state}, input)
+	if err != nil {
+		p.logger.Error("alert lifecycle transition failed", "state", state, "input", input, "error", err)
 		return
 	}
-
-	p.handleActiveToNormal(ctx, activeEvent)
+	for _, effect := range transition.Effects {
+		switch effect {
+		case effectCreate:
+			p.handleNewToActive(ctx, rule, extractedValue)
+		case effectOccurrence:
+			p.handleActiveToActive(ctx, activeEvent, extractedValue.Value)
+		case effectNormalize:
+			p.handleActiveToNormal(ctx, activeEvent)
+		}
+	}
 }
 
 // findActiveEvent looks up active event state for one rule key.

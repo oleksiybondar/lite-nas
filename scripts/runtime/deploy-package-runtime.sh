@@ -59,6 +59,8 @@ source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/litenas-integrity.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/security-monitor.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/restart-affected-services.sh"
 
 # Package maintainer execution should not inherit pipefail from sourced helpers.
@@ -105,6 +107,11 @@ deploy_runtime_files_without_start() {
 	deploy.moments.deploy "$PACKAGE_ROOT/moments" "$PACKAGE_ROOT/moments-assets" 0
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
 	deploy.liteNASIntegrity.deploy "$PACKAGE_ROOT/litenas-integrity" 0
+	deploy.securityMonitor.deploy "mount-monitor" "$PACKAGE_ROOT/mount-monitor" 0
+	deploy.securityMonitor.deploy "antivirus" "$PACKAGE_ROOT/antivirus" 0
+	deploy.securityMonitor.deploy "system-service-monitor" "$PACKAGE_ROOT/system-service-monitor" 0
+	deploy.securityMonitor.deploy "service-watchdog" "$PACKAGE_ROOT/service-watchdog" 0
+	deploy.securityMonitor.deploy "log-analysis" "$PACKAGE_ROOT/log-analysis" 0
 }
 
 while [ "$#" -gt 0 ]; do
@@ -169,6 +176,7 @@ deploy.streamService.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
+deploy.securityMonitor.requireTools
 
 if [ "$run_mode" = "validate" ]; then
 	log.pushTask "Deploying LiteNAS package runtime in validate mode"
@@ -218,6 +226,11 @@ deploy.fileService.enableAndStart
 deploy.streamService.enableAndStart
 deploy.resourcesMonitor.enableAndStart
 deploy.liteNASIntegrity.enableAndStart
+deploy.enableAndRefreshService "lite-nas-mount-monitor.service"
+deploy.enableAndRefreshService "lite-nas-antivirus.service"
+deploy.enableAndRefreshService "lite-nas-system-service-monitor.service"
+deploy.enableAndRefreshService "lite-nas-service-watchdog.service"
+deploy.enableAndRefreshService "lite-nas-log-analysis.service"
 log.popTask
 
 log.info "LiteNAS package runtime deployment completed."

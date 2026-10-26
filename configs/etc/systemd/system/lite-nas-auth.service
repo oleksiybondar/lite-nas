@@ -39,8 +39,10 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 AmbientCapabilities=CAP_DAC_READ_SEARCH
 UMask=0027
+StateDirectory=lite-nas-auth
+StateDirectoryMode=0700
 ReadOnlyPaths=/etc/lite-nas
-ReadWritePaths=/var/log/lite-nas/auth-service.log
+ReadWritePaths=/var/log/lite-nas/auth-service.log /var/lib/lite-nas-auth
 StandardOutput=null
 StandardError=journal
 

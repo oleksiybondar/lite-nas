@@ -4,9 +4,11 @@ import (
 	authcontract "lite-nas/shared/contracts/auth"
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	mountmonitorcontract "lite-nas/shared/contracts/mountmonitor"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
+	servicemonitorcontract "lite-nas/shared/contracts/servicemonitor"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
@@ -21,6 +23,12 @@ type SubscriptionContract struct {
 // SubscriptionsByService defines known subscribed subjects per service
 // identity.
 var SubscriptionsByService = map[string]map[string]SubscriptionContract{
+	ServiceAntivirus: {
+		"mount_lifecycle": {Subject: mountmonitorcontract.LifecycleSubject, Payload: mountmonitorcontract.LifecycleEvent{}},
+	},
+	ServiceWatchdog: {
+		"service_state": {Subject: servicemonitorcontract.StateSubject, Payload: servicemonitorcontract.StateEvent{}},
+	},
 	ServiceResourcesMonitor: {
 		"network_metrics_snapshot": {
 			Subject: networkmetricscontract.SnapshotEventSubject,

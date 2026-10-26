@@ -76,3 +76,18 @@ readonly LITE_NAS_LITENAS_INTEGRITY_MODULE
 
 export LITE_NAS_RBAC_SERVICE_MODULE="./services/rbac"
 readonly LITE_NAS_RBAC_SERVICE_MODULE
+
+export LITE_NAS_MOUNT_MONITOR_MODULE="./services/mount-monitor"
+readonly LITE_NAS_MOUNT_MONITOR_MODULE
+
+export LITE_NAS_ANTIVIRUS_MODULE="./services/antivirus"
+readonly LITE_NAS_ANTIVIRUS_MODULE
+
+export LITE_NAS_SYSTEM_SERVICE_MONITOR_MODULE="./services/system-service-monitor"
+readonly LITE_NAS_SYSTEM_SERVICE_MONITOR_MODULE
+
+export LITE_NAS_SERVICE_WATCHDOG_MODULE="./services/service-watchdog"
+readonly LITE_NAS_SERVICE_WATCHDOG_MODULE
+
+export LITE_NAS_LOG_ANALYSIS_MODULE="./services/log-analysis"
+readonly LITE_NAS_LOG_ANALYSIS_MODULE
