@@ -175,6 +175,17 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 			if err != nil {
 				return err
 			}
+			if effect.ResolveImmediately {
+				message := "Security detection recorded: " + effect.RuleID
+				response := loggingcontract.OKResponse{}
+				if err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
+					loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response); err != nil {
+					return err
+				}
+				if !response.OK {
+					return errors.New("security logging manager rejected immediate detection resolution")
+				}
+			}
 		case "occurrence":
 			value := "repeated matching observations"
 			if err := alertClient.Publish(ctx, securitycontract.AlertOccurrenceSubject, loggingcontract.AlertOccurrencePayload{
@@ -184,7 +195,7 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 				return err
 			}
 		case "normalize":
-			message := "Security rule idle or successful login observed"
+			message := "Security detection cooldown elapsed or successful login observed"
 			response := loggingcontract.OKResponse{}
 			err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
 				loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response)

@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -240,6 +239,14 @@ func reportScans(ctx context.Context, effects <-chan scanResult, client messagin
 			log.Warn("antivirus scan cancelled", "mount_id", result.mount.ID)
 			continue
 		}
+		if result.eventID == "" {
+			id, err := newScanEventID()
+			if err != nil {
+				log.Error("antivirus scan event ID generation failed", "mount_id", result.mount.ID, "error", err)
+				continue
+			}
+			result.eventID = id
+		}
 		for {
 			attemptCtx := ctx
 			var cancel context.CancelFunc
@@ -266,11 +273,9 @@ func reportScans(ctx context.Context, effects <-chan scanResult, client messagin
 	}
 }
 
-// publishScanResult distinguishes malware from an incomplete scan. Event IDs
-// are stable for one mount identity to reduce duplicate notification on retry.
+// publishScanResult distinguishes malware from an incomplete scan. The scan
+// result owns a unique event ID so retries update only that scan's event.
 func publishScanResult(ctx context.Context, result scanResult, client messaging.Client) error {
-	digest := sha256.Sum256([]byte(fmt.Sprintf("%d:%s:%s", result.mount.ID, result.mount.Point, result.mount.Source)))
-	id := "A" + hex.EncodeToString(digest[:8])
 	if result.status == scanInfected {
 		message := "Malware detected on " + result.mount.Point
 		if len(message) > 256 {
@@ -280,19 +285,43 @@ func publishScanResult(ctx context.Context, result scanResult, client messaging.
 		if len(evidence) > 512 {
 			evidence = evidence[:512]
 		}
-		return client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
-			EventID: id, Category: "Malware detection", Severity: enum.SeverityCritical,
+		if err := client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
+			EventID: result.eventID, Category: "Malware detection", Severity: enum.SeverityCritical,
 			CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
 			Message: message, TriggerValue: evidence,
-		})
+		}); err != nil {
+			return err
+		}
+		response := loggingcontract.OKResponse{}
+		resolved := "Malware detection recorded for scan on " + result.mount.Point
+		if len(resolved) > 256 {
+			resolved = resolved[:256]
+		}
+		if err := client.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
+			loggingcontract.UpdateAlertStateInput{EventID: result.eventID, Status: enum.StatusNormal, Message: &resolved}, &response); err != nil {
+			return err
+		}
+		if !response.OK {
+			return errors.New("security logging manager rejected malware event resolution")
+		}
+		return nil
 	}
 	message := "Antivirus scan incomplete on " + result.mount.Point
 	if len(message) > 256 {
 		message = message[:256]
 	}
 	return client.Publish(ctx, systemcontract.AlertSubject, loggingcontract.AlertPayload{
-		EventID: id, Category: "Antivirus scan", Severity: enum.SeverityWarning,
+		EventID: result.eventID, Category: "Antivirus scan", Severity: enum.SeverityWarning,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
 		Message: message,
 	})
+}
+
+// newScanEventID creates a bounded identifier unique to one scan result.
+func newScanEventID() (string, error) {
+	var bytes [8]byte
+	if _, err := rand.Read(bytes[:]); err != nil {
+		return "", err
+	}
+	return "A" + hex.EncodeToString(bytes[:]), nil
 }

@@ -61,7 +61,7 @@ type instanceSpec struct {
 	Type      string `json:"type"`
 	Threshold int    `json:"threshold"`
 	Window    string `json:"window"`
-	Cooldown  string `json:"cooldown"`
+	Cooldown  string `json:"cooldown"` // Quiet period before an aggregated event is normalized.
 	Idle      string `json:"idle"`
 	KeyBy     string `json:"key_by"`
 	MaxKeys   int    `json:"max_keys"`

@@ -33,17 +33,18 @@ type Observation struct {
 // Detection is a typed manager or lockdown effect; plugin workers do not
 // deliver it directly to NATS or email.
 type Detection struct {
-	InstanceID    string
-	RuleID        string
-	Category      string
-	Severity      string
-	Email         bool
-	Lockdown      bool
-	Operation     string
-	EventID       string
-	Account       string
-	SourceAddress string
-	At            time.Time
+	InstanceID         string
+	RuleID             string
+	Category           string
+	Severity           string
+	Email              bool
+	Lockdown           bool
+	Operation          string
+	EventID            string
+	Account            string
+	SourceAddress      string
+	ResolveImmediately bool
+	At                 time.Time
 }
 
 // Config specifies one validated plugin instance constructed at startup.
@@ -312,11 +313,16 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 				data.EventID = "L" + hex.EncodeToString(bytes[:])
 				operation = "create"
 			}
-			return data, []Detection{p.detection(data, operation)}, nil
+			detection := p.detection(data, operation)
+			if p.cfg.Type == "immediate" {
+				return instanceData{}, []Detection{detection}, nil
+			}
+			return data, []Detection{detection}, nil
 		},
 		"touch": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
 			data.IdleDeadline = time.Now().Add(p.cfg.Idle)
-			return data, nil, nil
+			data.CooldownDeadline = time.Now().Add(p.cfg.Cooldown)
+			return data, []Detection{p.detection(data, "occurrence")}, nil
 		},
 		"window_reset": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
 			data.Count = 0
@@ -324,9 +330,11 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 			return data, nil, nil
 		},
 		"cooldown_reset": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
-			data.Count = 0
-			data.CooldownDeadline = time.Time{}
-			return data, nil, nil
+			var effects []Detection
+			if data.EventID != "" {
+				effects = []Detection{p.detection(data, "normalize")}
+			}
+			return instanceData{}, effects, nil
 		},
 		"normalize": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
 			var effects []Detection
@@ -336,8 +344,12 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 			return instanceData{}, effects, nil
 		},
 	}
+	immediateNext := cooldown
+	if p.cfg.Type == "immediate" {
+		immediateNext = idle
+	}
 	rows := []fsm.Row[state, input]{
-		{From: idle, On: observed, Guard: "one", To: cooldown, Action: "detect"},
+		{From: idle, On: observed, Guard: "one", To: immediateNext, Action: "detect"},
 		{From: idle, On: observed, Guard: "many", To: counting, Action: "start"},
 		{From: counting, On: observed, Guard: "below", To: counting, Action: "increment"},
 		{From: counting, On: observed, Guard: "reached", To: cooldown, Action: "detect"},
@@ -360,6 +372,7 @@ func (p *Plugin) detection(data instanceData, operation string) Detection {
 	return Detection{
 		InstanceID: p.id, RuleID: data.Last.RuleID, Category: data.Last.Category,
 		Severity: data.Last.Severity, Email: data.Last.Email, Lockdown: data.Last.Lockdown, Operation: operation,
-		EventID: data.EventID, Account: data.Last.Account, SourceAddress: data.Last.SourceAddress, At: data.Last.At,
+		EventID: data.EventID, Account: data.Last.Account, SourceAddress: data.Last.SourceAddress,
+		ResolveImmediately: p.cfg.Type == "immediate", At: data.Last.At,
 	}
 }

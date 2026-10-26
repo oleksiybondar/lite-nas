@@ -123,6 +123,76 @@ platform. A small reusable FSM engine is expressly in scope.
 - Retain stable rule/service/mount/correlation identifiers and timestamps in events when supported by existing schemas.
 - Preserve source attribution and relevant failure information without exposing passwords, tokens, or other secrets.
 
+### 3.1 TASK-EVENT-LIFECYCLE-001 — Per-source event correlation and resolution
+
+Refine alert lifecycle behavior for mount, antivirus, service-monitor,
+watchdog, and Log Analysis events. Use the existing `resources-monitor`
+lifecycle as a reference for stable source/rule correlation and normalization;
+inspect its current contracts and behavior before reusing the pattern. Events
+from independent mounts, scans, services, or protection conditions MUST
+remain independently identifiable and independently resolvable. Do not emit
+occurrence records for ordinary one-shot observations or repeated state
+publishes. Emit occurrences only when an FSM intentionally aggregates multiple
+observations into one incident.
+
+Required refinements:
+
+- **Mount Monitor:** correlate a mount alert with the matching mount identity
+  and resolve that alert when that same mount is observed unmounted. Keep mount
+  and unmount lifecycle notifications available to subscribers. Handle mount
+  ID reuse, identity changes, monitor restart/reconciliation, duplicates, and
+  out-of-order notifications according to the existing mount contract.
+- **Antivirus:** report one malware event per scan with a unique event ID and
+  the antivirus service as source; do not reuse an event ID for later scans or
+  emit occurrences for multiple detections from one scan. Resolve a one-shot
+  malware event immediately after successful registration. Keep clean,
+  incomplete, and cancelled scan outcomes distinct.
+- **System Service Monitor:** maintain an independent alert lifecycle per
+  configured systemd unit. A unit becoming unavailable creates its incident;
+  repeated polls do not create occurrences or replace/merge another unit's
+  incident; restoration normalizes only
+  that unit's incident. Preserve the relationship across service state changes,
+  duplicate observations, failed probes, and monitor restart/reconciliation.
+- **Service Watchdog:** keep each protected unit and protection-condition
+  incident independent. Repeated recovery attempts append occurrences only
+  when the watchdog FSM tracks those attempts; verified recovery normalizes
+  only the corresponding incident. Distinguish availability recovery from enablement/protection
+  restoration, and do not close one incident merely because a different
+  condition or unit recovered.
+- **Log Analysis:** resolve one-shot detections immediately after registration.
+  Multi-observation FSM detections remain active until their configured quiet
+  period expires. Each matching observation during that active period adds an
+  occurrence and restarts the quiet-period deadline; cooldown expiry normalizes
+  the event and clears its incident identity so a later burst creates a new
+  event.
+- **ZFS/network monitoring alignment:** inspect current source/rule-keyed alert
+  and occurrence behavior in `resources-monitor` for ZFS and network metric
+  rules. Document which stable source identity is used and ensure the lifecycle
+  semantics above align where the same alert manager contract applies.
+- Define stable correlation keys, event IDs, occurrence meaning, normalization
+  conditions, persistence/restart reconciliation, and duplicate/out-of-order
+  handling against the existing logging-manager contracts before changing
+  implementation. Do not claim durable or exactly-once lifecycle behavior
+  without corresponding storage or messaging guarantees.
+
+Acceptance criteria:
+
+- Two mounts, two systemd units, and two watchdog-protected units can each
+  maintain separate incidents; transitions for one do not mutate another.
+- Occurrences are emitted only by FSM paths that aggregate multiple
+  observations; repeated polls and one scan's multiple findings do not create
+  occurrence rows.
+- Unmount or verified recovery resolves only the correlated incident; repeated
+  polling, mount changes, and unsuccessful probes do not prematurely normalize
+  an event.
+- One-shot security detections are immediately normal after successful
+  registration. Password-guessing incidents normalize only after the configured
+  quiet period, which resets whenever another failure arrives.
+- Restart/reconciliation, duplicate delivery, and out-of-order transition
+  behavior are documented and covered at the service level; externally visible
+  lifecycle behavior is verified through Python HyperionTF system tests and
+  the relevant CLI.
+
 ## 4. SVC-001 — Log Analysis Service
 
 ### 4.1 Function
@@ -552,6 +622,10 @@ The feature is incomplete until integrated into the **existing** delivery workfl
 - [ ] All five services compile, run, stop gracefully, and use the shared worker/config/CLI conventions where
   applicable.
 - [ ] Existing manager and NATS contracts are used; events pass correct lifecycle/create/update/correlation behavior.
+- [ ] **Event lifecycle (TASK-EVENT-LIFECYCLE-001):** mount, antivirus, system-service-monitor, and watchdog incidents
+  use stable per-source correlation and source-specific normalization; occurrence rows are reserved for FSM paths that
+  intentionally aggregate multiple observations. ZFS/network `resources-monitor` lifecycle behavior is inspected and
+  documented as the comparison baseline.
 - [ ] All run under separate non-root identities; only necessary group access is granted.
 - [ ] AppArmor is enforcing and systemd sandboxing active; both normal operations and expected permission denials are
   demonstrated.
@@ -616,9 +690,11 @@ The feature is incomplete until integrated into the **existing** delivery workfl
 4. Implement SVC-004, then SVC-005 integration.
 5. Implement shared FSM engine and its three detection behaviors (TASK-FSM-001); use it in SVC-001 with sample audit
    records, rule-format demos, and the verified auth lockdown integration.
-6. Assess and migrate applicable FSM-like logic in existing monitoring services (TASK-FSM-002); verify behavioral
+6. Refine event correlation and lifecycle per source for SVC-002–SVC-005 (TASK-EVENT-LIFECYCLE-001), using the
+   verified `resources-monitor` lifecycle and ZFS/network source behavior as comparison points.
+7. Assess and migrate applicable FSM-like logic in existing monitoring services (TASK-FSM-002); verify behavioral
    compatibility.
-7. Extend full packaging, pipelines, deployment, security and integration tests alongside each service; finish with
+8. Extend full packaging, pipelines, deployment, security and integration tests alongside each service; finish with
    end-to-end demos and documentation review.
 
 Do not defer all deployment/security work until the end: each service should be validated in the expected confinement as

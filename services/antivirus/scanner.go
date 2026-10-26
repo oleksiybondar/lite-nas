@@ -32,6 +32,7 @@ const (
 // scanResult carries bounded scanner evidence for operational reporting.
 type scanResult struct {
 	mount    mountinfo.Record
+	eventID  string
 	status   scanStatus
 	evidence string
 	err      error

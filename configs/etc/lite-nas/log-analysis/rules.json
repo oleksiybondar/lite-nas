@@ -7,7 +7,7 @@
       "type": "keyed_threshold",
       "threshold": 3,
       "window": "2m",
-      "cooldown": "10m",
+      "cooldown": "3m",
       "idle": "30m",
       "key_by": "account",
       "max_keys": 2048
@@ -26,10 +26,10 @@
   ],
   "rules": [
     {
-      "id": "pam_account_retry",
+      "id": "pam_password_guessing",
       "enabled": true,
       "source": "auth",
-      "category": "auth_failure",
+      "category": "password_guessing",
       "pattern": "pam_unix\\(litenas-auth:auth\\): authentication failure",
       "success_pattern": "pam_unix\\(litenas-auth:session\\): session opened for user",
       "instance": "account_retry",
@@ -40,7 +40,7 @@
       "id": "pam_source_probing",
       "enabled": false,
       "source": "auth",
-      "category": "auth_failure",
+      "category": "password_guessing",
       "pattern": "pam_unix\\(litenas-auth:auth\\): authentication failure",
       "instance": "source_probing",
       "severity": "critical",

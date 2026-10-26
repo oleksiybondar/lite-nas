@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -195,13 +196,33 @@ func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, al
 	if len(message) > 256 {
 		message = message[:256]
 	}
-	alert := loggingmanagercontract.AlertPayload{
-		EventID: intent.event.EventID, Category: "Mount lifecycle", Severity: enum.SeverityInfo,
+	alertID := mountAlertEventID(intent.event)
+	if intent.event.Action == mountcontract.Unmounted {
+		response := loggingmanagercontract.OKResponse{}
+		if err := alertClient.Request(ctx, systemcontract.UpdateAlertStateRPCSubject,
+			loggingmanagercontract.UpdateAlertStateInput{EventID: alertID, Status: enum.StatusNormal, Message: &message}, &response); err != nil {
+			return err
+		}
+		// No alert exists when the mount was already present at the monitor's
+		// baseline; that is a normal no-op rather than a failed lifecycle update.
+		return nil
+	}
+	triggerValue := intent.event.MountPoint
+	if len(triggerValue) > 512 {
+		triggerValue = triggerValue[:512]
+	}
+	return alertClient.Publish(ctx, systemcontract.AlertSubject, loggingmanagercontract.AlertPayload{
+		EventID: alertID, Category: "Mount lifecycle", Severity: enum.SeverityInfo,
 		CreatedAt: intent.event.ObservedAt, Source: sharedcontracts.ServiceMountMonitor,
-		Message: message, TriggerValue: intent.event.MountPoint,
-	}
-	if len(alert.TriggerValue) > 512 {
-		alert.TriggerValue = alert.TriggerValue[:512]
-	}
-	return alertClient.Publish(ctx, systemcontract.AlertSubject, alert)
+		Message: message, TriggerValue: triggerValue,
+	})
+}
+
+// mountAlertEventID correlates the alert lifecycle for one kernel mount
+// identity across monitor restarts. The NATS transition EventID remains unique
+// per transition for subscriber deduplication.
+func mountAlertEventID(event mountcontract.LifecycleEvent) string {
+	identity := fmt.Sprintf("%d:%s:%s:%s", event.MountID, event.MountPoint, event.Source, event.FSType)
+	digest := sha256.Sum256([]byte(identity))
+	return "M" + hex.EncodeToString(digest[:8])
 }

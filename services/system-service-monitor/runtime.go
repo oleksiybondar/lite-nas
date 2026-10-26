@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -214,13 +215,21 @@ func publishStateIntent(ctx context.Context, event servicecontract.StateEvent, e
 	if len(message) > 256 {
 		message = message[:256]
 	}
+	alertID := serviceAlertEventID(event.Unit)
 	alert := loggingcontract.AlertPayload{
-		EventID: event.EventID, Category: "Service availability", Severity: enum.SeverityError,
+		EventID: alertID, Category: "Service availability", Severity: enum.SeverityError,
 		CreatedAt: event.ObservedAt, Source: sharedcontracts.ServiceSystemServiceMonitor, Message: message,
 	}
 	if err := alertClient.Publish(ctx, systemcontract.AlertSubject, alert); err != nil {
 		return err
 	}
-	alerts[event.Unit] = event.EventID
+	alerts[event.Unit] = alertID
 	return nil
+}
+
+// serviceAlertEventID keeps the active availability incident stable per
+// configured systemd unit while state-notification IDs remain transition-unique.
+func serviceAlertEventID(unit string) string {
+	digest := sha256.Sum256([]byte(unit))
+	return "S" + hex.EncodeToString(digest[:8])
 }
