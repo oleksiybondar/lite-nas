@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"lite-nas/shared/config"
@@ -21,7 +22,15 @@ const (
 	// defaultMaxReconnects defines the reconnect attempt limit.
 	// A negative value means reconnect indefinitely.
 	defaultMaxReconnects = -1
+
+	// lifecycleLogInterval bounds repeated lifecycle messages during broker outages.
+	lifecycleLogInterval = time.Minute
 )
+
+var lifecycleLogState = struct {
+	sync.Mutex
+	last map[string]time.Time
+}{last: make(map[string]time.Time)}
 
 // connection is a low-level wrapper around a NATS connection.
 //
@@ -382,6 +391,9 @@ func handleDisconnectErr(
 	nc *nats.Conn,
 	err error,
 ) {
+	if !allowLifecycleLog("disconnected:" + nc.Opts.Name) {
+		return
+	}
 	if err != nil {
 		log.Warn(
 			"nats disconnected",
@@ -402,6 +414,9 @@ func handleReconnect(
 	log logger.Logger,
 	nc *nats.Conn,
 ) {
+	if !allowLifecycleLog("reconnected:" + nc.Opts.Name) {
+		return
+	}
 	log.Info(
 		"nats reconnected",
 		"url", nc.ConnectedUrl(),
@@ -413,10 +428,26 @@ func handleClosed(
 	log logger.Logger,
 	nc *nats.Conn,
 ) {
+	if !allowLifecycleLog("closed:" + nc.Opts.Name) {
+		return
+	}
 	log.Warn(
 		"nats connection closed",
 		"last_error", errorString(nc.LastError()),
 	)
+}
+
+// allowLifecycleLog limits repeated NATS lifecycle records while preserving
+// periodic visibility during a sustained outage.
+func allowLifecycleLog(event string) bool {
+	now := time.Now()
+	lifecycleLogState.Lock()
+	defer lifecycleLogState.Unlock()
+	if last, ok := lifecycleLogState.last[event]; ok && now.Sub(last) < lifecycleLogInterval {
+		return false
+	}
+	lifecycleLogState.last[event] = now
+	return true
 }
 
 // handleAsyncError logs asynchronous NATS callback and subscription errors.

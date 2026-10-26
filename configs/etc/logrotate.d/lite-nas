@@ -1,6 +1,7 @@
-/var/log/lite-nas/file-service.log /var/log/lite-nas/stream-service.log /var/log/lite-nas/moments.log {
+/var/log/lite-nas/*.log {
 	daily
 	rotate 7
+	maxsize 50M
 	missingok
 	notifempty
 	compress
