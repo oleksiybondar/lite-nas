@@ -21,6 +21,8 @@ pytestmark = [
 
 EVENT_LIST_COMMAND = "--cmd getAlerts --page 1 --pageSize 25"
 SSH_LOGIN_PATTERN = re.compile(r"sec-ssh-[0-9a-f]{12}")
+SYSTEM_LOGIN_PATTERN = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
+ALERT_WAIT_SECONDS = 25.0
 
 
 def current_security_alerts(security_cli_client: CLIClient) -> list[dict[str, object]]:
@@ -33,22 +35,33 @@ def current_security_alerts(security_cli_client: CLIClient) -> list[dict[str, ob
     return as_event_items(payload)
 
 
-def wait_for_cli_authentication_alert(
+def submit_failed_su_password(cli_client: CLIClient, login: str) -> None:
+    """Attempt one rejected `su -` login for a validated system account."""
+    if not SYSTEM_LOGIN_PATTERN.fullmatch(login):
+        raise ValueError
+    cli_client.exec_interactive(f"su - {login}")
+    cli_client.wait("Password:", timeout=5)
+    cli_client.send_keys("invalid-system-test-password")
+
+
+def wait_for_cli_security_alert(
     security_cli_client: CLIClient,
     *,
     after_rec_id: int,
+    category: str,
     channel: str,
-    timeout: float = 25.0,
+    status: str | None = None,
 ) -> dict[str, object] | None:
-    """Poll for a new authentication failure alert with its expected origin."""
-    deadline = time.monotonic() + timeout
+    """Poll for a new security alert matching its category, origin, and state."""
+    deadline = time.monotonic() + ALERT_WAIT_SECONDS
     while time.monotonic() < deadline:
         for event in current_security_alerts(security_cli_client):
             if (
                 event.get("Source") == "log-analysis"
-                and event.get("Category") == "auth_failure"
+                and event.get("Category") == category
                 and int(event.get("RecID", 0)) > after_rec_id
                 and f"via {channel}" in str(event.get("Message", ""))
+                and (status is None or event.get("Status") == status)
             ):
                 return event
         time.sleep(0.5)
@@ -79,15 +92,14 @@ def test_failed_su_password_is_reported_as_local_cli_authentication(
         default=0,
     )
 
-    security_cli_client.exec_interactive(f"su - {TEST_SUDO_LOGIN}")
-    security_cli_client.wait("Password:", timeout=5)
-    security_cli_client.send_keys("invalid-system-test-password")
-    security_cli_client.wait("su: Authentication failure", timeout=10)
+    submit_failed_su_password(security_cli_client, TEST_SUDO_LOGIN)
 
-    event = wait_for_cli_authentication_alert(
+    event = wait_for_cli_security_alert(
         security_cli_client,
         after_rec_id=latest_rec_id,
+        category="auth_failure",
         channel="local CLI",
+        status="normal",
     )
     assert (
         event is not None
@@ -130,11 +142,53 @@ def test_failed_ssh_password_is_reported_as_ssh_cli_authentication(
     security_cli_client.wait("'s password:", timeout=10)
     security_cli_client.send_keys("invalid-system-test-password")
 
-    event = wait_for_cli_authentication_alert(
+    event = wait_for_cli_security_alert(
         security_cli_client,
         after_rec_id=latest_rec_id,
+        category="auth_failure",
         channel="SSH/CLI",
+        status="normal",
     )
     assert (
         event is not None
     ), "Expected a new SSH/CLI auth_failure alert after the rejected SSH login."
+
+
+def test_repeated_failed_su_passwords_raise_local_cli_password_guessing_alert(
+    security_cli_client: CLIClient,
+) -> None:
+    """Test case: repeated failed local account switches trigger password guessing.
+
+    Preparation:
+    - The account keyed PAM password-guessing rule is enabled with a threshold
+      of three failures in two minutes.
+    - Log Analysis and Security Logging Manager are running.
+
+    Action:
+    - Attempt three `su -` logins to the configured sudo test account, entering
+      an invalid password each time.
+
+    Expected result:
+    - A new active `password_guessing` alert identifies its origin as `local CLI`.
+
+    Requirement: task.md/SVC-001, logging-managers/FR-004.
+    """
+    previous_alerts = current_security_alerts(security_cli_client)
+    latest_rec_id = max(
+        (int(event.get("RecID", 0)) for event in previous_alerts),
+        default=0,
+    )
+
+    for _ in range(3):
+        submit_failed_su_password(security_cli_client, TEST_SUDO_LOGIN)
+
+    event = wait_for_cli_security_alert(
+        security_cli_client,
+        after_rec_id=latest_rec_id,
+        category="password_guessing",
+        channel="local CLI",
+        status="active",
+    )
+    assert (
+        event is not None
+    ), "Expected an active local-CLI password_guessing alert after three failed su logins."
