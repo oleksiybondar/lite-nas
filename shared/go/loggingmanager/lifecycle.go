@@ -10,6 +10,8 @@ import (
 	"lite-nas/shared/loggingmanager/query"
 )
 
+const acknowledgeWriteTimeout = 10 * time.Second
+
 func (core *Core) acknowledgeEvent(ctx context.Context, input dto.AcknowledgeEventInput) error {
 	lifecycle, err := core.loadLifecycle(ctx, input.EventID)
 	if err != nil {
@@ -25,8 +27,20 @@ func (core *Core) acknowledgeEvent(ctx context.Context, input dto.AcknowledgeEve
 	lifecycle.AcknowledgedBy = input.AcknowledgedBy
 	lifecycle.AcknowledgedAt = ackAt
 
-	core.writerInputCh <- WriteRequest{Query: query.UpsertLifecycle(lifecycle)}
-	return nil
+	completion := make(chan error, 1)
+	writeCtx, cancel := context.WithTimeout(ctx, acknowledgeWriteTimeout)
+	defer cancel()
+	select {
+	case core.writerInputCh <- WriteRequest{Query: query.UpsertLifecycle(lifecycle), Completion: completion}:
+	case <-writeCtx.Done():
+		return writeCtx.Err()
+	}
+	select {
+	case err := <-completion:
+		return err
+	case <-writeCtx.Done():
+		return writeCtx.Err()
+	}
 }
 
 func (core *Core) muteEvent(ctx context.Context, input dto.MuteEventInput) error {

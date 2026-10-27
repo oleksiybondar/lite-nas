@@ -5,7 +5,7 @@ package plugins
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -43,20 +43,22 @@ type Detection struct {
 	EventID            string
 	Account            string
 	SourceAddress      string
+	Service            string
 	ResolveImmediately bool
 	At                 time.Time
 }
 
 // Config specifies one validated plugin instance constructed at startup.
 type Config struct {
-	ID        string        `json:"id"`
-	Type      string        `json:"type"`
-	Threshold int           `json:"threshold"`
-	Window    time.Duration `json:"-"`
-	Cooldown  time.Duration `json:"-"`
-	Idle      time.Duration `json:"-"`
-	KeyBy     string        `json:"key_by"`
-	MaxKeys   int           `json:"max_keys"`
+	ID            string        `json:"id"`
+	EventIDPrefix string        `json:"event_id_prefix"`
+	Type          string        `json:"type"`
+	Threshold     int           `json:"threshold"`
+	Window        time.Duration `json:"-"`
+	Cooldown      time.Duration `json:"-"`
+	Idle          time.Duration `json:"-"`
+	KeyBy         string        `json:"key_by"`
+	MaxKeys       int           `json:"max_keys"`
 }
 
 type (
@@ -127,6 +129,12 @@ func New(cfg Config, output chan<- Detection, log sharedlogger.Logger) (*Plugin,
 	}
 	if cfg.Type != "immediate" && cfg.Type != "threshold" && cfg.Type != "keyed_threshold" {
 		return nil, fmt.Errorf("uncompiled plugin type %q", cfg.Type)
+	}
+	if cfg.EventIDPrefix == "" {
+		cfg.EventIDPrefix = "SEC"
+	}
+	if len(cfg.EventIDPrefix) > 4 || !isAlphaNumeric(cfg.EventIDPrefix) {
+		return nil, errors.New("invalid event ID prefix")
 	}
 	if cfg.Type == "immediate" {
 		cfg.Threshold = 1
@@ -306,11 +314,11 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 			data.IdleDeadline = time.Now().Add(p.cfg.Idle)
 			operation := "occurrence"
 			if data.EventID == "" {
-				var bytes [8]byte
-				if _, err := rand.Read(bytes[:]); err != nil {
+				eventID, err := newEventID(p.cfg.EventIDPrefix)
+				if err != nil {
 					return data, nil, err
 				}
-				data.EventID = "L" + hex.EncodeToString(bytes[:])
+				data.EventID = eventID
 				operation = "create"
 			}
 			detection := p.detection(data, operation)
@@ -344,9 +352,9 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 			return instanceData{}, effects, nil
 		},
 	}
-	immediateNext := cooldown
-	if p.cfg.Type == "immediate" {
-		immediateNext = idle
+	immediateNext := idle
+	if p.cfg.Type != "immediate" {
+		immediateNext = cooldown
 	}
 	rows := []fsm.Row[state, input]{
 		{From: idle, On: observed, Guard: "one", To: immediateNext, Action: "detect"},
@@ -368,11 +376,36 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 	})
 }
 
+// newEventID generates a random identifier accepted by logging-manager's
+// bounded <prefix>_<decimal sequence> event-ID contract.
+func newEventID(prefix string) (string, error) {
+	var random [8]byte
+	if _, err := rand.Read(random[:]); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%06x_%08d", prefix, binary.BigEndian.Uint32(random[:4])&0x00ffffff, binary.BigEndian.Uint32(random[4:])%100_000_000), nil
+}
+
+// isAlphaNumeric validates the configured security marker before it is used
+// as part of a logging-manager event identifier.
+func isAlphaNumeric(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Plugin) detection(data instanceData, operation string) Detection {
 	return Detection{
 		InstanceID: p.id, RuleID: data.Last.RuleID, Category: data.Last.Category,
 		Severity: data.Last.Severity, Email: data.Last.Email, Lockdown: data.Last.Lockdown, Operation: operation,
 		EventID: data.EventID, Account: data.Last.Account, SourceAddress: data.Last.SourceAddress,
+		Service:            data.Last.Service,
 		ResolveImmediately: p.cfg.Type == "immediate", At: data.Last.At,
 	}
 }

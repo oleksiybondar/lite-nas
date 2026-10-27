@@ -2,10 +2,12 @@ package plugins
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
 	sharedlogger "lite-nas/shared/logger"
+	"lite-nas/shared/testutil/loggingmanagertest"
 )
 
 func pluginFixture(t *testing.T, kind string, threshold int, keyBy string) (*Plugin, chan Detection) {
@@ -26,12 +28,26 @@ func authObservation(account string) Observation {
 }
 
 // Requirements: task.md/SVC-001.
-func TestImmediatePluginEmitsOnFirstObservation(t *testing.T) {
+func TestGeneratedEventIDMatchesLoggingManagerContract(t *testing.T) {
+	t.Parallel()
+	eventID, err := newEventID("SEC")
+	if err != nil {
+		t.Fatalf("generate event ID: %v", err)
+	}
+	loggingmanagertest.MustValidateEventID(t, eventID)
+}
+
+// Requirements: task.md/SVC-001.
+func TestImmediatePluginCreatesOneResolvedEventPerObservation(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "immediate", 1, "global")
-	plugin.process(context.Background(), authObservation("alice"))
-	if len(output) != 1 {
-		t.Fatalf("detections = %d", len(output))
+	for range 2 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	first, second := <-output, <-output
+	if first.Operation != "create" || second.Operation != "create" || first.EventID == second.EventID ||
+		!first.ResolveImmediately || !second.ResolveImmediately {
+		t.Fatalf("immediate detections = %#v, %#v", first, second)
 	}
 }
 
@@ -106,7 +122,11 @@ func TestCooldownSuppressesRepeatDetection(t *testing.T) {
 	for range 5 {
 		plugin.process(context.Background(), authObservation("alice"))
 	}
-	if len(output) != 1 {
-		t.Fatalf("detections = %d", len(output))
+	operations := make([]string, 0, len(output))
+	for range len(output) {
+		operations = append(operations, (<-output).Operation)
+	}
+	if !slices.Equal(operations, []string{"create", "occurrence", "occurrence"}) {
+		t.Fatalf("operations = %v", operations)
 	}
 }

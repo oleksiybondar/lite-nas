@@ -19,7 +19,7 @@ export const AlertsTableAcknowledgedAtCell = ({
   return (
     <AlertsTableTextCell
       cellName="acknowledged-at"
-      value={formatAlertsTimestamp(item.AcknowledgedAt)}
+      value={item.Acknowledged ? formatAlertsTimestamp(item.AcknowledgedAt) : "-"}
     />
   );
 };

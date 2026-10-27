@@ -7,7 +7,7 @@ lifecycles. Snapshot collection in metrics services is stateless and was not mig
 
 | Service | Input and output | Default |
 | --- | --- | --- |
-| Log Analysis | Tails `/var/log/auth.log`; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One account rule: 3 PAM failures in 2 minutes, 10 minute cooldown; source probing disabled; lockdown disabled |
+| Log Analysis | Tails `/var/log/auth.log`; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; source probing and lockdown disabled |
 | Mount Monitor | Reads `/proc/self/mountinfo`; publishes `mount.events.lifecycle` and system alerts | 5 second poll; first snapshot is a baseline |
 | Antivirus | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; publishes security alerts for malware and system warnings for incomplete scans | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout |
 | System Service Monitor | Probes configured systemd units; publishes `service.monitor.events.state` and system alert lifecycle | 10 second poll; units in `system-service-monitor.conf` |
@@ -56,19 +56,28 @@ and review the impact before restarting Log Analysis. The RPC has a NATS ACL lim
 Auth owns enforcement and its state change event.
 
 Security alerts follow the existing Security Logging Manager and Security Email Notifier path; no new SMTP
-client is used. The alert contract has an optional `email` flag. Log Analysis sets it explicitly from each
-rule's `email_on_critical` choice; this option is accepted only for critical rules. The sample account warning
-does not send email, while the disabled critical source-probing example is configured to send email if enabled.
-Publishers that omit the flag retain the notifier's previous behavior. Transport or SMTP failure must be checked
-in the corresponding service logs.
+client is used. A single failed login remains a warning without email. Repeated known-account or unknown-account
+failures are critical and set `email_on_critical`, so they send email when the configured cooldown creates a new
+incident. Malware detections are critical and explicitly request email. The disabled critical source-probing
+example also sends email if enabled. Publishers that omit the alert contract's optional `email` flag retain the
+notifier's previous behavior. Transport or SMTP failure must be checked in the corresponding service logs.
+Log Analysis event IDs use the configurable `event_id_prefix` in `rules.json` (shipped as `SEC`), followed by a
+random suffix. Existing event IDs remain unchanged; newly created Log Analysis events receive the configured
+prefix after the service restarts.
 
 ## Installation and operations
 
 `deploy-all.sh`, individual `deploy-<service>.sh` entrypoints, and the single `lite-nas` Debian package install
 the binaries, NATS and auth identity certificates, dedicated users, systemd units, AppArmor profiles, and the
 exact Watchdog sudoers drop-in. ClamAV and USBGuard are package dependencies because the default deployment
-enables Antivirus and protects USBGuard. The new service configs and Log Analysis rule file are copied only when
-absent; upgrades preserve administrator edits. No embedded passwords or keys are in sample configs. Mount
+enables Antivirus and protects USBGuard. Service `.conf` files and the live Log Analysis rules preserve
+administrator edits across local deploys and Debian package upgrades. The packaged default is
+`configs/etc/lite-nas/log-analysis/rules.json`; the active rules are
+`/etc/lite-nas/log-analysis/rules.json`. Edit the active JSON file to add or change audit detections, then
+restart Log Analysis with `sudo systemctl restart lite-nas-log-analysis.service`. On a fresh install, deployment
+copies the packaged default into `/etc`; on later deployments, it leaves the active rules alone. To review a
+new packaged default against local rules, compare those two files before deciding whether to merge changes.
+No embedded passwords or keys are in sample configs. Mount
 Monitor and System Service Monitor have the operator group needed for system alerts; Antivirus has operator and
 security groups; Watchdog and Log Analysis have the security group. The Log Analysis account also belongs to
 `adm` to read `/var/log/auth.log`. The Antivirus scanner runs without root and never follows symlinks or crosses

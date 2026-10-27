@@ -5,6 +5,8 @@ import os
 import pytest
 from api.file_service.conftest import login_cookie
 from constants import (
+    SECURITY_LOGGING_MANAGER_LOGIN,
+    SECURITY_LOGGING_MANAGER_PASSWORD,
     SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
     SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
 )
@@ -30,4 +32,14 @@ def moments_cookie(moments_client: RESTClient) -> str:
         moments_client,
         SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
         SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD,
+    )
+
+
+@pytest.fixture
+def security_cookie(api_client: RESTClient) -> str:
+    """Authenticate the security test account for security-alert API checks."""
+    return login_cookie(
+        api_client,
+        SECURITY_LOGGING_MANAGER_LOGIN,
+        SECURITY_LOGGING_MANAGER_PASSWORD,
     )

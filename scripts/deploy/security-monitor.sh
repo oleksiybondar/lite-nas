@@ -30,6 +30,7 @@ deploy.securityMonitor.deploy() {
 	local config_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/$name.conf"
 	local unit_source="$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/$user.service"
 	local rules_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/log-analysis/rules.json"
+	local rules_target=/etc/lite-nas/log-analysis/rules.json
 
 	case "$name" in
 	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis) ;;
@@ -82,8 +83,8 @@ deploy.securityMonitor.deploy() {
 	fi
 	if [ "$name" = "log-analysis" ]; then
 		install -d -m 0750 -o "$user" -g lite-nas /etc/lite-nas/log-analysis
-		if [ ! -f /etc/lite-nas/log-analysis/rules.json ]; then
-			install -m 0640 -o "$user" -g lite-nas "$rules_source" /etc/lite-nas/log-analysis/rules.json
+		if [ ! -f "$rules_target" ]; then
+			install -m 0640 -o "$user" -g lite-nas "$rules_source" "$rules_target"
 		fi
 	fi
 	install -d -m 0751 -o root -g lite-nas /var/log/lite-nas

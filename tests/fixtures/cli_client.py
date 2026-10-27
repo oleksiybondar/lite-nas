@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 
 import pytest
@@ -56,10 +57,11 @@ def authenticate_cli_client_as_user(
     login: str,
     password: str,
 ) -> None:
-    """Switch an existing shell session to the target user with sudo password handling."""
+    """Switch to a system-test user, supporting both regular and root runners."""
     cli_client.exec_interactive(f"su - {login}")
-    cli_client.wait("Password:", timeout=5)
-    cli_client.send_keys(password)
+    if os.geteuid() != 0:
+        cli_client.wait("Password:", timeout=5)
+        cli_client.send_keys(password)
     cli_client.wait("$", timeout=10)
     replace_prompt(cli_client)
 

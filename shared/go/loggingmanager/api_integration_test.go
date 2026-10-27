@@ -132,7 +132,7 @@ func TestAcknowledgeRemovesEventFromUnacknowledgedList(t *testing.T) {
 	rig := newRunningCoreRig(t)
 	eventID := mustCreateEvent(t, rig, "system")
 
-	err := rig.core.AcknowledgeEvent(dto.AcknowledgeEventInput{
+	err := rig.core.AcknowledgeEvent(context.Background(), dto.AcknowledgeEventInput{
 		EventID:        eventID,
 		AcknowledgedBy: "ops",
 	})
@@ -293,7 +293,7 @@ func TestCoreMethodsReturnNotFoundForUnknownEvent(t *testing.T) {
 		t.Fatalf("SetState() err = %v, want %v", err, errEventNotFound)
 	}
 
-	err = core.AcknowledgeEvent(dto.AcknowledgeEventInput{
+	err = core.AcknowledgeEvent(context.Background(), dto.AcknowledgeEventInput{
 		EventID:        "event_1",
 		AcknowledgedBy: "ops",
 	})

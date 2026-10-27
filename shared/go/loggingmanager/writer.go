@@ -185,18 +185,38 @@ func (w *Writer) flushIfNeeded(
 //   - Drains only currently available items and stops when the channel would
 //     block.
 //   - If queryInCh is closed, draining stops immediately.
-func (w *Writer) drainWriteChannel(batch *[]query.Query, tailState *deferredTailState) {
+func (w *Writer) drainWriteChannel(batch *[]query.Query, tailState *deferredTailState) []chan<- error {
+	var completions []chan<- error
 	for {
 		select {
 		case request, ok := <-w.requestInCh:
 			if !ok {
-				return
+				return completions
 			}
 			*batch = append(*batch, request.Query)
 			tailState.capture(request)
+			if request.Completion != nil {
+				completions = append(completions, request.Completion)
+			}
 		default:
-			return
+			return completions
 		}
+	}
+}
+
+// completeWriteRequests releases synchronous producers after their queued
+// writes have either committed or failed during shutdown draining.
+func completeWriteRequests(completions []chan<- error, err error) {
+	for _, completion := range completions {
+		completeWriteRequest(completion, err)
+	}
+}
+
+// completeWriteRequest sends one result into the producer-owned buffered
+// channel; the writer never closes that channel.
+func completeWriteRequest(completion chan<- error, err error) {
+	if completion != nil {
+		completion <- err
 	}
 }
 
@@ -205,8 +225,10 @@ func (w *Writer) drainWriteChannel(batch *[]query.Query, tailState *deferredTail
 // Side effects:
 //   - May execute persistence I/O if the drained batch is non-empty.
 func (w *Writer) handleContextCancel(batch *[]query.Query, tailState *deferredTailState) error {
-	w.drainWriteChannel(batch, tailState)
-	return w.flushIfNeeded(context.Background(), *batch, tailState)
+	completions := w.drainWriteChannel(batch, tailState)
+	err := w.flushIfNeeded(context.Background(), *batch, tailState)
+	completeWriteRequests(completions, err)
+	return err
 }
 
 // handleWriteRequest appends one query and flushes when maxItems is reached.
@@ -228,11 +250,22 @@ func (w *Writer) handleWriteRequest(
 		return w.flushIfNeeded(context.Background(), *batch, tailState)
 	}
 	if request.Query.SQL == "" {
+		completeWriteRequest(request.Completion, errQueryWithEmptySQL)
 		return errQueryWithEmptySQL
 	}
 
 	*batch = append(*batch, request.Query)
 	tailState.capture(request)
+	if request.Completion != nil {
+		err := w.flush(context.Background(), *batch, tailState)
+		completeWriteRequest(request.Completion, err)
+		if err != nil {
+			return err
+		}
+		*batch = (*batch)[:0]
+		tailState.reset()
+		return nil
+	}
 	if len(*batch) < w.maxItems {
 		return nil
 	}

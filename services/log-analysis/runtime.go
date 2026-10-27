@@ -52,7 +52,7 @@ func run(ctx context.Context) error {
 	}
 	defer infra.Close()
 	effects := make(chan plugins.Detection, 64)
-	instances, err := constructInstances(spec.Instances, effects, infra.Logger)
+	instances, err := constructInstances(spec.Instances, spec.EventIDPrefix, effects, infra.Logger)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func run(ctx context.Context) error {
 
 // constructInstances uses the static registry once at the composition root.
 // Distinct IDs remain distinct even when they select the same compiled type.
-func constructInstances(specs []instanceSpec, output chan<- plugins.Detection, log sharedlogger.Logger) (map[string]*plugins.Plugin, error) {
+func constructInstances(specs []instanceSpec, eventIDPrefix string, output chan<- plugins.Detection, log sharedlogger.Logger) (map[string]*plugins.Plugin, error) {
 	instances := make(map[string]*plugins.Plugin)
 	for _, spec := range specs {
 		if !spec.Enabled {
@@ -112,7 +112,7 @@ func constructInstances(specs []instanceSpec, output chan<- plugins.Detection, l
 		if constructor == nil {
 			return nil, fmt.Errorf("unknown plugin type %q", spec.Type)
 		}
-		cfg, err := spec.pluginConfig()
+		cfg, err := spec.pluginConfig(eventIDPrefix)
 		if err != nil {
 			return nil, fmt.Errorf("plugin instance %s: %w", spec.ID, err)
 		}
@@ -165,7 +165,7 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 	if !*alertSent {
 		switch effect.Operation {
 		case "create":
-			message := "Security rule triggered: " + effect.RuleID
+			message := detectionMessage("Security rule triggered", effect)
 			email := effect.Email
 			err := alertClient.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
 				EventID: effect.EventID, Category: effect.Category, Severity: enum.Severity(effect.Severity),
@@ -175,17 +175,10 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 			if err != nil {
 				return err
 			}
-			if effect.ResolveImmediately {
-				message := "Security detection recorded: " + effect.RuleID
-				response := loggingcontract.OKResponse{}
-				if err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
-					loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response); err != nil {
-					return err
-				}
-				if !response.OK {
-					return errors.New("security logging manager rejected immediate detection resolution")
-				}
-			}
+			// Publish is asynchronous: the manager may not have committed the
+			// event before the following state RPC. Remember the successful create
+			// so retries can wait on resolution without recreating the active row.
+			*alertSent = true
 		case "occurrence":
 			value := "repeated matching observations"
 			if err := alertClient.Publish(ctx, securitycontract.AlertOccurrenceSubject, loggingcontract.AlertOccurrencePayload{
@@ -194,8 +187,9 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 			}); err != nil {
 				return err
 			}
+			*alertSent = true
 		case "normalize":
-			message := "Security detection cooldown elapsed or successful login observed"
+			message := detectionMessage("Security detection cooldown elapsed or successful login observed", effect)
 			response := loggingcontract.OKResponse{}
 			err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
 				loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response)
@@ -205,10 +199,24 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 			if !response.OK {
 				return errors.New("security logging manager rejected normalization")
 			}
+			*alertSent = true
 		default:
 			return fmt.Errorf("unknown detection operation %q", effect.Operation)
 		}
-		*alertSent = true
+	}
+	if effect.Operation == "create" && effect.ResolveImmediately {
+		if err := confirmAlertPersisted(ctx, effect.EventID, alertClient); err != nil {
+			return err
+		}
+		message := detectionMessage("Security detection recorded", effect)
+		response := loggingcontract.OKResponse{}
+		if err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
+			loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response); err != nil {
+			return err
+		}
+		if !response.OK {
+			return errors.New("security logging manager rejected immediate detection resolution")
+		}
 	}
 	if effect.Operation != "create" || !effect.Lockdown {
 		return nil
@@ -229,4 +237,48 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 		return errors.New("auth service did not apply lockdown")
 	}
 	return nil
+}
+
+// confirmAlertPersisted waits for the manager's asynchronous alert consumer to
+// commit a newly published event before requesting its immediate resolution.
+func confirmAlertPersisted(ctx context.Context, eventID string, alertClient messaging.Client) error {
+	response := loggingcontract.GetAlertResponse{}
+	if err := alertClient.Request(ctx, securitycontract.GetAlertRPCSubject,
+		loggingcontract.GetAlertInput{EventID: eventID}, &response); err != nil {
+		return err
+	}
+	if response.Item == nil {
+		return errors.New("security logging manager has not persisted the new alert")
+	}
+	return nil
+}
+
+// detectionMessage retains the account correlation key in bounded alert text,
+// while never including credential material from the source log.
+func detectionMessage(prefix string, effect plugins.Detection) string {
+	message := prefix + ": " + effect.RuleID
+	if channel := authenticationChannel(effect.Service); channel != "" {
+		message += " via " + channel
+	}
+	if effect.Account != "" {
+		message += " for account " + effect.Account
+	}
+	if len(message) > 256 {
+		message = message[:256]
+	}
+	return message
+}
+
+// authenticationChannel maps known PAM services to a human-readable login path.
+func authenticationChannel(service string) string {
+	switch service {
+	case "litenas-auth":
+		return "Web/API"
+	case "sshd":
+		return "SSH/CLI"
+	case "login", "su", "su-l":
+		return "local CLI"
+	default:
+		return ""
+	}
 }

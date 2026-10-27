@@ -16,7 +16,13 @@ import type {
 } from "@dto/alerts/alerts";
 import type { ServerPaginationController } from "@dto/pagination";
 import { buildAlertsListPath, buildAlertsQueryKey, buildAlertsRoutePath } from "@helpers/alerts";
-import type { QueryObserverResult, RefetchOptions, UseMutationResult } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  type QueryObserverResult,
+  type RefetchOptions,
+  type UseMutationResult,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { PropsWithChildren, ReactElement } from "react";
 
 type AlertsProviderProps = PropsWithChildren<{
@@ -38,7 +44,8 @@ export const AlertsProvider = ({
   children,
   domain,
 }: AlertsProviderProps): ReactElement => {
-  const value = useAlertsProviderValue(domain, category);
+  const queryClient = useQueryClient();
+  const value = useAlertsProviderValue(domain, category, queryClient);
 
   return <AlertsContext.Provider value={value}>{children}</AlertsContext.Provider>;
 };
@@ -49,6 +56,7 @@ export const AlertsProvider = ({
 const useAlertsProviderValue = (
   domain: AlertDomain,
   category: AlertCategory,
+  queryClient: QueryClient,
 ): AlertsContextValue => {
   const paginationState = useAlertsPaginationState();
   const filters = useAlertsFiltersState();
@@ -92,6 +100,7 @@ const useAlertsProviderValue = (
     domain,
     filters,
     pagination,
+    queryClient,
     queryState,
     searchState,
   });
@@ -104,6 +113,7 @@ type BuildAlertsContextValueOptions = {
   domain: AlertDomain;
   filters: ReturnType<typeof useAlertsFiltersState>;
   pagination: ServerPaginationController<AlertListItemDTO>;
+  queryClient: QueryClient;
   queryState: Parameters<typeof buildAlertsListPath>[0];
   searchState: ReturnType<typeof useAlertsSearchState>;
 };
@@ -115,14 +125,15 @@ const buildAlertsContextValue = ({
   domain,
   filters,
   pagination,
+  queryClient,
   queryState,
   searchState,
 }: BuildAlertsContextValueOptions): AlertsContextValue => {
   const refetch = createAlertsRefetch(alertsQuery.refetch);
 
   return {
-    acknowledge: createAcknowledge(acknowledgeMutation.mutateAsync, refetch),
-    acknowledgeMany: createAcknowledgeMany(domain, acknowledgeMutation.mutateAsync, refetch),
+    acknowledge: createAcknowledge(domain, acknowledgeMutation.mutateAsync, queryClient),
+    acknowledgeMany: createAcknowledgeMany(domain, acknowledgeMutation.mutateAsync, queryClient),
     apiPath: buildAlertsListPath(queryState),
     category,
     categoryFilter: filters.categoryFilter,
@@ -172,25 +183,26 @@ const acknowledgeSingle = async (
 };
 
 const createAcknowledge = (
+  domain: AlertDomain,
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  refetch: () => Promise<unknown>,
+  queryClient: QueryClient,
 ): ((id: string) => Promise<void>) => {
   return async (id: string): Promise<void> => {
     await acknowledgeSingle({ id }, mutateAsync);
-    await refetch();
+    await queryClient.invalidateQueries({ queryKey: ["alerts", domain] });
   };
 };
 
 const createAcknowledgeMany = (
   domain: AlertDomain,
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  refetch: () => Promise<unknown>,
+  queryClient: QueryClient,
 ): ((ids: string[]) => Promise<void>) => {
   return async (ids: string[]): Promise<void> => {
     const hasSucceeded = await acknowledgeManyUntilFailure(ids, mutateAsync, domain);
 
     if (hasSucceeded) {
-      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ["alerts", domain] });
     }
   };
 };

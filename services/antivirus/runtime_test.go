@@ -8,7 +8,18 @@ import (
 
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/mountinfo"
+	"lite-nas/shared/testutil/loggingmanagertest"
 )
+
+// Requirements: task.md/SVC-003.
+func TestScanEventIDMatchesLoggingManagerContract(t *testing.T) {
+	t.Parallel()
+	eventID, err := newScanEventID()
+	if err != nil {
+		t.Fatalf("generate scan event ID: %v", err)
+	}
+	loggingmanagertest.MustValidateEventID(t, eventID)
+}
 
 // Requirements: task.md/SVC-003.
 func TestEligibleMountRejectsPrefixSibling(t *testing.T) {

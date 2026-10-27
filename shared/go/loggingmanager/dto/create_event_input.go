@@ -11,4 +11,5 @@ type CreateEventInput struct {
 	Priority  *int          `json:"priority,omitempty" validate:"omitempty,gte=0,lte=5"`
 	CreatedAt string        `json:"created_at,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	Source    string        `json:"source,omitempty" validate:"omitempty,min=1,max=128,printascii"`
+	Message   string        `json:"message,omitempty" validate:"omitempty,max=256"` // Initial event-state message.
 }

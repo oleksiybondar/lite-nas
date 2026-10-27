@@ -94,6 +94,20 @@ authorization before it reaches the final observable result.
 That is expected. The test should still assert one main outcome while relying
 on the integrated runtime path to provide broader system coverage implicitly.
 
+## Security monitoring CLI tests
+
+The authentication cases use the configured security-manager account for normal
+account failures and a unique nonexistent account for unknown-account guessing.
+Mount lifecycle and EICAR scan cases create temporary mounts below `/mnt`, so
+run this suite with root privileges to avoid silently skipping those checks:
+
+```sh
+sudo -E ../.venv/bin/pytest -c pytest.ini cli/security_monitoring -q
+```
+
+The CLI fixtures switch to their configured system-test users before querying
+the logging managers, including when the pytest process starts as root.
+
 ## UI Page Objects
 
 UI system tests use HyperionTF page objects for browser automation. Store those

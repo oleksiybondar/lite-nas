@@ -192,7 +192,9 @@ func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, al
 	if intent.event.Action == mountcontract.Changed {
 		return nil
 	}
-	message := fmt.Sprintf("Mount %s: %s", intent.event.Action, intent.event.MountPoint)
+	message := fmt.Sprintf(
+		"Mount %s (%s): %s", intent.event.Action, intent.event.FSType, intent.event.MountPoint,
+	)
 	if len(message) > 256 {
 		message = message[:256]
 	}

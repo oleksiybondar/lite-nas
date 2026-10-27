@@ -86,9 +86,10 @@ type ruleSpec struct {
 // rulesFile is the complete startup construction plan. Nothing in this file
 // is evaluated as Go code or a command.
 type rulesFile struct {
-	Sources   []sourceSpec   `json:"sources"`
-	Instances []instanceSpec `json:"instances"`
-	Rules     []ruleSpec     `json:"rules"`
+	EventIDPrefix string         `json:"event_id_prefix"`
+	Sources       []sourceSpec   `json:"sources"`
+	Instances     []instanceSpec `json:"instances"`
+	Rules         []ruleSpec     `json:"rules"`
 }
 
 // compiledRule holds safe RE2 patterns and an already initialized plugin.
@@ -124,6 +125,9 @@ func loadRulesFile(path string) (rulesFile, error) {
 	if len(spec.Sources) == 0 || len(spec.Sources) > 16 || len(spec.Instances) == 0 || len(spec.Instances) > 64 || len(spec.Rules) == 0 || len(spec.Rules) > 128 {
 		return rulesFile{}, errors.New("analysis rules file exceeds configured bounds")
 	}
+	if !validEventIDPrefix(spec.EventIDPrefix) {
+		return rulesFile{}, errors.New("analysis rules event_id_prefix must be 1-4 alphanumeric characters")
+	}
 	sources := make(map[string]bool)
 	for _, source := range spec.Sources {
 		if !validAnalysisID(source.ID) || sources[source.ID] || !filepath.IsAbs(source.Path) || filepath.Clean(source.Path) != source.Path || source.Format != "rsyslog_auth" {
@@ -142,7 +146,7 @@ func loadRulesFile(path string) (rulesFile, error) {
 		if !instance.Enabled {
 			continue
 		}
-		if _, err := instance.pluginConfig(); err != nil {
+		if _, err := instance.pluginConfig(spec.EventIDPrefix); err != nil {
 			return rulesFile{}, fmt.Errorf("instance %s: %w", instance.ID, err)
 		}
 	}
@@ -186,7 +190,7 @@ func validAnalysisID(value string) bool {
 	return true
 }
 
-func (spec instanceSpec) pluginConfig() (plugins.Config, error) {
+func (spec instanceSpec) pluginConfig(eventIDPrefix string) (plugins.Config, error) {
 	window, err := time.ParseDuration(spec.Window)
 	if err != nil {
 		return plugins.Config{}, err
@@ -202,7 +206,22 @@ func (spec instanceSpec) pluginConfig() (plugins.Config, error) {
 	return plugins.Config{
 		ID: spec.ID, Type: spec.Type, Threshold: spec.Threshold, Window: window,
 		Cooldown: cooldown, Idle: idle, KeyBy: spec.KeyBy, MaxKeys: spec.MaxKeys,
+		EventIDPrefix: eventIDPrefix,
 	}, nil
+}
+
+// validEventIDPrefix ensures the configured security marker leaves room for
+// the random suffix while respecting logging-manager's ten-character prefix.
+func validEventIDPrefix(value string) bool {
+	if len(value) < 1 || len(value) > 4 {
+		return false
+	}
+	for _, r := range value {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+	}
+	return true
 }
 
 func compileRulePatterns(rule ruleSpec) (compiledRule, error) {

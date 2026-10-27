@@ -1,7 +1,6 @@
 """System CLI test suite for logging-manager JSON workflows."""
 
 import json
-import re
 import shlex
 import time
 from dataclasses import dataclass
@@ -13,6 +12,7 @@ from constants import (
     SYSTEM_LOGGING_MANAGER_CLI_BINARY,
     SYSTEM_LOGGING_MANAGER_OPERATOR_LOGIN,
 )
+from fixtures.logging_manager_cli import as_event_items, execute_logging_manager_json
 from hyperiontf import CLIClient, expect
 from schemas.system_logging_manager import EVENT_ITEM_SCHEMA, EVENT_LIST_SCHEMA
 from test_data.logging_manager_cli import (
@@ -68,50 +68,11 @@ pytestmark = [
 ]
 
 
-class JSONOutputEmptyError(AssertionError):
-    """Raised when a command expected to return JSON produces empty output."""
-
-    def __init__(self, output: str) -> None:
-        super().__init__(f"Expected JSON output, got empty output: {output!r}")
-
-
-class JSONOutputInvalidError(AssertionError):
-    """Raised when a command expected to return JSON produces non-JSON output."""
-
-    def __init__(self, output: str) -> None:
-        super().__init__(f"Expected JSON output, got non-JSON payload: {output!r}")
-
-
 class EventNotReturnedError(AssertionError):
     """Raised when getEvent does not return the requested event."""
 
     def __init__(self, event_id: str) -> None:
         super().__init__(f"Event {event_id!r} was not returned by getEvent.")
-
-
-ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-
-
-def execute_logging_manager_json(
-    operator_cli_client: CLIClient,
-    cli_binary: str,
-    command: str,
-    *,
-    expect_success: bool = True,
-) -> object:
-    """Run get-command in JSON mode and parse JSON output."""
-    # Print a separator newline first so command echo and JSON payload do not merge.
-    operator_cli_client.execute(f"{cli_binary} {command} --json")
-    if expect_success:
-        operator_cli_client.assert_exit_code(0)
-        if not operator_cli_client.output.strip():
-            return {}
-        return output_to_json(operator_cli_client)
-
-    expect(operator_cli_client.exit_code).not_to_be(0)
-    if not operator_cli_client.output.strip():
-        return {}
-    return operator_cli_client.output
 
 
 def execute_logging_manager_mutation(
@@ -122,96 +83,6 @@ def execute_logging_manager_mutation(
     """Run mutation command without JSON mode and require successful exit."""
     operator_cli_client.execute(f"{cli_binary} {command}")
     operator_cli_client.assert_exit_code(0)
-
-
-def output_to_json(operator_cli_client: CLIClient) -> object:
-    output = operator_cli_client.output
-    json_fragment = extract_json_fragment(strip_terminal_control_sequences(output))
-    if not json_fragment.strip():
-        raise JSONOutputEmptyError(output)
-    normalized_json = normalize_wrapped_json(json_fragment)
-    return parse_json_fragment(normalized_json, output)
-
-
-def extract_json_fragment(output: str) -> str:
-    """Extract the widest valid JSON payload from shell output with prompt noise."""
-    decoder = json.JSONDecoder()
-    best_fragment = ""
-    best_length = -1
-
-    for index, char in enumerate(output):
-        if char not in "[{":
-            continue
-        try:
-            _, end = decoder.raw_decode(output[index:])
-        except json.JSONDecodeError:
-            continue
-        if end > best_length:
-            best_fragment = output[index : index + end]
-            best_length = end
-
-    if best_fragment:
-        return best_fragment
-    return output
-
-
-def strip_terminal_control_sequences(output: str) -> str:
-    """Remove ANSI/control sequences that can appear in interactive PTY output."""
-    cleaned = ANSI_ESCAPE_RE.sub("", output)
-    return cleaned.replace("\r", "")
-
-
-def normalize_wrapped_json(raw_json: str) -> str:
-    """Remove PTY hard-wrap newlines that may appear inside JSON string values."""
-    normalized: list[str] = []
-    in_string = False
-    escaped = False
-    for char in raw_json:
-        if escaped:
-            normalized.append(char)
-            escaped = False
-            continue
-        if char == "\\":
-            normalized.append(char)
-            escaped = True
-            continue
-        if char == '"':
-            normalized.append(char)
-            in_string = not in_string
-            continue
-        if in_string and char in ("\n", "\r"):
-            continue
-        normalized.append(char)
-    return "".join(normalized)
-
-
-def parse_json_fragment(normalized_json: str, original_output: str) -> object:
-    """Parse JSON fragment with tolerant tail trimming for shell/prompt artifacts."""
-    try:
-        return json.loads(normalized_json)
-    except json.JSONDecodeError:
-        closing_candidates = ["]", "}"]
-        for closing in closing_candidates:
-            end = normalized_json.rfind(closing)
-            if end < 0:
-                continue
-            candidate = normalized_json[: end + 1]
-            try:
-                return json.loads(candidate)
-            except json.JSONDecodeError:
-                continue
-    raise JSONOutputInvalidError(original_output)
-
-
-def as_event_items(payload: object) -> list[dict[str, object]]:
-    """Convert JSON payload into a validated list of event dictionaries."""
-    if not isinstance(payload, list):
-        return []
-    items: list[dict[str, object]] = []
-    for item in payload:
-        if isinstance(item, dict):
-            items.append(dict(item))
-    return items
 
 
 def compact_json(data: dict[str, object]) -> str:

@@ -1,6 +1,18 @@
 {
+  "event_id_prefix": "SEC",
   "sources": [{ "id": "auth", "path": "/var/log/auth.log", "format": "rsyslog_auth" }],
   "instances": [
+    {
+      "id": "single_failure",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048
+    },
     {
       "id": "account_retry",
       "enabled": true,
@@ -10,6 +22,17 @@
       "cooldown": "3m",
       "idle": "30m",
       "key_by": "account",
+      "max_keys": 2048
+    },
+    {
+      "id": "unknown_account_retry",
+      "enabled": true,
+      "type": "threshold",
+      "threshold": 3,
+      "window": "2m",
+      "cooldown": "3m",
+      "idle": "30m",
+      "key_by": "global",
       "max_keys": 2048
     },
     {
@@ -26,14 +49,38 @@
   ],
   "rules": [
     {
+      "id": "pam_auth_failure",
+      "enabled": true,
+      "source": "auth",
+      "category": "auth_failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "instance": "single_failure",
+      "severity": "warning",
+      "lockdown": false
+    },
+    {
       "id": "pam_password_guessing",
       "enabled": true,
       "source": "auth",
       "category": "password_guessing",
-      "pattern": "pam_unix\\(litenas-auth:auth\\): authentication failure",
-      "success_pattern": "pam_unix\\(litenas-auth:session\\): session opened for user",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "success_pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):session\\): session opened for user",
+      "require": ["(^|\\s)user=\\S+"],
       "instance": "account_retry",
-      "severity": "warning",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "pam_unknown_account_guessing",
+      "enabled": true,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "exclude": ["(^|\\s)user=\\S+"],
+      "instance": "unknown_account_retry",
+      "severity": "critical",
+      "email_on_critical": true,
       "lockdown": false
     },
     {
@@ -41,7 +88,7 @@
       "enabled": false,
       "source": "auth",
       "category": "password_guessing",
-      "pattern": "pam_unix\\(litenas-auth:auth\\): authentication failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
       "instance": "source_probing",
       "severity": "critical",
       "email_on_critical": true,

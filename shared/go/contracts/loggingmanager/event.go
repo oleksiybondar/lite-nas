@@ -30,6 +30,7 @@ func (payload AlertPayload) ToDTO() loggingmanagerdto.CreateEventInput {
 		Priority:  payload.Priority,
 		CreatedAt: payload.CreatedAt,
 		Source:    payload.Source,
+		Message:   payload.Message,
 	}
 }
 

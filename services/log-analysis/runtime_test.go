@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"lite-nas/services/log-analysis/plugins"
@@ -15,6 +16,30 @@ func TestSampleRulesLoad(t *testing.T) {
 	path := "../../configs/etc/lite-nas/log-analysis/rules.json"
 	if _, err := loadRulesFile(path); err != nil {
 		t.Fatalf("sample rules: %v", err)
+	}
+}
+
+// Requirements: task.md/SVC-001.
+func TestDetectionMessageIdentifiesAuthenticationChannel(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		service string
+		channel string
+	}{
+		{service: "litenas-auth", channel: "Web/API"},
+		{service: "sshd", channel: "SSH/CLI"},
+		{service: "su-l", channel: "local CLI"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.service, func(t *testing.T) {
+			t.Parallel()
+			message := detectionMessage("Security detection recorded", plugins.Detection{
+				RuleID: "pam_password_guessing", Service: testCase.service,
+			})
+			if !strings.Contains(message, "via "+testCase.channel) {
+				t.Fatalf("message %q does not identify channel %q", message, testCase.channel)
+			}
+		})
 	}
 }
 
@@ -101,7 +126,7 @@ func TestFanoutReachesTwoPluginInstancesOnOneSource(t *testing.T) {
 	instances, err := constructInstances([]instanceSpec{
 		{ID: "account", Enabled: true, Type: "keyed_threshold", Threshold: 3, Window: "2m", Cooldown: "10m", Idle: "30m", KeyBy: "account", MaxKeys: 16},
 		{ID: "source", Enabled: true, Type: "keyed_threshold", Threshold: 12, Window: "5m", Cooldown: "30m", Idle: "1h", KeyBy: "source", MaxKeys: 16},
-	}, output, sharedlogger.NewNop())
+	}, "SEC", output, sharedlogger.NewNop())
 	if err != nil {
 		t.Fatalf("construct instances: %v", err)
 	}

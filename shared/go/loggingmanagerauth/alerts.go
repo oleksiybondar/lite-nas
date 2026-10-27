@@ -12,6 +12,9 @@ func InjectAlertAccessToken(payload any, accessToken string) any {
 	case loggingmanagercontract.AlertOccurrencePayload:
 		typed.AccessToken = accessToken
 		return typed
+	case loggingmanagercontract.GetAlertInput:
+		typed.AccessToken = accessToken
+		return typed
 	case loggingmanagercontract.UpdateAlertStateInput:
 		typed.AccessToken = accessToken
 		return typed

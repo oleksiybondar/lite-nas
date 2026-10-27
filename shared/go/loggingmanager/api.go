@@ -128,12 +128,13 @@ func (core *Core) SetState(input dto.SetStateInput) error {
 	return core.setState(context.Background(), input)
 }
 
-// AcknowledgeEvent updates lifecycle acknowledgement through the writer queue.
-func (core *Core) AcknowledgeEvent(input dto.AcknowledgeEventInput) error {
+// AcknowledgeEvent updates lifecycle acknowledgement through the writer queue
+// and returns only after the containing transaction commits or fails.
+func (core *Core) AcknowledgeEvent(ctx context.Context, input dto.AcknowledgeEventInput) error {
 	if err := core.validator.Struct(input); err != nil {
 		return err
 	}
-	return core.acknowledgeEvent(context.Background(), input)
+	return core.acknowledgeEvent(ctx, input)
 }
 
 // MuteEvent updates lifecycle mute state through the writer queue.

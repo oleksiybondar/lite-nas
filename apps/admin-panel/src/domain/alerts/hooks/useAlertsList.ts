@@ -1,3 +1,4 @@
+import { alertsRefetchIntervalMilliseconds } from "@domain/alerts/constants";
 import type {
   AlertCategory,
   AlertDomain,
@@ -58,5 +59,6 @@ export const useAlertsList = ({
       return alertListResponseSchema.parse(responseJson).data;
     },
     queryKey: buildAlertsQueryKey(queryState),
+    refetchInterval: alertsRefetchIntervalMilliseconds,
   });
 };
