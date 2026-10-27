@@ -98,11 +98,14 @@ on the integrated runtime path to provide broader system coverage implicitly.
 
 The authentication cases use the configured security-manager account for normal
 account failures and a unique nonexistent account for unknown-account guessing.
-Mount lifecycle and EICAR scan cases create temporary mounts below `/mnt`, so
-run this suite with root privileges to avoid silently skipping those checks:
+Mount lifecycle and EICAR scan cases create temporary mounts below `/mnt`.
+Pytest itself runs as the current user; its fixture invokes `sudo -n` only for
+creating mount directories and mounting or unmounting the temporary filesystems.
+Authenticate once in the terminal, then run the suite without `sudo`:
 
 ```sh
-sudo -E ../.venv/bin/pytest -c pytest.ini cli/security_monitoring -q
+sudo -v
+../.venv/bin/pytest -c pytest.ini cli/security_monitoring/test_mount_and_antivirus_events.py -q
 ```
 
 The CLI fixtures switch to their configured system-test users before querying

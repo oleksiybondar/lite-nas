@@ -1,6 +1,5 @@
 """Test support for isolated ext4 loopback mounts."""
 
-import os
 import re
 import subprocess
 import uuid
@@ -14,6 +13,7 @@ import pytest
 EICAR_SAMPLE = r"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 SAFE_MOUNT_PREFIX = re.compile(r"[a-z0-9-]{1,32}")
 ALLOWED_TEST_UTILITIES = {"mount", "mkfs.ext4", "truncate", "umount"}
+ALLOWED_PRIVILEGED_TEST_UTILITIES = {"mkdir", "mount", "rmdir", "umount"}
 
 
 @dataclass
@@ -28,13 +28,13 @@ class LoopbackMount:
         """Unmount this image once, preserving the mount point for event checks."""
         if not self.mounted:
             return
-        must_run_command(["umount", "--", str(self.mount_point)])
+        must_run_command(["umount", "--", str(self.mount_point)], privileged=True)
         self.mounted = False
 
     def cleanup(self) -> None:
         """Unmount if needed and remove the isolated image and directory."""
         self.unmount()
-        self.mount_point.rmdir()
+        must_run_command(["rmdir", "--", str(self.mount_point)], privileged=True)
         self.image_path.unlink(missing_ok=True)
 
 
@@ -49,22 +49,24 @@ class RamfsMount:
         """Unmount the ramfs once while keeping its mount directory available."""
         if not self.mounted:
             return
-        must_run_command(["umount", "--", str(self.mount_point)])
+        must_run_command(["umount", "--", str(self.mount_point)], privileged=True)
         self.mounted = False
 
     def cleanup(self) -> None:
         """Unmount the ramfs and remove its unique mount directory."""
         self.unmount()
-        self.mount_point.rmdir()
+        must_run_command(["rmdir", "--", str(self.mount_point)], privileged=True)
 
 
-def must_run_command(arguments: Sequence[str]) -> None:
-    """Run a fixed system utility with separate, validated arguments."""
-    if not arguments or arguments[0] not in ALLOWED_TEST_UTILITIES:
+def must_run_command(arguments: Sequence[str], *, privileged: bool = False) -> None:
+    """Run an allowlisted utility directly, using sudo only for mount operations."""
+    allowed_utilities = ALLOWED_PRIVILEGED_TEST_UTILITIES if privileged else ALLOWED_TEST_UTILITIES
+    if not arguments or arguments[0] not in allowed_utilities:
         raise ValueError
+    command = ["sudo", "-n", "--", *arguments] if privileged else list(arguments)
     # Callers use fixture-owned utilities and generated, option-safe path operands.
     subprocess.run(  # noqa: S603
-        list(arguments),
+        command,
         check=True,
         capture_output=True,
         text=True,
@@ -80,13 +82,11 @@ def create_loopback_mount(
     infected: bool,
 ) -> Iterator[LoopbackMount]:
     """Build, mount, and reliably clean one isolated ext4 test filesystem."""
-    if os.geteuid() != 0:
-        pytest.skip("loopback mount system tests require root privileges")
     if not SAFE_MOUNT_PREFIX.fullmatch(prefix):
         raise ValueError
 
     mount_root = Path("/mnt")
-    mount_root.mkdir(parents=True, exist_ok=True)
+    must_run_command(["mkdir", "--parents", "--", str(mount_root)], privileged=True)
     mount_point = mount_root / f"{prefix}-{uuid.uuid4().hex[:12]}"
     image_path = tmp_path / f"{prefix}.img"
     payload_root = tmp_path / "filesystem-root"
@@ -99,13 +99,14 @@ def create_loopback_mount(
     if not mount_point.is_absolute() or mount_point.name.startswith("-"):
         raise ValueError
 
-    mount_point.mkdir()
+    must_run_command(["mkdir", "--", str(mount_point)], privileged=True)
     resource: LoopbackMount | None = None
     try:
         must_run_command(["truncate", "--size=64M", "--", str(image_path)])
         must_run_command(["mkfs.ext4", "-F", "-d", str(payload_root), "--", str(image_path)])
         must_run_command(
-            ["mount", "-o", "loop", "-t", "ext4", "--", str(image_path), str(mount_point)]
+            ["mount", "-o", "loop", "-t", "ext4", "--", str(image_path), str(mount_point)],
+            privileged=True,
         )
         resource = LoopbackMount(image_path=image_path, mount_point=mount_point)
         yield resource
@@ -113,7 +114,7 @@ def create_loopback_mount(
         if resource is not None:
             resource.cleanup()
         elif mount_point.exists():
-            mount_point.rmdir()
+            must_run_command(["rmdir", "--", str(mount_point)], privileged=True)
         image_path.unlink(missing_ok=True)
 
 
@@ -134,22 +135,20 @@ def infected_loopback_mount(tmp_path: Path) -> Iterator[LoopbackMount]:
 @pytest.fixture
 def ramfs_mount() -> Iterator[RamfsMount]:
     """Create an isolated ramfs mount below `/mnt` for lifecycle alert checks."""
-    if os.geteuid() != 0:
-        pytest.skip("ramfs mount system tests require root privileges")
-
     prefix = "litenas-ramfs-test"
     if not SAFE_MOUNT_PREFIX.fullmatch(prefix):
         raise ValueError
     mount_root = Path("/mnt")
-    mount_root.mkdir(parents=True, exist_ok=True)
+    must_run_command(["mkdir", "--parents", "--", str(mount_root)], privileged=True)
     mount_point = mount_root / f"{prefix}-{uuid.uuid4().hex[:12]}"
     if not mount_point.is_absolute() or mount_point.name.startswith("-"):
         raise ValueError
-    mount_point.mkdir()
+    must_run_command(["mkdir", "--", str(mount_point)], privileged=True)
     resource: RamfsMount | None = None
     try:
         must_run_command(
-            ["mount", "--types=ramfs", "--options=size=8m", "--", "ramfs", str(mount_point)]
+            ["mount", "--types=ramfs", "--options=size=8m", "--", "ramfs", str(mount_point)],
+            privileged=True,
         )
         resource = RamfsMount(mount_point=mount_point)
         yield resource
@@ -157,4 +156,4 @@ def ramfs_mount() -> Iterator[RamfsMount]:
         if resource is not None:
             resource.cleanup()
         elif mount_point.exists():
-            mount_point.rmdir()
+            must_run_command(["rmdir", "--", str(mount_point)], privileged=True)

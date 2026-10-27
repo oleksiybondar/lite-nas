@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -221,10 +222,12 @@ func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, al
 }
 
 // mountAlertEventID correlates the alert lifecycle for one kernel mount
-// identity across monitor restarts. The NATS transition EventID remains unique
-// per transition for subscriber deduplication.
+// identity across monitor restarts using the logging manager's prefix/sequence
+// EventID format. The NATS transition EventID remains unique per transition.
 func mountAlertEventID(event mountcontract.LifecycleEvent) string {
 	identity := fmt.Sprintf("%d:%s:%s:%s", event.MountID, event.MountPoint, event.Source, event.FSType)
 	digest := sha256.Sum256([]byte(identity))
-	return "M" + hex.EncodeToString(digest[:8])
+	prefix := "M" + hex.EncodeToString(digest[:4])
+	sequence := binary.BigEndian.Uint32(digest[4:8]) % 100_000_000
+	return fmt.Sprintf("%s_%08d", prefix, sequence)
 }

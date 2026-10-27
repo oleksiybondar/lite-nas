@@ -1,6 +1,5 @@
 """System CLI tests for mount lifecycle and antivirus security events."""
 
-import os
 import time
 
 import pytest
@@ -13,7 +12,7 @@ from fixtures.loopback_mount import LoopbackMount, RamfsMount
 from hyperiontf import CLIClient
 
 pytestmark = [pytest.mark.cli]
-EVENT_LIST_COMMAND = "--cmd getAlerts --page 1 --pageSize 500"
+EVENT_LIST_COMMAND = "--cmd getAlerts --page 1 --pageSize 25"
 EVENT_WAIT_SECONDS = 90.0
 EVENT_QUERY_BY_SOURCE = {
     "mount-monitor": (SYSTEM_LOGGING_MANAGER_CLI_BINARY, "Mount lifecycle", "active"),
@@ -46,7 +45,6 @@ def wait_for_event(
 
 @pytest.mark.MountMonitor
 @pytest.mark.SystemLoggingManager
-@pytest.mark.skipif(os.geteuid() != 0, reason="mount system tests require root privileges")
 def test_mount_event_is_emitted_for_a_new_mount(
     loopback_mount: LoopbackMount,
     operator_cli_client: CLIClient,
@@ -78,7 +76,6 @@ def test_mount_event_is_emitted_for_a_new_mount(
 
 @pytest.mark.MountMonitor
 @pytest.mark.SystemLoggingManager
-@pytest.mark.skipif(os.geteuid() != 0, reason="mount system tests require root privileges")
 def test_ramfs_mount_emits_informational_event_with_filesystem_type(
     ramfs_mount: RamfsMount,
     operator_cli_client: CLIClient,
@@ -109,7 +106,6 @@ def test_ramfs_mount_emits_informational_event_with_filesystem_type(
 
 @pytest.mark.Antivirus
 @pytest.mark.SecurityLoggingManager
-@pytest.mark.skipif(os.geteuid() != 0, reason="mount system tests require root privileges")
 def test_eicar_mount_creates_one_resolved_antivirus_event(
     infected_loopback_mount: LoopbackMount,
     security_cli_client: CLIClient,
