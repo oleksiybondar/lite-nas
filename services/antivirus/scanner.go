@@ -18,6 +18,8 @@ const (
 	maxScanOutput  = 256 * 1024
 )
 
+var errMountDisappeared = errors.New("mount identity changed or disappeared")
+
 // scanStatus distinguishes a complete clean scan, malware, an incomplete
 // scan, and cancellation. Only a complete exit status 0 is called clean.
 type scanStatus string
@@ -65,7 +67,7 @@ func liveMount(expected mountinfo.Record) error {
 	}
 	actual, exists := current[expected.ID]
 	if !exists || actual != expected {
-		return errors.New("mount identity changed or disappeared")
+		return errMountDisappeared
 	}
 	resolved, err := filepath.EvalSymlinks(expected.Point)
 	if err != nil {
@@ -89,8 +91,16 @@ func liveMount(expected mountinfo.Record) error {
 // ClamAV flags. The caller's context cancels on unmount or shutdown.
 func scanMount(ctx context.Context, mount mountinfo.Record, timeout time.Duration) scanResult {
 	result := scanResult{mount: mount}
+	if err := ctx.Err(); err != nil {
+		result.status = scanCancelled
+		result.err = err
+		return result
+	}
 	if err := liveMount(mount); err != nil {
 		result.status = scanIncomplete
+		if errors.Is(err, errMountDisappeared) {
+			result.status = scanCancelled
+		}
 		result.err = err
 		return result
 	}
@@ -127,6 +137,9 @@ func scanMount(ctx context.Context, mount mountinfo.Record, timeout time.Duratio
 	}
 	if identityErr := liveMount(mount); identityErr != nil {
 		result.status = scanIncomplete
+		if errors.Is(identityErr, errMountDisappeared) {
+			result.status = scanCancelled
+		}
 		result.err = identityErr
 		return result
 	}
