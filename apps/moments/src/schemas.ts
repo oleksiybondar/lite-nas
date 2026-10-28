@@ -105,6 +105,30 @@ export type GalleryScan = z.infer<typeof galleryScanSchema>;
 /** Owner's most recent media scan jobs for one gallery. */
 export const galleryScansSchema = z.object({ items: z.array(galleryScanSchema) });
 
+/** One visible gallery linking to a matching image. */
+export const linkedGallerySchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  type: z.enum(["ALBUM", "COLLECTION"]),
+  ownerId: z.string().min(1),
+});
+
+/** Path-keyed image match returned with visible gallery links. */
+export const matchingMediaSchema = z.object({
+  galleryId: z.uuid(),
+  linkedGalleries: z.array(linkedGallerySchema),
+  path: hostPathSchema,
+  mediaType: z.enum(["IMAGE", "LIVE_PHOTO"]),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  livePhotoPath: hostPathSchema.nullable(),
+  caption: z.string().nullable(),
+  tags: z.array(z.object({ category: z.string(), value: z.string() })),
+});
+
+/** One media result validated at the API boundary. */
+export type MatchingMedia = z.infer<typeof matchingMediaSchema>;
+
 /** Paged gallery search response. */
 export const galleryListSchema = z.object({
   items: z.array(gallerySchema),
@@ -114,6 +138,14 @@ export const galleryListSchema = z.object({
     total_count: z.number().int().nonnegative(),
     total_pages: z.number().int().nonnegative(),
   }),
+  matchingMedia: z
+    .object({
+      items: z.array(matchingMediaSchema),
+      total: z.number().int().nonnegative(),
+      limit: z.number().int().positive(),
+      offset: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 /** Media types accepted by the paged gallery search API. */

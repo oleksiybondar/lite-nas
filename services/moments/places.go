@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/language/display"
@@ -22,7 +23,10 @@ type cityPlace struct {
 
 // cityIndex groups city coordinates into degree cells for bounded offline lookup.
 type cityIndex struct {
-	cells map[[2]int][]cityPlace
+	cells         map[[2]int][]cityPlace
+	online        *reverseGeocoder
+	captionScript string
+	captionMu     sync.Mutex
 }
 
 // loadCityIndex reads the packaged GeoNames extract once at service startup.

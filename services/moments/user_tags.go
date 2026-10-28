@@ -94,7 +94,11 @@ func (c galleryController) galleryTags(ctx context.Context, galleryID string) ([
 		UNION ALL
 		SELECT ut.id,'USER','USER',ut.value,1
 		FROM gallery_user_tags ut WHERE ut.gallery_id=?
-		ORDER BY 2,3,4`, galleryID, galleryID)
+		UNION ALL
+		SELECT pt.id,'USER','PERSON',pt.value,count(*)
+		FROM gallery_media gm JOIN media_person_tags pt ON pt.path=gm.path
+		WHERE gm.gallery_id=? GROUP BY pt.id
+		ORDER BY 2,3,4`, galleryID, galleryID, galleryID)
 	if err != nil {
 		return nil, err
 	}

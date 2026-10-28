@@ -14,6 +14,7 @@ type mediaResult struct {
 	Width         *int      `json:"width"`
 	Height        *int      `json:"height"`
 	LivePhotoPath *string   `json:"livePhotoPath"`
+	Caption       *string   `json:"caption"`
 	Tags          []scanTag `json:"tags"`
 }
 
@@ -47,6 +48,7 @@ func mountResultRoutes(api huma.API, c galleryController) {
 	huma.Get(api, "/api/galleries/{galleryId}/media-metadata", c.mediaResults)
 	huma.Post(api, "/api/galleries/{galleryId}/media-metadata", c.scanUploadedMedia)
 	huma.Get(api, "/api/galleries/{galleryId}/tags", c.tags)
+	huma.Post(api, "/api/galleries/{galleryId}/media-person-tags", c.createPersonTag)
 }
 
 // mediaResults returns only published scan rows under the gallery visibility policy.
@@ -68,8 +70,9 @@ func (c galleryController) mediaResults(ctx context.Context, input *mediaResults
 	if err := c.store.db.QueryRowContext(ctx, `SELECT count(*) FROM gallery_media WHERE gallery_id=?`, input.ID).Scan(&output.Body.Total); err != nil {
 		return nil, huma.Error500InternalServerError("media metadata lookup failed")
 	}
-	rows, err := c.store.db.QueryContext(ctx, `SELECT gm.path,gm.media_type,mf.width,mf.height,gm.live_photo_path
-		FROM gallery_media gm JOIN media_files mf ON mf.path=gm.path WHERE gm.gallery_id=? ORDER BY gm.path LIMIT ? OFFSET ?`, input.ID, limit, input.Offset)
+	rows, err := c.store.db.QueryContext(ctx, `SELECT gm.path,gm.media_type,mf.width,mf.height,gm.live_photo_path,mc.caption
+		FROM gallery_media gm JOIN media_files mf ON mf.path=gm.path LEFT JOIN media_captions mc ON mc.path=gm.path
+		WHERE gm.gallery_id=? ORDER BY gm.path LIMIT ? OFFSET ?`, input.ID, limit, input.Offset)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("media metadata lookup failed")
 	}
@@ -77,8 +80,8 @@ func (c galleryController) mediaResults(ctx context.Context, input *mediaResults
 	for rows.Next() {
 		var item mediaResult
 		var width, height sql.NullInt64
-		var live sql.NullString
-		if err := rows.Scan(&item.Path, &item.MediaType, &width, &height, &live); err != nil {
+		var live, caption sql.NullString
+		if err := rows.Scan(&item.Path, &item.MediaType, &width, &height, &live, &caption); err != nil {
 			return nil, huma.Error500InternalServerError("media metadata lookup failed")
 		}
 		if width.Valid {
@@ -92,6 +95,9 @@ func (c galleryController) mediaResults(ctx context.Context, input *mediaResults
 		if live.Valid {
 			item.LivePhotoPath = &live.String
 		}
+		if caption.Valid {
+			item.Caption = &caption.String
+		}
 		item.Tags = []scanTag{}
 		output.Body.Items = append(output.Body.Items, item)
 	}
@@ -102,7 +108,10 @@ func (c galleryController) mediaResults(ctx context.Context, input *mediaResults
 	_ = rows.Close()
 	for index := range output.Body.Items {
 		item := &output.Body.Items[index]
-		tagRows, err := c.store.db.QueryContext(ctx, `SELECT t.category,t.value FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id WHERE mt.path=? ORDER BY t.category,t.value`, item.Path)
+		tagRows, err := c.store.db.QueryContext(ctx, `SELECT category,value FROM (
+			SELECT t.category,t.value FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id WHERE mt.path=?
+			UNION ALL SELECT 'PERSON',value FROM media_person_tags WHERE path=?
+		) ORDER BY category,value`, item.Path, item.Path)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("media tag lookup failed")
 		}

@@ -38,7 +38,10 @@ export const MomentsLayout = ({
       textAlign="center"
     >
       <Typography color="text.secondary" variant="caption">
-        LiteNAS
+        LiteNAS · Online location data ©{" "}
+        <a href="https://www.openstreetmap.org/copyright" rel="noreferrer" target="_blank">
+          OpenStreetMap contributors
+        </a>
       </Typography>
     </Box>
   </Box>

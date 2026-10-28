@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { GalleryFeed } from "./GalleryFeed";
 import { listGalleries } from "./moments-data";
@@ -154,6 +154,56 @@ test("feed search sends its query to the paged gallery API", async () => {
       undefined,
       expect.objectContaining({ q: "beach" }),
     ),
+  );
+});
+
+test.each([
+  { scope: "home" as const, expected: [album.id, "00000000-0000-4000-8000-000000000002"] },
+  { scope: "shared" as const, expected: ["00000000-0000-4000-8000-000000000002"] },
+])("matching photo links follow the $scope gallery scope", async ({ scope, expected }) => {
+  const collection = {
+    ...album,
+    id: "00000000-0000-4000-8000-000000000002",
+    name: "City trip",
+    type: "COLLECTION" as const,
+    ownerId: "bob",
+  };
+  vi.mocked(listGalleries).mockResolvedValue({
+    items: [album, collection],
+    metadata: { page: 1, size: 20, total_count: 2, total_pages: 1 },
+    matchingMedia: {
+      items: [
+        {
+          galleryId: album.id,
+          linkedGalleries: [
+            { id: album.id, name: album.name, type: album.type, ownerId: album.ownerId },
+            {
+              id: collection.id,
+              name: collection.name,
+              type: collection.type,
+              ownerId: collection.ownerId,
+            },
+          ],
+          path: "/NASPool/Photos/dog.jpg",
+          mediaType: "IMAGE",
+          width: 640,
+          height: 480,
+          livePhotoPath: null,
+          caption: "A dog on a sofa",
+          tags: [{ category: "OBJECT", value: "Dog" }],
+        },
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    },
+  });
+  render(<GalleryFeed scope={scope} userId="alice" workingDir="/home" onOpen={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Search galleries"), { target: { value: "dog" } });
+  const card = await screen.findByTestId("moments-media-search-card");
+  const links = within(card).getAllByRole("link");
+  expect(links.map((link) => link.getAttribute("href"))).toEqual(
+    expected.map((id) => `/galleries/${id}`),
   );
 });
 

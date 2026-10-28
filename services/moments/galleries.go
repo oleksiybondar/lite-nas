@@ -64,8 +64,9 @@ type galleryOutput struct{ Body galleryBody }
 // galleriesOutput contains a deterministic, paginated accessible list.
 type galleriesOutput struct {
 	Body struct {
-		Items    []galleryBody     `json:"items"`
-		Metadata galleryPagination `json:"metadata"`
+		Items         []galleryBody     `json:"items"`
+		Metadata      galleryPagination `json:"metadata"`
+		MatchingMedia mediaMatchPage    `json:"matchingMedia"`
 	}
 }
 
@@ -101,14 +102,16 @@ type galleryIDInput struct {
 // listGalleryInput bounds search and pagination before querying SQLite.
 type listGalleryInput struct {
 	GalleryAuth
-	Page       int      `query:"page" default:"1" minimum:"1" maximum:"100000"`
-	Size       int      `query:"size" default:"20" minimum:"1" maximum:"500"`
-	Q          string   `query:"q" maxLength:"160"`
-	Type       []string `query:"type,explode"`
-	Visibility []string `query:"visibility,explode"`
-	OwnerID    []string `query:"ownerId,explode"`
-	MediaType  []string `query:"mediaType,explode"`
-	Location   []string `query:"location,explode"`
+	Page        int      `query:"page" default:"1" minimum:"1" maximum:"100000"`
+	Size        int      `query:"size" default:"20" minimum:"1" maximum:"500"`
+	Q           string   `query:"q" maxLength:"160"`
+	Type        []string `query:"type,explode"`
+	Visibility  []string `query:"visibility,explode"`
+	OwnerID     []string `query:"ownerId,explode"`
+	MediaType   []string `query:"mediaType,explode"`
+	Location    []string `query:"location,explode"`
+	MediaLimit  int      `query:"mediaLimit" default:"50" minimum:"1" maximum:"100"`
+	MediaOffset int      `query:"mediaOffset" default:"0" minimum:"0" maximum:"100000"`
 }
 
 // patchGalleryInput permits owner-controlled mutable metadata only.
@@ -439,9 +442,11 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 	if input.Q != "" {
 		where += ` AND (instr(lower(g.name),lower(?))>0 OR instr(lower(g.description),lower(?))>0
 			OR EXISTS (SELECT 1 FROM gallery_user_tags ut WHERE ut.gallery_id=g.id AND instr(ut.normalized_key,?)>0)
-			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id WHERE gm.gallery_id=g.id AND instr(t.search_key,?)>0))`
+			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id WHERE gm.gallery_id=g.id AND instr(t.search_key,?)>0)
+			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_person_tags pt ON pt.path=gm.path WHERE gm.gallery_id=g.id AND instr(pt.search_key,?)>0)
+			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_captions mc ON mc.path=gm.path WHERE gm.gallery_id=g.id AND instr(mc.search_key,?)>0))`
 		key := norm.NFC.String(strings.ToLower(input.Q))
-		args = append(args, input.Q, input.Q, key, searchKey(input.Q))
+		args = append(args, input.Q, input.Q, key, searchKey(input.Q), searchKey(input.Q), searchKey(input.Q))
 	}
 	output := &galleriesOutput{}
 	output.Body.Items = []galleryBody{}
@@ -474,6 +479,9 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 			return nil, huma.Error500InternalServerError("gallery tag lookup failed")
 		}
 		output.Body.Items[index].Tags = tags
+	}
+	if err := c.searchMedia(ctx, user, input, &output.Body.MatchingMedia); err != nil {
+		return nil, err
 	}
 	return output, nil
 }

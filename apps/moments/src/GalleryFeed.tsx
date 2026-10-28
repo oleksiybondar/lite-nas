@@ -15,12 +15,14 @@ import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { GalleryEditorDialog } from "./GalleryEditorDialog";
 import { GalleryFeedCard } from "./GalleryFeedCard";
+import { GallerySearchMediaCard } from "./GallerySearchMediaCard";
 import { listGalleries } from "./moments-data";
 import {
   type GalleryMediaType,
   type GalleryRecord,
   galleryMediaTypeSchema,
   galleryMediaTypeSelectionSchema,
+  type MatchingMedia,
 } from "./schemas";
 
 /** Feed scope selected in the Moments header. */
@@ -49,6 +51,10 @@ export function GalleryFeed({
   onOpen: (gallery: GalleryRecord) => void;
 }): ReactElement {
   const [items, setItems] = useState<GalleryRecord[]>([]);
+  const [mediaMatches, setMediaMatches] = useState<MatchingMedia[]>([]);
+  const [mediaTotal, setMediaTotal] = useState(0);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -63,19 +69,30 @@ export function GalleryFeed({
   const [mediaTypes, setMediaTypes] = useState<GalleryMediaType[]>([]);
   const [location, setLocation] = useState("");
   const sentinel = useRef<HTMLDivElement>(null);
+  const requestVersion = useRef(0);
   const resetFeed = (): void => {
+    requestVersion.current += 1;
     setPage(1);
     setPages(1);
     setItems([]);
+    setMediaMatches([]);
+    setMediaTotal(0);
+    setMediaBusy(false);
+    setMediaError(null);
   };
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const value = searchDraft.trim();
       if (value !== search) {
+        requestVersion.current += 1;
         setSearch(value);
         setPage(1);
         setPages(1);
         setItems([]);
+        setMediaMatches([]);
+        setMediaTotal(0);
+        setMediaBusy(false);
+        setMediaError(null);
       }
     }, 250);
     return () => window.clearTimeout(timer);
@@ -95,6 +112,10 @@ export function GalleryFeed({
         if (!active) return;
         setPages(result.metadata.total_pages);
         setItems((previous) => (page === 1 ? result.items : [...previous, ...result.items]));
+        if (page === 1) {
+          setMediaMatches(result.matchingMedia?.items ?? []);
+          setMediaTotal(result.matchingMedia?.total ?? 0);
+        }
       })
       .catch(() => {
         if (active) setError("Could not load galleries.");
@@ -116,7 +137,44 @@ export function GalleryFeed({
     return () => observer.disconnect();
   }, [busy, page, pages]);
   const shown = scope === "shared" ? items.filter((item) => item.ownerId !== userId) : items;
+  const shownMedia = mediaMatches
+    .map((item) => ({
+      ...item,
+      linkedGalleries:
+        scope === "shared"
+          ? item.linkedGalleries.filter((gallery) => gallery.ownerId !== userId)
+          : item.linkedGalleries,
+    }))
+    .filter((item) => item.linkedGalleries.length > 0);
+  const hasMediaSearch = Boolean(search || location.trim());
   const title = { home: "Home", mine: "My collections", shared: "Shared collections" }[scope];
+  /** Loads the next image page without disturbing gallery pagination. */
+  const loadMoreMedia = async (): Promise<void> => {
+    const version = requestVersion.current;
+    setMediaBusy(true);
+    setMediaError(null);
+    try {
+      const result = await listGalleries(
+        1,
+        scope === "mine" ? userId : undefined,
+        {
+          q: search || undefined,
+          type: kind || undefined,
+          visibility: visibility || undefined,
+          mediaType: mediaTypes.length > 0 ? mediaTypes : undefined,
+          location: location.trim() || undefined,
+        },
+        mediaMatches.length,
+      );
+      if (version !== requestVersion.current) return;
+      setMediaMatches((previous) => [...previous, ...(result.matchingMedia?.items ?? [])]);
+      setMediaTotal(result.matchingMedia?.total ?? 0);
+    } catch {
+      if (version === requestVersion.current) setMediaError("Could not load more photos.");
+    } finally {
+      if (version === requestVersion.current) setMediaBusy(false);
+    }
+  };
   return (
     <Stack spacing={2} data-testid="moments-gallery-feed">
       <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -223,6 +281,30 @@ export function GalleryFeed({
         </Button>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
+      {hasMediaSearch && (
+        <Stack spacing={1.5} data-testid="moments-media-search-results">
+          <Typography variant="h6">Photos {scope === "shared" ? "" : `(${mediaTotal})`}</Typography>
+          {shownMedia.length === 0 && !busy && !mediaBusy && (
+            <Typography>No matching photos.</Typography>
+          )}
+          <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(210px, 1fr))" gap={2}>
+            {shownMedia.map((item) => (
+              <GallerySearchMediaCard key={item.path} item={item} links={item.linkedGalleries} />
+            ))}
+          </Box>
+          {mediaError && <Alert severity="error">{mediaError}</Alert>}
+          {mediaMatches.length < mediaTotal && mediaMatches.length < 100000 && (
+            <Button
+              disabled={mediaBusy}
+              onClick={() => void loadMoreMedia()}
+              sx={{ alignSelf: "start" }}
+            >
+              {mediaBusy ? "Loading photos…" : "Load more photos"}
+            </Button>
+          )}
+        </Stack>
+      )}
+      <Typography variant="h6">Albums and collections</Typography>
       {shown.length === 0 && !busy && !error && page >= pages && (
         <Typography>No galleries yet.</Typography>
       )}

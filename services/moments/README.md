@@ -19,7 +19,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `POST /api/auth/login?redirect_to=...` | Issue session cookies and echo a validated app-local path in `data.redirect_to`; unsafe paths resolve to `/`. The browser performs navigation. |
 | `GET /api/config` | Return the authenticated user's configured `workingDir` used to start file and folder pickers. |
 | `POST /api/galleries` | Create an `ALBUM` or `COLLECTION`. Albums require an authorized, existing `uploadDirectory`. |
-| `GET /api/galleries` | List accessible albums and collections together, newest first. `page` defaults to 1; `size` defaults to 20 and is capped at 500. The response has `items` and `metadata` (`page`, `size`, `total_count`, `total_pages`). Repeated `ownerId`, `type`, `visibility`, `mediaType`, and `location` filters use OR within a field and AND across fields. Use `type=ALBUM` or `type=COLLECTION` for a narrower search. `q` searches name, description, user tags, and every published scan tag. Location filters match part of a `LOCATION` tag without case or Latin accents; `q` applies the same folding to scan tags. |
+| `GET /api/galleries` | List accessible albums and collections together, newest first. `page` defaults to 1; `size` defaults to 20 and is capped at 500. The existing `items` and `metadata` remain unchanged. `matchingMedia` has separate `items`, `total`, `limit`, and `offset` for distinct image paths matching `q` or `location`; use `mediaLimit` and `mediaOffset` to page them. Each image includes file metadata, caption, tags, and `linkedGalleries` (`id`, `name`, `type`, `ownerId`) limited to galleries visible to the caller. Repeated `ownerId`, `type`, `visibility`, `mediaType`, and `location` filters use OR within a field and AND across fields. `q` searches gallery names, descriptions, user tags, scan tags, person names, and generated captions. Location and media tag search folds case and Latin accents. |
 | `GET/PATCH/DELETE /api/galleries/{galleryId}` | Read, owner-edit, or delete gallery metadata. Deletion never deletes original files. |
 | `GET /api/collections/{galleryId}/references` | List explicit file and directory references. |
 | `POST/DELETE /api/collections/{galleryId}/files` | Add or remove `{ "path": "/absolute/path" }`. |
@@ -32,6 +32,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `GET/DELETE /api/scans/{scanId}` | Same-user progress polling with token renewal, or cancellation. |
 | `GET /api/galleries/{galleryId}/media-metadata` | Page the last successfully published scan records. |
 | `POST /api/galleries/{galleryId}/media-metadata` | Owner-only update for one completed album upload: `{ "path": "/absolute/album/file.jpg" }`. The file is reauthorized through File Service, and only changed metadata for that path is updated. |
+| `POST /api/galleries/{galleryId}/media-person-tags` | Owner-only name tag for a linked image: `{ "path": "/absolute/photo.jpg", "name": "Ada" }`. Names are shared by every gallery linked to that file and survive rescans. |
 | `GET /api/galleries/{galleryId}/tags` | Return both user tags and aggregated scan tags. Each tag has `type=USER` or `type=AUTO`, a `category`, `value`, and `count`. For user tags, `category=USER` and `count=1`; for auto tags, count is the number of media records carrying that tag. |
 | `GET/POST /api/galleries/{galleryId}/user-tags` | List user tags or create one with `{ "value": "Family" }`. Reads follow gallery visibility; creation requires the owner. |
 | `GET/PATCH/DELETE /api/galleries/{galleryId}/user-tags/{tagId}` | Read, rename with `{ "value": "Friends" }`, or remove one user tag. Reads follow gallery visibility; only the owner can mutate. Values are unique per gallery after case folding and Unicode normalization. |
@@ -86,17 +87,44 @@ and RBAC read checks. The metadata response contains a media class, a safe
 content type, dimensions when the built-in image decoder supports the file,
 and source-backed tags. The extractor reads JPEG EXIF description,
 camera make, camera model, original capture timestamp, and validated GPS
-coordinates. Moments resolves a nearby city offline with the packaged GeoNames
-`cities1000` extract and stores a searchable `LOCATION` tag such as
-`Málaga, Spain`. Alternate city names, country names, and Latin accents are
-included in the tag's search key. Locations farther than 50 km from a listed
-city remain unlabelled. GeoNames data is attributed in `data/README.md`.
+coordinates. Moments first checks its persisted reverse-geocoding cache, then
+queries the configured Nominatim endpoint at most once every 15 seconds. The
+online result can include a street, city, and country. Network failures and
+rate-limited lookups fall back to the packaged GeoNames `cities1000` extract,
+which resolves a nearby city such as `Málaga, Spain`. Alternate place names
+and Latin accents are included in the search key. Locations farther than 50 km
+from an offline city remain unlabelled when an online result is unavailable.
+GeoNames data is attributed in `data/README.md`; the app footer attributes
+OpenStreetMap contributors. Set `geocoder_url=` in the storage configuration
+to disable online lookups or point it to another Nominatim-compatible HTTPS endpoint.
 The extractor returns an empty tag array when textual fields are absent.
 Format classification is derived from the file
 extension; callers must still handle malformed or unsupported source content.
 The scan uses File Service's loopback HTTP API with the initiating user's
 Bearer token because that existing adapter already enforces caller-specific
 ACL checks; service identity alone never grants source access.
+
+Optional image captions use the local BLIP base model. Debian recommends
+Pillow, PyTorch, and Python venv. Debian and local deployment try to install a
+pinned `transformers` 4.x environment and download the pinned model once to
+`/usr/local/lib/lite-nas/moments/blip-model`. The model and virtual environment
+are root-owned and read-only to Moments. The Python worker runs in a separate
+AppArmor child profile without network or Moments database access. The systemd
+unit limits the combined Go service and caption worker to 3.2 GB of memory and
+200% CPU, and disables swap for that unit. A setup failure does not stop
+Moments deployment. Repeated deploys reuse a completed download; service scans load
+the model offline without writing model files. On upgrade, a model already in
+`/var/lib/lite-nas/moments/blip-model` is moved into the protected path when
+the pinned revision and every model-file checksum match. The move reuses the
+existing 1 GB weights without downloading or copying them on the same filesystem;
+cross-filesystem storage requires one local copy. A missing, altered, or newer
+model needs network access and sufficient free space. When dependencies
+or weights are unavailable, new files have no caption; existing captions are
+retained. Set
+`caption_script=` to disable the worker. Captions are stored once per file path,
+shared across linked galleries, and searchable through `q`. Image bytes pass
+from File Service to the local worker in memory and are not stored in the
+Moments database.
 
 ## Full rescan
 

@@ -90,6 +90,29 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			UNIQUE(gallery_id,normalized_key)
 		)`,
 		`CREATE INDEX IF NOT EXISTS gallery_user_tags_gallery ON gallery_user_tags(gallery_id,value)`,
+		`CREATE TABLE IF NOT EXISTS media_person_tags (
+			id TEXT PRIMARY KEY,
+			path TEXT NOT NULL REFERENCES media_files(path) ON DELETE CASCADE,
+			value TEXT NOT NULL,
+			normalized_key TEXT NOT NULL,
+			search_key TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			UNIQUE(path,normalized_key)
+		)`,
+		`CREATE INDEX IF NOT EXISTS media_person_tags_search ON media_person_tags(search_key,path)`,
+		`CREATE TABLE IF NOT EXISTS media_captions (
+			path TEXT PRIMARY KEY REFERENCES media_files(path) ON DELETE CASCADE,
+			caption TEXT NOT NULL,
+			search_key TEXT NOT NULL,
+			model TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS reverse_geocode_cache (
+			coordinate_key TEXT PRIMARY KEY,
+			place_name TEXT NOT NULL,
+			search_key TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS media_scan_jobs (
 			id TEXT PRIMARY KEY,
 			gallery_id TEXT NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
@@ -199,6 +222,13 @@ func (store *galleryStore) writeMediaFile(ctx context.Context, tx *sql.Tx, item 
 		ON CONFLICT(path) DO UPDATE SET media_type=excluded.media_type,width=excluded.width,height=excluded.height
 		WHERE media_files.media_type IS NOT excluded.media_type OR media_files.width IS NOT excluded.width OR media_files.height IS NOT excluded.height`, item.Path, sourceType, item.Width, item.Height); err != nil {
 		return err
+	}
+	if item.Caption != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO media_captions(path,caption,search_key,model,updated_at) VALUES(?,?,?,?,?)
+			ON CONFLICT(path) DO UPDATE SET caption=excluded.caption,search_key=excluded.search_key,model=excluded.model,updated_at=excluded.updated_at
+			WHERE media_captions.caption IS NOT excluded.caption`, item.Path, *item.Caption, searchKey(*item.Caption), captionModel, timestamp()); err != nil {
+			return err
+		}
 	}
 	desired := []any{item.Path}
 	for _, tag := range item.Tags {

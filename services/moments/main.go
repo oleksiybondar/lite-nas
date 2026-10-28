@@ -39,6 +39,8 @@ type serviceConfig struct {
 	ThumbnailDir   string
 	WorkingDir     string
 	PlaceDataPath  string
+	GeocoderURL    string
+	CaptionScript  string
 }
 
 // loadConfig reads the service listener, messaging, and browser cookie scope.
@@ -83,6 +85,23 @@ func loadConfig(path string) (serviceConfig, error) {
 	if fileaccess.ValidateHostPath(placeDataPath) != nil {
 		return serviceConfig{}, errors.New("place_data_path must be clean and absolute")
 	}
+	geocoderURL := "https://nominatim.openstreetmap.org/reverse"
+	if storage := iniFile.Section("storage"); storage.HasKey("geocoder_url") {
+		geocoderURL = storage.Key("geocoder_url").String()
+	}
+	if geocoderURL != "" {
+		geocoder, parseErr := url.Parse(geocoderURL)
+		if parseErr != nil || geocoder.Scheme != "https" || geocoder.Host == "" || geocoder.User != nil || geocoder.RawQuery != "" || geocoder.Fragment != "" {
+			return serviceConfig{}, errors.New("geocoder_url must be an HTTPS endpoint without query or credentials")
+		}
+	}
+	captionScript := "/usr/share/lite-nas/moments/caption_image.py"
+	if storage := iniFile.Section("storage"); storage.HasKey("caption_script") {
+		captionScript = storage.Key("caption_script").String()
+	}
+	if captionScript != "" && fileaccess.ValidateHostPath(captionScript) != nil {
+		return serviceConfig{}, errors.New("caption_script must be a clean absolute path")
+	}
 	parsed, err := url.Parse(fileServiceURL)
 	if err != nil || parsed.Scheme != "http" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
@@ -90,7 +109,7 @@ func loadConfig(path string) (serviceConfig, error) {
 	if err := validateListener(parsed.Host); err != nil {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
 	}
-	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath}, nil
+	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript}, nil
 }
 
 // validateListener keeps the Moments API behind the local Nginx proxy.
@@ -147,12 +166,14 @@ func run(ctx context.Context, path string) error {
 	if err != nil {
 		return fmt.Errorf("load offline city data: %w", err)
 	}
+	places.online = newReverseGeocoder(store, cfg.GeocoderURL)
+	places.captionScript = cfg.CaptionScript
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,
 		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, places),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      90 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
 	results := make(chan error, 1)

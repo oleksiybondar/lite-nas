@@ -1,0 +1,153 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+)
+
+const captionModel = "Salesforce/blip-image-captioning-base"
+
+// captionWorker keeps one optional local model loaded for a scan or upload.
+type captionWorker struct {
+	command *exec.Cmd
+	input   io.WriteCloser
+	output  *bufio.Reader
+	unlock  func()
+	failed  bool
+}
+
+// startCaptionWorker uses only a provisioned local script and cached model weights.
+func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
+	if places == nil || places.captionScript == "" {
+		return nil
+	}
+	if _, err := os.Stat(places.captionScript); err != nil || !places.captionMu.TryLock() {
+		return nil
+	}
+	command := exec.CommandContext(ctx, "python3", "-u", places.captionScript)
+	input, err := command.StdinPipe()
+	if err != nil {
+		places.captionMu.Unlock()
+		return nil
+	}
+	output, err := command.StdoutPipe()
+	if err != nil {
+		_ = input.Close()
+		places.captionMu.Unlock()
+		return nil
+	}
+	command.Stderr = io.Discard
+	if err := command.Start(); err != nil {
+		_ = input.Close()
+		places.captionMu.Unlock()
+		return nil
+	}
+	worker := &captionWorker{command: command, input: input, output: bufio.NewReader(output), unlock: places.captionMu.Unlock}
+	var ready struct {
+		Ready bool `json:"ready"`
+	}
+	line, err := worker.readLine(ctx, 30*time.Second)
+	if err != nil || json.Unmarshal(line, &ready) != nil || !ready.Ready {
+		worker.close()
+		return nil
+	}
+	return worker
+}
+
+// caption streams one ACL-authorized image to the local model without storing its bytes.
+func (worker *captionWorker) caption(ctx context.Context, files fileServiceClient, token, path string) *string {
+	if worker.failed {
+		return nil
+	}
+	response, err := files.request(ctx, token, "", path, "")
+	if err != nil {
+		return nil
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.ContentLength > 16<<20 {
+		return nil
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, (16<<20)+1))
+	if err != nil || len(data) == 0 || len(data) > 16<<20 {
+		return nil
+	}
+	request, err := json.Marshal(struct {
+		Image string `json:"image"`
+	}{Image: base64.StdEncoding.EncodeToString(data)})
+	if err != nil {
+		return nil
+	}
+	if _, err := io.Copy(worker.input, bytes.NewReader(append(request, '\n'))); err != nil {
+		worker.failed = true
+		return nil
+	}
+	line, err := worker.readLine(ctx, 25*time.Second)
+	if err != nil || len(line) > 4096 {
+		worker.failed = true
+		return nil
+	}
+	var result struct {
+		Caption string `json:"caption"`
+	}
+	if json.Unmarshal(line, &result) != nil {
+		worker.failed = true
+		return nil
+	}
+	caption := strings.TrimSpace(result.Caption)
+	if caption == "" || len(caption) > 512 {
+		return nil
+	}
+	return &caption
+}
+
+// readLine bounds one local worker reply; its single producer sends to a one-slot
+// result channel, which needs no close because the read ends after one reply.
+func (worker *captionWorker) readLine(ctx context.Context, timeout time.Duration) ([]byte, error) {
+	type result struct {
+		line []byte
+		err  error
+	}
+	replies := make(chan result, 1)
+	go func() {
+		line, err := worker.output.ReadSlice('\n')
+		select {
+		case replies <- result{line: line, err: err}:
+		case <-ctx.Done():
+		}
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case reply := <-replies:
+		if reply.err != nil {
+			worker.failed = true
+			_ = worker.command.Process.Kill()
+		}
+		return reply.line, reply.err
+	case <-timer.C:
+		worker.failed = true
+		_ = worker.command.Process.Kill()
+		return nil, errors.New("caption worker timed out")
+	case <-ctx.Done():
+		worker.failed = true
+		_ = worker.command.Process.Kill()
+		return nil, ctx.Err()
+	}
+}
+
+// close stops the local process and releases the single-model capacity.
+func (worker *captionWorker) close() {
+	_ = worker.input.Close()
+	_ = worker.command.Wait()
+	worker.unlock()
+}

@@ -22,7 +22,7 @@ const openGalleryLink = (
 };
 
 /** Builds a shareable link for the current standalone or embedded mount. */
-const galleryLink = (gallery: GalleryRecord): string => {
+export const galleryLink = (gallery: Pick<GalleryRecord, "id">): string => {
   const prefix = window.location.pathname.startsWith("/apps/moments/") ? "/apps/moments" : "";
   return `${prefix}/galleries/${gallery.id}`;
 };

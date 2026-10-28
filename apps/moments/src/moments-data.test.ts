@@ -95,6 +95,55 @@ test("gallery feed requests the owner's paged backend results", async () => {
   expect(fetchMock.mock.calls[0][0]).toBe("/api/galleries?page=2&size=20&ownerId=alice");
 });
 
+test("gallery search validates linked galleries on an image match", async () => {
+  const link = { id: gallery.id, name: gallery.name, type: gallery.type, ownerId: gallery.ownerId };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [gallery],
+          metadata: { page: 1, size: 20, total_count: 1, total_pages: 1 },
+          matchingMedia: {
+            items: [
+              {
+                galleryId: gallery.id,
+                linkedGalleries: [link],
+                path: "/NASPool/Photos/dog.jpg",
+                mediaType: "IMAGE",
+                width: 640,
+                height: 480,
+                livePhotoPath: null,
+                caption: "A dog on a sofa",
+                tags: [],
+              },
+            ],
+            total: 1,
+            limit: 50,
+            offset: 0,
+          },
+        }),
+      ),
+    ),
+  );
+  const result = await listGalleries(1, undefined, { q: "dog" });
+  expect(result.matchingMedia?.items[0]?.linkedGalleries).toEqual([link]);
+});
+
+test("image results use their own pagination offset", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        items: [],
+        metadata: { page: 1, size: 20, total_count: 0, total_pages: 0 },
+      }),
+    ),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  await listGalleries(1, undefined, { q: "dog" }, 50);
+  expect(fetchMock.mock.calls[0][0]).toBe("/api/galleries?page=1&size=20&mediaOffset=50&q=dog");
+});
+
 test("gallery search sends supported filters to the backend", async () => {
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(

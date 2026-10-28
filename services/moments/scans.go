@@ -296,6 +296,7 @@ type scanMedia struct {
 	Type          string
 	Width, Height *int
 	LivePath      *string
+	Caption       *string
 	Tags          []scanTag
 }
 
@@ -355,6 +356,13 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 	total := len(paths)
 	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status='RUNNING',total_items=? WHERE id=?`, total, job.ID)
 	media := make([]scanMedia, 0, total)
+	var captioner *captionWorker
+	captionAttempted := false
+	defer func() {
+		if captioner != nil {
+			captioner.close()
+		}
+	}()
 	failed := 0
 	for index, path := range paths {
 		if ctx.Err() != nil {
@@ -371,7 +379,18 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 		if fetchErr != nil {
 			failed++
 		} else {
-			media = append(media, scanMediaFromSource(info, m.places))
+			item := scanMediaFromSource(info, m.places)
+			enrichLocation(ctx, &item, info, m.places)
+			if item.Type == "IMAGE" {
+				if !captionAttempted {
+					captioner = startCaptionWorker(ctx, m.places)
+					captionAttempted = true
+				}
+				if captioner != nil {
+					item.Caption = captioner.caption(ctx, m.files, token, path)
+				}
+			}
+			media = append(media, item)
 		}
 		if index%10 == 9 || index == len(paths)-1 {
 			_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET processed_items=?,successful_items=?,failed_items=? WHERE id=?`, index+1, len(media), failed, job.ID)
