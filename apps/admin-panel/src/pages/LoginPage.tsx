@@ -1,5 +1,6 @@
 import { PublicAppLayout } from "@components/layout/PublicAppLayout";
 import { useAuth } from "@hooks/useAuth";
+import { useLanguage } from "@lite-nas/language";
 import { authDestination, loginDestination } from "@lite-nas/profile";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -16,6 +17,7 @@ import { useLocation, useNavigate } from "react-router-dom";
  * Browser login page rendered when the auth guard resolves an anonymous state.
  */
 export const LoginPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   const { login } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,13 +35,13 @@ export const LoginPage = (): ReactElement => {
           <Stack component="form" data-testid="login-form" onSubmit={onSubmit} spacing={3}>
             <Stack spacing={1}>
               <Typography data-testid="login-title" variant="h1">
-                Sign in
+                {getLabel("admin.signIn")}
               </Typography>
             </Stack>
             <TextField
               autoComplete="username"
               data-testid="login-username-field"
-              label="Login"
+              label={getLabel("common.login")}
               name="login"
               onChange={(event) => {
                 setUsername(event.target.value);
@@ -50,7 +52,7 @@ export const LoginPage = (): ReactElement => {
             <TextField
               autoComplete="current-password"
               data-testid="login-password-field"
-              label="Password"
+              label={getLabel("common.password")}
               name="password"
               onChange={(event) => {
                 setPassword(event.target.value);
@@ -70,7 +72,7 @@ export const LoginPage = (): ReactElement => {
               type="submit"
               variant="contained"
             >
-              Sign in
+              {getLabel("common.signIn")}
             </Button>
           </Stack>
         </Paper>
@@ -92,6 +94,7 @@ const useLoginForm = (
   destination: string,
   onAuthenticated: (redirectTo?: string) => void,
 ) => {
+  const { getLabel } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [password, setPassword] = useState("");
@@ -105,12 +108,12 @@ const useLoginForm = (
     try {
       const response = await login(username, password, destination);
       if (!response.ok) {
-        setError("Login failed.");
+        setError(getLabel("admin.loginFailed"));
       } else {
         onAuthenticated(await readLoginRedirect(response));
       }
     } catch {
-      setError("Login failed.");
+      setError(getLabel("admin.loginFailed"));
     } finally {
       setIsSubmitting(false);
     }

@@ -13,9 +13,13 @@ import os
 import sys
 import warnings
 
-MAX_IMAGE_PIXELS = 50_000_000
-MAX_REQUEST_BYTES = 24 * 1024 * 1024
+# BLIP sees a 1024-pixel thumbnail; bound the original decode for 4 GB hosts.
+MAX_IMAGE_PIXELS = 100_000_000
+MAX_IMAGE_BYTES = 64 * 1024 * 1024
+MAX_REQUEST_BYTES = 96 * 1024 * 1024
 SUPPORTED_FORMATS = ("JPEG", "PNG", "WEBP", "GIF", "BMP", "TIFF")
+# A short caption prefix encourages BLIP to name the visible subject.
+CAPTION_PREFIX = "A picture of"
 
 
 def decode_image(encoded: str):
@@ -27,7 +31,7 @@ def decode_image(encoded: str):
     if not isinstance(encoded, str) or len(encoded) > MAX_REQUEST_BYTES:
         raise ValueError("invalid image input")
     data = base64.b64decode(encoded, validate=True)
-    if not data or len(data) > 16 * 1024 * 1024:
+    if not data or len(data) > MAX_IMAGE_BYTES:
         raise ValueError("image exceeds byte limit")
     with Image.open(io.BytesIO(data), formats=SUPPORTED_FORMATS) as source:
         if source.width * source.height > MAX_IMAGE_PIXELS:
@@ -63,7 +67,7 @@ def main() -> None:
         try:
             request = json.loads(line)
             image = decode_image(request["image"])
-            inputs = processor(image, return_tensors="pt")
+            inputs = processor(images=image, text=CAPTION_PREFIX, return_tensors="pt")
             output = model.generate(**inputs, max_new_tokens=40)
             caption = processor.decode(output[0], skip_special_tokens=True).strip()
             print(json.dumps({"caption": caption}), flush=True)

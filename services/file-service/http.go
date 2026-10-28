@@ -48,6 +48,35 @@ func newFileService(cfg serviceConfig, policy filesystem.Policy, auth *fileacces
 
 // ServeHTTP authenticates every protected request before dispatching its route.
 func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	if strings.HasPrefix(request.Header.Get("Authorization"), "CaptionGrant ") {
+		if request.Method != http.MethodGet || validateCaptionPath(request.URL.Path) != nil {
+			writeError(writer, http.StatusForbidden, "forbidden")
+			return
+		}
+		resolved, err := fileaccess.ResolveExisting(request.URL.Path)
+		if err != nil {
+			writeError(writer, http.StatusNotFound, "not_found")
+			return
+		}
+		grant := strings.TrimPrefix(request.Header.Get("Authorization"), "CaptionGrant ")
+		subject, err := s.auth.ResolveCaptionGrant(request.Context(), grant, resolved)
+		if err != nil {
+			if errors.Is(err, fileaccess.ErrUnauthenticated) {
+				writeError(writer, http.StatusUnauthorized, "unauthenticated")
+			} else {
+				writeError(writer, http.StatusServiceUnavailable, "authentication_unavailable")
+			}
+			return
+		}
+		// Keep the authorized canonical path even if the submitted symlink changes.
+		canonicalRequest := request.Clone(request.Context())
+		canonicalURL := *request.URL
+		canonicalURL.Path = resolved
+		canonicalURL.RawPath = ""
+		canonicalRequest.URL = &canonicalURL
+		s.download(writer, canonicalRequest, subject, false)
+		return
+	}
 	if request.URL.Path == "/docs" || strings.HasPrefix(request.URL.Path, "/docs/") || request.URL.Path == "/openapi.json" {
 		if !s.cfg.DocsEnabled {
 			writeError(writer, http.StatusNotFound, "not_found")
@@ -107,6 +136,18 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	default:
 		writeError(writer, http.StatusMethodNotAllowed, "method_not_allowed")
 	}
+}
+
+// validateCaptionPath confines grants to source-file GETs, outside API routes.
+func validateCaptionPath(path string) error {
+	if fileaccess.ValidateHostPath(path) != nil || path == "/" ||
+		strings.HasPrefix(path, "/profile/") || strings.HasPrefix(path, "/ls/") ||
+		strings.HasPrefix(path, "/stat/") || strings.HasPrefix(path, "/metadata/") ||
+		strings.HasPrefix(path, "/download/") || strings.HasPrefix(path, "/jobs/") ||
+		strings.HasPrefix(path, "/proprietary/") {
+		return fileaccess.ErrInvalidPath
+	}
+	return nil
 }
 
 // authenticate resolves a Bearer token or the existing browser access cookie.

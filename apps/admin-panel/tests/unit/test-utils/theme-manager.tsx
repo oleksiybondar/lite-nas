@@ -1,5 +1,6 @@
 import { ThemeManagerContext } from "@contexts/theme-manager-context";
 import { render } from "@testing-library/react";
+import { TestLanguageBoundary } from "@tests/unit/test-utils/language";
 import { TestProfileBoundary } from "@tests/unit/test-utils/profile-boundary";
 import type { ThemeManagerContextValue } from "@theme/index";
 import type { ReactElement } from "react";
@@ -13,7 +14,9 @@ export const renderWithThemeManager = (
 ) => {
   return render(
     <ThemeManagerContext.Provider value={createThemeManagerValue(overrides)}>
-      <TestProfileBoundary>{component}</TestProfileBoundary>
+      <TestLanguageBoundary>
+        <TestProfileBoundary>{component}</TestProfileBoundary>
+      </TestLanguageBoundary>
     </ThemeManagerContext.Provider>,
   );
 };

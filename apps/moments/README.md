@@ -20,9 +20,11 @@ directories are read through the caller's File Service permissions. The
 configured `workingDir` from `/api/config` starts both file and folder pickers.
 Owners can create albums and collections with a description, visibility, and
 user tags, then edit those fields in a modal from the gallery detail view.
-The edit modal also starts an on-demand media scan, shows its progress and
-result, and lets the owner cancel an active job. Scan status polling continues
-while the gallery view remains open so the backend can renew the worker token.
+The edit modal also starts an on-demand media scan or caption scan, shows its
+progress and result, and lets the owner cancel an active job. Polling while the
+gallery view is open can renew the volatile token for a media scan. Caption
+scans use a scoped grant and continue independently of browser polling; see
+the [local model guide](../../docs/moments-models.md).
 An album card's collection menu adds or removes its source directory in an
 owned collection without changing the album's files.
 New albums and collections start as public; owners can select private in the

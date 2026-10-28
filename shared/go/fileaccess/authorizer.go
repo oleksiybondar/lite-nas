@@ -64,16 +64,37 @@ func (a *Authorizer) Resolve(ctx context.Context, token string) (Subject, error)
 		validated.Username == "" || len(validated.Username) > 128 {
 		return Subject{}, ErrUnauthenticated
 	}
+	return a.resolveUsername(ctx, validated.Username)
+}
+
+// ResolveCaptionGrant validates one exact file path before resolving user ACLs.
+func (a *Authorizer) ResolveCaptionGrant(ctx context.Context, grant, path string) (Subject, error) {
+	if len(grant) == 0 || len(grant) > 128 || ValidateHostPath(path) != nil {
+		return Subject{}, ErrUnauthenticated
+	}
+	var validated authcontract.CaptionGrantValidateResponse
+	if err := a.client.Request(ctx, authcontract.CaptionGrantValidateRPCSubject,
+		authcontract.CaptionGrantValidateRequest{Grant: grant, Path: path}, &validated); err != nil {
+		return Subject{}, fmt.Errorf("caption grant validation failed: %w", err)
+	}
+	if !validated.Valid || validated.Username == "" || len(validated.Username) > 128 {
+		return Subject{}, ErrUnauthenticated
+	}
+	return a.resolveUsername(ctx, validated.Username)
+}
+
+// resolveUsername maps an Auth-verified login to its current non-root host identity.
+func (a *Authorizer) resolveUsername(ctx context.Context, username string) (Subject, error) {
 	var roles rbaccontract.GetSubjectRolesResponse
 	if err := a.client.Request(ctx, rbaccontract.GetSubjectRolesRPCSubject,
-		rbaccontract.GetSubjectRolesRequest{Username: validated.Username}, &roles); err != nil {
+		rbaccontract.GetSubjectRolesRequest{Username: username}, &roles); err != nil {
 		return Subject{}, fmt.Errorf("RBAC subject resolution failed: %w", err)
 	}
 	uid, err := strconv.ParseUint(roles.UID, 10, 32)
 	if err != nil || uid == 0 || strconv.FormatUint(uid, 10) != roles.UID {
 		return Subject{}, ErrSubjectUnavailable
 	}
-	return Subject{Username: validated.Username, UID: roles.UID, Groups: append([]string(nil), roles.Groups...)}, nil
+	return Subject{Username: username, UID: roles.UID, Groups: append([]string(nil), roles.Groups...)}, nil
 }
 
 // Read asks RBAC to authorize reading an existing resolved file or directory.

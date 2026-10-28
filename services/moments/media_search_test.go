@@ -113,6 +113,48 @@ func TestMediaSearchFindsCaption(t *testing.T) {
 	}
 }
 
+// TestMediaSearchFindsSeparatedCaptionTerms covers phrases split by clothing names.
+func TestMediaSearchFindsSeparatedCaptionTerms(t *testing.T) {
+	store, router := mustSearchFixture(t)
+	id := mustNamedGallery(t, router, "COLLECTION", "Trip", "")
+	mustSearchRows(t, store,
+		`INSERT INTO media_files(path,media_type) VALUES('/home/alice/photo.jpg','IMAGE')`,
+		`INSERT INTO gallery_media(gallery_id,path,media_type) VALUES('`+id+`','/home/alice/photo.jpg','IMAGE')`,
+		`INSERT INTO media_captions(path,caption,search_key,model,updated_at) VALUES('/home/alice/photo.jpg','A person in a blue t-shirt','a person in a blue t-shirt','test','now')`,
+	)
+	body := mustGalleryRequest(t, router, http.MethodGet, "/api/galleries?q="+url.QueryEscape("blue shirt"), "", http.StatusOK)
+	page := mustGalleryJSON[struct {
+		MatchingMedia struct {
+			Items []struct {
+				Path string `json:"path"`
+			} `json:"items"`
+		} `json:"matchingMedia"`
+	}](t, body)
+	if len(page.MatchingMedia.Items) != 1 || page.MatchingMedia.Items[0].Path != "/home/alice/photo.jpg" {
+		t.Fatalf("phrase matches = %+v", page.MatchingMedia.Items)
+	}
+}
+
+// TestMediaSearchRequiresTermsOnOneFile prevents unrelated images from combining matches.
+func TestMediaSearchRequiresTermsOnOneFile(t *testing.T) {
+	store, router := mustSearchFixture(t)
+	id := mustNamedGallery(t, router, "COLLECTION", "Trip", "")
+	mustSearchRows(t, store,
+		`INSERT INTO media_files(path,media_type) VALUES('/home/alice/blue.jpg','IMAGE'),('/home/alice/shirt.jpg','IMAGE')`,
+		`INSERT INTO gallery_media(gallery_id,path,media_type) VALUES('`+id+`','/home/alice/blue.jpg','IMAGE'),('`+id+`','/home/alice/shirt.jpg','IMAGE')`,
+		`INSERT INTO media_captions(path,caption,search_key,model,updated_at) VALUES('/home/alice/blue.jpg','A blue sky','a blue sky','test','now'),('/home/alice/shirt.jpg','A red shirt','a red shirt','test','now')`,
+	)
+	body := mustGalleryRequest(t, router, http.MethodGet, "/api/galleries?q="+url.QueryEscape("blue shirt"), "", http.StatusOK)
+	page := mustGalleryJSON[struct {
+		MatchingMedia struct {
+			Total int `json:"total"`
+		} `json:"matchingMedia"`
+	}](t, body)
+	if page.MatchingMedia.Total != 0 {
+		t.Fatalf("cross-image phrase matches = %d", page.MatchingMedia.Total)
+	}
+}
+
 // TestMediaSearchUsesIndependentPagination covers moments-backend/FR-005 media paging.
 func TestMediaSearchUsesIndependentPagination(t *testing.T) {
 	store, router := mustSearchFixture(t)

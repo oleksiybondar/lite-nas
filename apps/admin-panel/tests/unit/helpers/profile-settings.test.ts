@@ -79,7 +79,7 @@ describe("admin-panel-app/FR-004 profile file validation and saves", () => {
     };
     await saveSharedMode(api, "light");
 
-    expect(submitted).toEqual({ document: { preferredMode: "light" } });
+    expect(submitted).toEqual({ document: { preferredMode: "light", preferredLanguage: "en" } });
   });
 
   test("keeps the local preferred mode when the profile write fails", async () => {

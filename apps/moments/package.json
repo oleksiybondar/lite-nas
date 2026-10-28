@@ -12,6 +12,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@lite-nas/profile": "file:../../shared/ts/profile",
+    "@lite-nas/language": "file:../../shared/ts/language",
     "@lite-nas/settings": "file:../../shared/ts/settings",
     "@lite-nas/theme": "file:../../shared/ts/theme",
     "@mui/icons-material": "^7.3.9",

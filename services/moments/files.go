@@ -58,6 +58,16 @@ func newFileServiceClient(origin string) fileServiceClient {
 
 // request performs a validated, user-JWT-bound File Service read without token persistence.
 func (c fileServiceClient) request(ctx context.Context, token, route, path, query string) (*http.Response, error) {
+	return c.requestWithScheme(ctx, "Bearer", token, route, path, query)
+}
+
+// captionRequest sends a job grant only to the exact File Service source route.
+func (c fileServiceClient) captionRequest(ctx context.Context, grant, path string) (*http.Response, error) {
+	return c.requestWithScheme(ctx, "CaptionGrant", grant, "", path, "")
+}
+
+// requestWithScheme keeps source path validation shared by user and job reads.
+func (c fileServiceClient) requestWithScheme(ctx context.Context, scheme, token, route, path, query string) (*http.Response, error) {
 	if token == "" || len(token) > 8192 || strings.ContainsAny(token, "\r\n") {
 		return nil, huma.Error401Unauthorized("invalid access token")
 	}
@@ -74,7 +84,7 @@ func (c fileServiceClient) request(ctx context.Context, token, route, path, quer
 	if err != nil {
 		return nil, huma.Error500InternalServerError("File Service request failed")
 	}
-	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Authorization", scheme+" "+token)
 	response, err := c.client.Do(request)
 	if err != nil {
 		return nil, huma.Error503ServiceUnavailable("File Service unavailable")

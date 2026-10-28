@@ -1,0 +1,81 @@
+{
+  "language": {
+    "label": "Sprog",
+    "english": "English",
+    "ukrainian": "Українська",
+    "danish": "Dansk",
+    "saveFailed": "Gemt i denne browser, men brugerfilen kunne ikke opdateres."
+  },
+  "common": {
+    "login": "Log ind",
+    "password": "Adgangskode",
+    "signIn": "Log ind",
+    "signInFailed": "Login mislykkedes.",
+    "loading": "Indlæser…",
+    "settings": "Indstillinger",
+    "profile": "Profil",
+    "appearance": "Udseende",
+    "home": "Hjem",
+    "upload": "Upload",
+    "delete": "Slet",
+    "preview": "Forhåndsvis",
+    "copy": "Kopiér",
+    "move": "Flyt",
+    "newFolder": "Ny mappe",
+    "cancel": "Annuller",
+    "save": "Gem"
+  },
+  "admin": {
+    "signIn": "Log ind",
+    "loginFailed": "Login mislykkedes."
+  },
+  "moments": {
+    "signIn": "Log ind på Moments",
+    "myCollections": "Mine samlinger",
+    "sharedCollections": "Delte samlinger",
+    "loading": "Indlæser Moments…"
+  },
+  "explorer": {
+    "title": "Filhåndtering",
+    "create": "Opret",
+    "folderName": "Mappenavn",
+    "folderVisibility": "Giv andre brugere adgang til denne mappe",
+    "createIn": "Opret i",
+    "confirmYes": "Skriv yes for at bekræfte",
+    "hideHidden": "Skjul skjulte filer",
+    "showHidden": "Vis skjulte filer",
+    "onePanel": "Vis ét panel",
+    "twoPanels": "Vis to paneler"
+  },
+  "navigation": {
+    "File Explorer": "Filhåndtering",
+    "Moments": "Moments",
+    "Applications": "Applikationer",
+    "Dashboard": "Oversigt",
+    "Alerts": "Alarmer",
+    "System": "System",
+    "Security": "Sikkerhed",
+    "Unacknowledged alerts": "Ikke kvitterede alarmer",
+    "Active alerts": "Aktive alarmer",
+    "All alerts": "Alle alarmer",
+    "Network": "Netværk",
+    "Disk": "Disk",
+    "ZFS": "ZFS",
+    "Performance": "Ydeevne",
+    "Temperature": "Temperatur",
+    "Voltage": "Spænding",
+    "Clock": "Frekvens",
+    "Throttling": "Neddrosling",
+    "Fan": "Ventilator",
+    "Sensors": "Sensorer",
+    "Processes": "Processer",
+    "Services": "Tjenester",
+    "Preferences": "Indstillinger",
+    "User profile": "Brugerprofil",
+    "Theme": "Tema",
+    "Monitoring": "Overvågning",
+    "Application settings": "Programindstillinger",
+    "expand": "Udvid",
+    "collapse": "Skjul"
+  }
+}

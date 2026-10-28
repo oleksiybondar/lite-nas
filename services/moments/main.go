@@ -177,9 +177,16 @@ func run(ctx context.Context, path string) error {
 	places.online = newReverseGeocoder(store, cfg.GeocoderURL)
 	places.captionScript = cfg.CaptionScript
 	places.embeddingScript = cfg.EmbeddingScript
+	files := newFileServiceClient(cfg.FileServiceURL)
+	auth := browserauth.NewAuthService(infra.Client, verifier)
+	scans := newScanManager(store, auth, files, places)
+	scans.grants = infra.Client
+	if err := scans.resumeCaptionJobs(ctx); err != nil {
+		return err
+	}
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,
-		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, places),
+		Handler:           newRouterWithScanManager(auth, cfg.CookieDomain, store, files, cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, scans),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      90 * time.Second,
@@ -222,6 +229,11 @@ func newRouterWithClient(auth browserauth.AuthService, cookieDomain string, stor
 
 // newRouterWithRuntime mounts API routes with provisioned thumbnails and picker configuration.
 func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient, thumbnailDir, workingDir string, users subjectLookup, places ...*cityIndex) http.Handler {
+	return newRouterWithScanManager(auth, cookieDomain, store, files, thumbnailDir, workingDir, users, newScanManager(store, auth, files, places...))
+}
+
+// newRouterWithScanManager mounts routes around the process-owned scan lifecycle.
+func newRouterWithScanManager(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient, thumbnailDir, workingDir string, users subjectLookup, scans *scanManager) http.Handler {
 	router := chi.NewMux()
 	config := huma.DefaultConfig("LiteNAS Moments", "0.1.0")
 	config.OpenAPIPath = "/api/openapi"
@@ -240,7 +252,7 @@ func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, sto
 	huma.Get(api, "/api/auth/me", controller.me)
 	huma.Get(api, "/api/config", controller.config(workingDir))
 	if store != nil {
-		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: newScanManager(store, auth, files, places...), thumbnailDir: thumbnailDir, users: users})
+		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: scans, thumbnailDir: thumbnailDir, users: users})
 	}
 	return browserauth.SameOrigin(router)
 }

@@ -16,15 +16,20 @@ import (
 	"time"
 )
 
-const captionModel = "Salesforce/blip-image-captioning-base"
+const (
+	captionModel = "Salesforce/blip-image-captioning-base"
+	// Match the Python worker's compressed-image limit before base64 encoding.
+	maxCaptionImageBytes = 64 << 20
+)
 
 // captionWorker keeps one optional local model loaded for a scan or upload.
 type captionWorker struct {
-	command *exec.Cmd
-	input   io.WriteCloser
-	output  *bufio.Reader
-	unlock  func()
-	failed  bool
+	command       *exec.Cmd
+	input         io.WriteCloser
+	output        *bufio.Reader
+	unlock        func()
+	failed        bool
+	grantRejected bool
 }
 
 // startCaptionWorker uses only a provisioned local script and cached model weights.
@@ -76,19 +81,52 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 
 // caption streams one ACL-authorized image to the local model without storing its bytes.
 func (worker *captionWorker) caption(ctx context.Context, files fileServiceClient, token, path string) *string {
+	return worker.captionWithRequest(ctx, files, token, path, false)
+}
+
+// captionWithGrant reads one job-scoped source without a browser credential.
+func (worker *captionWorker) captionWithGrant(ctx context.Context, files fileServiceClient, grant, path string) *string {
+	return worker.captionWithRequest(ctx, files, grant, path, true)
+}
+
+// captionWithRequest streams one authorized image into the local model.
+func (worker *captionWorker) captionWithRequest(ctx context.Context, files fileServiceClient, token, path string, grant bool) *string {
 	if worker.failed {
 		return nil
 	}
-	response, err := files.request(ctx, token, "", path, "")
+	var response *http.Response
+	var err error
+	for {
+		if grant {
+			response, err = files.captionRequest(ctx, token, path)
+		} else {
+			response, err = files.request(ctx, token, "", path, "")
+		}
+		if !grant || (err == nil && response.StatusCode < http.StatusInternalServerError) {
+			break
+		}
+		if response != nil {
+			_ = response.Body.Close()
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(10 * time.Second):
+		}
+	}
 	if err != nil {
 		return nil
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || response.ContentLength > 16<<20 {
+	if grant && response.StatusCode == http.StatusUnauthorized {
+		worker.grantRejected = true
 		return nil
 	}
-	data, err := io.ReadAll(io.LimitReader(response.Body, (16<<20)+1))
-	if err != nil || len(data) == 0 || len(data) > 16<<20 {
+	if response.StatusCode != http.StatusOK || response.ContentLength > maxCaptionImageBytes {
+		return nil
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxCaptionImageBytes+1))
+	if err != nil || len(data) == 0 || len(data) > maxCaptionImageBytes {
 		return nil
 	}
 	request, err := json.Marshal(struct {
@@ -101,8 +139,13 @@ func (worker *captionWorker) caption(ctx context.Context, files fileServiceClien
 		worker.failed = true
 		return nil
 	}
-	line, err := worker.readLine(ctx, 25*time.Second)
+	line, err := worker.readLine(ctx, 180*time.Second)
 	if err != nil || len(line) > 4096 {
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "moments: BLIP image caption failed: %v\n", err)
+		} else {
+			_, _ = fmt.Fprintln(os.Stderr, "moments: BLIP image caption response exceeded limit")
+		}
 		worker.failed = true
 		return nil
 	}

@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
@@ -39,6 +40,7 @@ export const AppSidebarFlyout = ({
   items,
   selectedPath,
 }: AppSidebarFlyoutProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const [activeItem, setActiveItem] = useState<AppNavigationPageItem | null>(null);
 
@@ -61,6 +63,7 @@ export const AppSidebarFlyout = ({
           return renderFlyoutButton({
             item,
             key: item.path,
+            label: getLabel(`navigation.${item.title}`),
             onOpenFlyout: (event) => {
               setAnchorElement(event.currentTarget);
               setActiveItem(item);
@@ -88,6 +91,7 @@ export const AppSidebarFlyout = ({
 type FlyoutButtonRenderOptions = {
   item: AppNavigationPageItem;
   key: string;
+  label: string;
   onOpenFlyout: (event: MouseEvent<HTMLAnchorElement>) => void;
   selectedPath: string | null;
 };
@@ -98,13 +102,14 @@ type FlyoutButtonRenderOptions = {
 const renderFlyoutButton = ({
   item,
   key,
+  label,
   onOpenFlyout,
   selectedPath,
 }: FlyoutButtonRenderOptions): ReactElement => {
   return (
-    <Tooltip key={key} placement="right" title={item.title}>
+    <Tooltip key={key} placement="right" title={label}>
       <IconButton
-        aria-label={item.title}
+        aria-label={label}
         color={isActiveNavigationItem(item, selectedPath) ? "primary" : "default"}
         component={RouterLink}
         data-test-class="sidebar-flyout-button"

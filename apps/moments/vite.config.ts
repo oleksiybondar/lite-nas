@@ -19,6 +19,7 @@ export default defineConfig({
       include: [
         resolve("src/**/*.{ts,tsx}"),
         resolve("../../shared/ts/file-browser/FileSelectionPage.tsx"),
+        resolve("../../shared/ts/language/**/*.{ts,tsx}"),
       ],
       thresholds: { branches: 75, functions: 75, lines: 75, statements: 75 },
     },

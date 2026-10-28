@@ -1,4 +1,5 @@
 import { AppLogo } from "@components/branding/AppLogo";
+import { LanguageSelector } from "@lite-nas/language";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
@@ -32,7 +33,7 @@ export const AppTopBar = ({ leadingAction, trailingAction }: AppTopBarProps = {}
     <AppBar color="transparent" data-testid="app-top-bar" elevation={0} position="sticky">
       <Toolbar
         data-testid="app-top-bar-toolbar"
-        sx={{ borderBottom: 1, borderColor: "divider", gap: 2 }}
+        sx={{ borderBottom: 1, borderColor: "divider", flexWrap: "wrap", gap: 2 }}
       >
         {leadingAction}
         <AppLogo />
@@ -40,9 +41,11 @@ export const AppTopBar = ({ leadingAction, trailingAction }: AppTopBarProps = {}
           alignItems="center"
           data-testid="app-top-bar-actions"
           display="flex"
+          flexWrap="wrap"
           gap={1}
           sx={{ ml: "auto" }}
         >
+          <LanguageSelector />
           {trailingAction}
         </Box>
       </Toolbar>

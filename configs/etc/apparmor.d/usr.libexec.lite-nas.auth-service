@@ -16,6 +16,8 @@ profile /usr/libexec/lite-nas/auth-service flags=(attach_disconnected,mediate_de
   /var/lib/lite-nas-auth/ r,
   /var/lib/lite-nas-auth/lockdown.json rwk,
   /var/lib/lite-nas-auth/.lockdown-* rwk,
+  /var/lib/lite-nas-auth/caption-grants.json rwk,
+  /var/lib/lite-nas-auth/.caption-grants-* rwk,
 
   include if exists <local/usr.libexec.lite-nas.auth-service>
 }

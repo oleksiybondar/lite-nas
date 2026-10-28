@@ -141,7 +141,9 @@ test("a generated recipe can be downloaded as JSON", async () => {
   render(<ThumbnailMaker items={[photo]} onSave={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "Random" }));
   fireEvent.click(screen.getByRole("button", { name: "Download JSON" }));
-  expect(objectUrl).toHaveBeenCalledWith(expect.any(Blob));
+  await vi.waitFor(() => expect(TestURL.revokeObjectURL).toHaveBeenCalledWith("blob:thumbnail"), {
+    timeout: 2000,
+  });
 });
 
 test("unsupported browser uploads report their accepted image formats", async () => {

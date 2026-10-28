@@ -11,7 +11,8 @@
     "shared/ts/settings",
     "shared/ts/file-upload",
     "shared/ts/formatting",
-    "shared/ts/file-browser"
+    "shared/ts/file-browser",
+    "shared/ts/language"
   ],
   "scripts": {
     "ci:analysis": "scripts/run-ci-analysis.sh",

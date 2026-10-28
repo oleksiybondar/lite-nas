@@ -27,11 +27,12 @@ const (
 
 // semanticCandidate holds text and a cached vector for one visible physical image.
 type semanticCandidate struct {
-	path   string
-	text   string
-	hash   string
-	vector []float32
-	score  float32
+	path    string
+	text    string
+	hash    string
+	vector  []float32
+	score   float32
+	lexical bool
 }
 
 // wantsSemanticSearch keeps single Latin words on the inexpensive text path.
@@ -111,6 +112,9 @@ func rankSemanticCandidates(candidates []semanticCandidate, query []float32) []s
 		}
 	}
 	sort.Slice(candidates, func(left, right int) bool {
+		if candidates[left].lexical != candidates[right].lexical {
+			return candidates[left].lexical
+		}
 		if candidates[left].score == candidates[right].score {
 			return candidates[left].path < candidates[right].path
 		}
@@ -197,6 +201,14 @@ func (c galleryController) semanticCandidates(ctx context.Context, user string, 
 		}
 		if candidate.text == "" {
 			candidate.text = "image"
+		}
+		candidate.lexical = true
+		key := searchKey(candidate.text)
+		for _, term := range strings.Fields(searchKey(input.Q)) {
+			if !strings.Contains(key, term) {
+				candidate.lexical = false
+				break
+			}
 		}
 		hash := sha256.Sum256([]byte(candidate.text))
 		candidate.hash = hex.EncodeToString(hash[:])

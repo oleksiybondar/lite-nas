@@ -10,7 +10,7 @@ import sys
 import tempfile
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import caption_image
 
@@ -41,7 +41,7 @@ def make_model_fixture(model_dir, installer):
 class OversizeImage:
     """Expose dimensions that exceed the worker's pixel limit before decoding."""
 
-    width = 10_000
+    width = 11_000
     height = 10_000
 
     def __enter__(self):
@@ -72,6 +72,23 @@ class CaptionWorkerTests(unittest.TestCase):
         with patch.dict(sys.modules, {"PIL": types.SimpleNamespace(Image=image_module)}):
             with self.assertRaisesRegex(ValueError, "image exceeds pixel limit"):
                 caption_image.decode_image(base64.b64encode(b"image").decode())
+
+    def test_accepts_large_camera_jpeg(self):
+        """A 40 MiB, 80 MP camera image must reach decoding within the limit."""
+        image = MagicMock()
+        image.width = 10_000
+        image.height = 8_000
+        image.__enter__.return_value = image
+        image.convert.return_value = "decoded"
+        image_module = types.SimpleNamespace(
+            DecompressionBombWarning=Warning,
+            open=lambda *_args, **_kwargs: image,
+        )
+        with (
+            patch.dict(sys.modules, {"PIL": types.SimpleNamespace(Image=image_module)}),
+            patch.object(caption_image.base64, "b64decode", return_value=b"x" * (40 << 20)),
+        ):
+            self.assertEqual(caption_image.decode_image("encoded"), "decoded")
 
 
 class CaptionInstallerTests(unittest.TestCase):

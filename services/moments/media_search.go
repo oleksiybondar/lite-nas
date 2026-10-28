@@ -40,7 +40,8 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 		page.Limit = 50
 	}
 	page.Offset = input.MediaOffset
-	if input.Q == "" && len(input.Location) == 0 {
+	terms := strings.Fields(searchKey(input.Q))
+	if len(terms) == 0 && len(input.Location) == 0 {
 		return nil
 	}
 	where := ` FROM gallery_media gm JOIN galleries g ON g.id=gm.gallery_id JOIN media_files mf ON mf.path=gm.path
@@ -71,20 +72,21 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 	}
 	baseWhere := where
 	baseArgs := append([]any(nil), args...)
-	if input.Q != "" {
-		where += ` AND (EXISTS (SELECT 1 FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id
+	if len(terms) != 0 {
+		for _, key := range terms {
+			where += ` AND (EXISTS (SELECT 1 FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id
 			WHERE mt.path=gm.path AND instr(t.search_key,?)>0)
 			OR EXISTS (SELECT 1 FROM media_person_tags pt WHERE pt.path=gm.path AND instr(pt.search_key,?)>0)
 			OR EXISTS (SELECT 1 FROM media_captions mc WHERE mc.path=gm.path AND instr(mc.search_key,?)>0))`
-		key := searchKey(input.Q)
-		args = append(args, key, key, key)
+			args = append(args, key, key, key)
+		}
 	}
 	if err := c.store.db.QueryRowContext(ctx, `SELECT count(DISTINCT gm.path)`+where, args...).Scan(&page.Total); err != nil {
 		return huma.Error500InternalServerError("media search failed")
 	}
 	order := ` ORDER BY max(g.created_at) DESC,gm.path`
 	queryOffset := page.Offset
-	if input.Q != "" && (wantsSemanticSearch(input.Q) || page.Total == 0) {
+	if len(terms) != 0 && (wantsSemanticSearch(input.Q) || page.Total == 0) {
 		if paths, err := c.semanticPaths(ctx, user, input); err == nil {
 			page.Total = int64(len(paths))
 			if page.Offset >= len(paths) {

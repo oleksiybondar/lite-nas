@@ -1,0 +1,81 @@
+{
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "ukrainian": "Українська",
+    "danish": "Dansk",
+    "saveFailed": "Saved in this browser, but the user file could not be updated."
+  },
+  "common": {
+    "login": "Login",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signInFailed": "Sign in failed.",
+    "loading": "Loading…",
+    "settings": "Settings",
+    "profile": "Profile",
+    "appearance": "Appearance",
+    "home": "Home",
+    "upload": "Upload",
+    "delete": "Delete",
+    "preview": "Preview",
+    "copy": "Copy",
+    "move": "Move",
+    "newFolder": "New folder",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "admin": {
+    "signIn": "Sign in",
+    "loginFailed": "Login failed."
+  },
+  "moments": {
+    "signIn": "Sign in to Moments",
+    "myCollections": "My collections",
+    "sharedCollections": "Shared collections",
+    "loading": "Loading Moments…"
+  },
+  "explorer": {
+    "title": "File Explorer",
+    "create": "Create",
+    "folderName": "Folder name",
+    "folderVisibility": "Allow other users to access this folder",
+    "createIn": "Create in",
+    "confirmYes": "Type yes to confirm",
+    "hideHidden": "Hide hidden files",
+    "showHidden": "Show hidden files",
+    "onePanel": "Show one panel",
+    "twoPanels": "Show two panels"
+  },
+  "navigation": {
+    "File Explorer": "File Explorer",
+    "Moments": "Moments",
+    "Applications": "Applications",
+    "Dashboard": "Dashboard",
+    "Alerts": "Alerts",
+    "System": "System",
+    "Security": "Security",
+    "Unacknowledged alerts": "Unacknowledged alerts",
+    "Active alerts": "Active alerts",
+    "All alerts": "All alerts",
+    "Network": "Network",
+    "Disk": "Disk",
+    "ZFS": "ZFS",
+    "Performance": "Performance",
+    "Temperature": "Temperature",
+    "Voltage": "Voltage",
+    "Clock": "Clock",
+    "Throttling": "Throttling",
+    "Fan": "Fan",
+    "Sensors": "Sensors",
+    "Processes": "Processes",
+    "Services": "Services",
+    "Preferences": "Preferences",
+    "User profile": "User profile",
+    "Theme": "Theme",
+    "Monitoring": "Monitoring",
+    "Application settings": "Application settings",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  }
+}

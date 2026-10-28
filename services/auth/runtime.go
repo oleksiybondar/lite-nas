@@ -60,6 +60,7 @@ func run(ctx context.Context) error {
 		Tokens:            tokenRuntime,
 		RefreshStore:      newRefreshStore(infra.Config.AuthTokens),
 		ServiceTokenStore: newServiceTokenStore(time.Now),
+		CaptionGrants:     nil,
 		Validator:         newRequestValidator(),
 		Client:            infra.Client,
 		Lockdown:          lockdown,
@@ -67,6 +68,11 @@ func run(ctx context.Context) error {
 	if err := lockdown.replayPending(ctx, infra.Client); err != nil {
 		return err
 	}
+	grants, err := openCaptionGrantStore(captionGrantStatePath, time.Now)
+	if err != nil {
+		return err
+	}
+	runtimeDeps.CaptionGrants = grants
 	if err := registerRPCHandlers(infra.Server, runtimeDeps); err != nil {
 		return err
 	}
@@ -90,6 +96,7 @@ type authRuntime struct {
 	Tokens            authTokenRuntime
 	RefreshStore      *sessions.Store
 	ServiceTokenStore *serviceTokenStore
+	CaptionGrants     *captionGrantStore
 	Validator         requestValidator
 	Client            messaging.Client
 	Lockdown          *lockdownStore
@@ -238,6 +245,21 @@ func registerUserRPCHandlers(server messaging.Server, runtimeDeps authRuntime) e
 }
 
 func registerServiceRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error {
+	if err := server.RegisterRPC(authcontract.CaptionGrantIssueRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleCaptionGrantIssueRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.CaptionGrantValidateRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleCaptionGrantValidateRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.CaptionGrantRevokeRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleCaptionGrantRevokeRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
 	if err := server.RegisterRPC(authcontract.ServiceTokenLoginRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
 		return handleServiceTokenLoginRPC(runtimeDeps, envelope)
 	}); err != nil {

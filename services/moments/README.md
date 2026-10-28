@@ -3,8 +3,10 @@
 Moments is the loopback Go API for gallery metadata. It reuses the existing
 LiteNAS login, refresh, logout, and current-user routes. Original media and
 filesystem permissions remain with File Service; Stream Service serves browser
-playback and previews. The Moments database contains paths and derived metadata,
-not original media bytes or user tokens.
+playback and previews. The Moments database contains paths, derived metadata,
+and active caption job grants, but not original media bytes or browser access
+tokens. See the [local model guide](../../docs/moments-models.md) for model
+setup and limits.
 
 ## API and Swagger UI
 
@@ -30,7 +32,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `PUT/GET/DELETE /api/galleries/{galleryId}/thumbnail/image` | Store, serve, or remove an optional uploaded PNG/JPEG cover. PUT accepts `image/png`, `image/jpeg`, or `application/octet-stream`. |
 | `POST/GET /api/galleries/{galleryId}/scans` | Start a metadata-only full rescan or page the owner's job history. Pass `kind=MEDIA` or `kind=CAPTION` when listing one job type. |
 | `POST /api/galleries/{galleryId}/caption-scans` | Owner-only caption generation. JSON `{ "force": false }` skips already-captioned images; `true` regenerates them. The job uses the existing scan polling and cancellation routes. |
-| `GET/DELETE /api/scans/{scanId}` | Same-user progress polling with token renewal, or cancellation. |
+| `GET/DELETE /api/scans/{scanId}` | Same-user progress polling or cancellation. Polling can renew the volatile access token for media scans; caption scans use a scoped grant independently of browser polling. |
 | `GET /api/galleries/{galleryId}/media-metadata` | Page the last successfully published scan records. |
 | `POST /api/galleries/{galleryId}/media-metadata` | Owner-only update for one completed album upload: `{ "path": "/absolute/album/file.jpg" }`. The file is reauthorized through File Service, and only changed metadata for that path is updated. |
 | `POST /api/galleries/{galleryId}/media-person-tags` | Owner-only name tag for a linked image: `{ "path": "/absolute/photo.jpg", "name": "Ada" }`. Names are shared by every gallery linked to that file and survive rescans. |
@@ -113,8 +115,11 @@ The scan uses File Service's loopback HTTP API with the initiating user's
 Bearer token because that existing adapter already enforces caller-specific
 ACL checks; service identity alone never grants source access.
 
-Optional image captions use the local BLIP base model. Debian recommends
-Pillow, PyTorch, and Python venv. Debian and local deployment try to install a
+Optional image captions use the local BLIP base model. The worker prompts BLIP
+to describe the main visible subject, including an animal when it can recognize
+one. Identification is best effort; a forced caption scan is needed to
+regenerate captions already stored for a file. Debian recommends Pillow,
+PyTorch, and Python venv. Debian and local deployment try to install a
 pinned `transformers` 4.x environment and download the pinned model once to
 `/usr/local/lib/lite-nas/moments/blip-model`. The model and virtual environment
 are root-owned and read-only to Moments. The Python worker runs in a separate
@@ -136,6 +141,14 @@ retained. Set
 shared across linked galleries, and searchable through `q`. Image bytes pass
 from File Service to the local worker in memory and are not stored in the
 Moments database.
+
+Caption jobs keep a resume flag and their fixed source list in SQLite. Counters
+are checkpointed after ten images or thirty minutes, whichever comes first,
+and once when a job ends.
+After a restart, the worker may repeat images processed since the last
+checkpoint. Each generated caption is still saved immediately. The service's
+private `/tmp` is already a 64 MiB bounded tmpfs; image bytes use a pipe and
+the model is loaded from read-only storage, so neither is staged there.
 
 Optional semantic search uses the pinned multilingual E5 small ONNX model. Its
 470 MB model file and 17 MB tokenizer are downloaded once into
@@ -164,15 +177,23 @@ original. Full scans remain on demand. A completed upload made in Moments starts
 a single-file metadata update; refreshing `/ls/` does not start one.
 
 At most two scans run per process, one per gallery. A scan accepts at most
-10,000 files and has a 20-minute deadline. Progress is durable in SQLite. The
-access JWT is kept only in process memory. A same-user progress request can
-replace it after session validation. Expiry without a replacement fails the
-scan; restart marks interrupted jobs failed. A successful scan reconciles the
+10,000 files. Media scans have a 20-minute deadline and caption scans have a
+seven-day deadline. Progress is durable at periodic checkpoints in SQLite.
+Media-scan access JWTs stay
+in process memory and can be renewed by same-user polling; expiry without a
+replacement fails a media scan. Caption scans use an Auth Service-issued opaque
+grant limited to the gallery's fixed file list and File Service reads. The
+grant and ordered file list are stored in the Moments database so captioning
+can resume after a service restart, without browser polling. Browser logout
+does not cancel an active caption job. Completion or cancellation revokes its
+grant, with retry after service restart. Interrupted media jobs fail on restart.
+A successful scan reconciles the
 gallery's discovered files and shared path-keyed metadata in one SQLite
 transaction. A previously linked path absent from discovery is retained unless
 File Service confirms it is missing after authorizing its parent directory. A partial
 scan leaves previous published results active and reports `PARTIAL`. A cancelled
-scan also leaves previous results active. No token is persisted or logged.
+scan also leaves previous results active. Browser access tokens are not persisted
+or logged; the scoped caption grant is persisted for restart recovery.
 Current Auth behavior keeps an issued access JWT valid until its expiry after
 logout; cancelling a running scan is available through the scan DELETE route.
 Changing an album source directory or removing a collection reference unlinks

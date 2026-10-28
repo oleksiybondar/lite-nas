@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import { loginDestination } from "@lite-nas/profile";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -15,6 +16,7 @@ import type { Me } from "./schemas";
 
 /** Collects credentials for the existing LiteNAS browser login flow. */
 export const Login = ({ onSuccess }: { onSuccess: (me: Me) => void }): ReactElement => {
+  const { getLabel } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
@@ -33,7 +35,7 @@ export const Login = ({ onSuccess }: { onSuccess: (me: Me) => void }): ReactElem
       onSuccess(current);
       navigate(destination, { replace: true });
     } catch {
-      setError("Sign in failed.");
+      setError(getLabel("common.signInFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -76,38 +78,41 @@ const LoginForm = ({
   setUsername,
   username,
   password,
-}: LoginFormProps): ReactElement => (
-  <Stack component="form" onSubmit={(event) => void onSubmit(event)} spacing={3}>
-    <Typography variant="h1">Sign in to Moments</Typography>
-    <TextField
-      autoComplete="username"
-      data-testid="moments-login-name"
-      fullWidth
-      label="Login"
-      name="login"
-      onChange={(event) => setUsername(event.target.value)}
-      required
-      value={username}
-    />
-    <TextField
-      autoComplete="current-password"
-      data-testid="moments-login-password"
-      fullWidth
-      label="Password"
-      name="password"
-      onChange={(event) => setPassword(event.target.value)}
-      required
-      type="password"
-      value={password}
-    />
-    {error && <Typography color="error">{error}</Typography>}
-    <Button
-      data-testid="moments-login-submit"
-      disabled={isSubmitting}
-      type="submit"
-      variant="contained"
-    >
-      Sign in
-    </Button>
-  </Stack>
-);
+}: LoginFormProps): ReactElement => {
+  const { getLabel } = useLanguage();
+  return (
+    <Stack component="form" onSubmit={(event) => void onSubmit(event)} spacing={3}>
+      <Typography variant="h1">{getLabel("moments.signIn")}</Typography>
+      <TextField
+        autoComplete="username"
+        data-testid="moments-login-name"
+        fullWidth
+        label={getLabel("common.login")}
+        name="login"
+        onChange={(event) => setUsername(event.target.value)}
+        required
+        value={username}
+      />
+      <TextField
+        autoComplete="current-password"
+        data-testid="moments-login-password"
+        fullWidth
+        label={getLabel("common.password")}
+        name="password"
+        onChange={(event) => setPassword(event.target.value)}
+        required
+        type="password"
+        value={password}
+      />
+      {error && <Typography color="error">{error}</Typography>}
+      <Button
+        data-testid="moments-login-submit"
+        disabled={isSubmitting}
+        type="submit"
+        variant="contained"
+      >
+        {getLabel("common.signIn")}
+      </Button>
+    </Stack>
+  );
+};

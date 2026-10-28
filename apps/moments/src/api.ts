@@ -1,3 +1,4 @@
+import { loadLocalLanguage } from "@lite-nas/language";
 import {
   authDestination,
   readProfileDocument,
@@ -128,7 +129,10 @@ export const loadMomentsConfig = async (): Promise<string> => {
 
 /** Saves a validated shared appearance preference through File Service. */
 export const saveSharedMode = async (value: ThemeMode): Promise<void> => {
-  const preference = sharedUiSchema.parse({ preferredMode: value });
+  const preference = sharedUiSchema.parse({
+    preferredMode: value,
+    preferredLanguage: loadLocalLanguage(),
+  });
   saveLocalSharedUi(preference);
   await writeProfileDocument(
     (path, body) =>

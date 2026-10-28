@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import {
   Alert,
   Button,
@@ -38,6 +39,7 @@ export function ConfirmActionDialog({
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -76,7 +78,7 @@ export function ConfirmActionDialog({
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Typography>{description}</Typography>
           <TextField
-            label="Type yes to confirm"
+            label={getLabel("explorer.confirmYes")}
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             onKeyDown={(event) => {
@@ -92,7 +94,7 @@ export function ConfirmActionDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={close} disabled={busy}>
-          Cancel
+          {getLabel("common.cancel")}
         </Button>
         <Button
           onClick={() => void confirm()}

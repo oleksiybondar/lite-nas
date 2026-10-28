@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { languageStorageKey } from "@lite-nas/language";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "./App";
@@ -71,6 +72,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   window.localStorage.removeItem("moments-image-concurrency");
+  window.localStorage.removeItem(languageStorageKey);
   window.history.replaceState({}, "", "/");
 });
 
@@ -110,6 +112,13 @@ test("an anonymous gallery link keeps its destination on the login URL", async (
   renderMomentsApp();
   await screen.findByTestId("moments-login");
   expect(window.location.search).toBe(`?redirect_to=${encodeURIComponent(galleryPath)}`);
+});
+
+test("the login page uses the language selected before sign-in", async () => {
+  window.localStorage.setItem(languageStorageKey, "da");
+  vi.mocked(loadMe).mockResolvedValue(null);
+  renderMomentsApp();
+  expect(await screen.findByRole("heading", { name: "Log ind på Moments" })).toBeTruthy();
 });
 
 test("sign in returns to the gallery from a reloadable login URL", async () => {

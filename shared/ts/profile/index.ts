@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 /** Shared settings document stored as `.lite-nas/ui.json`. */
-export const sharedUiSchema = z.object({ preferredMode: z.enum(["light", "dark"]) });
+export const sharedUiSchema = z.object({
+  preferredMode: z.enum(["light", "dark"]),
+  preferredLanguage: z.enum(["en", "uk", "da"]).optional(),
+});
 
 /** Browser upload contract for fixed PNG/JPEG avatars. */
 export const avatarFileSchema = z

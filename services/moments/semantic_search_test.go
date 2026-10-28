@@ -41,6 +41,23 @@ func TestSemanticRankingKeepsPathIdentity(t *testing.T) {
 	}
 }
 
+// TestSemanticRankingKeepsWordMatchesFirst covers hybrid phrase relevance.
+func TestSemanticRankingKeepsWordMatchesFirst(t *testing.T) {
+	query := make([]float32, embeddingSize)
+	query[0] = 1
+	strong := make([]float32, embeddingSize)
+	strong[0] = 1
+	weak := make([]float32, embeddingSize)
+	weak[1] = 1
+	paths := rankSemanticCandidates([]semanticCandidate{
+		{path: "/semantic.jpg", vector: strong},
+		{path: "/lexical.jpg", vector: weak, lexical: true},
+	}, query)
+	if !reflect.DeepEqual(paths, []string{"/lexical.jpg", "/semantic.jpg"}) {
+		t.Fatalf("hybrid ranked paths = %v", paths)
+	}
+}
+
 // TestSemanticVectorRejectsNonfiniteValues covers worker output validation.
 func TestSemanticVectorRejectsNonfiniteValues(t *testing.T) {
 	vector := make([]float32, embeddingSize)
@@ -67,5 +84,24 @@ func TestSemanticCandidatesExcludePrivateGallery(t *testing.T) {
 	}
 	if len(candidates) != 1 || candidates[0].path != "/home/alice/visible.jpg" {
 		t.Fatalf("semantic candidates = %+v", candidates)
+	}
+}
+
+// TestSemanticCandidateRecognizesSeparatedWords covers a blue t-shirt caption.
+func TestSemanticCandidateRecognizesSeparatedWords(t *testing.T) {
+	store, router := mustSearchFixture(t)
+	id := mustNamedGallery(t, router, "COLLECTION", "Trip", "")
+	mustSearchRows(t, store,
+		`INSERT INTO media_files(path,media_type) VALUES('/home/alice/photo.jpg','IMAGE')`,
+		`INSERT INTO gallery_media(gallery_id,path,media_type) VALUES('`+id+`','/home/alice/photo.jpg','IMAGE')`,
+		`INSERT INTO media_captions(path,caption,search_key,model,updated_at) VALUES('/home/alice/photo.jpg','A person in a blue t-shirt','a person in a blue t-shirt','test','now')`,
+	)
+	controller := galleryController{store: store}
+	candidates, err := controller.semanticCandidates(t.Context(), "alice", &listGalleryInput{Q: "blue shirt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidates) != 1 || !candidates[0].lexical {
+		t.Fatalf("phrase candidate = %+v", candidates)
 	}
 }

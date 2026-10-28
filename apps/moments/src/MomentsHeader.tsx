@@ -1,3 +1,4 @@
+import { LanguageSelector, useLanguage } from "@lite-nas/language";
 import { UserMenu } from "@lite-nas/profile";
 import AppBar from "@mui/material/AppBar";
 import Button from "@mui/material/Button";
@@ -25,33 +26,37 @@ export const MomentsHeader = ({
   onProfile: () => void;
   onApplicationSettings: () => void;
   onLogout: () => void;
-}): ReactElement => (
-  <AppBar color="transparent" data-testid="app-top-bar" elevation={0} position="sticky">
-    <Toolbar sx={{ borderBottom: 1, borderColor: "divider", gap: 2 }}>
-      <Link
-        color="inherit"
-        component={RouterLink}
-        data-testid="moments-title"
-        to="/"
-        variant="h6"
-        underline="none"
-        sx={{ flexGrow: 1 }}
-      >
-        Moments
-      </Link>
-      <Button component={RouterLink} data-testid="moments-home-button" to="/">
-        Home
-      </Button>
-      <Button onClick={onMine}>My collections</Button>
-      <Button onClick={onShared}>Shared collections</Button>
-      <UserMenu
-        login={username}
-        fullName={fullName}
-        avatarUrl={avatarUrl}
-        onProfile={onProfile}
-        onApplicationSettings={onApplicationSettings}
-        onLogout={onLogout}
-      />
-    </Toolbar>
-  </AppBar>
-);
+}): ReactElement => {
+  const { getLabel } = useLanguage();
+  return (
+    <AppBar color="transparent" data-testid="app-top-bar" elevation={0} position="sticky">
+      <Toolbar sx={{ borderBottom: 1, borderColor: "divider", flexWrap: "wrap", gap: 2 }}>
+        <Link
+          color="inherit"
+          component={RouterLink}
+          data-testid="moments-title"
+          to="/"
+          variant="h6"
+          underline="none"
+          sx={{ flexGrow: 1 }}
+        >
+          Moments
+        </Link>
+        <Button component={RouterLink} data-testid="moments-home-button" to="/">
+          {getLabel("common.home")}
+        </Button>
+        <Button onClick={onMine}>{getLabel("moments.myCollections")}</Button>
+        <Button onClick={onShared}>{getLabel("moments.sharedCollections")}</Button>
+        <LanguageSelector />
+        <UserMenu
+          login={username}
+          fullName={fullName}
+          avatarUrl={avatarUrl}
+          onProfile={onProfile}
+          onApplicationSettings={onApplicationSettings}
+          onLogout={onLogout}
+        />
+      </Toolbar>
+    </AppBar>
+  );
+};

@@ -306,6 +306,70 @@ func TestAccessCookieAuthenticatesRead(t *testing.T) {
 	}
 }
 
+// TestCaptionGrantReadsOnlyListedSource covers the File Service-only grant route.
+func TestCaptionGrantReadsOnlyListedSource(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "lizard.jpg")
+	if err := os.WriteFile(path, []byte("image"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := mustService(t, root, requestStub(func(_ context.Context, subject string, request any, response any) error {
+		switch subject {
+		case authcontract.CaptionGrantValidateRPCSubject:
+			input := request.(authcontract.CaptionGrantValidateRequest)
+			*response.(*authcontract.CaptionGrantValidateResponse) = authcontract.CaptionGrantValidateResponse{Valid: input.Path == path, Username: "alice"}
+		case rbaccontract.GetSubjectRolesRPCSubject:
+			*response.(*rbaccontract.GetSubjectRolesResponse) = rbaccontract.GetSubjectRolesResponse{UID: "1001"}
+		case rbaccontract.CanReadPathRPCSubject:
+			response.(*rbaccontract.DecisionResponse).Allowed = true
+		default:
+			return errors.New("unexpected RPC")
+		}
+		return nil
+	}))
+	service.readerCommand = openWorkflowFile
+	other := filepath.Join(root, "other.jpg")
+	if err := os.WriteFile(other, []byte("other"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		path   string
+		status int
+	}{{path, http.StatusOK}, {other, http.StatusUnauthorized}} {
+		request := httptest.NewRequest(http.MethodGet, test.path, nil)
+		request.Header.Set("Authorization", "CaptionGrant token")
+		response := httptest.NewRecorder()
+		service.ServeHTTP(response, request)
+		if response.Code != test.status {
+			t.Fatalf("caption read %s status = %d", test.path, response.Code)
+		}
+	}
+}
+
+// TestCaptionGrantRejectsMutation keeps the credential read-only.
+func TestCaptionGrantRejectsMutation(t *testing.T) {
+	service := mustService(t, t.TempDir(), authorizedRequests(new(int)))
+	request := httptest.NewRequest(http.MethodDelete, "/photos/lizard.jpg", nil)
+	request.Header.Set("Authorization", "CaptionGrant token")
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("caption mutation status = %d", response.Code)
+	}
+}
+
+// TestCaptionGrantRejectsOtherRoutes keeps the credential off File Service APIs.
+func TestCaptionGrantRejectsOtherRoutes(t *testing.T) {
+	service := mustService(t, t.TempDir(), authorizedRequests(new(int)))
+	request := httptest.NewRequest(http.MethodGet, "/profile/ui", nil)
+	request.Header.Set("Authorization", "CaptionGrant token")
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("caption API status = %d", response.Code)
+	}
+}
+
 // TestHeadUsesFreshRBACDecision covers file-service-svc/FR-003 and FR-006.
 func TestHeadUsesFreshRBACDecision(t *testing.T) {
 	root := t.TempDir()

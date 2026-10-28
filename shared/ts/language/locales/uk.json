@@ -1,0 +1,81 @@
+{
+  "language": {
+    "label": "Мова",
+    "english": "English",
+    "ukrainian": "Українська",
+    "danish": "Dansk",
+    "saveFailed": "Збережено в цьому браузері, але не вдалося оновити файл користувача."
+  },
+  "common": {
+    "login": "Логін",
+    "password": "Пароль",
+    "signIn": "Увійти",
+    "signInFailed": "Не вдалося ввійти.",
+    "loading": "Завантаження…",
+    "settings": "Налаштування",
+    "profile": "Профіль",
+    "appearance": "Вигляд",
+    "home": "Головна",
+    "upload": "Завантажити",
+    "delete": "Видалити",
+    "preview": "Переглянути",
+    "copy": "Копіювати",
+    "move": "Перемістити",
+    "newFolder": "Нова папка",
+    "cancel": "Скасувати",
+    "save": "Зберегти"
+  },
+  "admin": {
+    "signIn": "Увійти",
+    "loginFailed": "Помилка входу."
+  },
+  "moments": {
+    "signIn": "Увійти до Moments",
+    "myCollections": "Мої колекції",
+    "sharedCollections": "Спільні колекції",
+    "loading": "Завантаження Moments…"
+  },
+  "explorer": {
+    "title": "Файловий провідник",
+    "create": "Створити",
+    "folderName": "Назва папки",
+    "folderVisibility": "Дозволити іншим користувачам доступ до цієї папки",
+    "createIn": "Створити в",
+    "confirmYes": "Введіть yes для підтвердження",
+    "hideHidden": "Приховати приховані файли",
+    "showHidden": "Показати приховані файли",
+    "onePanel": "Показати одну панель",
+    "twoPanels": "Показати дві панелі"
+  },
+  "navigation": {
+    "File Explorer": "Файловий провідник",
+    "Moments": "Moments",
+    "Applications": "Застосунки",
+    "Dashboard": "Панель керування",
+    "Alerts": "Сповіщення",
+    "System": "Система",
+    "Security": "Безпека",
+    "Unacknowledged alerts": "Непідтверджені сповіщення",
+    "Active alerts": "Активні сповіщення",
+    "All alerts": "Усі сповіщення",
+    "Network": "Мережа",
+    "Disk": "Диск",
+    "ZFS": "ZFS",
+    "Performance": "Продуктивність",
+    "Temperature": "Температура",
+    "Voltage": "Напруга",
+    "Clock": "Частота",
+    "Throttling": "Зниження частоти",
+    "Fan": "Вентилятор",
+    "Sensors": "Датчики",
+    "Processes": "Процеси",
+    "Services": "Служби",
+    "Preferences": "Налаштування",
+    "User profile": "Профіль користувача",
+    "Theme": "Тема",
+    "Monitoring": "Моніторинг",
+    "Application settings": "Налаштування застосунку",
+    "expand": "Розгорнути",
+    "collapse": "Згорнути"
+  }
+}

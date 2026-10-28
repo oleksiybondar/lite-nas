@@ -171,6 +171,28 @@ branch or otherwise provides a pushed source branch.
   fixtures, helpers, or shared test-case steps instead of asserting unrelated
   outcomes or duplicating setup.
 
+## TypeScript Application Languages
+
+- Support English (`en`), Ukrainian (`uk`), and Danish (`da`) in every TypeScript
+  app. English is the default.
+- Use the shared `@lite-nas/language` package, its `LanguageProvider`, and its
+  static JSON dictionaries under `shared/ts/language/locales`. Add matching
+  keys and real translations to all three dictionaries when adding or changing
+  user-facing text. Resolve labels through `useLanguage().getLabel("section.key")`.
+- Localize all visible application text, including navigation, forms, dialogs,
+  validation feedback, errors, empty and loading states, tooltips, and
+  accessibility labels. Keep brand names and technical identifiers unchanged
+  where translation would alter their meaning.
+- Give each app a visible `LanguageSelector` where users can reach it before
+  sign-in and after sign-in. Use the shared browser preference before
+  authentication. After authentication, load `preferredLanguage` from the
+  existing `/f/profile/ui` document when present; otherwise keep the language
+  selected on the login screen or stored in the browser. Save authenticated
+  changes to that document without dropping `preferredMode`.
+- Validate language values at storage and profile boundaries with the shared
+  schema. Test the default, switching, stored user preference, and missing-file
+  fallback for a new app's integration.
+
 ## Tooling Conventions
 
 - Use existing scripts and configs where available.

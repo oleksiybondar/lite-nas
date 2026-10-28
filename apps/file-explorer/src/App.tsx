@@ -1,3 +1,4 @@
+import { LanguageProvider, type LanguageTransport } from "@lite-nas/language";
 import { loadLocalSharedUi, loadSharedUiPreference, sharedUiStorageKey } from "@lite-nas/profile";
 import { createAppTheme } from "@lite-nas/theme";
 import { resolveThemeSettings } from "@lite-nas/theme/manager/resolveThemeSettings";
@@ -8,6 +9,18 @@ import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 
 import { FileExplorerPage } from "./FileExplorerPage";
+
+/** Uses the same-origin file service profile route used by the theme setting. */
+const languageTransport: LanguageTransport = {
+  read: (url) => fetch(url, { credentials: "same-origin" }),
+  write: (url, body) =>
+    fetch(url, {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+};
 
 /** Applies the authenticated shared preference or its local browser fallback. */
 export function App(): ReactElement {
@@ -45,7 +58,9 @@ export function App(): ReactElement {
   return (
     <ThemeProvider theme={createAppTheme(templateName, mode)}>
       <CssBaseline />
-      <FileExplorerPage />
+      <LanguageProvider userId="session" transport={languageTransport}>
+        <FileExplorerPage />
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

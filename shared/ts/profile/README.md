@@ -6,7 +6,9 @@ the home path for profile writes. Authenticated `GET` and `PUT` operations at
 `/f/profile/avatar` address the current account's `ui.json`,
 `admin-panel.json`, `moments.json`, and `avatar.image`.
 
-`ui.json` contains only `{ "preferredMode": "light" | "dark" }`. The admin
+`ui.json` contains `preferredMode` (`light` or `dark`) and may contain
+`preferredLanguage` (`en`, `uk`, or `da`). Older files without a language remain
+valid. The admin
 panel keeps its theme source/template and per-resource monitoring timing values
 in `admin-panel.json`. Moments keeps its gallery preferences under the
 `gallery` group in `moments.json`. The reusable Zod schema and file-read/write

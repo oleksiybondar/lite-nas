@@ -1,3 +1,4 @@
+import { LanguageSelector } from "@lite-nas/language";
 import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
@@ -12,6 +13,9 @@ export const MomentsPublicHeader = (): ReactElement => (
       <Typography fontWeight={700} variant="subtitle1">
         LiteNAS
       </Typography>
+      <div style={{ marginLeft: "auto" }}>
+        <LanguageSelector />
+      </div>
     </Toolbar>
   </AppBar>
 );

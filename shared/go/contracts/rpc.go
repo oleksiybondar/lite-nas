@@ -140,6 +140,21 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  authcontract.ServiceTokenRefreshRequest{},
 			Response: authcontract.ServiceTokenRefreshResponse{},
 		},
+		"issue_caption_grant": {
+			Subject:  authcontract.CaptionGrantIssueRPCSubject,
+			Request:  authcontract.CaptionGrantIssueRequest{},
+			Response: authcontract.CaptionGrantIssueResponse{},
+		},
+		"validate_caption_grant": {
+			Subject:  authcontract.CaptionGrantValidateRPCSubject,
+			Request:  authcontract.CaptionGrantValidateRequest{},
+			Response: authcontract.CaptionGrantValidateResponse{},
+		},
+		"revoke_caption_grant": {
+			Subject:  authcontract.CaptionGrantRevokeRPCSubject,
+			Request:  authcontract.CaptionGrantRevokeRequest{},
+			Response: authcontract.CaptionGrantRevokeResponse{},
+		},
 		"set_lockdown": {
 			Subject:  authcontract.SetLockdownRPCSubject,
 			Request:  authcontract.SetLockdownRequest{},

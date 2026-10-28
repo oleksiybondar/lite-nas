@@ -1,3 +1,4 @@
+import { LanguageSelector, useLanguage } from "@lite-nas/language";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CreateNewFolderIcon from "@mui/icons-material/CreateNewFolder";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -41,9 +42,16 @@ export function ExplorerActionBar({
   showHidden: boolean;
   onToggleHidden: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <Paper variant="outlined" sx={{ p: 1 }} data-testid="file-explorer-actions">
-      <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        flexWrap="wrap"
+        gap={1}
+      >
         <Stack direction="row" gap={0.5} flexWrap="wrap">
           {doublePanel && (
             <>
@@ -53,7 +61,7 @@ export function ExplorerActionBar({
                 onClick={onCopy}
                 data-testid="file-explorer-copy-button"
               >
-                Copy
+                {getLabel("common.copy")}
               </Button>
               <Button
                 startIcon={<DriveFileMoveIcon />}
@@ -61,7 +69,7 @@ export function ExplorerActionBar({
                 onClick={onMove}
                 data-testid="file-explorer-move-button"
               >
-                Move
+                {getLabel("common.move")}
               </Button>
             </>
           )}
@@ -71,7 +79,7 @@ export function ExplorerActionBar({
             onClick={onPreview}
             data-testid="file-explorer-preview-button"
           >
-            Preview
+            {getLabel("common.preview")}
           </Button>
           <Button
             startIcon={<DeleteIcon />}
@@ -79,24 +87,25 @@ export function ExplorerActionBar({
             onClick={onDelete}
             data-testid="file-explorer-delete-button"
           >
-            Delete
+            {getLabel("common.delete")}
           </Button>
           <Button
             startIcon={<UploadFileIcon />}
             onClick={onUpload}
             data-testid="file-explorer-upload-button"
           >
-            Upload
+            {getLabel("common.upload")}
           </Button>
           <Button
             startIcon={<CreateNewFolderIcon />}
             onClick={onNewFolder}
             data-testid="file-explorer-new-folder-button"
           >
-            New folder
+            {getLabel("common.newFolder")}
           </Button>
         </Stack>
-        <Stack direction="row" gap={0.5}>
+        <Stack direction="row" flexWrap="wrap" gap={0.5}>
+          <LanguageSelector />
           <HiddenFilesToggle showHidden={showHidden} onToggle={onToggleHidden} />
           <PanelViewToggle doublePanel={doublePanel} onToggle={onToggleView} />
         </Stack>
@@ -113,9 +122,10 @@ function HiddenFilesToggle({
   showHidden: boolean;
   onToggle: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <IconButton
-      aria-label={showHidden ? "Hide hidden files" : "Show hidden files"}
+      aria-label={getLabel(showHidden ? "explorer.hideHidden" : "explorer.showHidden")}
       aria-pressed={showHidden}
       onClick={onToggle}
       data-testid="file-explorer-hidden-toggle"
@@ -138,9 +148,10 @@ function PanelViewToggle({
   doublePanel: boolean;
   onToggle?: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <IconButton
-      aria-label={doublePanel ? "Show one panel" : "Show two panels"}
+      aria-label={getLabel(doublePanel ? "explorer.onePanel" : "explorer.twoPanels")}
       onClick={onToggle}
       data-testid="file-explorer-view-toggle"
     >

@@ -21,6 +21,14 @@ existing browser-session requirements remain in
   work. A successful scan atomically reconciles changed path metadata and
   gallery links, removing a path only after File Service confirms deletion.
   Partial, failed, and cancelled scans preserve previously published records.
+  Caption scans use a seven-day File Service-only read grant for the gallery
+  files fixed at job start. They continue after browser logout and resume from a
+  database flag and progress checkpoints after ten images or thirty minutes,
+  whichever comes first. After a service restart, images since the last
+  checkpoint may be repeated. The grant is
+  revoked at completion.
+  Generated captions should name the main visible subject, including a
+  recognizable foreground animal when the caption model can identify it.
 - **moments-backend/FR-005:** Gallery listing, published media, and tag
   aggregates are paged or bounded and apply metadata visibility before
   filtering or counting. Gallery listing uses page/size metadata; search

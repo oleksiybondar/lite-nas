@@ -1,4 +1,5 @@
 import { UploadDialog } from "@lite-nas/file-upload";
+import { useLanguage } from "@lite-nas/language";
 import CloseIcon from "@mui/icons-material/Close";
 import {
   Alert,
@@ -144,10 +145,11 @@ function useCompletedActionRefresh(
 
 /** Displays the app title and any active action queue in the fixed header. */
 function WorkspaceHeader(): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2}>
       <Typography variant="h1" data-testid="file-explorer-title">
-        File Explorer
+        {getLabel("explorer.title")}
       </Typography>
       <ExplorerActionQueue />
     </Stack>

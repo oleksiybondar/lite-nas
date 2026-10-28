@@ -4,6 +4,7 @@ import {
   loadMonitoringPollingSettings,
   saveMonitoringPollingSettings,
 } from "@helpers/monitoring-polling-settings-storage";
+import { loadLocalLanguage } from "@lite-nas/language";
 import {
   loadLocalSharedUi,
   loadSharedUiPreference,
@@ -81,7 +82,10 @@ export const saveSharedMode = async (
   api: Pick<ApiContextValue, "put">,
   mode: ThemeSettings["mode"],
 ): Promise<void> => {
-  const value = sharedUiSchema.parse({ preferredMode: mode });
+  const value = sharedUiSchema.parse({
+    preferredMode: mode,
+    preferredLanguage: loadLocalLanguage(),
+  });
   saveLocalSharedUi(value);
   await writeProfileDocument(
     (url, body) => api.put(url, body).execute(),

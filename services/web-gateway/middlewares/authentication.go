@@ -80,7 +80,7 @@ func RequireAuthentication(api huma.API, options AuthenticationOptions) func(hum
 	return func(ctx huma.Context, next func(huma.Context)) {
 		if !hasAccessToken(ctx.Context()) {
 			if hasExpiredAuthentication(ctx.Context()) {
-				clearAuthCookies(ctx, options, time.Now())
+				clearExpiredAccessCookie(ctx, options, time.Now())
 			}
 
 			_ = huma.WriteErr(api, ctx, 401, "missing or invalid access token")
@@ -252,11 +252,10 @@ func hasExpiredAuthentication(ctx context.Context) bool {
 	return failure == authenticationFailureExpired
 }
 
-func clearAuthCookies(ctx huma.Context, options AuthenticationOptions, now time.Time) {
+// clearExpiredAccessCookie removes only the expired access credential so the
+// browser can still use its valid refresh cookie to renew the session.
+func clearExpiredAccessCookie(ctx huma.Context, options AuthenticationOptions, now time.Time) {
 	accessCookie := httpcookie.Expired(options.AccessCookieName, now)
-	refreshCookie := httpcookie.Expired(options.RefreshCookieName, now)
 	accessCookie.Domain = options.CookieDomain
-	refreshCookie.Domain = options.CookieDomain
 	ctx.AppendHeader("Set-Cookie", accessCookie.String())
-	ctx.AppendHeader("Set-Cookie", refreshCookie.String())
 }

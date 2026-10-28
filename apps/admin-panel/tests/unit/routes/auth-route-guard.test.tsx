@@ -1,11 +1,15 @@
 import { AuthContext } from "@contexts/auth-context";
 import type { AuthContextValue } from "@dto/auth/auth";
+import { languageStorageKey } from "@lite-nas/language";
 import { LoginPage } from "@pages/LoginPage";
 import { AuthRouteGuard } from "@routes/AuthRouteGuard";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithLanguage } from "@tests/unit/test-utils/language";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+
+afterEach(() => window.localStorage.removeItem(languageStorageKey));
 
 describe("AuthRouteGuard", () => {
   test("renders loading state before auth initialization completes", () => {
@@ -22,7 +26,7 @@ describe("AuthRouteGuard", () => {
   });
 
   test("keeps the protected URL in redirect_to when routing to login", async () => {
-    render(
+    renderWithLanguage(
       <MemoryRouter initialEntries={["/system?tab=network"]}>
         <AuthContext.Provider value={createAuthContextValue({ isAuthenticated: false })}>
           <RouteLocation />
@@ -47,7 +51,7 @@ describe("AuthRouteGuard", () => {
   });
 
   test("an already restored session returns from login to the protected route", async () => {
-    render(
+    renderWithLanguage(
       <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: "/system" } }]}>
         <AuthContext.Provider value={createAuthContextValue({ isAuthenticated: true })}>
           <Routes>
@@ -64,6 +68,12 @@ describe("AuthRouteGuard", () => {
 });
 
 describe("LoginPage", () => {
+  test("uses the browser language before authentication", () => {
+    window.localStorage.setItem(languageStorageKey, "uk");
+    renderWithAuth(<LoginPage />);
+    expect(screen.getByRole("heading", { name: "Увійти" })).toBeInTheDocument();
+  });
+
   test("submits credentials through the auth context", async () => {
     const login = vi.fn().mockResolvedValue(responseWithStatus(200));
 
@@ -90,7 +100,7 @@ describe("LoginPage", () => {
 
   test("returns to the protected route after successful login", async () => {
     const login = vi.fn().mockResolvedValue(responseWithStatus(200));
-    render(
+    renderWithLanguage(
       <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: "/system" } }]}>
         <AuthContext.Provider value={createAuthContextValue({ login })}>
           <Routes>
@@ -110,7 +120,7 @@ describe("LoginPage", () => {
 describe("LoginPage return paths", () => {
   test("returns to redirect_to after login without router state", async () => {
     const login = vi.fn().mockResolvedValue(responseWithStatus(200));
-    render(
+    renderWithLanguage(
       <MemoryRouter initialEntries={["/login?redirect_to=%2Fsystem"]}>
         <AuthContext.Provider value={createAuthContextValue({ login })}>
           <Routes>
@@ -135,7 +145,7 @@ describe("LoginPage return paths", () => {
         { status: 200 },
       ),
     );
-    render(
+    renderWithLanguage(
       <MemoryRouter initialEntries={["/login?redirect_to=%2Fpreferences"]}>
         <AuthContext.Provider value={createAuthContextValue({ login })}>
           <Routes>
@@ -177,7 +187,7 @@ const RouteLocation = (): ReactElement => {
  * Renders a component under a controlled auth context value.
  */
 const renderWithAuth = (component: ReactElement, overrides: Partial<AuthContextValue> = {}) => {
-  return render(
+  return renderWithLanguage(
     <TestMemoryRouter>
       <AuthContext.Provider value={createAuthContextValue(overrides)}>
         {component}

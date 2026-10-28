@@ -131,6 +131,7 @@ func TestProfileDocumentInputUsesHumaValidation(t *testing.T) {
 		want bool
 	}{
 		{name: "valid object", body: `{"document":{"preferredMode":"dark"}}`, want: true},
+		{name: "valid language preference", body: `{"document":{"preferredMode":"dark","preferredLanguage":"uk"}}`, want: true},
 		{name: "missing document", body: `{}`, want: false},
 		{name: "nonobject document", body: `{"document":"dark"}`, want: false},
 		{name: "unknown field", body: `{"document":{},"path":"/home/bob"}`, want: false},

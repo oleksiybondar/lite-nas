@@ -1,4 +1,5 @@
 import { UploadDialog } from "@lite-nas/file-upload";
+import { LanguageProvider } from "@lite-nas/language";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import {
   act,
@@ -11,6 +12,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { App } from "../src/App";
 import { ConfirmActionDialog } from "../src/ConfirmActionDialog";
 import { ExplorerActionBar } from "../src/ExplorerActionBar";
 import { FileEntryIcon } from "../src/FileEntryIcon";
@@ -27,9 +29,26 @@ afterEach(() => {
   localStorage.clear();
 });
 
+test("the File Explorer app loads the signed-in language from the shared profile", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) =>
+      String(input) === "/f/profile/ui"
+        ? Response.json({ preferredMode: "dark", preferredLanguage: "da" })
+        : Response.json([]),
+    ),
+  );
+  render(<App />);
+  expect(await screen.findByRole("heading", { name: "Filhåndtering" })).toBeInTheDocument();
+});
+
 /** Renders a component with the same MUI theme support as the app shell. */
 function renderThemed(element: React.ReactElement) {
-  return render(<ThemeProvider theme={createTheme()}>{element}</ThemeProvider>);
+  return render(
+    <ThemeProvider theme={createTheme()}>
+      <LanguageProvider>{element}</LanguageProvider>
+    </ThemeProvider>,
+  );
 }
 
 /** Opens the second panel for workflows that use both persistent directories. */

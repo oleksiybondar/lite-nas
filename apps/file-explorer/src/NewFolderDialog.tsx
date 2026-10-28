@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import {
   Alert,
   Button,
@@ -44,6 +45,7 @@ function FolderVisibilityControl({
   busy: boolean;
   onChange: (value: boolean) => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <FormControlLabel
       control={
@@ -53,7 +55,7 @@ function FolderVisibilityControl({
           onChange={(_, checked) => onChange(!checked)}
         />
       }
-      label="Allow other users to access this folder"
+      label={getLabel("explorer.folderVisibility")}
     />
   );
 }
@@ -68,10 +70,11 @@ function FolderNameInput({
   onChange: (value: string) => void;
   onSubmit: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <TextField
       autoFocus
-      label="Folder name"
+      label={getLabel("explorer.folderName")}
       value={name}
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={(event) => {
@@ -94,6 +97,7 @@ export function NewFolderDialog({
   onClose: () => void;
   onCreate: (name: string, privateDirectory: boolean) => Promise<void>;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -125,11 +129,11 @@ export function NewFolderDialog({
       maxWidth="xs"
       data-testid="file-explorer-new-folder-dialog"
     >
-      <DialogTitle>New folder</DialogTitle>
+      <DialogTitle>{getLabel("common.newFolder")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Create in {directory}
+            {getLabel("explorer.createIn")} {directory}
           </Typography>
           <FolderNameInput name={name} onChange={setName} onSubmit={() => void submit()} />
           <FolderVisibilityControl
@@ -142,7 +146,7 @@ export function NewFolderDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={busy}>
-          Cancel
+          {getLabel("common.cancel")}
         </Button>
         <Button
           onClick={() => void submit()}
@@ -150,7 +154,7 @@ export function NewFolderDialog({
           variant="contained"
           data-testid="file-explorer-new-folder-submit"
         >
-          Create
+          {getLabel("explorer.create")}
         </Button>
       </DialogActions>
     </Dialog>

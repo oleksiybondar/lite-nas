@@ -83,6 +83,7 @@ type scanManager struct {
 	store  *galleryStore
 	auth   browserauth.AuthService
 	files  fileServiceClient
+	grants subjectLookup
 	mu     sync.Mutex
 	active map[string]*activeScan
 	seats  chan struct{}
@@ -284,7 +285,11 @@ func (m *scanManager) start(galleryID, user, token, kind string, force bool) (sc
 		m.mu.Unlock()
 		return scanJob{}, huma.Error429TooManyRequests("scan capacity reached")
 	}
-	workerCtx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	scanTimeout := 20 * time.Minute
+	if kind == "CAPTION" {
+		scanTimeout = captionJobLifetime
+	}
+	workerCtx, cancel := context.WithTimeout(context.Background(), scanTimeout)
 	job := scanJob{ID: uuid.NewString(), GalleryID: galleryID, Kind: kind, Status: "PENDING", CreatedAt: timestamp()}
 	_, err := m.store.db.Exec(`INSERT INTO media_scan_jobs(id,gallery_id,requested_by,kind,status,created_at) VALUES(?,?,?,?,?,?)`, job.ID, galleryID, user, job.Kind, job.Status, job.CreatedAt)
 	if err != nil {
@@ -296,7 +301,7 @@ func (m *scanManager) start(galleryID, user, token, kind string, force bool) (sc
 	m.active[galleryID] = &activeScan{jobID: job.ID, kind: kind, token: token, cancel: cancel}
 	m.mu.Unlock()
 	if kind == "CAPTION" {
-		go m.runCaptionScan(workerCtx, job, user, force)
+		go m.runCaptionScan(workerCtx, job, user, force, false)
 	} else {
 		go m.run(workerCtx, job, user)
 	}
@@ -598,5 +603,5 @@ func (m *scanManager) finish(id, status, summary string) {
 	if summary != "" {
 		value = summary
 	}
-	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status=?,finished_at=?,error_summary=? WHERE id=?`, status, timestamp(), value, id)
+	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status=?,resume_pending=0,finished_at=?,error_summary=? WHERE id=?`, status, timestamp(), value, id)
 }

@@ -129,13 +129,19 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			processed_items INTEGER NOT NULL DEFAULT 0,
 			successful_items INTEGER NOT NULL DEFAULT 0,
 			failed_items INTEGER NOT NULL DEFAULT 0,
+			resume_pending INTEGER NOT NULL DEFAULT 0 CHECK(resume_pending IN (0,1)),
 			created_at TEXT NOT NULL,
 			started_at TEXT,
 			finished_at TEXT,
 			error_summary TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS scan_jobs_gallery ON media_scan_jobs(gallery_id,created_at DESC)`,
-		`UPDATE media_scan_jobs SET status='FAILED',finished_at=datetime('now'),error_summary='interrupted by service restart' WHERE status IN ('PENDING','DISCOVERING','RUNNING')`,
+		`CREATE TABLE IF NOT EXISTS caption_scan_paths (
+			job_id TEXT NOT NULL REFERENCES media_scan_jobs(id) ON DELETE CASCADE,
+			position INTEGER NOT NULL,
+			path TEXT NOT NULL,
+			PRIMARY KEY(job_id,position)
+		)`,
 	} {
 		if _, err = db.Exec(statement); err != nil {
 			_ = db.Close()
@@ -183,7 +189,40 @@ func openGalleryStore(path string) (*galleryStore, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate Moments scan job kinds: %w", err)
 	}
+	if err := migrateCaptionGrants(db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate Moments caption jobs: %w", err)
+	}
 	return &galleryStore{db: db}, nil
+}
+
+// migrateCaptionGrants adds durable grant state and fails jobs that cannot resume.
+func migrateCaptionGrants(db *sql.DB) error {
+	var columns int
+	if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info('media_scan_jobs') WHERE name='grant_token'`).Scan(&columns); err != nil {
+		return err
+	}
+	if columns == 0 {
+		if _, err := db.Exec(`ALTER TABLE media_scan_jobs ADD COLUMN grant_token TEXT`); err != nil {
+			return err
+		}
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info('media_scan_jobs') WHERE name='resume_pending'`).Scan(&columns); err != nil {
+		return err
+	}
+	if columns == 0 {
+		if _, err := db.Exec(`ALTER TABLE media_scan_jobs ADD COLUMN resume_pending INTEGER NOT NULL DEFAULT 0 CHECK(resume_pending IN (0,1))`); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`UPDATE media_scan_jobs SET resume_pending=1 WHERE kind='CAPTION' AND grant_token IS NOT NULL AND status IN ('PENDING','DISCOVERING','RUNNING','PAUSED')`); err != nil {
+			return err
+		}
+	}
+	if _, err := db.Exec(`UPDATE media_scan_jobs SET status='FAILED',finished_at=datetime('now'),error_summary='interrupted by service restart' WHERE kind='MEDIA' AND status IN ('PENDING','DISCOVERING','RUNNING','PAUSED')`); err != nil {
+		return err
+	}
+	_, err := db.Exec(`UPDATE media_scan_jobs SET status='FAILED',finished_at=datetime('now'),error_summary='caption grant unavailable after restart' WHERE kind='CAPTION' AND grant_token IS NULL AND status IN ('PENDING','DISCOVERING','RUNNING','PAUSED')`)
+	return err
 }
 
 // migrateScanJobKinds identifies earlier full-scan rows as media jobs.
