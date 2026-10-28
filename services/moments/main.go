@@ -38,6 +38,7 @@ type serviceConfig struct {
 	FileServiceURL string
 	ThumbnailDir   string
 	WorkingDir     string
+	PlaceDataPath  string
 }
 
 // loadConfig reads the service listener, messaging, and browser cookie scope.
@@ -78,6 +79,10 @@ func loadConfig(path string) (serviceConfig, error) {
 	if fileaccess.ValidateHostPath(workingDir) != nil {
 		return serviceConfig{}, errors.New("working_dir must be clean and absolute")
 	}
+	placeDataPath := iniFile.Section("storage").Key("place_data_path").MustString("/usr/share/lite-nas/moments/cities1000.zip")
+	if fileaccess.ValidateHostPath(placeDataPath) != nil {
+		return serviceConfig{}, errors.New("place_data_path must be clean and absolute")
+	}
 	parsed, err := url.Parse(fileServiceURL)
 	if err != nil || parsed.Scheme != "http" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
@@ -85,7 +90,7 @@ func loadConfig(path string) (serviceConfig, error) {
 	if err := validateListener(parsed.Host); err != nil {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
 	}
-	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir}, nil
+	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath}, nil
 }
 
 // validateListener keeps the Moments API behind the local Nginx proxy.
@@ -138,9 +143,13 @@ func run(ctx context.Context, path string) error {
 		return err
 	}
 	defer store.close()
+	places, err := loadCityIndex(cfg.PlaceDataPath)
+	if err != nil {
+		return fmt.Errorf("load offline city data: %w", err)
+	}
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,
-		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir, cfg.WorkingDir, infra.Client),
+		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, places),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -182,7 +191,7 @@ func newRouterWithClient(auth browserauth.AuthService, cookieDomain string, stor
 }
 
 // newRouterWithRuntime mounts API routes with provisioned thumbnails and picker configuration.
-func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient, thumbnailDir, workingDir string, users subjectLookup) http.Handler {
+func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, store *galleryStore, files fileServiceClient, thumbnailDir, workingDir string, users subjectLookup, places ...*cityIndex) http.Handler {
 	router := chi.NewMux()
 	config := huma.DefaultConfig("LiteNAS Moments", "0.1.0")
 	config.OpenAPIPath = "/api/openapi"
@@ -201,7 +210,7 @@ func newRouterWithRuntime(auth browserauth.AuthService, cookieDomain string, sto
 	huma.Get(api, "/api/auth/me", controller.me)
 	huma.Get(api, "/api/config", controller.config(workingDir))
 	if store != nil {
-		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: newScanManager(store, auth, files), thumbnailDir: thumbnailDir, users: users})
+		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: newScanManager(store, auth, files, places...), thumbnailDir: thumbnailDir, users: users})
 	}
 	return browserauth.SameOrigin(router)
 }

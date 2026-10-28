@@ -32,7 +32,7 @@ export interface UploadDialogProps {
   open: boolean;
   directory: string;
   onClose: () => void;
-  onUploaded?: () => void;
+  onUploaded?: (file: File) => void | Promise<void>;
 }
 
 /** Upload progress state displayed beside the active filename. */
@@ -52,7 +52,7 @@ interface UploadQueueOptions {
   setActiveName: (name: string) => void;
   setProgress: (progress: FileUploadProgress | null) => void;
   removeFile: (file: File) => void;
-  onUploaded?: () => void;
+  onUploaded?: (file: File) => void | Promise<void>;
 }
 
 /** State and callbacks required to submit or cancel one upload queue. */
@@ -124,7 +124,7 @@ async function uploadQueuedFiles(options: UploadQueueOptions): Promise<void> {
       privateUpload: options.privateUpload,
     });
     options.removeFile(file);
-    options.onUploaded?.();
+    await options.onUploaded?.(file);
   }
 }
 

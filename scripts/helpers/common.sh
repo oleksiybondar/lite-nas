@@ -30,6 +30,31 @@ source "$COMMON_DIR/packaging.sh"
 # shellcheck disable=SC1091
 source "$COMMON_DIR/package-version.sh"
 
+# Install an INI service config, retaining local values and adding new keys.
+deploy.installMergedConfig() {
+	local source_file="$1"
+	local target_file="$2"
+	local owner="$3"
+	local group="$4"
+	local merged_file=""
+
+	if [ ! -f "$target_file" ]; then
+		install -D -m 0640 -o "$owner" -g "$group" "$source_file" "$target_file"
+		return
+	fi
+
+	merged_file="$(mktemp)"
+	if ! awk -f "$COMMON_DIR/merge-ini-config.awk" -- "$source_file" "$target_file" >"$merged_file"; then
+		rm -f "$merged_file"
+		return 1
+	fi
+	if ! install -D -m 0640 -o "$owner" -g "$group" "$merged_file" "$target_file"; then
+		rm -f "$merged_file"
+		return 1
+	fi
+	rm -f "$merged_file"
+}
+
 deploy.hasUsableSystemd() {
 	command -v systemctl >/dev/null 2>&1 &&
 		[ -d /run/systemd/system ] &&

@@ -87,11 +87,13 @@ Deploy repository-managed files from `configs/etc` into `/etc`:
 sudo ./scripts/deploy-configs.sh
 ```
 
-The deployment script overwrites matching files under `/etc`, normalizes
-permissions for LiteNAS-managed NATS config paths, and restarts affected
-services. The currently affected service list contains `nats-server`. This also
-deploys the LiteNAS logrotate policy at `/etc/logrotate.d/lite-nas`, including
-the File Service and Stream Service logs.
+The deployment script merges INI service configs under `/etc/lite-nas`: values
+already on the host remain in place, and new keys from repository templates are
+added. Other matching files under `/etc` are copied as before. The script
+normalizes permissions for LiteNAS-managed NATS config paths and restarts
+affected services. The currently affected service list contains `nats-server`.
+This also deploys the LiteNAS logrotate policy at
+`/etc/logrotate.d/lite-nas`, including the File Service and Stream Service logs.
 
 For validation without touching `/etc`, deploy to another target directory and
 skip service restarts:

@@ -78,9 +78,7 @@ deploy.securityMonitor.deploy() {
 		install -m 0755 "$source_binary" "$target"
 	fi
 	install -d -m 0711 -o root -g lite-nas /etc/lite-nas
-	if [ ! -f "$config_target" ]; then
-		install -m 0640 -o "$user" -g lite-nas "$config_source" "$config_target"
-	fi
+	deploy.installMergedConfig "$config_source" "$config_target" "$user" lite-nas
 	if [ "$name" = "log-analysis" ]; then
 		install -d -m 0750 -o "$user" -g lite-nas /etc/lite-nas/log-analysis
 		if [ ! -f "$rules_target" ]; then

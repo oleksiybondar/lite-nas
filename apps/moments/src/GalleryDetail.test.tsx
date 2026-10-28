@@ -10,6 +10,7 @@ import {
   getGallery,
   listGalleries,
   listReferences,
+  scanUploadedMedia,
 } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
 
@@ -55,6 +56,14 @@ vi.mock("@lite-nas/file-browser", async (importOriginal) => ({
       </>
     ),
 }));
+vi.mock("@lite-nas/file-upload", () => ({
+  UploadDialog: ({ open, onUploaded }: { open: boolean; onUploaded: (file: File) => void }) =>
+    open && (
+      <button type="button" onClick={() => onUploaded(new File(["photo"], "new.jpg"))}>
+        Complete upload
+      </button>
+    ),
+}));
 vi.mock("./moments-data", () => ({
   addCollectionDirectory: vi.fn(),
   changeCollectionFile: vi.fn(),
@@ -63,6 +72,7 @@ vi.mock("./moments-data", () => ({
   getGallery: vi.fn(),
   listGalleries: vi.fn(),
   listReferences: vi.fn(),
+  scanUploadedMedia: vi.fn(),
 }));
 vi.mock("./GalleryScanControls", () => ({
   GalleryScanControls: () => <div>Media scan controls</div>,
@@ -192,6 +202,36 @@ test("collection file picker adds its selected file", async () => {
       true,
     ),
   );
+});
+
+test("a completed album upload scans only the new file", async () => {
+  vi.mocked(scanUploadedMedia).mockResolvedValue(undefined);
+  renderCollection(undefined, [], {
+    ...collection,
+    type: "ALBUM",
+    uploadDirectory: "/home/Photos",
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Upload media" }));
+  fireEvent.click(screen.getByRole("button", { name: "Complete upload" }));
+  await waitFor(() =>
+    expect(scanUploadedMedia).toHaveBeenCalledWith(collection.id, "/home/Photos/new.jpg"),
+  );
+});
+
+test("a scanned city is shown in human-readable form", async () => {
+  renderCollection(undefined, [], {
+    ...collection,
+    tags: [
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        type: "AUTO",
+        category: "LOCATION",
+        value: "Málaga, Spain",
+        count: 1,
+      },
+    ],
+  });
+  expect(await screen.findByText("Locations: Málaga, Spain")).toBeTruthy();
 });
 
 test("the detail back action returns to the feed", () => {

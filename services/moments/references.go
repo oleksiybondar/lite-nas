@@ -209,8 +209,14 @@ func (c galleryController) modifyReference(ctx context.Context, input *reference
 		return nil, huma.Error500InternalServerError("reference update failed")
 	}
 	if changed {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=?`, g.ID); err != nil {
-			return nil, huma.Error500InternalServerError("reference update failed")
+		if !add {
+			// Unlink only media no longer covered by another explicit reference.
+			if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=? AND NOT EXISTS (
+				SELECT 1 FROM gallery_references r WHERE r.gallery_id=? AND
+				((r.reference_type='FILE' AND r.path=gallery_media.path) OR
+				 (r.reference_type='DIRECTORY' AND (r.path='/' OR instr(gallery_media.path,r.path||'/')=1))))`, g.ID, g.ID); err != nil {
+				return nil, huma.Error500InternalServerError("reference update failed")
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE galleries SET updated_at=? WHERE id=?`, timestamp(), g.ID); err != nil {
 			return nil, huma.Error500InternalServerError("reference update failed")

@@ -45,6 +45,7 @@ type tagsOutput struct {
 // mountResultRoutes provides paged scan metadata and aggregate filter options.
 func mountResultRoutes(api huma.API, c galleryController) {
 	huma.Get(api, "/api/galleries/{galleryId}/media-metadata", c.mediaResults)
+	huma.Post(api, "/api/galleries/{galleryId}/media-metadata", c.scanUploadedMedia)
 	huma.Get(api, "/api/galleries/{galleryId}/tags", c.tags)
 }
 
@@ -67,7 +68,8 @@ func (c galleryController) mediaResults(ctx context.Context, input *mediaResults
 	if err := c.store.db.QueryRowContext(ctx, `SELECT count(*) FROM gallery_media WHERE gallery_id=?`, input.ID).Scan(&output.Body.Total); err != nil {
 		return nil, huma.Error500InternalServerError("media metadata lookup failed")
 	}
-	rows, err := c.store.db.QueryContext(ctx, `SELECT path,media_type,width,height,live_photo_path FROM gallery_media WHERE gallery_id=? ORDER BY path LIMIT ? OFFSET ?`, input.ID, limit, input.Offset)
+	rows, err := c.store.db.QueryContext(ctx, `SELECT gm.path,gm.media_type,mf.width,mf.height,gm.live_photo_path
+		FROM gallery_media gm JOIN media_files mf ON mf.path=gm.path WHERE gm.gallery_id=? ORDER BY gm.path LIMIT ? OFFSET ?`, input.ID, limit, input.Offset)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("media metadata lookup failed")
 	}
@@ -100,7 +102,7 @@ func (c galleryController) mediaResults(ctx context.Context, input *mediaResults
 	_ = rows.Close()
 	for index := range output.Body.Items {
 		item := &output.Body.Items[index]
-		tagRows, err := c.store.db.QueryContext(ctx, `SELECT t.category,t.value FROM gallery_media_tags mt JOIN tags t ON t.id=mt.tag_id WHERE mt.gallery_id=? AND mt.path=? ORDER BY t.category,t.value`, input.ID, item.Path)
+		tagRows, err := c.store.db.QueryContext(ctx, `SELECT t.category,t.value FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id WHERE mt.path=? ORDER BY t.category,t.value`, item.Path)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("media tag lookup failed")
 		}

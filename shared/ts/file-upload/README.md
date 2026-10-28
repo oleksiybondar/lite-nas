@@ -2,6 +2,8 @@
 
 `@lite-nas/file-upload` exposes `UploadDialog` for LiteNAS React apps. Pass a
 canonical absolute destination directory and an `onUploaded` callback. The
+callback receives each completed file and may return a promise; the queue waits
+for it before starting the next file. The
 dialog accepts multiple selected or dropped files and uploads them one at a
 time through File Service's `/f/proprietary/upload` protocol. File Service
 authorizes create or replace at each operation; the dialog reports permission

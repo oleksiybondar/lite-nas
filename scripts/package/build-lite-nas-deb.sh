@@ -667,6 +667,10 @@ install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
 install -D -m 0755 "$moments_binary_path" \
 	"$package_root/usr/libexec/lite-nas/moments"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/data/cities1000.zip" \
+	"$package_root/usr/share/lite-nas/moments/cities1000.zip"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/data/README.md" \
+	"$package_root/usr/share/lite-nas/moments/GEONAMES-ATTRIBUTION.md"
 package.copyTree "$moments_assets_path" \
 	"$package_root/usr/libexec/lite-nas/moments-assets"
 install -D -m 0755 "$resources_monitor_binary_path" \

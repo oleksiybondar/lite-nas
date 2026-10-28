@@ -109,8 +109,8 @@ deploy.streamService.deploy() {
 	deploy.streamService.provisionReadACL
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nats-certificates.sh" --if-missing --user "$LITE_NAS_STREAM_SERVICE_USER"
 	install -D -m 0755 -o root -g root -- "$source_binary" "$LITE_NAS_STREAM_SERVICE_BINARY_TARGET"
-	install -D -m 0640 -o "$LITE_NAS_STREAM_SERVICE_USER" -g lite-nas \
-		"$LITE_NAS_STREAM_SERVICE_CONFIG_SOURCE" /etc/lite-nas/stream-service.conf
+	deploy.installMergedConfig "$LITE_NAS_STREAM_SERVICE_CONFIG_SOURCE" /etc/lite-nas/stream-service.conf \
+		"$LITE_NAS_STREAM_SERVICE_USER" lite-nas
 	install -D -m 0644 -o root -g root "$LITE_NAS_STREAM_SERVICE_UNIT_SOURCE" \
 		/etc/systemd/system/lite-nas-stream-service.service
 	install -d -m 0751 -o root -g lite-nas /var/log/lite-nas

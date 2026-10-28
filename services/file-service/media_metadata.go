@@ -24,12 +24,13 @@ type mediaTag struct {
 
 // mediaMetadata is the caller-authorized metadata contract for one source file.
 type mediaMetadata struct {
-	Path        string     `json:"path"`
-	MediaType   string     `json:"mediaType"`
-	ContentType string     `json:"contentType"`
-	Width       *int       `json:"width"`
-	Height      *int       `json:"height"`
-	Tags        []mediaTag `json:"tags"`
+	Path        string       `json:"path"`
+	MediaType   string       `json:"mediaType"`
+	ContentType string       `json:"contentType"`
+	Width       *int         `json:"width"`
+	Height      *int         `json:"height"`
+	Location    *gpsLocation `json:"location,omitempty"`
+	Tags        []mediaTag   `json:"tags"`
 }
 
 // classifyMedia distinguishes source media classes without claiming a Live Photo pair.
@@ -94,6 +95,7 @@ func (s *fileService) mediaMetadataResource(writer http.ResponseWriter, request 
 			result.Width, result.Height = &imageInfo.Width, &imageInfo.Height
 		}
 		result.Tags = jpegEXIFTags(data)
+		result.Location = jpegGPSLocation(data)
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	writer.Header().Set("Cache-Control", "private, no-store")

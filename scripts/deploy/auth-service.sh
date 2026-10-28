@@ -86,9 +86,7 @@ deploy.authService.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_CONFIG_DIR"
-	install -m 0640 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" \
-		"$LITE_NAS_AUTH_CONFIG_SOURCE" \
-		"$LITE_NAS_AUTH_CONFIG_TARGET"
+	deploy.installMergedConfig "$LITE_NAS_AUTH_CONFIG_SOURCE" "$LITE_NAS_AUTH_CONFIG_TARGET" root "$LITE_NAS_AUTH_CONFIG_GROUP"
 }
 
 deploy.authService.installLogTarget() {

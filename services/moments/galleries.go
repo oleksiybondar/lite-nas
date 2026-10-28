@@ -429,17 +429,19 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 		}
 	}
 	if len(input.Location) > 0 {
-		where += ` AND EXISTS (SELECT 1 FROM gallery_media_tags mt JOIN tags t ON t.id=mt.tag_id WHERE mt.gallery_id=g.id AND t.category='LOCATION' AND t.value IN (` + strings.TrimSuffix(strings.Repeat("?,", len(input.Location)), ",") + `))`
+		matches := make([]string, 0, len(input.Location))
 		for _, value := range input.Location {
-			args = append(args, value)
+			matches = append(matches, `instr(t.search_key,?)>0`)
+			args = append(args, searchKey(value))
 		}
+		where += ` AND EXISTS (SELECT 1 FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id WHERE gm.gallery_id=g.id AND t.category='LOCATION' AND (` + strings.Join(matches, " OR ") + `))`
 	}
 	if input.Q != "" {
 		where += ` AND (instr(lower(g.name),lower(?))>0 OR instr(lower(g.description),lower(?))>0
 			OR EXISTS (SELECT 1 FROM gallery_user_tags ut WHERE ut.gallery_id=g.id AND instr(ut.normalized_key,?)>0)
-			OR EXISTS (SELECT 1 FROM gallery_media_tags mt JOIN tags t ON t.id=mt.tag_id WHERE mt.gallery_id=g.id AND instr(t.normalized_key,?)>0))`
+			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id WHERE gm.gallery_id=g.id AND instr(t.search_key,?)>0))`
 		key := norm.NFC.String(strings.ToLower(input.Q))
-		args = append(args, input.Q, input.Q, key, key)
+		args = append(args, input.Q, input.Q, key, searchKey(input.Q))
 	}
 	output := &galleriesOutput{}
 	output.Body.Items = []galleryBody{}
@@ -540,7 +542,7 @@ func (c galleryController) patch(ctx context.Context, input *patchGalleryInput) 
 		return nil, huma.Error500InternalServerError("gallery update failed")
 	}
 	if oldDirectory != g.UploadDirectory {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=?`, g.ID); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=? AND instr(path,?)!=1`, g.ID, strings.TrimSuffix(g.UploadDirectory.String, "/")+"/"); err != nil {
 			return nil, huma.Error500InternalServerError("gallery update failed")
 		}
 	}

@@ -89,8 +89,8 @@ func normalizedUserTag(value string) (string, string, error) {
 func (c galleryController) galleryTags(ctx context.Context, galleryID string) ([]galleryTag, error) {
 	rows, err := c.store.db.QueryContext(ctx, `
 		SELECT t.id,'AUTO',t.category,t.value,count(*)
-		FROM gallery_media_tags mt JOIN tags t ON t.id=mt.tag_id
-		WHERE mt.gallery_id=? GROUP BY t.id
+		FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id
+		WHERE gm.gallery_id=? GROUP BY t.id
 		UNION ALL
 		SELECT ut.id,'USER','USER',ut.value,1
 		FROM gallery_user_tags ut WHERE ut.gallery_id=?

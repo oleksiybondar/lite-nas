@@ -19,7 +19,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `POST /api/auth/login?redirect_to=...` | Issue session cookies and echo a validated app-local path in `data.redirect_to`; unsafe paths resolve to `/`. The browser performs navigation. |
 | `GET /api/config` | Return the authenticated user's configured `workingDir` used to start file and folder pickers. |
 | `POST /api/galleries` | Create an `ALBUM` or `COLLECTION`. Albums require an authorized, existing `uploadDirectory`. |
-| `GET /api/galleries` | List accessible albums and collections together, newest first. `page` defaults to 1; `size` defaults to 20 and is capped at 500. The response has `items` and `metadata` (`page`, `size`, `total_count`, `total_pages`). Repeated `ownerId`, `type`, `visibility`, `mediaType`, and `location` filters use OR within a field and AND across fields. Use `type=ALBUM` or `type=COLLECTION` for a narrower search. `q` searches name, description, user tags, and every published scan tag. |
+| `GET /api/galleries` | List accessible albums and collections together, newest first. `page` defaults to 1; `size` defaults to 20 and is capped at 500. The response has `items` and `metadata` (`page`, `size`, `total_count`, `total_pages`). Repeated `ownerId`, `type`, `visibility`, `mediaType`, and `location` filters use OR within a field and AND across fields. Use `type=ALBUM` or `type=COLLECTION` for a narrower search. `q` searches name, description, user tags, and every published scan tag. Location filters match part of a `LOCATION` tag without case or Latin accents; `q` applies the same folding to scan tags. |
 | `GET/PATCH/DELETE /api/galleries/{galleryId}` | Read, owner-edit, or delete gallery metadata. Deletion never deletes original files. |
 | `GET /api/collections/{galleryId}/references` | List explicit file and directory references. |
 | `POST/DELETE /api/collections/{galleryId}/files` | Add or remove `{ "path": "/absolute/path" }`. |
@@ -31,6 +31,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `POST/GET /api/galleries/{galleryId}/scans` | Start a full rescan or page the owner's job history. |
 | `GET/DELETE /api/scans/{scanId}` | Same-user progress polling with token renewal, or cancellation. |
 | `GET /api/galleries/{galleryId}/media-metadata` | Page the last successfully published scan records. |
+| `POST /api/galleries/{galleryId}/media-metadata` | Owner-only update for one completed album upload: `{ "path": "/absolute/album/file.jpg" }`. The file is reauthorized through File Service, and only changed metadata for that path is updated. |
 | `GET /api/galleries/{galleryId}/tags` | Return both user tags and aggregated scan tags. Each tag has `type=USER` or `type=AUTO`, a `category`, `value`, and `count`. For user tags, `category=USER` and `count=1`; for auto tags, count is the number of media records carrying that tag. |
 | `GET/POST /api/galleries/{galleryId}/user-tags` | List user tags or create one with `{ "value": "Family" }`. Reads follow gallery visibility; creation requires the owner. |
 | `GET/PATCH/DELETE /api/galleries/{galleryId}/user-tags/{tagId}` | Read, rename with `{ "value": "Friends" }`, or remove one user tag. Reads follow gallery visibility; only the owner can mutate. Values are unique per gallery after case folding and Unicode normalization. |
@@ -60,7 +61,9 @@ profile or appearance settings document; those remain with File Service.
 Gallery create, detail, patch, and list responses include a `tags` array with
 both tag types. User tags belong to the gallery itself and survive rescans and
 source-directory changes. Scan tags are read-only and track the currently
-published media; rescan publication replaces only those media associations.
+published media; rescan publication updates changed file metadata and gallery
+links in place. It removes a link only after File Service confirms its source
+path is gone. Explicit collection membership changes can also unlink media.
 
 `thumbnailPath` is an optional clean absolute image path on create or PATCH.
 Moments checks its read permission and image class with File Service, then
@@ -81,10 +84,15 @@ File Service adds `GET /f/stat/<absolute-host-path>` and
 `/metadata/...`). Both authenticate every request and repeat the normal scope
 and RBAC read checks. The metadata response contains a media class, a safe
 content type, dimensions when the built-in image decoder supports the file,
-and source-backed tags. The current extractor reads JPEG EXIF description,
-camera make, camera model, and original capture timestamp. It returns an empty
-tag array when these fields are absent. It does not infer named locations from
-coordinates or filenames. Format classification is derived from the file
+and source-backed tags. The extractor reads JPEG EXIF description,
+camera make, camera model, original capture timestamp, and validated GPS
+coordinates. Moments resolves a nearby city offline with the packaged GeoNames
+`cities1000` extract and stores a searchable `LOCATION` tag such as
+`Málaga, Spain`. Alternate city names, country names, and Latin accents are
+included in the tag's search key. Locations farther than 50 km from a listed
+city remain unlabelled. GeoNames data is attributed in `data/README.md`.
+The extractor returns an empty tag array when textual fields are absent.
+Format classification is derived from the file
 extension; callers must still handle malformed or unsupported source content.
 The scan uses File Service's loopback HTTP API with the initiating user's
 Bearer token because that existing adapter already enforces caller-specific
@@ -98,21 +106,25 @@ file through File Service, and builds media-type, extension-based `FILE_TYPE`,
 and source-backed tags.
 Same-directory, case-sensitive basename pairing between an image and MOV marks
 the still as `LIVE_PHOTO` and records its motion path; it never rewrites either
-original. Scans are on demand; uploading or refreshing `/ls/` does not start one.
+original. Full scans remain on demand. A completed upload made in Moments starts
+a single-file metadata update; refreshing `/ls/` does not start one.
 
 At most two scans run per process, one per gallery. A scan accepts at most
 10,000 files and has a 20-minute deadline. Progress is durable in SQLite. The
 access JWT is kept only in process memory. A same-user progress request can
 replace it after session validation. Expiry without a replacement fails the
-scan; restart marks interrupted jobs failed. A successful scan replaces only
-that gallery's published media and tags in one SQLite transaction. A partial
+scan; restart marks interrupted jobs failed. A successful scan reconciles the
+gallery's discovered files and shared path-keyed metadata in one SQLite
+transaction. A previously linked path absent from discovery is retained unless
+File Service confirms it is missing after authorizing its parent directory. A partial
 scan leaves previous published results active and reports `PARTIAL`. A cancelled
 scan also leaves previous results active. No token is persisted or logged.
 Current Auth behavior keeps an issued access JWT valid until its expiry after
 logout; cancelling a running scan is available through the scan DELETE route.
-Changing an album source directory or adding/removing a collection reference
-clears that gallery's published scan results; the owner starts a new scan to
-rebuild them. A scan whose source metadata changes before publication fails
+Changing an album source directory or removing a collection reference unlinks
+only paths no longer covered by that gallery. Adding a reference keeps existing
+links; the owner starts a scan to discover its files. A scan whose source
+metadata changes before publication fails
 without restoring stale results.
 
 ## Storage and operations
@@ -126,8 +138,14 @@ write scope. The `[storage] working_dir` setting is a clean absolute host path; 
 picker's initial directory and does not change File Service authorization.
 
 SQLite foreign keys, WAL, and a busy timeout are enabled. The
-schema is created idempotently on startup; there was no earlier Moments
-metadata schema to migrate.
+schema is created idempotently on startup. Existing gallery-scoped media and
+tags are copied once into `media_files` and `media_file_tags`, keyed by canonical
+source path. `gallery_media` retains gallery membership and the gallery-specific
+Live Photo pairing; media dimensions and source tags are read from the shared
+file tables. The older gallery tag links remain in place for a reversible
+migration but new scans use the shared source tags. Uploads through Moments
+refresh a single path and link it into owned collections that already reference
+that file or its containing directory.
 
 Back up the database using SQLite's online backup API or a consistent
 `VACUUM INTO` snapshot; copying only the main file while WAL has pending writes

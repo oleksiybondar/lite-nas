@@ -116,11 +116,17 @@ validate_sudoers_drop_ins() {
 
 log.pushTask "Deploying etc configs"
 security_monitor_saved="$(mktemp -d)"
-trap 'rm -rf "$security_monitor_saved"' EXIT
-for config_name in mount-monitor.conf antivirus.conf system-service-monitor.conf service-watchdog.conf log-analysis.conf; do
-	if [ -f "$target_dir/lite-nas/$config_name" ]; then
-		cp -p "$target_dir/lite-nas/$config_name" "$security_monitor_saved/$config_name"
-	fi
+service_configs_saved="$(mktemp -d)"
+trap 'rm -rf "$security_monitor_saved" "$service_configs_saved"' EXIT
+# Merge before copying the tree, so a malformed local config cannot be replaced.
+for config_file in "$target_dir/lite-nas/"*.conf; do
+	[ -f "$config_file" ] || continue
+	config_name="${config_file##*/}"
+	[ -f "$source_dir/lite-nas/$config_name" ] || continue
+	cp -p "$config_file" "$service_configs_saved/$config_name"
+	awk -f "$SCRIPT_DIR/helpers/merge-ini-config.awk" -- \
+		"$source_dir/lite-nas/$config_name" "$config_file" \
+		>"$service_configs_saved/$config_name.merged"
 done
 if [ -d "$target_dir/lite-nas/log-analysis" ]; then
 	cp -a "$target_dir/lite-nas/log-analysis" "$security_monitor_saved/log-analysis"
@@ -138,10 +144,11 @@ for config_entry in "${config_entries[@]}"; do
 	fi
 	cp -a "$config_entry" "$target_dir/"
 done
-for config_name in mount-monitor.conf antivirus.conf system-service-monitor.conf service-watchdog.conf log-analysis.conf; do
-	if [ -f "$security_monitor_saved/$config_name" ]; then
-		cp -p "$security_monitor_saved/$config_name" "$target_dir/lite-nas/$config_name"
-	fi
+for original_config in "$service_configs_saved/"*.conf; do
+	[ -f "$original_config" ] || continue
+	config_name="${original_config##*/}"
+	cp -p "$original_config" "$target_dir/lite-nas/$config_name"
+	cat "$service_configs_saved/$config_name.merged" >"$target_dir/lite-nas/$config_name"
 done
 if [ -d "$security_monitor_saved/log-analysis" ]; then
 	cp -a "$security_monitor_saved/log-analysis" "$target_dir/lite-nas/"

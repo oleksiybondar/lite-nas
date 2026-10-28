@@ -56,10 +56,25 @@ export const gallerySchema = z.object({
   thumbnailPath: hostPathSchema.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  tags: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        type: z.enum(["AUTO", "USER"]),
+        category: z.string(),
+        value: z.string(),
+        count: z.number().int().nonnegative(),
+      }),
+    )
+    .optional(),
 });
 
 /** Validated gallery returned from Moments. */
 export type GalleryRecord = z.infer<typeof gallerySchema>;
+
+/** Returns the city names published for a gallery's scanned media. */
+export const galleryLocationNames = (gallery: GalleryRecord): string[] =>
+  gallery.tags?.filter((tag) => tag.category === "LOCATION").map((tag) => tag.value) ?? [];
 
 /** Durable owner-visible media scan progress returned by Moments. */
 export const galleryScanSchema = z.object({

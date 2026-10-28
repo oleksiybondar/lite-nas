@@ -151,6 +151,8 @@ assert_cmd "stream-service binary packaged" assert_executable usr/libexec/lite-n
 assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/web-gateway
 assert_cmd "Moments binary packaged" assert_executable usr/libexec/lite-nas/moments
 assert_cmd "Moments frontend packaged" assert_file usr/libexec/lite-nas/moments-assets/index.html
+assert_cmd "Moments offline city data packaged" assert_file usr/share/lite-nas/moments/cities1000.zip
+assert_cmd "Moments city data attribution packaged" assert_file usr/share/lite-nas/moments/GEONAMES-ATTRIBUTION.md
 
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
 assert_cmd "file-writer deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-writer.sh

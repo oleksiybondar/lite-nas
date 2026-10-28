@@ -25,7 +25,8 @@ deploy.moments.deploy() {
 	fi
 
 	install -D -m 0755 "$binary_path" /usr/libexec/lite-nas/moments
-	install -D -m 0640 -o lite-nas-moments -g lite-nas "$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/moments.conf" /etc/lite-nas/moments.conf
+	deploy.installMergedConfig "$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/moments.conf" /etc/lite-nas/moments.conf \
+		lite-nas-moments lite-nas
 	install -d -m 0750 -o lite-nas-moments -g lite-nas-moments /var/lib/lite-nas/moments
 	install -d -m 0750 -o lite-nas-moments -g lite-nas-moments /var/lib/lite-nas/moments/thumbnails
 	install -d -m 0751 /var/log/lite-nas
@@ -36,6 +37,14 @@ deploy.moments.deploy() {
 
 	install -d -m 0755 /usr/share/lite-nas/moments /usr/share/lite-nas/nginx
 	cp -R "$assets_source/." /usr/share/lite-nas/moments/
+	local place_data_source="$LITE_NAS_REPO_ROOT/services/moments/data/cities1000.zip"
+	if [ -f "$place_data_source" ]; then
+		install -m 0644 "$place_data_source" /usr/share/lite-nas/moments/cities1000.zip
+		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/data/README.md" /usr/share/lite-nas/moments/GEONAMES-ATTRIBUTION.md
+	elif [ ! -f /usr/share/lite-nas/moments/cities1000.zip ]; then
+		log.error "Moments offline city data is missing"
+		return 1
+	fi
 	find /usr/share/lite-nas/moments -type d -exec chmod 0755 {} +
 	find /usr/share/lite-nas/moments -type f -exec chmod 0644 {} +
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing

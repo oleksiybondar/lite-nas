@@ -41,6 +41,10 @@ The relay authentication file is intentionally local-only:
 - later deploys do not overwrite it
 - credentials must not be committed to git
 
+Deployments also retain values already set in the two notifier INI files and
+add newly introduced template keys. Set `to` or `cc` on the host at least once;
+the merge cannot recover recipient addresses that were previously overwritten.
+
 ## Service Config Shape
 
 Both notifier services use the same config structure.

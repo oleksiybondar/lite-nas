@@ -3,6 +3,7 @@ import {
   FolderSelectionDialog,
   fileServicePath,
 } from "@lite-nas/file-browser";
+import { UploadDialog } from "@lite-nas/file-upload";
 import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -22,8 +23,9 @@ import {
   getGallery,
   listGalleries,
   listReferences,
+  scanUploadedMedia,
 } from "./moments-data";
-import type { GalleryRecord } from "./schemas";
+import { type GalleryRecord, galleryLocationNames } from "./schemas";
 
 /** Loads authorized originals for an album or explicit collection membership. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: gallery source loading and collection actions form one detail screen.
@@ -46,9 +48,11 @@ export function GalleryDetail({
   const [memberPaths, setMemberPaths] = useState<string[]>([]);
   const [collections, setCollections] = useState<GalleryRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [editing, setEditing] = useState(false);
   const [picker, setPicker] = useState<"file" | "directory" | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     setBusy(true);
@@ -110,6 +114,32 @@ export function GalleryDetail({
   const items = galleryItemsFromPaths(paths.map((path) => fileServicePath("/f", path)));
   const owned = gallery.ownerId === userId;
   const ownedCollection = gallery.type === "COLLECTION" && owned;
+  const albumDirectory = gallery.type === "ALBUM" && owned ? gallery.uploadDirectory : null;
+  const locations = galleryLocationNames(gallery);
+  /** Scans only the uploaded path and refreshes the album listing. */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: upload, metadata scan, and refresh have distinct failure messages.
+  const onUploaded = async (file: File): Promise<void> => {
+    if (!albumDirectory) return;
+    try {
+      await scanUploadedMedia(gallery.id, `${albumDirectory.replace(/\/$/, "")}/${file.name}`);
+    } catch {
+      setUploadError(
+        `Could not scan metadata for ${file.name}. The upload completed; retry a media scan.`,
+      );
+      return;
+    }
+    try {
+      const [updated, nextPaths] = await Promise.all([
+        getGallery(gallery.id),
+        galleryFiles(gallery, new AbortController().signal),
+      ]);
+      setGallery(updated);
+      setPaths(nextPaths);
+      setUploadError(null);
+    } catch {
+      setUploadError(`The upload and metadata scan completed, but the gallery could not refresh.`);
+    }
+  };
   /** Adds a selected source and refreshes this collection's resolved media. */
   const addSource = async (kind: "file" | "directory", path: string): Promise<void> => {
     try {
@@ -144,13 +174,18 @@ export function GalleryDetail({
         )}
       </Stack>
       {gallery.description && <Typography>{gallery.description}</Typography>}
+      {locations.length > 0 && (
+        <Typography color="text.secondary">Locations: {locations.join(" · ")}</Typography>
+      )}
       {owned && (
         <Stack direction="row" spacing={1} flexWrap="wrap">
           {ownedCollection && <Button onClick={() => setPicker("file")}>Add file</Button>}
           {ownedCollection && <Button onClick={() => setPicker("directory")}>Add folder</Button>}
+          {albumDirectory && <Button onClick={() => setUploadOpen(true)}>Upload media</Button>}
         </Stack>
       )}
       {error && <Alert severity="error">{error}</Alert>}
+      {uploadError && <Alert severity="error">{uploadError}</Alert>}
       {busy && <Typography>Loading media…</Typography>}
       {!busy && !error && items.length === 0 && <Typography>No media in this gallery.</Typography>}
       {!busy && !error && items.length > 0 && (
@@ -192,6 +227,14 @@ export function GalleryDetail({
             request={request}
           />
         </>
+      )}
+      {albumDirectory && (
+        <UploadDialog
+          open={uploadOpen}
+          directory={albumDirectory}
+          onClose={() => setUploadOpen(false)}
+          onUploaded={onUploaded}
+        />
       )}
     </Stack>
   );

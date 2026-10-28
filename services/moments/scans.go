@@ -13,7 +13,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
-	"golang.org/x/text/unicode/norm"
 
 	"lite-nas/shared/browserauth"
 )
@@ -75,11 +74,16 @@ type scanManager struct {
 	mu     sync.Mutex
 	active map[string]*activeScan
 	seats  chan struct{}
+	places *cityIndex
 }
 
 // newScanManager creates the bounded scan worker state.
-func newScanManager(store *galleryStore, auth browserauth.AuthService, files fileServiceClient) *scanManager {
-	return &scanManager{store: store, auth: auth, files: files, active: make(map[string]*activeScan), seats: make(chan struct{}, 2)}
+func newScanManager(store *galleryStore, auth browserauth.AuthService, files fileServiceClient, places ...*cityIndex) *scanManager {
+	manager := &scanManager{store: store, auth: auth, files: files, active: make(map[string]*activeScan), seats: make(chan struct{}, 2)}
+	if len(places) > 0 {
+		manager.places = places[0]
+	}
+	return manager
 }
 
 // mountScanRoutes registers start, status, history, and cancellation.
@@ -299,6 +303,27 @@ type scanMedia struct {
 type scanTag struct {
 	Category string `json:"category"`
 	Value    string `json:"value"`
+	Search   string `json:"-"`
+}
+
+// scanMediaFromSource converts one authorized File Service result into source tags.
+func scanMediaFromSource(info sourceMetadata, places *cityIndex) scanMedia {
+	item := scanMedia{Path: info.Path, Type: info.MediaType, Width: info.Width, Height: info.Height}
+	item.Tags = append(item.Tags, scanTag{Category: "MEDIA_TYPE", Value: info.MediaType})
+	if extension := strings.TrimPrefix(filepath.Ext(info.Path), "."); extension != "" {
+		item.Tags = append(item.Tags, scanTag{Category: "FILE_TYPE", Value: strings.ToUpper(extension)})
+	}
+	for _, tag := range info.Tags {
+		if tag.Category != "" && tag.Value != "" && len(tag.Category) <= 64 && len(tag.Value) <= 256 {
+			item.Tags = append(item.Tags, scanTag{Category: tag.Category, Value: tag.Value})
+		}
+	}
+	if info.Location != nil {
+		if city, found := places.nearestCity(info.Location.Latitude, info.Location.Longitude); found {
+			item.Tags = append(item.Tags, scanTag{Category: "LOCATION", Value: city.name, Search: city.search})
+		}
+	}
+	return item
 }
 
 // run discovers authorized files, extracts metadata, then atomically publishes success.
@@ -346,17 +371,7 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 		if fetchErr != nil {
 			failed++
 		} else {
-			item := scanMedia{Path: info.Path, Type: info.MediaType, Width: info.Width, Height: info.Height}
-			item.Tags = append(item.Tags, scanTag{Category: "MEDIA_TYPE", Value: info.MediaType})
-			if extension := strings.TrimPrefix(filepath.Ext(info.Path), "."); extension != "" {
-				item.Tags = append(item.Tags, scanTag{Category: "FILE_TYPE", Value: strings.ToUpper(extension)})
-			}
-			for _, tag := range info.Tags {
-				if tag.Category != "" && tag.Value != "" && len(tag.Category) <= 64 && len(tag.Value) <= 256 {
-					item.Tags = append(item.Tags, scanTag{Category: tag.Category, Value: tag.Value})
-				}
-			}
-			media = append(media, item)
+			media = append(media, scanMediaFromSource(info, m.places))
 		}
 		if index%10 == 9 || index == len(paths)-1 {
 			_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET processed_items=?,successful_items=?,failed_items=? WHERE id=?`, index+1, len(media), failed, job.ID)
@@ -367,11 +382,55 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 		return
 	}
 	pairLivePhotos(media)
-	if err := m.publish(ctx, job, user, g.UpdatedAt, media); err != nil {
+	deleted, err := m.confirmDeleted(ctx, job, paths)
+	if err != nil {
+		m.finish(job.ID, "FAILED", "source deletion could not be confirmed")
+		return
+	}
+	if err := m.publish(ctx, job, user, g.UpdatedAt, media, deleted); err != nil {
 		m.finish(job.ID, "FAILED", "metadata publication failed")
 		return
 	}
 	m.finish(job.ID, "COMPLETED", "")
+}
+
+// confirmDeleted checks only previously linked paths missing from discovery.
+func (m *scanManager) confirmDeleted(ctx context.Context, job scanJob, discovered []string) ([]string, error) {
+	seen := make(map[string]bool, len(discovered))
+	for _, path := range discovered {
+		seen[path] = true
+	}
+	rows, err := m.store.db.QueryContext(ctx, `SELECT path FROM gallery_media WHERE gallery_id=?`, job.GalleryID)
+	if err != nil {
+		return nil, err
+	}
+	var candidates []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		if !seen[path] {
+			candidates = append(candidates, path)
+		}
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	deleted := make([]string, 0, len(candidates))
+	for _, path := range candidates {
+		missing, err := m.files.missing(ctx, m.currentToken(job.GalleryID, job.ID), path)
+		if err != nil {
+			return nil, err
+		}
+		if missing {
+			deleted = append(deleted, path)
+		}
+	}
+	return deleted, nil
 }
 
 // discover resolves every source through the caller-authorized File Service API.
@@ -403,7 +462,11 @@ func (m *scanManager) discover(ctx context.Context, job scanJob, g galleryRecord
 			if kind == "FILE" {
 				canonical, err := m.files.stat(ctx, token, path, "file")
 				if err != nil {
-					return nil, err
+					missing, probeErr := m.files.missing(ctx, token, path)
+					if probeErr != nil || !missing {
+						return nil, err
+					}
+					continue
 				}
 				seen[canonical] = struct{}{}
 			} else {
@@ -450,8 +513,8 @@ func pairLivePhotos(media []scanMedia) {
 	}
 }
 
-// publish swaps only the target gallery's scan-derived rows in one transaction.
-func (m *scanManager) publish(ctx context.Context, job scanJob, user, sourceVersion string, media []scanMedia) error {
+// publish reconciles the target gallery's discovered paths in one transaction.
+func (m *scanManager) publish(ctx context.Context, job scanJob, user, sourceVersion string, media []scanMedia, deleted []string) error {
 	tx, err := m.store.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -461,25 +524,22 @@ func (m *scanManager) publish(ctx context.Context, job scanJob, user, sourceVers
 	if err := tx.QueryRowContext(ctx, `SELECT owner_id,updated_at FROM galleries WHERE id=?`, job.GalleryID).Scan(&owner, &version); err != nil || owner != user || version != sourceVersion {
 		return errors.New("gallery source changed during scan")
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=?`, job.GalleryID); err != nil {
-		return err
-	}
 	for _, item := range media {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO gallery_media(gallery_id,path,media_type,width,height,live_photo_path) VALUES(?,?,?,?,?,?)`, job.GalleryID, item.Path, item.Type, item.Width, item.Height, item.LivePath); err != nil {
+		if err := m.store.writeMediaFile(ctx, tx, item); err != nil {
 			return err
 		}
-		for _, tag := range item.Tags {
-			key := norm.NFC.String(strings.ToLower(strings.TrimSpace(tag.Value)))
-			if key == "" {
-				continue
-			}
-			id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(tag.Category+"\x00"+key)).String()
-			if _, err := tx.ExecContext(ctx, `INSERT INTO tags(id,category,value,normalized_key) VALUES(?,?,?,?) ON CONFLICT(category,normalized_key) DO NOTHING`, id, tag.Category, tag.Value, key); err != nil {
-				return err
-			}
-			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO gallery_media_tags(gallery_id,path,tag_id) VALUES(?,?,?)`, job.GalleryID, item.Path, id); err != nil {
-				return err
-			}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO gallery_media(gallery_id,path,media_type,live_photo_path) VALUES(?,?,?,?)
+			ON CONFLICT(gallery_id,path) DO UPDATE SET media_type=excluded.media_type,live_photo_path=excluded.live_photo_path
+			WHERE gallery_media.media_type IS NOT excluded.media_type OR gallery_media.live_photo_path IS NOT excluded.live_photo_path`, job.GalleryID, item.Path, item.Type, item.LivePath); err != nil {
+			return err
+		}
+	}
+	for _, path := range deleted {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM gallery_media WHERE gallery_id=? AND path=?`, job.GalleryID, path); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM media_files WHERE path=? AND NOT EXISTS (SELECT 1 FROM gallery_media WHERE path=?)`, path, path); err != nil {
+			return err
 		}
 	}
 	return tx.Commit()

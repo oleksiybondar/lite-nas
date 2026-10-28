@@ -64,6 +64,15 @@ export async function startGalleryScan(galleryId: string): Promise<GalleryScan> 
   );
 }
 
+/** Publishes metadata for one completed browser upload without replacing other files. */
+export async function scanUploadedMedia(galleryId: string, path: string): Promise<void> {
+  await readJson(momentsApiPath(`/api/galleries/${z.uuid().parse(galleryId)}/media-metadata`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: hostPathSchema.parse(path) }),
+  });
+}
+
 /** Reads the most recent owner-visible scan job for a gallery. */
 export async function latestGalleryScan(galleryId: string): Promise<GalleryScan | null> {
   const result = galleryScansSchema.parse(

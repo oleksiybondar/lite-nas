@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 	_ "modernc.org/sqlite"
 )
 
@@ -61,7 +64,7 @@ func openGalleryStore(path string) (*galleryStore, error) {
 		`CREATE INDEX IF NOT EXISTS gallery_refs_gallery ON gallery_references(gallery_id,reference_type,path)`,
 		`CREATE TABLE IF NOT EXISTS tags (
 			id TEXT PRIMARY KEY, category TEXT NOT NULL, value TEXT NOT NULL,
-			normalized_key TEXT NOT NULL, UNIQUE(category,normalized_key)
+			normalized_key TEXT NOT NULL, search_key TEXT NOT NULL DEFAULT '', UNIQUE(category,normalized_key)
 		)`,
 		`CREATE TABLE IF NOT EXISTS gallery_media (
 			gallery_id TEXT NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
@@ -138,7 +141,149 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			return nil, fmt.Errorf("migrate Moments gallery schema: %w", err)
 		}
 	}
+	if err := migrateTagSearchKeys(db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate Moments tag search: %w", err)
+	}
+	if err := migrateSharedMedia(db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate Moments shared media: %w", err)
+	}
 	return &galleryStore{db: db}, nil
+}
+
+// migrateSharedMedia copies existing gallery-scoped extraction into path-keyed tables once.
+func migrateSharedMedia(db *sql.DB) error {
+	var exists int
+	if err := db.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name='media_files'`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists != 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, statement := range []string{
+		`CREATE TABLE media_files (
+			path TEXT PRIMARY KEY, media_type TEXT NOT NULL,
+			width INTEGER, height INTEGER
+		)`,
+		`CREATE TABLE media_file_tags (
+			path TEXT NOT NULL REFERENCES media_files(path) ON DELETE CASCADE,
+			tag_id TEXT NOT NULL REFERENCES tags(id),
+			PRIMARY KEY(path,tag_id)
+		)`,
+		`CREATE INDEX media_file_tags_tag ON media_file_tags(tag_id,path)`,
+		`INSERT OR IGNORE INTO media_files(path,media_type,width,height)
+			SELECT path,CASE WHEN media_type='LIVE_PHOTO' THEN 'IMAGE' ELSE media_type END,width,height FROM gallery_media ORDER BY gallery_id,path`,
+		`INSERT OR IGNORE INTO media_file_tags(path,tag_id)
+			SELECT path,tag_id FROM gallery_media_tags ORDER BY gallery_id,path,tag_id`,
+	} {
+		if _, err := tx.Exec(statement); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// writeMediaFile refreshes one path-keyed source record and its derived tags.
+func (store *galleryStore) writeMediaFile(ctx context.Context, tx *sql.Tx, item scanMedia) error {
+	sourceType := item.Type
+	if sourceType == "LIVE_PHOTO" {
+		sourceType = "IMAGE"
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO media_files(path,media_type,width,height) VALUES(?,?,?,?)
+		ON CONFLICT(path) DO UPDATE SET media_type=excluded.media_type,width=excluded.width,height=excluded.height
+		WHERE media_files.media_type IS NOT excluded.media_type OR media_files.width IS NOT excluded.width OR media_files.height IS NOT excluded.height`, item.Path, sourceType, item.Width, item.Height); err != nil {
+		return err
+	}
+	desired := []any{item.Path}
+	for _, tag := range item.Tags {
+		key := norm.NFC.String(strings.ToLower(strings.TrimSpace(tag.Value)))
+		if key == "" {
+			continue
+		}
+		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(tag.Category+"\x00"+key)).String()
+		search := searchKey(tag.Value)
+		if tag.Search != "" {
+			search = tag.Search
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO tags(id,category,value,normalized_key,search_key) VALUES(?,?,?,?,?)
+			ON CONFLICT(category,normalized_key) DO UPDATE SET search_key=excluded.search_key
+			WHERE tags.search_key IS NOT excluded.search_key`, id, tag.Category, tag.Value, key, search); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO media_file_tags(path,tag_id) VALUES(?,?)`, item.Path, id); err != nil {
+			return err
+		}
+		desired = append(desired, id)
+	}
+	if len(desired) == 1 {
+		_, err := tx.ExecContext(ctx, `DELETE FROM media_file_tags WHERE path=?`, item.Path)
+		return err
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(desired)-1), ",")
+	if _, err := tx.ExecContext(ctx, `DELETE FROM media_file_tags WHERE path=? AND tag_id NOT IN (`+placeholders+`)`, desired...); err != nil {
+		return err
+	}
+	return nil
+}
+
+// migrateTagSearchKeys adds and fills accent-folded keys without changing tag identity.
+func migrateTagSearchKeys(db *sql.DB) error {
+	columns, err := db.Query(`PRAGMA table_info(tags)`)
+	if err != nil {
+		return err
+	}
+	hasSearchKey := false
+	for columns.Next() {
+		var index, required, primaryKey int
+		var name, dataType string
+		var defaultValue sql.NullString
+		if err := columns.Scan(&index, &name, &dataType, &required, &defaultValue, &primaryKey); err != nil {
+			_ = columns.Close()
+			return err
+		}
+		hasSearchKey = hasSearchKey || name == "search_key"
+	}
+	err = columns.Err()
+	_ = columns.Close()
+	if err != nil {
+		return err
+	}
+	if !hasSearchKey {
+		if _, err := db.Exec(`ALTER TABLE tags ADD COLUMN search_key TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	rows, err := db.Query(`SELECT id,value FROM tags WHERE search_key=''`)
+	if err != nil {
+		return err
+	}
+	type tagKey struct{ id, value string }
+	var pending []tagKey
+	for rows.Next() {
+		var tag tagKey
+		if err := rows.Scan(&tag.id, &tag.value); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		pending = append(pending, tag)
+	}
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, tag := range pending {
+		if _, err := db.Exec(`UPDATE tags SET search_key=? WHERE id=?`, searchKey(tag.value), tag.id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // close releases the database when the service stops.

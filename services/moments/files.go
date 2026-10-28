@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,13 +28,20 @@ type sourceStat struct {
 	Kind string `json:"kind"`
 }
 
+// sourceLocation is the validated GPS pair supplied by File Service.
+type sourceLocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 // sourceMetadata is File Service's authorized source-backed media response.
 type sourceMetadata struct {
-	Path        string `json:"path"`
-	MediaType   string `json:"mediaType"`
-	ContentType string `json:"contentType"`
-	Width       *int   `json:"width"`
-	Height      *int   `json:"height"`
+	Path        string          `json:"path"`
+	MediaType   string          `json:"mediaType"`
+	ContentType string          `json:"contentType"`
+	Width       *int            `json:"width"`
+	Height      *int            `json:"height"`
+	Location    *sourceLocation `json:"location"`
 	Tags        []struct {
 		Category string `json:"category"`
 		Value    string `json:"value"`
@@ -48,28 +56,37 @@ func newFileServiceClient(origin string) fileServiceClient {
 	}}
 }
 
-// get performs a user-JWT-bound File Service read without token persistence.
-func (c fileServiceClient) get(ctx context.Context, token, route, path, query string, output any) error {
+// request performs a validated, user-JWT-bound File Service read without token persistence.
+func (c fileServiceClient) request(ctx context.Context, token, route, path, query string) (*http.Response, error) {
 	if token == "" || len(token) > 8192 || strings.ContainsAny(token, "\r\n") {
-		return huma.Error401Unauthorized("invalid access token")
+		return nil, huma.Error401Unauthorized("invalid access token")
 	}
 	if fileaccess.ValidateHostPath(path) != nil {
-		return huma.Error422UnprocessableEntity("invalid source path")
+		return nil, huma.Error422UnprocessableEntity("invalid source path")
 	}
 	base, err := url.Parse(c.origin)
 	if err != nil {
-		return huma.Error500InternalServerError("File Service configuration invalid")
+		return nil, huma.Error500InternalServerError("File Service configuration invalid")
 	}
 	base.Path = route + path
 	base.RawQuery = query
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base.String(), nil)
 	if err != nil {
-		return huma.Error500InternalServerError("File Service request failed")
+		return nil, huma.Error500InternalServerError("File Service request failed")
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	response, err := c.client.Do(request)
 	if err != nil {
-		return huma.Error503ServiceUnavailable("File Service unavailable")
+		return nil, huma.Error503ServiceUnavailable("File Service unavailable")
+	}
+	return response, nil
+}
+
+// get decodes one successful File Service response with existing status mapping.
+func (c fileServiceClient) get(ctx context.Context, token, route, path, query string, output any) error {
+	response, err := c.request(ctx, token, route, path, query)
+	if err != nil {
+		return err
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
@@ -87,6 +104,32 @@ func (c fileServiceClient) get(ctx context.Context, token, route, path, query st
 		return huma.Error503ServiceUnavailable("File Service returned invalid metadata")
 	}
 	return nil
+}
+
+// missing confirms an absent file only after its parent directory is readable.
+func (c fileServiceClient) missing(ctx context.Context, token, path string) (bool, error) {
+	if _, err := c.stat(ctx, token, filepath.Dir(path), "directory"); err != nil {
+		return false, err
+	}
+	response, err := c.request(ctx, token, "/stat", path, "")
+	if err != nil {
+		return false, err
+	}
+	defer response.Body.Close()
+	switch response.StatusCode {
+	case http.StatusNotFound:
+		return true, nil
+	case http.StatusForbidden:
+		return false, nil
+	case http.StatusOK:
+		var info sourceStat
+		if err := json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&info); err != nil || info.Path != path || (info.Kind != "file" && info.Kind != "directory") {
+			return false, huma.Error503ServiceUnavailable("File Service returned invalid source identity")
+		}
+		return info.Kind != "file", nil
+	default:
+		return false, huma.Error503ServiceUnavailable("could not confirm source deletion")
+	}
 }
 
 // stat checks the path and expected source kind under the initiating user's ACL.
@@ -137,6 +180,10 @@ func (c fileServiceClient) metadata(ctx context.Context, token, path string) (so
 	if info.Width != nil && (*info.Width < 1 || *info.Width > 100000) ||
 		info.Height != nil && (*info.Height < 1 || *info.Height > 100000) {
 		return sourceMetadata{}, errors.New("File Service returned invalid dimensions")
+	}
+	if info.Location != nil && (info.Location.Latitude < -90 || info.Location.Latitude > 90 ||
+		info.Location.Longitude < -180 || info.Location.Longitude > 180) {
+		return sourceMetadata{}, errors.New("File Service returned invalid GPS coordinates")
 	}
 	return info, nil
 }

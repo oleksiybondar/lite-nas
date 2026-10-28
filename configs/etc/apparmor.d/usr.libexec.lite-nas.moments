@@ -10,6 +10,7 @@ profile /usr/libexec/lite-nas/moments flags=(attach_disconnected,mediate_deleted
   /usr/libexec/lite-nas/moments mr,
   /etc/lite-nas/moments.conf r,
   /etc/lite-nas/certificates/auth/token-signing.crt r,
+  /usr/share/lite-nas/moments/cities1000.zip r,
   /proc/sys/net/core/somaxconn r,
   /var/log/lite-nas/moments.log rw,
   /var/lib/lite-nas/moments/ rw,

@@ -18,7 +18,8 @@ existing browser-session requirements remain in
   its normal Auth/RBAC checks.
 - **moments-backend/FR-004:** An owner can start a bounded full rescan, poll
   durable progress, renew its volatile user JWT by same-user polling, and cancel
-  work. A successful scan atomically replaces one gallery's derived records.
+  work. A successful scan atomically reconciles changed path metadata and
+  gallery links, removing a path only after File Service confirms deletion.
   Partial, failed, and cancelled scans preserve previously published records.
 - **moments-backend/FR-005:** Gallery listing, published media, and tag
   aggregates are paged or bounded and apply metadata visibility before
@@ -29,6 +30,17 @@ existing browser-session requirements remain in
   user tags. Gallery reads include user and scan tags with a type discriminator.
   User tags survive rescans and source changes; scan-derived tags remain
   read-only to clients.
+- **moments-backend/FR-008:** File Service extracts validated JPEG EXIF GPS
+  coordinates. Moments resolves a nearby city from packaged offline GeoNames
+  data and indexes the city, country, and alternate names for case- and
+  accent-insensitive gallery search and location filtering. Sources without
+  usable GPS or a nearby city remain unlabelled.
+- **moments-backend/FR-009:** A completed browser upload in an owned Moments
+  album triggers metadata extraction for that file only. Existing gallery
+  records remain published. Shared source metadata is keyed by canonical file
+  path, while gallery links retain membership and Live Photo pairing. An
+  upload refreshes references in the owner's collections. Unchanged full-scan
+  paths retain their gallery link identity and source tag associations.
 - **moments-backend/FR-006:** A gallery may store an optional opaque JSON
   thumbnail recipe and a separate optional uploaded PNG/JPEG image. Asset
   reads follow gallery visibility; only the owner can upload or delete it.
