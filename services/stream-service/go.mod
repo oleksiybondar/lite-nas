@@ -6,7 +6,7 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/go-playground/validator/v10 v10.30.2
 	golang.org/x/sys v0.42.0
-	lite-nas/shared v0.2.3
+	lite-nas/shared v0.4.0
 )
 
 require (

@@ -7,7 +7,7 @@ import (
 	"lite-nas/shared/fsm"
 )
 
-// Requirements: task.md/TASK-FSM-002.
+// Requirements: security-monitoring/IR-002.
 func TestLifecycleMachineRoutesNormalization(t *testing.T) {
 	t.Parallel()
 	result, err := lifecycleMachine.Step(context.Background(), fsm.Instance[lifecycleState, struct{}]{State: lifecycleActive}, lifecycleCleared)

@@ -98,18 +98,56 @@ on the integrated runtime path to provide broader system coverage implicitly.
 
 The authentication cases use the configured security-manager account for normal
 account failures and a unique nonexistent account for unknown-account guessing.
-Mount lifecycle and EICAR scan cases create temporary mounts below `/mnt`.
-Pytest itself runs as the current user; its fixture invokes `sudo -n` only for
-creating mount directories and mounting or unmounting the temporary filesystems.
-Authenticate once in the terminal, then run the suite without `sudo`:
+Mount lifecycle, ramfs, and EICAR cases create temporary mounts below `/mnt`.
+The clean ext4 fixture waits for Antivirus to report a normal informational scan
+event before it unmounts, so cleanup cannot interrupt the scan under test.
+Pytest runs as the current user. The mount fixture switches a separate shell to
+the restricted `testsudouser` account. Its test-only sudoers rule permits
+passwordless `sudo` for the mount utilities (`mkdir`, `mount`, `rmdir`, and
+`umount`) and logging-manager CLI checks. The mount utilities accept their
+normal arguments, so use this account only on disposable or dedicated test
+hosts.
+
+From the repository root, prepare the normal accounts and the sudo account with
+their test-only permissions on a local test host:
 
 ```sh
-sudo -v
-../.venv/bin/pytest -c pytest.ini cli/security_monitoring/test_mount_and_antivirus_events.py -q
+sudo ./scripts/ci/prepare-system-test-users.sh
+sudo ./scripts/ci/prepare-system-test-sudo-user.sh
 ```
 
-The CLI fixtures switch to their configured system-test users before querying
-the logging managers, including when the pytest process starts as root.
+The default accounts are `testuser`, `testoperator`, `testsecurityuser`,
+`testadmin`, and `testsudouser`, with password `testpassword`. The scripts and
+fixtures share the `LITENAS_*` overrides in `constants.py`; use the same values
+for preparation and execution. CI uses `testsecurity` explicitly in both steps.
+
+The SSH authentication test requires a running local SSH server accepting
+password attempts. On a dedicated test host, prepare it with:
+
+```sh
+sudo bash ./scripts/ci/prepare-system-test-ssh.sh
+```
+
+This installs OpenSSH Server and enables password authentication for loopback
+connections in `/etc/ssh/sshd_config.d/00-lite-nas-system-tests.conf`, then
+restarts SSH. CI runs the same preparation after installing the package. These
+scripts are test-host setup, not LiteNAS production deployment. Run pytest as
+the normal user; the fixtures authenticate to the required account and use
+restricted sudo for privileged commands:
+
+```sh
+cd tests
+../.venv/bin/pytest -c pytest.ini cli/security_monitoring cli/logging_manager -q
+```
+
+An existing installation may retain older configuration during local redeploys.
+The current authentication tests require `event_id_prefix` to be `secauth` in
+`/etc/lite-nas/log-analysis/rules.json`; a newly detected `SEC_...` event means
+the installed rules still use the older prefix. Update that setting and restart
+`lite-nas-log-analysis` before rerunning. Historical stored IDs remain unchanged.
+The EICAR tests also require `ext4` in the installed Antivirus `scan.fs_types`
+setting. Keep installed monitor binaries and configuration aligned with the
+checked-out source; the deployment scripts preserve existing configuration.
 
 ## UI Page Objects
 

@@ -3,7 +3,7 @@ module lite-nas/services/mount-monitor
 go 1.25.0
 
 // lite-nas/shared is a local module dependency used by this service.
-require lite-nas/shared v0.2.3
+require lite-nas/shared v0.4.0
 
 // These indirect dependencies are pulled in through shared packages and other
 // direct dependencies of this service.

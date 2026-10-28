@@ -67,7 +67,7 @@ func TestAlertSubscriptionHandlerRejectsSchemaViolation(t *testing.T) {
 
 // TestAlertSubscriptionHandlerHonorsEmailOptOut verifies that an explicitly
 // disabled notification does not enter the mail worker's queue.
-// Requirements: task.md/14.
+// Requirements: email-notifiers/FR-001.
 func TestAlertSubscriptionHandlerHonorsEmailOptOut(t *testing.T) {
 	t.Parallel()
 	validate := mustNewLoggingManagerValidator(t)

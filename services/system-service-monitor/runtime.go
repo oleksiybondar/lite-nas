@@ -2,9 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -12,6 +9,7 @@ import (
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	servicecontract "lite-nas/shared/contracts/servicemonitor"
 	systemcontract "lite-nas/shared/contracts/systemloggingmanager"
+	"lite-nas/shared/eventmanager"
 	"lite-nas/shared/fileio"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/loggingmanager/enum"
@@ -119,11 +117,7 @@ func evaluateUnits(snapshots <-chan unitSnapshot, out chan<- stateIntent, log sh
 				previous[current.Unit] = current
 				continue
 			}
-			id, err := newStateEventID()
-			if err != nil {
-				log.Error("service event ID generation failed", "unit", current.Unit, "error", err)
-				continue
-			}
+			id := newStateEventID()
 			out <- stateIntent{event: servicecontract.StateEvent{
 				Version: servicecontract.CurrentVersion, EventID: id, Unit: current.Unit,
 				Condition: condition, ActiveState: current.ActiveState, SubState: current.SubState,
@@ -135,13 +129,12 @@ func evaluateUnits(snapshots <-chan unitSnapshot, out chan<- stateIntent, log sh
 	}
 }
 
-// newStateEventID fits the existing logging-manager event ID limit.
-func newStateEventID() (string, error) {
-	var bytes [8]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	return "S" + hex.EncodeToString(bytes[:]), nil
+// monitorEventIDs shares the resources monitor's time-seeded counter convention.
+var monitorEventIDs = eventmanager.NewManager(uint64(time.Now().Unix()) % 99_999_999)
+
+// newStateEventID allocates a readable ID for one new event.
+func newStateEventID() string {
+	return monitorEventIDs.NextEventID("syssvc")
 }
 
 // publishStates retries intents with backpressure. Alert IDs stay correlated
@@ -215,7 +208,7 @@ func publishStateIntent(ctx context.Context, event servicecontract.StateEvent, e
 	if len(message) > 256 {
 		message = message[:256]
 	}
-	alertID := serviceAlertEventID(event.Unit)
+	alertID := event.EventID
 	alert := loggingcontract.AlertPayload{
 		EventID: alertID, Category: "Service availability", Severity: enum.SeverityError,
 		CreatedAt: event.ObservedAt, Source: sharedcontracts.ServiceSystemServiceMonitor, Message: message,
@@ -225,11 +218,4 @@ func publishStateIntent(ctx context.Context, event servicecontract.StateEvent, e
 	}
 	alerts[event.Unit] = alertID
 	return nil
-}
-
-// serviceAlertEventID keeps the active availability incident stable per
-// configured systemd unit while state-notification IDs remain transition-unique.
-func serviceAlertEventID(unit string) string {
-	digest := sha256.Sum256([]byte(unit))
-	return "S" + hex.EncodeToString(digest[:8])
 }

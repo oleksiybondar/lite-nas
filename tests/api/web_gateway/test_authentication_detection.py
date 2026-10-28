@@ -129,7 +129,7 @@ def wait_for_new_security_alert(
             if (
                 event.get("Source") == "log-analysis"
                 and event.get("Category") == category
-                and int(event.get("RecID", 0)) > after_rec_id
+                and int(str(event.get("RecID", 0))) > after_rec_id
             ):
                 return event
         time.sleep(0.5)
@@ -154,11 +154,11 @@ def test_one_failed_login_is_recorded_as_auth_failure(
     - The security-manager CLI returns a Log Analysis `auth_failure` event
       created after this rejected login attempt.
 
-    Requirement: auth-service/FR-002, task.md/SVC-001, logging-managers/FR-001.
+    Requirement: auth-service/FR-002, security-monitoring/FR-001, logging-managers/FR-001.
     """
     test_login = SECURITY_LOGGING_MANAGER_LOGIN
     existing_events = get_security_alert_items(api_client, security_cookie)
-    existing_rec_ids = [int(event.get("RecID", 0)) for event in existing_events]
+    existing_rec_ids = [int(str(event.get("RecID", 0))) for event in existing_events]
     latest_rec_id = max(existing_rec_ids, default=0)
     submit_failed_login(api_client, test_login)
     event = wait_for_new_security_alert(
@@ -167,8 +167,7 @@ def test_one_failed_login_is_recorded_as_auth_failure(
         "auth_failure",
         after_rec_id=latest_rec_id,
     )
-    assert event is not None, f"Expected an auth_failure event for {test_login!r}."
-    assert event["Category"] == "auth_failure"
+    expect((event or {}).get("Category")).to_be("auth_failure")
 
 
 def test_repeated_failed_logins_create_active_password_guessing_alert(
@@ -189,7 +188,7 @@ def test_repeated_failed_logins_create_active_password_guessing_alert(
     - The Security Logging Manager's active-unacknowledged list contains the
       new `password_guessing` event, which contributes to the UI counter.
 
-    Requirement: task.md/SVC-001, logging-managers/FR-004.
+    Requirement: security-monitoring/FR-001, logging-managers/FR-004.
     """
     test_login = new_test_login()
     started_at = datetime.now(UTC).replace(microsecond=0)
@@ -203,15 +202,13 @@ def test_repeated_failed_logins_create_active_password_guessing_alert(
         status="active",
         command=ACTIVE_UNACKNOWLEDGED_COMMAND,
     )
-    if event is not None:
-        expect(event.get("Message", "")).to_contain("via Web/API")
+    expect(str((event or {}).get("Message", ""))).to_contain("via Web/API")
     count_response = api_client.get(
         path="/api/alerts/security/unacknowledged/count",
         cookies={ACCESS_COOKIE: security_cookie},
     )
     security_count = count_response.body.get("data", {}).get("count", 0)
-    assert event is not None, "Expected an active password-guessing event."
-    assert event["Status"] == "active"
-    assert event["Acknowledged"] is False
-    assert count_response.status == HTTP_OK
-    assert security_count > 0
+    expect((event or {}).get("Status")).to_be("active")
+    expect((event or {}).get("Acknowledged")).to_be(False)
+    expect(count_response.status).to_be(HTTP_OK)
+    expect(security_count).to_be_greater_than(0)

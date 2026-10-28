@@ -18,8 +18,6 @@ import (
 	"lite-nas/shared/ruleevaluator"
 )
 
-const maxEventCounter = uint64(99_999_999)
-
 // Processor orchestrates rule evaluation and alert lifecycle messaging.
 type Processor struct {
 	rules   []servicerules.Rule
@@ -390,13 +388,7 @@ type evaluatedValue struct {
 
 // nextEventID generates the next event ID from prefix and in-memory counter.
 func (p *Processor) nextEventID(prefix string) string {
-	next := p.manager.NextCounter()
-	if next > maxEventCounter {
-		p.manager.SetCounter(1)
-		next = 1
-	}
-
-	return fmt.Sprintf("%s_%08d", prefix, next)
+	return p.manager.NextEventID(prefix)
 }
 
 // assignOccurrenceValue maps a dynamic value into typed occurrence fields.

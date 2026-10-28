@@ -99,8 +99,7 @@ owner may read the actual resolved target path.
   storage boundary.
 - The first version may use fixed `/bin/cat` through `sudo -u` as the verified
   non-root Unix user after RBAC allows the read. Its pathname replacement race
-  is explicitly accepted for this version and tracked in
-  [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md). This exception does not relax
+  is explicitly accepted for this version. This exception does not relax
   token validation, RBAC checks, or storage-root checks.
 
 ### file-service-svc/FR-004 Authorize uploads through RBAC
@@ -873,8 +872,7 @@ access required to perform its service role.
 - Staged file publication uses the writer's descriptor-relative checks.
   Fixed user-scoped read and directory commands still use pathnames; File
   Service applies policy and RBAC checks before invoking them. The accepted
-  first-version `cat` pathname race is documented in
-  [READ_RACE_REVIEW.md](READ_RACE_REVIEW.md).
+  first-version `cat` pathname race remains an accepted first-version limitation.
 
 ### file-service-svc/OR-002 Integrate local build, test, deployment, and Debian
 

@@ -11,7 +11,7 @@ import (
 	"lite-nas/shared/systemd"
 )
 
-// Requirements: task.md/SVC-005.
+// Requirements: security-monitoring/FR-005.
 func TestWatchdogDefersToSystemdAutoRestart(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
@@ -23,7 +23,7 @@ func TestWatchdogDefersToSystemdAutoRestart(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-005.
+// Requirements: security-monitoring/FR-005.
 func TestWatchdogRecoversManualStopAfterDelay(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
@@ -35,7 +35,7 @@ func TestWatchdogRecoversManualStopAfterDelay(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-005.
+// Requirements: security-monitoring/FR-005.
 func TestWatchdogHonorsAttemptLimit(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
@@ -47,7 +47,7 @@ func TestWatchdogHonorsAttemptLimit(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-005.
+// Requirements: security-monitoring/FR-005.
 func TestWatchdogRejectsMalformedNATSUnit(t *testing.T) {
 	t.Parallel()
 	envelope := messaging.Envelope{Payload: []byte(`{"version":1,"event_id":"one","unit":"--bad.service","condition":"failed","active_state":"failed","sub_state":"failed","observed_at":"2026-10-26T18:00:00Z"}`)}
@@ -57,7 +57,7 @@ func TestWatchdogRejectsMalformedNATSUnit(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-005.
+// Requirements: security-monitoring/FR-005.
 func TestWatchdogRejectsUnallowlistedRecoveryJob(t *testing.T) {
 	t.Parallel()
 	jobs := make(chan recoveryIntent, 1)

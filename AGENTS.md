@@ -65,8 +65,8 @@ repository working style after explicit user instructions.
 - Construct compiled Log Analysis plugin types and all configured instances at
   startup. Inject the initialized instance collection into listener/dispatcher
   workers. Listeners must not load code, resolve constructors, or create plugin
-  instances. Detection plugins use the planned shared table-driven FSM package
-  once it exists. Inspect current contracts before adding abstractions.
+  instances. Detection plugins use the shared table-driven FSM package. Inspect current
+  contracts before adding abstractions.
 
 ## Git and Repository Operations
 

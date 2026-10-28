@@ -39,8 +39,7 @@ visibility, wall layout, user tags, and private shares. The wall renders the
 layout returned by Moments for that gallery. The feed pages gallery metadata;
 search and filters use the same paged API. Owned collection actions use File
 Service pickers to add file or folder references and can open the thumbnail
-editor to save a generated cover through Moments. The [gallery
-design](../apps/gallery_taks.md) records broader experience ideas.
+editor to save a generated cover through Moments.
 
 ## Remaining browser integration
 
@@ -50,7 +49,6 @@ the authorized file boundary and Stream Service the media delivery boundary.
 Uploaded cover images and optional generation JSON are persisted separately by
 Moments.
 
-See [implemented requirements](../requirements/moments-skeleton.md), the
-[app task](../apps/moments/task.md), the
-[service task](../services/moments/task.md), and the
+See [browser requirements](../requirements/moments-skeleton.md),
+[backend requirements](../requirements/moments-backend.md), and the
 [app README](../apps/moments/README.md) for usage and deployment details.

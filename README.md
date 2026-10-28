@@ -9,7 +9,7 @@ The repository already contains an implemented platform slice:
 - backend services for system metrics, ZFS metrics, auth, RBAC, stateful
   alert management, resource monitoring, and email notification delivery
 - CLI apps for system metrics, ZFS metrics, and logging-manager operations,
-  plus a user-scoped file writer for future uploads
+  plus a user-scoped file writer used by File Service uploads
 - a browser-facing admin panel and gateway for alerts and telemetry
 - NATS-based internal communication between services and consumers
 - a web gateway that serves packaged frontend assets and adapts browser API
@@ -125,8 +125,7 @@ Moments is the family-facing personal media application. Its authenticated
 browser shell, profile settings, embedded and standalone hosts, fixture-backed
 gallery, and browser-only thumbnail maker are implemented. The gallery uses
 authorized File and Stream Service routes with bounded requests and a
-virtualized wall. Album and metadata APIs, uploads, and persistence remain
-planned. The current boundaries and demo scope are in the
+virtualized wall. Gallery metadata APIs and persistence are implemented. The current boundaries and demo scope are in the
 [Moments architecture](docs/moments-architecture.md).
 
 Moments is prioritized for practical family use in this development slice. It
@@ -204,8 +203,7 @@ Current implemented focus:
 - **User-scoped upload staging**
   `lite-nas-file-writer` performs bounded stage operations under a non-root
   Unix identity. It is built and packaged with a restricted sudoers rule and
-  dedicated AppArmor profile. File Service integration is still planned, so
-  the writer does not yet provide an end-to-end upload API.
+  dedicated AppArmor profile. File Service uses it for resumable upload staging and publication.
 
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
@@ -625,12 +623,9 @@ requiring major architectural changes.
 The top-level repository now acts as both:
 
 - the high-level platform overview
-- the entry point to implemented subprojects and planning documents
+- the entry point to implemented subprojects and project documentation
 
 Useful starting points:
-
-- [`docs/development-notes.md`](docs/development-notes.md)
-  Why early slices are intentionally infrastructure-heavy and low immediate business value.
 
 - [`docs/email-notifiers.md`](docs/email-notifiers.md)
   Operator-facing setup, relay configuration, and CLI testing flow for the
@@ -658,7 +653,7 @@ Useful starting points:
   Requirements for the internal authorization decision service.
 
 - [`services/file-service/requirements.md`](services/file-service/requirements.md)
-  Planned File Service requirements for RBAC-checked, resumable uploads and
+  File Service requirements for RBAC-checked, resumable uploads and
   downloads.
 
 - [`apps/file-writer/requirements.md`](apps/file-writer/requirements.md) and
@@ -666,12 +661,8 @@ Useful starting points:
   Requirements and CLI/deployment contract for the packaged upload-stage writer.
 
 - [`services/stream-service/requirements.md`](services/stream-service/requirements.md)
-  Planned Stream Service requirements for authorized media delivery, seeking,
+  Stream Service requirements for authorized media delivery, seeking,
   and Live Photo support.
-
-- [`services/file-service/task.md`](services/file-service/task.md) and
-  [`services/stream-service/task.md`](services/stream-service/task.md)
-  Implementation action lists for the planned services.
 
 - [`requirements/resources-monitor.md`](requirements/resources-monitor.md)
   Requirements for the rule-based alert source that consumes system and ZFS

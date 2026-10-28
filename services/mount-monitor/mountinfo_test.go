@@ -8,7 +8,7 @@ import (
 
 const mountInfoFixture = "42 1 8:1 / / rw - ext4 /dev/sda1 rw\n43 42 8:2 / /media/My\\040Drive rw - vfat /dev/sdb1 rw\n"
 
-// Requirements: task.md/SVC-002.
+// Requirements: security-monitoring/FR-002.
 func TestParseMountInfoDecodesPath(t *testing.T) {
 	t.Parallel()
 	mounts, err := parseMountInfo(strings.NewReader(mountInfoFixture))
@@ -20,7 +20,7 @@ func TestParseMountInfoDecodesPath(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-002.
+// Requirements: security-monitoring/FR-002.
 func TestParseMountInfoRejectsMalformedSnapshot(t *testing.T) {
 	t.Parallel()
 	_, err := parseMountInfo(strings.NewReader(mountInfoFixture + "bad record\n"))
@@ -29,7 +29,7 @@ func TestParseMountInfoRejectsMalformedSnapshot(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-002.
+// Requirements: security-monitoring/FR-002.
 func TestChangedMountsEmitsUnmount(t *testing.T) {
 	t.Parallel()
 	before, err := parseMountInfo(strings.NewReader(mountInfoFixture))
@@ -46,7 +46,7 @@ func TestChangedMountsEmitsUnmount(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-002.
+// Requirements: security-monitoring/FR-002.
 func TestDiffMountsUsesFirstSnapshotAsBaseline(t *testing.T) {
 	t.Parallel()
 	mounts, err := parseMountInfo(strings.NewReader(mountInfoFixture))

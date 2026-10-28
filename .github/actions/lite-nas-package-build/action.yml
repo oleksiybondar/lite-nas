@@ -274,6 +274,8 @@ runs:
         LITENAS_API_PASSWORD: testpassword
         LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
         LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
+        LITENAS_TESTSUDO_LOGIN: testsudouser
+        LITENAS_TESTSUDO_PASSWORD: testpassword
       run: scripts/test-python.sh
 
     - name: Archive system test logs

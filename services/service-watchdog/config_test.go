@@ -8,7 +8,7 @@ import (
 
 // TestPackagedWatchdogPolicyLoads verifies the shipped protected-unit list and
 // policy sections stay in sync with the parser before any privileged start.
-// Requirements: task.md/SVC-005.
+// Requirements: security-monitoring/FR-005.
 func TestPackagedWatchdogPolicyLoads(t *testing.T) {
 	reader, err := fileio.NewFileReader("../../configs/etc/lite-nas/service-watchdog.conf")
 	if err != nil {

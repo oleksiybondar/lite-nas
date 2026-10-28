@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Requirements: task.md/TASK-FSM-002.
+// Requirements: security-monitoring/IR-002.
 func TestIntegrityLifecycleRoutesRepeatedFailureToOccurrence(t *testing.T) {
 	t.Parallel()
 	effect, err := integrityTransition(context.Background(), true, integrityFailure)

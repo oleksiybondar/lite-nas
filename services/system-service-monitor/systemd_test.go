@@ -6,7 +6,7 @@ import (
 	servicecontract "lite-nas/shared/contracts/servicemonitor"
 )
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestValidUnitNameRejectsOptionOperand(t *testing.T) {
 	t.Parallel()
 	if validUnitName("--system.service") {
@@ -14,7 +14,7 @@ func TestValidUnitNameRejectsOptionOperand(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestValidUnitNameRejectsPathOperand(t *testing.T) {
 	t.Parallel()
 	if validUnitName("/etc/systemd/system/a.service") {
@@ -22,7 +22,7 @@ func TestValidUnitNameRejectsPathOperand(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestValidUnitNameAcceptsService(t *testing.T) {
 	t.Parallel()
 	if !validUnitName("lite-nas-auth.service") {
@@ -30,7 +30,7 @@ func TestValidUnitNameAcceptsService(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestParseUnitStateRejectsMalformedRestartCount(t *testing.T) {
 	t.Parallel()
 	_, err := parseUnitState("lite-nas-auth.service", "ActiveState=failed\nSubState=failed\nResult=exit-code\nNRestarts=bad\n")
@@ -39,7 +39,7 @@ func TestParseUnitStateRejectsMalformedRestartCount(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestClassifyUnitRecognizesStartLimit(t *testing.T) {
 	t.Parallel()
 	condition := classifyUnit(nil, unitState{ActiveState: "failed", SubState: "failed", Result: "start-limit-hit"})
@@ -48,7 +48,7 @@ func TestClassifyUnitRecognizesStartLimit(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestClassifyUnitDistinguishesAutoRestart(t *testing.T) {
 	t.Parallel()
 	condition := classifyUnit(nil, unitState{ActiveState: "activating", SubState: "auto-restart"})
@@ -57,7 +57,7 @@ func TestClassifyUnitDistinguishesAutoRestart(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-004.
+// Requirements: security-monitoring/FR-004.
 func TestClassifyUnitRecognizesRecovery(t *testing.T) {
 	t.Parallel()
 	previous := &unitState{ActiveState: "failed"}

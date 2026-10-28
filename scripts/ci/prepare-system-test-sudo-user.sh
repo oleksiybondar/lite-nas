@@ -13,6 +13,10 @@ sudoers_file="${LITENAS_TESTSUDO_SUDOERS_FILE:-/etc/sudoers.d/lite-nas-tests-aa-
 aa_status_path="${LITENAS_TESTSUDO_AA_STATUS_PATH:-/usr/sbin/aa-status}"
 system_logging_manager_cli_path="${LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY:-/usr/bin/system-logging-manager-cli}"
 security_logging_manager_cli_path="${LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY:-/usr/bin/security-logging-manager-cli}"
+mkdir_path="$(command -v mkdir)"
+mount_path="$(command -v mount)"
+rmdir_path="$(command -v rmdir)"
+umount_path="$(command -v umount)"
 
 require_safe_login() {
 	local login="$1"
@@ -23,8 +27,8 @@ require_safe_login() {
 		exit 64
 	fi
 	case "$login" in
-	*:* | *$'\n'*)
-		log.error "$name contains unsupported characters."
+	*[!a-zA-Z0-9_.-]* | [-.]* | '')
+		log.error "$name must be a Unix account name."
 		exit 64
 		;;
 	esac
@@ -73,10 +77,12 @@ install_sudoers_rule() {
 	tmp_file="$(mktemp)"
 
 	cat >"$tmp_file" <<EOF
-# Managed by scripts/ci/prepare-system-test-sudo-user.sh for CI system tests.
-${testsudo_login} ALL=(root) NOPASSWD: ${aa_status_path}, ${system_logging_manager_cli_path}, ${security_logging_manager_cli_path}
+# Managed by scripts/ci/prepare-system-test-sudo-user.sh for system tests.
+${testsudo_login} ALL=(root) NOPASSWD: ${aa_status_path}, ${system_logging_manager_cli_path}, ${security_logging_manager_cli_path}, \
+  ${mkdir_path}, ${mount_path}, ${rmdir_path}, ${umount_path}
 EOF
 
+	visudo --check --file "$tmp_file"
 	run.asRoot install -m 0440 -o root -g root "$tmp_file" "$sudoers_file"
 	rm -f "$tmp_file"
 	log.info "Installed sudoers rule: $sudoers_file"
@@ -87,6 +93,7 @@ log.requireCommand "useradd"
 log.requireCommand "chpasswd"
 log.requireCommand "install"
 log.requireCommand "mktemp"
+log.requireCommand "visudo"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
 	log.requireCommand "sudo"

@@ -1184,6 +1184,10 @@ jobs:
           LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY: /usr/bin/security-logging-manager-cli
         run: scripts/ci/prepare-system-test-sudo-user.sh
 
+      - name: Prepare loopback SSH authentication tests
+        if: ${{ matrix.arch == 'amd64' }}
+        run: sudo bash scripts/ci/prepare-system-test-ssh.sh
+
       - name: Verify CI system-test users
         if: ${{ matrix.arch == 'amd64' }}
         run: |
@@ -1208,8 +1212,13 @@ jobs:
         env:
           LITENAS_API_LOGIN: testuser
           LITENAS_API_PASSWORD: testpassword
+          LITENAS_OPERATOR_LOGIN: testoperator
+          LITENAS_SECURITY_LOGIN: testsecurity
+          LITENAS_TEST_PASSWORD: testpassword
           LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
           LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
+          LITENAS_TESTSUDO_LOGIN: testsudouser
+          LITENAS_TESTSUDO_PASSWORD: testpassword
         run: scripts/test-python.sh
 
       - name: Archive system test logs

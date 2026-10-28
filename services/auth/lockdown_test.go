@@ -50,7 +50,7 @@ func mustSetLockdown(t *testing.T, store *lockdownStore, client messaging.Client
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestLockdownSurvivesRestart(t *testing.T) {
 	t.Parallel()
 	store := newLockdownFixture(t)
@@ -64,7 +64,7 @@ func TestLockdownSurvivesRestart(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestLockdownRejectsMalformedState(t *testing.T) {
 	t.Parallel()
 	store := newLockdownFixture(t)
@@ -76,7 +76,7 @@ func TestLockdownRejectsMalformedState(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestLockdownBlocksLogin(t *testing.T) {
 	t.Parallel()
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{Code: pamauth.OutcomeAuthenticated, Username: "alice"})
@@ -91,7 +91,7 @@ func TestLockdownBlocksLogin(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestLockdownBlocksRefresh(t *testing.T) {
 	t.Parallel()
 	runtimeDeps, login := loginRPCFixture(t)
@@ -106,7 +106,7 @@ func TestLockdownBlocksRefresh(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestLockdownKeepsServiceAuthenticationAvailable(t *testing.T) {
 	t.Parallel()
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
@@ -121,7 +121,7 @@ func TestLockdownKeepsServiceAuthenticationAvailable(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestLockdownRetriesFailedEvent(t *testing.T) {
 	t.Parallel()
 	store := newLockdownFixture(t)
@@ -139,7 +139,7 @@ func TestLockdownRetriesFailedEvent(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestInvalidLockdownRPCDoesNotChangeState(t *testing.T) {
 	t.Parallel()
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})

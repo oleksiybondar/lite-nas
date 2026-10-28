@@ -93,4 +93,4 @@ does not read or interpret File Service's write-root or protected-path policy;
 File Service validates those rules before invoking it.
 
 The File Service implementation and its user-identity/RBAC integration remain
-in [its own task](../../services/file-service/task.md).
+in the [File Service requirements](../../services/file-service/requirements.md).

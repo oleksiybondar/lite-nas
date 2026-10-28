@@ -44,6 +44,25 @@ readability, maintenance, and consistent review quality.
 - This approach ensures that all functionality is traceable back to a specific
   requirement and is inherently testable.
 
+## Monitor Event IDs
+
+Services that publish system, security, or performance alerts must allocate
+human-readable event IDs at the producer, following the resources monitor:
+`<prefix>_<eight-digit decimal counter>`, for example `sysmnt_00000001` or
+`secauth_00000001`. Use a short, stable domain prefix (at most eight alphanumeric
+characters), such as `syscpu`, `sysram`, `sysmnt`, `syssvc`, `secauth`, or `secav`.
+Do not use opaque random/hash prefixes or rely on Logging Manager to generate
+these IDs.
+
+Use `shared/go/eventmanager.Manager.NextEventID` for atomic bounded allocation.
+Workers and plugin instances publishing under the same prefix must share their
+counter. Retain an allocated ID across publication retries, occurrences, and
+lifecycle updates. Following the existing resources monitor, current counters
+are seeded from startup Unix seconds modulo 99,999,999 and wrap to one at that
+limit; this is volatile state, not a persistent uniqueness guarantee.
+Tests must cover the readable format, sequencing, and lifecycle correlation
+where applicable. Historical stored event IDs are not renamed.
+
 ## Boundary Validation
 
 - Every user-facing or service-facing input boundary must validate received

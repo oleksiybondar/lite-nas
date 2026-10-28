@@ -126,7 +126,7 @@ func invokeWriter(ctx context.Context, subject fileaccess.Subject, operation str
 }
 
 // openCat streams one authorized host path through the user's Unix permissions.
-// The accepted pathname race is recorded in READ_RACE_REVIEW.md.
+// The accepted pathname race is documented in requirements.md.
 func openCat(ctx context.Context, subject fileaccess.Subject, path string) (io.ReadCloser, error) {
 	if err := fileaccess.ValidateHostPath(path); err != nil {
 		return nil, err

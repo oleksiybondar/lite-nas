@@ -1,7 +1,9 @@
 """Reusable Hyperion helpers for logging-manager CLI workflows."""
 
 import json
+import logging
 import re
+import time
 
 from hyperiontf import CLIClient, expect
 
@@ -28,9 +30,17 @@ def execute_logging_manager_json(
     command: str,
     *,
     expect_success: bool = True,
+    quiet: bool = False,
 ) -> object:
     """Run one manager CLI command in JSON mode and parse its output."""
-    cli_client.execute(f"{cli_binary} {command} --json")
+    original_level = cli_client.logger.level
+    if quiet:
+        cli_client.logger.setLevel(logging.CRITICAL)
+    try:
+        cli_client.execute(f"{cli_binary} {command} --json")
+    finally:
+        if quiet:
+            cli_client.logger.setLevel(original_level)
     if expect_success:
         cli_client.assert_exit_code(0)
         if not cli_client.output.strip():
@@ -102,3 +112,31 @@ def as_event_items(payload: object) -> list[dict[str, object]]:
     if not isinstance(payload, list):
         return []
     return [dict(item) for item in payload if isinstance(item, dict)]
+
+
+def wait_for_logging_manager_event(  # noqa: PLR0913 - explicit event match fields
+    cli_client: CLIClient,
+    cli_binary: str,
+    *,
+    category: str,
+    source: str,
+    text: str,
+    status: str,
+    timeout: float = 90.0,
+) -> dict[str, object] | None:
+    """Poll the authenticated manager CLI for one event matching a mounted path."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        payload = execute_logging_manager_json(
+            cli_client, cli_binary, "--cmd getAlerts --page 1 --pageSize 5", quiet=True
+        )
+        for event in as_event_items(payload):
+            if (
+                event.get("Category") == category
+                and event.get("Source") == source
+                and text in str(event.get("Message", ""))
+                and event.get("Status") == status
+            ):
+                return event
+        time.sleep(1.0)
+    return None

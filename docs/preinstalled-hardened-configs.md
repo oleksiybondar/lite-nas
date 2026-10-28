@@ -71,23 +71,18 @@ The shared `/etc/logrotate.d/lite-nas` drop-in includes:
 
 ## Integrity Monitoring Baseline
 
-LiteNAS installs the AIDE binary as a filesystem integrity monitoring
-dependency, but it does not initialize the distribution default AIDE database
-during package installation. LiteNAS-owned AIDE configuration and database
-initialization are deferred to a dedicated future service.
-
-This section should later define:
-
-- what `aide` configuration LiteNAS provides
-- what paths are included or excluded by default
-- when database initialization is expected to happen
-- what operator review remains necessary
+LiteNAS installs AIDE and runs the LiteNAS Integrity Service for scheduled
+checks and authorized baseline regeneration. Package installation does not
+initialize a baseline automatically. The service behavior and operator boundary
+are defined in [integrity requirements](../requirements/litenas-integrity.md).
 
 ## Malware Scanning Baseline
 
-LiteNAS is expected to preinstall and preconfigure malware scanning components.
+LiteNAS packages ClamAV and runs the Antivirus service for eligible mounts.
+The [security monitoring requirements](../requirements/security-monitoring.md)
+define its event and alert boundary.
 
-This section should later define:
+Operator configuration still determines:
 
 - what `clamav` packages and services are installed
 - whether signatures are updated automatically

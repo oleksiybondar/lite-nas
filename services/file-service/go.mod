@@ -2,7 +2,7 @@ module lite-nas/services/file-service
 
 go 1.25.0
 
-require lite-nas/shared v0.2.3
+require lite-nas/shared v0.4.0
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.34.1 // indirect

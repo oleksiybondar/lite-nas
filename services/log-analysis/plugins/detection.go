@@ -4,13 +4,12 @@ package plugins
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"lite-nas/shared/eventmanager"
 	"lite-nas/shared/fsm"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/workers"
@@ -131,9 +130,9 @@ func New(cfg Config, output chan<- Detection, log sharedlogger.Logger) (*Plugin,
 		return nil, fmt.Errorf("uncompiled plugin type %q", cfg.Type)
 	}
 	if cfg.EventIDPrefix == "" {
-		cfg.EventIDPrefix = "SEC"
+		cfg.EventIDPrefix = "secauth"
 	}
-	if len(cfg.EventIDPrefix) > 4 || !isAlphaNumeric(cfg.EventIDPrefix) {
+	if len(cfg.EventIDPrefix) > 8 || !isAlphaNumeric(cfg.EventIDPrefix) {
 		return nil, errors.New("invalid event ID prefix")
 	}
 	if cfg.Type == "immediate" {
@@ -314,11 +313,7 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 			data.IdleDeadline = time.Now().Add(p.cfg.Idle)
 			operation := "occurrence"
 			if data.EventID == "" {
-				eventID, err := newEventID(p.cfg.EventIDPrefix)
-				if err != nil {
-					return data, nil, err
-				}
-				data.EventID = eventID
+				data.EventID = newEventID(p.cfg.EventIDPrefix)
 				operation = "create"
 			}
 			detection := p.detection(data, operation)
@@ -376,14 +371,12 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 	})
 }
 
-// newEventID generates a random identifier accepted by logging-manager's
-// bounded <prefix>_<decimal sequence> event-ID contract.
-func newEventID(prefix string) (string, error) {
-	var random [8]byte
-	if _, err := rand.Read(random[:]); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s%06x_%08d", prefix, binary.BigEndian.Uint32(random[:4])&0x00ffffff, binary.BigEndian.Uint32(random[4:])%100_000_000), nil
+// monitorEventIDs shares the resources monitor's time-seeded counter convention.
+var monitorEventIDs = eventmanager.NewManager(uint64(time.Now().Unix()) % 99_999_999)
+
+// newEventID allocates a readable ID for one new event.
+func newEventID(prefix string) string {
+	return monitorEventIDs.NextEventID(prefix)
 }
 
 // isAlphaNumeric validates the configured security marker before it is used

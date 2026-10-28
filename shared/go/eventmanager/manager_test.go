@@ -144,3 +144,31 @@ func assertFoundEventPayload(t *testing.T, payload any) {
 		t.Fatalf("got payload event_id = %v, want %q", gotPayload["event_id"], "syscpu00000001")
 	}
 }
+
+// TestNextEventID verifies readable prefixes, shared sequencing and wraparound.
+func TestNextEventID(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name     string
+		initial  uint64
+		prefixes []string
+		want     string
+	}{
+		{"mount", 0, []string{"sysmnt"}, "sysmnt_00000001"},
+		{"authentication", 0, []string{"secauth"}, "secauth_00000001"},
+		{"shared counter", 0, []string{"sysmnt", "secauth"}, "secauth_00000002"},
+		{"wrap", 99_999_999, []string{"sysmnt"}, "sysmnt_00000001"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			manager := eventmanager.NewManager(tc.initial)
+			var got string
+			for _, prefix := range tc.prefixes {
+				got = manager.NextEventID(prefix)
+			}
+			if got != tc.want {
+				t.Fatalf("NextEventID = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

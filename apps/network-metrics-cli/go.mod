@@ -2,7 +2,7 @@ module lite-nas/apps/network-metrics-cli
 
 go 1.25.0
 
-require lite-nas/shared v0.2.3
+require lite-nas/shared v0.4.0
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

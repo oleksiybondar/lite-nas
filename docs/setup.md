@@ -218,7 +218,7 @@ repository-managed LiteNAS defaults.
 Build the current LiteNAS package set:
 
 ```bash
-./scripts/package/build-all-debs.sh --version=0.2.0~alpha.1
+./scripts/package/build-all-debs.sh --version=0.4.0~alpha.1
 ```
 
 This creates the main `lite-nas` package and a separate
@@ -229,7 +229,7 @@ package, so both are installed together.
 Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
-./scripts/package/build-lite-nas-deb.sh --version=0.2.0~alpha.1
+./scripts/package/build-lite-nas-deb.sh --version=0.4.0~alpha.1
 ./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --resources-monitor-binary=/tmp/resources-monitor
 ```
 
@@ -257,7 +257,7 @@ The `lite-nas` package:
 - installs the AIDE binary as a platform dependency, but LiteNAS does not
   initialize an AIDE database or use the distribution default AIDE config during
   package installation
-- recommends future hardening packages such as `clamav` and `usbguard`
+- depends on `clamav`, `usbguard`, `ffmpeg`, `rsyslog`, and `libheif` support packages
 - shows a GPLv3 notice during installation
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration
@@ -305,12 +305,12 @@ service. It uses `lite-nas-file-writer` for user-scoped upload
 stage creation, bounded writes, inspection, checksum, truncation, publication,
 and cleanup. The writer's command contract is in
 `apps/file-writer/README.md` and `apps/file-writer/requirements.md`.
-Stream Service remains planned in `services/stream-service/`.
+Stream Service is implemented in `services/stream-service/`.
 
 File Service listens on `127.0.0.1:8082`. Nginx includes its separate
 `lite-nas-file-service.conf` snippet in the LiteNAS server blocks and exposes
 `/f/` for content/file operations, `/d/` for explicit downloads, and `/ls/`
-for directory listings. Stream Service is planned for `/s/`. Internal service
+for directory listings. Stream Service is exposed at `/s/`. Internal service
 calls use NATS. For example,
 `/f/home/alice/photo.jpg` and `/d/home/alice/photo.jpg` map to
 `/home/alice/photo.jpg`, and `/s/media/movie.avi` maps to `/media/movie.avi`;
@@ -342,9 +342,9 @@ directory permits traversal without listing its contents.
 Directory and symbolic-link deletion are outside the initial scope.
 
 File downloads use standard HTTP byte ranges. A regular browser download can
-resume or seek when its client uses `Range`; the future file-explorer download
-manager can fetch separate ranges concurrently (16 per file by default), then
-reassemble them locally. That accelerated mode belongs in the future client;
+resume or seek when its client uses `Range`. A download manager could fetch
+separate ranges concurrently (16 per file by default), then reassemble them
+locally. That accelerated mode belongs in the client;
 the service simply answers ordinary `HEAD` and `GET` requests. Strong ETags
 keep all segments tied to the same file version if an upload replaces it while
 the download is running. `/f/` uses inline headers for recognized PDFs/images
@@ -352,8 +352,8 @@ and attachment headers for other content; `/d/` always uses
 `application/octet-stream` with attachment. Neither route redirects.
 
 File Service supports ordinary browser/form uploads at `/f/upload`
-with `multipart/form-data` and a separate resumable protocol for the future
-LiteNAS frontend app under `/f/proprietary/upload`. Resumable chunks default to
+with `multipart/form-data` and a separate resumable protocol for the
+File Explorer app under `/f/proprietary/upload`. Resumable chunks default to
 1 MiB and can be configured from 1 MiB through 16 MiB; the effective size is
 saved per upload.
 Concurrency is limited by a 60 MiB chunk-buffer budget in a 64 MiB tmpfs, with
@@ -388,7 +388,7 @@ download returns `read_failed`, inspect `journalctl -u lite-nas-file-service`
 and AppArmor denials in `journalctl -k`; the HTTP error intentionally omits
 command details. The current private-file reader uses fixed `/bin/cat` through
 `sudo -u` and has the pathname replacement race recorded in
-`services/file-service/READ_RACE_REVIEW.md`.
+`services/file-service/requirements.md`.
 
 The service exposes its authenticated Swagger UI at `/f/docs` and its OpenAPI
 document at `/f/openapi.json` when `api_docs.enabled=true`. The packaged
@@ -415,7 +415,7 @@ not resolve or install them automatically.
 Lint a built package with:
 
 ```bash
-./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.2.0_amd64.deb
+./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.4.0_amd64.deb
 ```
 
 ## Rotate NATS certificates

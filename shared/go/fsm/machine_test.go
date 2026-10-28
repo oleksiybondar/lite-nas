@@ -96,7 +96,7 @@ func mustThresholdStore(t *testing.T, now func() time.Time, maxKeys int) *Memory
 	return store
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestThresholdCountsCrossingObservationOnce(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 2)
@@ -108,7 +108,7 @@ func TestThresholdCountsCrossingObservationOnce(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestThresholdEmitsOneAlert(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 2)
@@ -120,7 +120,7 @@ func TestThresholdEmitsOneAlert(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestThresholdCooldownSuppressesRepeat(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 2)
@@ -133,7 +133,7 @@ func TestThresholdCooldownSuppressesRepeat(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestThresholdKeysRemainIndependent(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 2)
@@ -146,7 +146,7 @@ func TestThresholdKeysRemainIndependent(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestDeadlineIsOrdinaryInput(t *testing.T) {
 	t.Parallel()
 	now := time.Now()
@@ -160,7 +160,7 @@ func TestDeadlineIsOrdinaryInput(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestExpiryResetsCounter(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 2)
@@ -171,7 +171,7 @@ func TestExpiryResetsCounter(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestCapacityRejectsExtraKey(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 1)
@@ -181,7 +181,7 @@ func TestCapacityRejectsExtraKey(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestConcurrentSameKeySerializes(t *testing.T) {
 	t.Parallel()
 	store := mustThresholdStore(t, time.Now, 1)
@@ -197,7 +197,7 @@ func TestConcurrentSameKeySerializes(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestAmbiguousUnguardedRowsRejected(t *testing.T) {
 	t.Parallel()
 	definition := thresholdDefinition(time.Now)
@@ -207,7 +207,7 @@ func TestAmbiguousUnguardedRowsRejected(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestMissingGuardRejected(t *testing.T) {
 	t.Parallel()
 	definition := thresholdDefinition(time.Now)
@@ -217,7 +217,7 @@ func TestMissingGuardRejected(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestOverlappingGuardsFailAtRuntime(t *testing.T) {
 	t.Parallel()
 	definition := thresholdDefinition(time.Now)
@@ -233,7 +233,7 @@ func TestOverlappingGuardsFailAtRuntime(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/TASK-FSM-001.
+// Requirements: security-monitoring/IR-001.
 func TestGuardErrorPreservesState(t *testing.T) {
 	t.Parallel()
 	definition := thresholdDefinition(time.Now)

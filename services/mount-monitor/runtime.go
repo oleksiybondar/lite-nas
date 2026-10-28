@@ -2,10 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -13,6 +9,7 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	mountcontract "lite-nas/shared/contracts/mountmonitor"
 	systemcontract "lite-nas/shared/contracts/systemloggingmanager"
+	"lite-nas/shared/eventmanager"
 	"lite-nas/shared/fileio"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/loggingmanager/enum"
@@ -127,11 +124,7 @@ func diffMounts(snapshots <-chan mountSnapshot, out chan<- mountIntent, log shar
 			continue
 		}
 		for _, change := range changedMounts(previous, snapshot.mounts) {
-			id, err := newMountEventID()
-			if err != nil {
-				log.Error("mount event ID generation failed", "error", err)
-				continue
-			}
+			id := newMountEventID()
 			event := mountcontract.LifecycleEvent{
 				Version: mountcontract.CurrentVersion, EventID: id,
 				Action: mountcontract.Action(change.action), MountID: change.mount.ID,
@@ -144,33 +137,32 @@ func diffMounts(snapshots <-chan mountSnapshot, out chan<- mountIntent, log shar
 	}
 }
 
-// newMountEventID uses randomness so a restart cannot reuse a logging-manager
-// event identifier. The 17-character ID fits its 20-character contract.
-func newMountEventID() (string, error) {
-	var bytes [8]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	return "M" + hex.EncodeToString(bytes[:]), nil
+// monitorEventIDs shares the resources monitor's time-seeded counter convention.
+var monitorEventIDs = eventmanager.NewManager(uint64(time.Now().Unix()) % 99_999_999)
+
+// newMountEventID allocates a readable ID for one new event.
+func newMountEventID() string {
+	return monitorEventIDs.NextEventID("sysmnt")
 }
 
 // publishMounts retries a pending intent during normal operation. At process
 // shutdown it makes one bounded final attempt and logs any undelivered intent.
 func publishMounts(ctx context.Context, intents <-chan mountIntent, eventClient, alertClient messaging.Client, log sharedlogger.Logger) {
+	alerts := make(map[uint64]string)
 	for intent := range intents {
 		for {
 			attemptCtx := ctx
 			if ctx.Err() != nil {
 				var cancel context.CancelFunc
 				attemptCtx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-				err := publishMountIntent(attemptCtx, intent, eventClient, alertClient)
+				err := publishMountIntent(attemptCtx, intent, eventClient, alertClient, alerts)
 				cancel()
 				if err != nil {
 					log.Error("mount intent undelivered at shutdown", "event_id", intent.event.EventID, "error", err)
 				}
 				break
 			}
-			if err := publishMountIntent(attemptCtx, intent, eventClient, alertClient); err == nil {
+			if err := publishMountIntent(attemptCtx, intent, eventClient, alertClient, alerts); err == nil {
 				break
 			} else {
 				log.Error("mount intent publication failed; retrying", "event_id", intent.event.EventID, "error", err)
@@ -186,7 +178,7 @@ func publishMounts(ctx context.Context, intents <-chan mountIntent, eventClient,
 // publishMountIntent emits the NATS lifecycle event and the informational
 // system alert for mounts and unmounts. Duplicate event IDs let consumers
 // deduplicate retries if the first publication succeeded remotely.
-func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, alertClient messaging.Client) error {
+func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, alertClient messaging.Client, alerts map[uint64]string) error {
 	if err := eventClient.Publish(ctx, mountcontract.LifecycleSubject, intent.event); err != nil {
 		return err
 	}
@@ -199,13 +191,14 @@ func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, al
 	if len(message) > 256 {
 		message = message[:256]
 	}
-	alertID := mountAlertEventID(intent.event)
+	alertID := mountAlertEventID(intent.event, alerts)
 	if intent.event.Action == mountcontract.Unmounted {
 		response := loggingmanagercontract.OKResponse{}
 		if err := alertClient.Request(ctx, systemcontract.UpdateAlertStateRPCSubject,
 			loggingmanagercontract.UpdateAlertStateInput{EventID: alertID, Status: enum.StatusNormal, Message: &message}, &response); err != nil {
 			return err
 		}
+		delete(alerts, intent.event.MountID)
 		// No alert exists when the mount was already present at the monitor's
 		// baseline; that is a normal no-op rather than a failed lifecycle update.
 		return nil
@@ -221,13 +214,14 @@ func publishMountIntent(ctx context.Context, intent mountIntent, eventClient, al
 	})
 }
 
-// mountAlertEventID correlates the alert lifecycle for one kernel mount
-// identity across monitor restarts using the logging manager's prefix/sequence
-// EventID format. The NATS transition EventID remains unique per transition.
-func mountAlertEventID(event mountcontract.LifecycleEvent) string {
-	identity := fmt.Sprintf("%d:%s:%s:%s", event.MountID, event.MountPoint, event.Source, event.FSType)
-	digest := sha256.Sum256([]byte(identity))
-	prefix := "M" + hex.EncodeToString(digest[:4])
-	sequence := binary.BigEndian.Uint32(digest[4:8]) % 100_000_000
-	return fmt.Sprintf("%s_%08d", prefix, sequence)
+// mountAlertEventID retains the allocated ID for a mount's lifecycle and retries.
+// The outbound worker exclusively owns alerts; baseline unmounts use their
+// transition ID and normalize as a no-op when no alert exists.
+func mountAlertEventID(event mountcontract.LifecycleEvent, alerts map[uint64]string) string {
+	identity := event.MountID
+	if id := alerts[identity]; id != "" {
+		return id
+	}
+	alerts[identity] = event.EventID
+	return event.EventID
 }

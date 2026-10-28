@@ -1,5 +1,5 @@
 {
-  "event_id_prefix": "SEC",
+  "event_id_prefix": "secauth",
   "sources": [{ "id": "auth", "path": "/var/log/auth.log", "format": "rsyslog_auth" }],
   "instances": [
     {

@@ -126,7 +126,7 @@ func loadRulesFile(path string) (rulesFile, error) {
 		return rulesFile{}, errors.New("analysis rules file exceeds configured bounds")
 	}
 	if !validEventIDPrefix(spec.EventIDPrefix) {
-		return rulesFile{}, errors.New("analysis rules event_id_prefix must be 1-4 alphanumeric characters")
+		return rulesFile{}, errors.New("analysis rules event_id_prefix must be 1-8 alphanumeric characters")
 	}
 	sources := make(map[string]bool)
 	for _, source := range spec.Sources {
@@ -210,10 +210,9 @@ func (spec instanceSpec) pluginConfig(eventIDPrefix string) (plugins.Config, err
 	}, nil
 }
 
-// validEventIDPrefix ensures the configured security marker leaves room for
-// the random suffix while respecting logging-manager's ten-character prefix.
+// validEventIDPrefix bounds the readable marker used with an eight-digit counter.
 func validEventIDPrefix(value string) bool {
-	if len(value) < 1 || len(value) > 4 {
+	if len(value) < 1 || len(value) > 8 {
 		return false
 	}
 	for _, r := range value {

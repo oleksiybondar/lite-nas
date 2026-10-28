@@ -10,7 +10,7 @@ import (
 	sharedlogger "lite-nas/shared/logger"
 )
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestSampleRulesLoad(t *testing.T) {
 	t.Parallel()
 	path := "../../configs/etc/lite-nas/log-analysis/rules.json"
@@ -19,7 +19,7 @@ func TestSampleRulesLoad(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestDetectionMessageIdentifiesAuthenticationChannel(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -43,7 +43,7 @@ func TestDetectionMessageIdentifiesAuthenticationChannel(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestParserExtractsPAMAccount(t *testing.T) {
 	t.Parallel()
 	line := "2026-10-25T08:26:06.830681+01:00 host auth-service: pam_unix(litenas-auth:auth): authentication failure; rhost=192.0.2.4 user=alice"
@@ -56,7 +56,7 @@ func TestParserExtractsPAMAccount(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestParserRejectsMalformedTimestamp(t *testing.T) {
 	t.Parallel()
 	if _, err := parseAuthRecord("auth", "bad host auth-service: failure"); err == nil {
@@ -64,7 +64,7 @@ func TestParserRejectsMalformedTimestamp(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestTailerBuffersPartialLine(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "auth.log")
@@ -98,7 +98,7 @@ func TestTailerBuffersPartialLine(t *testing.T) {
 
 // TestTailerReadsFirstCreatedLog verifies that a source created after startup
 // is read from its beginning rather than silently made the new baseline.
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestTailerReadsFirstCreatedLog(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "auth.log")
@@ -119,7 +119,7 @@ func TestTailerReadsFirstCreatedLog(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestFanoutReachesTwoPluginInstancesOnOneSource(t *testing.T) {
 	t.Parallel()
 	output := make(chan plugins.Detection, 2)

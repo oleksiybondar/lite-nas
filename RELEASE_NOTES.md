@@ -5,24 +5,35 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
-## Unreleased
+## 0.4.0 - 2026-10-28
 
-### RL-Unreleased Summary
+### RL-0.4.0 Summary
 
-- Set Moments gallery work as the next family-use product priority alongside
-  the security and platform slice, outside the security skeleton's scope.
+- Aligned the release baseline with the implemented media, security, file,
+  monitoring, and browser functionality in the repository.
 
-### RL-Unreleased Changed
+### RL-0.4.0 Added
 
-- Documented a first gallery demo using the existing Moments shell and
-  authorized File Service routes, with bounded loading of original media.
-- Connected the detailed gallery frontend design to the LiteNAS Moments
-  architecture and existing app, service, and Stream Service tasks.
+- Added Moments gallery metadata, sharing, scan, tagging, and thumbnail routes,
+  with a browser gallery and Stream Service media delivery.
+- Added Log Analysis, Mount Monitor, Antivirus, System Service Monitor, Service
+  Watchdog, and LiteNAS Integrity service implementations and their contracts.
+- Added readable producer-owned alert IDs for mount, service availability,
+  authentication, and antivirus events.
 
-### RL-Unreleased Notes
+### RL-0.4.0 Changed
 
-- This entry records documentation and priorities only. Album/gallery APIs,
-  video range playback, and Live Photo motion are not delivered by this change.
+- Updated project requirements and operator documentation to reflect current
+  service boundaries and removed stale implementation handoffs.
+- Updated the Debian base package version and local Go shared-module dependency
+  references to 0.4.0.
+
+### RL-0.4.0 Notes
+
+- Event counters follow the resources monitor's volatile startup-time seed.
+  Mount alerts created before a Mount Monitor restart cannot be correlated for
+  later normalization by the restarted monitor.
+- Historical release entries below describe their own release snapshots.
 
 ## 0.3.0 - 2026-10-23
 

@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"regexp"
 	"slices"
 	"testing"
 	"time"
@@ -27,17 +28,14 @@ func authObservation(account string) Observation {
 	return Observation{RuleID: "auth_fail", Category: "auth_failure", Severity: "warning", Kind: "failure", Account: account, At: time.Now()}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestGeneratedEventIDMatchesLoggingManagerContract(t *testing.T) {
 	t.Parallel()
-	eventID, err := newEventID("SEC")
-	if err != nil {
-		t.Fatalf("generate event ID: %v", err)
-	}
+	eventID := newEventID("secauth")
 	loggingmanagertest.MustValidateEventID(t, eventID)
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestImmediatePluginCreatesOneResolvedEventPerObservation(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "immediate", 1, "global")
@@ -51,7 +49,7 @@ func TestImmediatePluginCreatesOneResolvedEventPerObservation(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestThresholdPluginWaitsForThirdObservation(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "threshold", 3, "global")
@@ -63,7 +61,7 @@ func TestThresholdPluginWaitsForThirdObservation(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestThresholdPluginTriggersAtBoundary(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "threshold", 3, "global")
@@ -75,7 +73,7 @@ func TestThresholdPluginTriggersAtBoundary(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestKeyedPluginKeepsAccountsIndependent(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
@@ -88,7 +86,7 @@ func TestKeyedPluginKeepsAccountsIndependent(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestKeyedPluginNormalizesAfterSuccess(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
@@ -103,7 +101,7 @@ func TestKeyedPluginNormalizesAfterSuccess(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestKeyedPluginDoesNotMergeMissingAccounts(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
@@ -115,7 +113,7 @@ func TestKeyedPluginDoesNotMergeMissingAccounts(t *testing.T) {
 	}
 }
 
-// Requirements: task.md/SVC-001.
+// Requirements: security-monitoring/FR-001.
 func TestCooldownSuppressesRepeatDetection(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "threshold", 3, "global")
@@ -128,5 +126,13 @@ func TestCooldownSuppressesRepeatDetection(t *testing.T) {
 	}
 	if !slices.Equal(operations, []string{"create", "occurrence", "occurrence"}) {
 		t.Fatalf("operations = %v", operations)
+	}
+}
+
+// TestReadableEventID verifies the producer's domain prefix and decimal counter.
+func TestReadableEventID(t *testing.T) {
+	t.Parallel()
+	if got := newEventID("secauth"); !regexp.MustCompile(`^secauth_[0-9]{8}$`).MatchString(got) {
+		t.Fatalf("unexpected event ID: %q", got)
 	}
 }

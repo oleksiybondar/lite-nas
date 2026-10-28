@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +15,7 @@ import (
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	mountcontract "lite-nas/shared/contracts/mountmonitor"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"
-	systemcontract "lite-nas/shared/contracts/systemloggingmanager"
+	"lite-nas/shared/eventmanager"
 	"lite-nas/shared/fileio"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/loggingmanager/enum"
@@ -143,6 +141,11 @@ func coordinateScans(ctx context.Context, cfg antivirusConfig, incoming <-chan m
 	completed := make(map[uint64]mountinfo.Record)
 	pending := make(map[uint64]mountinfo.Record)
 	schedule := func(mount mountinfo.Record) {
+		if prefix := excludedMountPrefix(cfg, mount.Point); prefix != "" {
+			log.Warn("mount scan skipped by configured exclusion", "mount_id", mount.ID,
+				"mount_point", mount.Point, "excluded_prefix", prefix, "filesystem_type", mount.FSType)
+			return
+		}
 		if !eligibleMount(cfg, mount) || activeMounts[mount.ID] == mount || completed[mount.ID] == mount {
 			return
 		}
@@ -179,11 +182,25 @@ func coordinateScans(ctx context.Context, cfg antivirusConfig, incoming <-chan m
 				continue
 			}
 			if event.Action == mountcontract.Unmounted {
-				if cancel := active[event.MountID]; cancel != nil {
-					cancel()
+				for localID, mount := range activeMounts {
+					if sameMountIdentity(mount, event.MountPoint, event.Source, event.FSType) {
+						if cancel := active[localID]; cancel != nil {
+							cancel()
+						}
+						delete(pending, localID)
+						delete(completed, localID)
+					}
 				}
-				delete(pending, event.MountID)
-				delete(completed, event.MountID)
+				for localID, mount := range pending {
+					if sameMountIdentity(mount, event.MountPoint, event.Source, event.FSType) {
+						delete(pending, localID)
+					}
+				}
+				for localID, mount := range completed {
+					if sameMountIdentity(mount, event.MountPoint, event.Source, event.FSType) {
+						delete(completed, localID)
+					}
+				}
 				continue
 			}
 			mounts, err := mountinfo.ReadCurrent()
@@ -191,9 +208,11 @@ func coordinateScans(ctx context.Context, cfg antivirusConfig, incoming <-chan m
 				log.Error("mount recheck failed", "error", err)
 				continue
 			}
-			mount, exists := mounts[event.MountID]
-			if !exists || mount.Point != event.MountPoint || mount.Source != event.Source || mount.FSType != event.FSType {
-				log.Warn("stale mount notification", "event_id", event.EventID)
+			mount, exists := findMountByIdentity(mounts, event)
+			if !exists {
+				log.Warn("stale mount notification", "event_id", event.EventID,
+					"mount_id", event.MountID, "mount_point", event.MountPoint,
+					"source", event.Source, "filesystem_type", event.FSType)
 				continue
 			}
 			schedule(mount)
@@ -219,6 +238,32 @@ func coordinateScans(ctx context.Context, cfg antivirusConfig, incoming <-chan m
 	}
 }
 
+// findMountByIdentity resolves a lifecycle notification in the receiver's
+// mount namespace, where kernel mount IDs may differ from the producer's IDs.
+func findMountByIdentity(mounts map[uint64]mountinfo.Record, event mountcontract.LifecycleEvent) (mountinfo.Record, bool) {
+	if mount, exists := mounts[event.MountID]; exists && sameMountIdentity(mount, event.MountPoint, event.Source, event.FSType) {
+		return mount, true
+	}
+	var match mountinfo.Record
+	found := false
+	for _, mount := range mounts {
+		if !sameMountIdentity(mount, event.MountPoint, event.Source, event.FSType) {
+			continue
+		}
+		if found {
+			return mountinfo.Record{}, false
+		}
+		match = mount
+		found = true
+	}
+	return match, found
+}
+
+// sameMountIdentity compares mount metadata shared across mount namespaces.
+func sameMountIdentity(mount mountinfo.Record, point, source, fsType string) bool {
+	return mount.Point == point && mount.Source == source && mount.FSType == fsType
+}
+
 // runScanWorker serially executes bounded scans and drains queued jobs as
 // cancelled results after process cancellation.
 func runScanWorker(_ context.Context, jobs <-chan scanJob, results chan<- scanResult, timeout time.Duration) {
@@ -232,20 +277,16 @@ func runScanWorker(_ context.Context, jobs <-chan scanJob, results chan<- scanRe
 // alert path, which the security email notifier already consumes.
 func reportScans(ctx context.Context, effects <-chan scanResult, client messaging.Client, log sharedlogger.Logger) {
 	for result := range effects {
-		if result.status == scanClean {
-			log.Info("antivirus scan clean", "mount_id", result.mount.ID)
-			continue
-		}
 		if result.status == scanCancelled {
 			log.Warn("antivirus scan cancelled", "mount_id", result.mount.ID)
 			continue
 		}
+		if result.status == scanIncomplete {
+			log.Warn("antivirus scan incomplete", "mount_id", result.mount.ID,
+				"mount_point", result.mount.Point, "error", result.err)
+		}
 		if result.eventID == "" {
-			id, err := newScanEventID()
-			if err != nil {
-				log.Error("antivirus scan event ID generation failed", "mount_id", result.mount.ID, "error", err)
-				continue
-			}
+			id := newScanEventID()
 			result.eventID = id
 		}
 		alertSent := false
@@ -275,7 +316,7 @@ func reportScans(ctx context.Context, effects <-chan scanResult, client messagin
 	}
 }
 
-// publishScanResult distinguishes malware from an incomplete scan. The scan
+// publishScanResult distinguishes clean scans, malware and incomplete scans. The scan
 // result owns a unique event ID so retries update only that scan's event.
 func publishScanResult(ctx context.Context, result scanResult, alertSent *bool, client messaging.Client) error {
 	if result.status == scanInfected {
@@ -290,7 +331,7 @@ func publishScanResult(ctx context.Context, result scanResult, alertSent *bool, 
 		email := true
 		if !*alertSent {
 			if err := client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
-				EventID: result.eventID, Category: "Malware detection", Severity: enum.SeverityCritical,
+				EventID: result.eventID, Category: "Malware detection", Severity: enum.SeverityError,
 				CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
 				Message: message, TriggerValue: evidence, Email: &email,
 			}); err != nil {
@@ -315,17 +356,49 @@ func publishScanResult(ctx context.Context, result scanResult, alertSent *bool, 
 		}
 		return nil
 	}
+	if result.status == scanClean {
+		message := "Antivirus scan clean on " + result.mount.Point
+		if len(message) > 256 {
+			message = message[:256]
+		}
+		if !*alertSent {
+			if err := client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
+				EventID: result.eventID, Category: "Antivirus scan", Severity: enum.SeverityInfo,
+				CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
+				Message: message,
+			}); err != nil {
+				return err
+			}
+			*alertSent = true
+		}
+		response := loggingcontract.OKResponse{}
+		if err := client.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
+			loggingcontract.UpdateAlertStateInput{EventID: result.eventID, Status: enum.StatusNormal}, &response); err != nil {
+			return err
+		}
+		if !response.OK {
+			return errors.New("security logging manager rejected clean scan resolution")
+		}
+		return nil
+	}
 	message := "Antivirus scan incomplete on " + result.mount.Point
+	if result.err != nil {
+		message += ": " + result.err.Error()
+	}
 	if len(message) > 256 {
 		message = message[:256]
 	}
 	if *alertSent {
 		return nil
 	}
-	err := client.Publish(ctx, systemcontract.AlertSubject, loggingcontract.AlertPayload{
+	evidence := result.evidence
+	if len(evidence) > 512 {
+		evidence = evidence[:512]
+	}
+	err := client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
 		EventID: result.eventID, Category: "Antivirus scan", Severity: enum.SeverityWarning,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
-		Message: message,
+		Message: message, TriggerValue: evidence,
 	})
 	if err != nil {
 		return err
@@ -334,11 +407,10 @@ func publishScanResult(ctx context.Context, result scanResult, alertSent *bool, 
 	return nil
 }
 
-// newScanEventID creates a bounded identifier unique to one scan result.
-func newScanEventID() (string, error) {
-	var random [8]byte
-	if _, err := rand.Read(random[:]); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("A%08x_%08d", binary.BigEndian.Uint32(random[:4]), binary.BigEndian.Uint32(random[4:])%100_000_000), nil
+// monitorEventIDs shares the resources monitor's time-seeded counter convention.
+var monitorEventIDs = eventmanager.NewManager(uint64(time.Now().Unix()) % 99_999_999)
+
+// newScanEventID allocates a readable ID for one new event.
+func newScanEventID() string {
+	return monitorEventIDs.NextEventID("secav")
 }

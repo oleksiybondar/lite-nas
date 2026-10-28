@@ -9,7 +9,7 @@ lifecycles. Snapshot collection in metrics services is stateless and was not mig
 | --- | --- | --- |
 | Log Analysis | Tails `/var/log/auth.log`; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; source probing and lockdown disabled |
 | Mount Monitor | Reads `/proc/self/mountinfo`; publishes `mount.events.lifecycle` and system alerts | 5 second poll; first snapshot is a baseline |
-| Antivirus | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; publishes security alerts for malware and system warnings for incomplete scans | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout |
+| Antivirus | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; reports clean scans as normal info events, incomplete scans as warnings, and malware as error events in Security Logging Manager; cancels scans when mounts disappear | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout |
 | System Service Monitor | Probes configured systemd units; publishes `service.monitor.events.state` and system alert lifecycle | 10 second poll; units in `system-service-monitor.conf` |
 | Service Watchdog | Subscribes to service events and independently probes its own protected list; publishes security alert lifecycle and starts allowlisted units | 10 second poll, 30 second recovery delay, 1 minute exponential backoff, at most 3 attempts |
 
@@ -58,12 +58,17 @@ Auth owns enforcement and its state change event.
 Security alerts follow the existing Security Logging Manager and Security Email Notifier path; no new SMTP
 client is used. A single failed login remains a warning without email. Repeated known-account or unknown-account
 failures are critical and set `email_on_critical`, so they send email when the configured cooldown creates a new
-incident. Malware detections are critical and explicitly request email. The disabled critical source-probing
+incident. Malware detections use error severity and explicitly request email. The disabled critical source-probing
 example also sends email if enabled. Publishers that omit the alert contract's optional `email` flag retain the
 notifier's previous behavior. Transport or SMTP failure must be checked in the corresponding service logs.
-Log Analysis event IDs use the configurable `event_id_prefix` in `rules.json` (shipped as `SEC`), followed by a
-random suffix. Existing event IDs remain unchanged; newly created Log Analysis events receive the configured
-prefix after the service restarts.
+Monitor event IDs follow the resources monitor's readable prefix and eight-digit counter format:
+`sysmnt_00000001` for mounts, `syssvc_00000001` for service availability,
+`secauth_00000001` for authentication, and `secav_00000001` for antivirus.
+Log Analysis uses the configurable `event_id_prefix` in `rules.json` (shipped as `secauth`),
+with one counter shared across detector instances. Counters use the existing startup-time seed
+and are volatile; they do not guarantee uniqueness across restarts. Mount correlation is kept
+in memory, so a monitor restart loses the IDs needed to normalize pre-restart mount alerts.
+Historical event IDs remain unchanged.
 
 ## Installation and operations
 
