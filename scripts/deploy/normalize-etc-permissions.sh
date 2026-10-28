@@ -52,9 +52,16 @@ deploy.normalizeNATS() {
 }
 
 deploy.normalizeLiteNAS() {
+	local spec_file
 	log.pushTask "Normalizing LiteNAS service config permissions"
 	deploy.normalizePath 0711 "$litenas_config_dir" "$litenas_config_owner"
 	deploy.normalizePath 0711 "$litenas_certificates_dir" "$litenas_config_owner"
+	deploy.normalizePath 0750 "$litenas_backup_specs_dir" "$litenas_config_owner"
+	if [ -d "$litenas_backup_specs_dir" ]; then
+		while IFS= read -r -d '' spec_file; do
+			deploy.normalizePath 0640 "$spec_file" "$litenas_config_owner"
+		done < <(find "$litenas_backup_specs_dir" -maxdepth 1 -type f -name '*.conf' -print0)
+	fi
 
 	if [ -d "$litenas_config_dir" ]; then
 		while IFS= read -r -d '' config_file; do
@@ -331,6 +338,7 @@ deploy.normalizeEtcPermissions() {
 	local nats_config_dir="$target_dir/nats-server"
 	local nats_certificate_dir="$nats_config_dir/certificates"
 	local litenas_config_dir="$target_dir/lite-nas"
+	local litenas_backup_specs_dir="$litenas_config_dir/backup.d"
 	local litenas_auth_config_file="$litenas_config_dir/auth.conf"
 	local litenas_rbac_config_file="$litenas_config_dir/rbac-service.conf"
 	local litenas_network_metrics_config_file="$litenas_config_dir/network-metrics.conf"

@@ -117,7 +117,8 @@ validate_sudoers_drop_ins() {
 log.pushTask "Deploying etc configs"
 security_monitor_saved="$(mktemp -d)"
 service_configs_saved="$(mktemp -d)"
-trap 'rm -rf "$security_monitor_saved" "$service_configs_saved"' EXIT
+backup_specs_saved="$(mktemp -d)"
+trap 'rm -rf "$security_monitor_saved" "$service_configs_saved" "$backup_specs_saved"' EXIT
 # Merge before copying the tree, so a malformed local config cannot be replaced.
 for config_file in "$target_dir/lite-nas/"*.conf; do
 	[ -f "$config_file" ] || continue
@@ -130,6 +131,9 @@ for config_file in "$target_dir/lite-nas/"*.conf; do
 done
 if [ -d "$target_dir/lite-nas/log-analysis" ]; then
 	cp -a "$target_dir/lite-nas/log-analysis" "$security_monitor_saved/log-analysis"
+fi
+if [ -d "$target_dir/lite-nas/backup.d" ]; then
+	cp -a "$target_dir/lite-nas/backup.d" "$backup_specs_saved/backup.d"
 fi
 old_moments_link=/usr/share/lite-nas/nginx/moments.conf
 if [ "$target_dir" = "/etc" ] && [ -L "$old_moments_link" ] && [ "$(readlink "$old_moments_link")" = "/usr/share/lite-nas/moments/nginx/moments.conf" ]; then
@@ -152,6 +156,9 @@ for original_config in "$service_configs_saved/"*.conf; do
 done
 if [ -d "$security_monitor_saved/log-analysis" ]; then
 	cp -a "$security_monitor_saved/log-analysis" "$target_dir/lite-nas/"
+fi
+if [ -d "$backup_specs_saved/backup.d" ]; then
+	cp -a "$backup_specs_saved/backup.d" "$target_dir/lite-nas/"
 fi
 log.popTask
 

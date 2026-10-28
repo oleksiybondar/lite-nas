@@ -187,6 +187,7 @@ assert_cmd "zfs-metrics-cli symlink packaged" assert_symlink_target usr/bin/zfs-
 assert_cmd "file-writer symlink packaged" assert_symlink_target usr/bin/lite-nas-file-writer /usr/libexec/lite-nas/lite-nas-file-writer
 
 assert_cmd "packaged lite-nas config directory exists" assert_dir "$packaged_config_root/lite-nas"
+assert_cmd "lite-nas backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/lite-nas.conf"
 assert_cmd "auth.conf packaged" assert_file "$packaged_config_root/lite-nas/auth.conf"
 assert_cmd "rbac-service.conf packaged" assert_file "$packaged_config_root/lite-nas/rbac-service.conf"
 assert_cmd "system-logging-manager.conf packaged" assert_file "$packaged_config_root/lite-nas/system-logging-manager.conf"
