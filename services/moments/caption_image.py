@@ -1,7 +1,7 @@
 """Optional local BLIP caption worker for Moments image scans.
 
 Deployment installs Pillow, PyTorch, transformers 4.x, and a pinned BLIP base
-model under Moments storage. No model download is attempted while the service
+model under the protected Moments model directory. No model download is attempted while the service
 runs.
 """
 
@@ -50,7 +50,8 @@ def main() -> None:
             model_dir, local_files_only=True, use_safetensors=True
         )
         model.eval()
-    except (ImportError, OSError):
+    except (ImportError, OSError) as error:
+        print(f"BLIP startup failed: {type(error).__name__}: {error}", file=sys.stderr)
         print('{"ready":false}', flush=True)
         return
 

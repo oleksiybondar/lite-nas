@@ -44,12 +44,6 @@ func (c galleryController) scanUploadedMedia(ctx context.Context, input *uploade
 	}
 	item := scanMediaFromSource(info, c.scans.places)
 	enrichLocation(ctx, &item, info, c.scans.places)
-	if item.Type == "IMAGE" {
-		if captioner := startCaptionWorker(ctx, c.scans.places); captioner != nil {
-			item.Caption = captioner.caption(ctx, c.files, accessToken(input.Authorization, input.AccessToken), path)
-			captioner.close()
-		}
-	}
 	if err := c.publishUploadedMedia(ctx, gallery, &item); err != nil {
 		return nil, huma.Error500InternalServerError("uploaded metadata publication failed")
 	}

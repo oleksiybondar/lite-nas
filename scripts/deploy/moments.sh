@@ -40,6 +40,8 @@ deploy.moments.deploy() {
 	if [ -f "$LITE_NAS_REPO_ROOT/services/moments/caption_image.py" ]; then
 		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/caption_image.py" /usr/share/lite-nas/moments/caption_image.py
 		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_caption_model.py" /usr/share/lite-nas/moments/install_caption_model.py
+		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/embed_text.py" /usr/share/lite-nas/moments/embed_text.py
+		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_embedding_model.py" /usr/share/lite-nas/moments/install_embedding_model.py
 	elif [ ! -f /usr/share/lite-nas/moments/caption_image.py ] || [ ! -f /usr/share/lite-nas/moments/install_caption_model.py ]; then
 		log.error "Moments caption scripts are missing"
 		return 1
@@ -57,6 +59,9 @@ deploy.moments.deploy() {
 	if [ "${LITE_NAS_PACKAGE_VALIDATE:-0}" != "1" ]; then
 		if ! deploy.moments.installCaptionModel; then
 			log.warn "BLIP caption setup failed; Moments will keep scanning media without generated captions."
+		fi
+		if ! deploy.moments.installEmbeddingModel; then
+			log.warn "Semantic model setup failed; Moments will continue using text search."
 		fi
 	fi
 	"$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing
@@ -91,6 +96,38 @@ deploy.moments.installCaptionModel() {
 	fi
 	"$venv_dir/bin/python3" -c 'import PIL, torch; from transformers import BlipForConditionalGeneration, BlipProcessor' || return 1
 	"$venv_dir/bin/python3" "$model_installer" "$model_dir" "$legacy_model_dir" || return 1
+	chown -R root:lite-nas-moments "$model_dir" || return 1
+	find "$model_dir" -type d -exec chmod 0750 {} + || return 1
+	find "$model_dir" -type f -exec chmod 0640 {} + || return 1
+}
+
+# Installs a distinct local text-model runtime; verified weights are reused.
+deploy.moments.installEmbeddingModel() {
+	local venv_dir=/usr/local/lib/lite-nas/moments/embedding-venv
+	local model_dir=/usr/local/lib/lite-nas/moments/e5-model
+	local model_installer=/usr/share/lite-nas/moments/install_embedding_model.py
+
+	install -d -m 0755 -o root -g root /usr/local/lib/lite-nas/moments || return 1
+	if ! python3 -c 'import venv' >/dev/null 2>&1; then
+		return 1
+	fi
+	if [ ! -x "$venv_dir/bin/python3" ] || ! "$venv_dir/bin/python3" -m pip --version >/dev/null 2>&1; then
+		python3 -m venv --copies --system-site-packages "$venv_dir" || return 1
+	fi
+	if ! "$venv_dir/bin/python3" -c 'import importlib.metadata; assert importlib.metadata.version("transformers") == "4.57.6"' >/dev/null 2>&1; then
+		"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check 'transformers==4.57.6' || return 1
+	fi
+	if ! "$venv_dir/bin/python3" -c 'import onnxruntime, numpy' >/dev/null 2>&1; then
+		if command -v apt-get >/dev/null 2>&1; then
+			apt-get update && apt-get install -y python3-onnxruntime python3-numpy || true
+		fi
+		"$venv_dir/bin/python3" -c 'import onnxruntime, numpy' >/dev/null 2>&1 ||
+			"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check 'onnxruntime==1.23.2' || return 1
+	fi
+	"$venv_dir/bin/python3" "$model_installer" "$model_dir" || return 1
+	chown -R root:lite-nas-moments "$model_dir" || return 1
+	find "$model_dir" -type d -exec chmod 0750 {} + || return 1
+	find "$model_dir" -type f -exec chmod 0640 {} + || return 1
 }
 
 # Enables the Moments service after all system dependencies are ready.

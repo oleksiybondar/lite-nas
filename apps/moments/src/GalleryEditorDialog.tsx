@@ -334,7 +334,17 @@ export function GalleryEditorDialog({
                 </Button>
               </Stack>
             )}
-            {gallery && <GalleryScanControls key={gallery.id} galleryId={gallery.id} open={open} />}
+            {gallery && (
+              <GalleryScanControls key={`${gallery.id}-media`} galleryId={gallery.id} open={open} />
+            )}
+            {gallery && (
+              <GalleryScanControls
+                key={`${gallery.id}-caption`}
+                galleryId={gallery.id}
+                open={open}
+                kind="CAPTION"
+              />
+            )}
             {error && <Alert severity="error">{error}</Alert>}
           </Stack>
         </DialogContent>

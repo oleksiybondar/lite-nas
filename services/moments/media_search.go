@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -68,6 +69,8 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 		where += ` AND EXISTS (SELECT 1 FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id
 			WHERE mt.path=gm.path AND t.category='LOCATION' AND (` + strings.Join(matches, " OR ") + `))`
 	}
+	baseWhere := where
+	baseArgs := append([]any(nil), args...)
 	if input.Q != "" {
 		where += ` AND (EXISTS (SELECT 1 FROM media_file_tags mt JOIN tags t ON t.id=mt.tag_id
 			WHERE mt.path=gm.path AND instr(t.search_key,?)>0)
@@ -79,8 +82,32 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 	if err := c.store.db.QueryRowContext(ctx, `SELECT count(DISTINCT gm.path)`+where, args...).Scan(&page.Total); err != nil {
 		return huma.Error500InternalServerError("media search failed")
 	}
+	order := ` ORDER BY max(g.created_at) DESC,gm.path`
+	queryOffset := page.Offset
+	if input.Q != "" && (wantsSemanticSearch(input.Q) || page.Total == 0) {
+		if paths, err := c.semanticPaths(ctx, user, input); err == nil {
+			page.Total = int64(len(paths))
+			if page.Offset >= len(paths) {
+				return nil
+			}
+			end := min(page.Offset+page.Limit, len(paths))
+			selected := paths[page.Offset:end]
+			where = baseWhere + ` AND gm.path IN (` + strings.TrimSuffix(strings.Repeat("?,", len(selected)), ",") + `)`
+			args = baseArgs
+			for _, path := range selected {
+				args = append(args, path)
+			}
+			order = ` ORDER BY CASE gm.path`
+			for index, path := range selected {
+				order += ` WHEN ? THEN ` + strconv.Itoa(index)
+				args = append(args, path)
+			}
+			order += ` END`
+			queryOffset = 0
+		}
+	}
 	rows, err := c.store.db.QueryContext(ctx, `SELECT min(g.id),gm.path,max(gm.media_type),mf.width,mf.height,max(gm.live_photo_path),mc.caption`+where+
-		` GROUP BY gm.path ORDER BY max(g.created_at) DESC,gm.path LIMIT ? OFFSET ?`, append(args, page.Limit, page.Offset)...)
+		` GROUP BY gm.path`+order+` LIMIT ? OFFSET ?`, append(args, page.Limit, queryOffset)...)
 	if err != nil {
 		return huma.Error500InternalServerError("media search failed")
 	}

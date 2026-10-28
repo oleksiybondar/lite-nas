@@ -76,10 +76,14 @@ export type GalleryRecord = z.infer<typeof gallerySchema>;
 export const galleryLocationNames = (gallery: GalleryRecord): string[] =>
   gallery.tags?.filter((tag) => tag.category === "LOCATION").map((tag) => tag.value) ?? [];
 
-/** Durable owner-visible media scan progress returned by Moments. */
+/** Supported durable gallery scan jobs. */
+export const galleryScanKindSchema = z.enum(["MEDIA", "CAPTION"]);
+
+/** Durable owner-visible scan progress returned by Moments. */
 export const galleryScanSchema = z.object({
   id: z.uuid(),
   galleryId: z.uuid(),
+  kind: galleryScanKindSchema.default("MEDIA"),
   status: z.enum([
     "PENDING",
     "DISCOVERING",

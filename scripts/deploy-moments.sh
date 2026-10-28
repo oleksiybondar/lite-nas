@@ -51,7 +51,8 @@ done
 sudo.guard.requireRoot "scripts/deploy-moments.sh"
 
 if [ -z "$binary_path" ]; then
-	binary_path="$LITE_NAS_REPO_ROOT/.build/moments/moments"
+	# Vite replaces its asset output directory, so keep the Go binary outside it.
+	binary_path="$LITE_NAS_REPO_ROOT/.build/moments-binary/moments"
 	"$SCRIPT_DIR/build-moments-binary.sh" --output="$binary_path"
 fi
 if [ -z "$assets_source" ]; then

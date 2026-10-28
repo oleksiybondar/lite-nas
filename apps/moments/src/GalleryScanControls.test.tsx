@@ -6,6 +6,7 @@ import {
   cancelGalleryScan,
   getGalleryScan,
   latestGalleryScan,
+  startCaptionScan,
   startGalleryScan,
 } from "./moments-data";
 import type { GalleryScan } from "./schemas";
@@ -14,12 +15,14 @@ vi.mock("./moments-data", () => ({
   cancelGalleryScan: vi.fn(),
   getGalleryScan: vi.fn(),
   latestGalleryScan: vi.fn(),
+  startCaptionScan: vi.fn(),
   startGalleryScan: vi.fn(),
 }));
 
 const scan: GalleryScan = {
   id: "00000000-0000-4000-8000-000000000002",
   galleryId: "00000000-0000-4000-8000-000000000001",
+  kind: "MEDIA",
   status: "PENDING",
   totalItems: null,
   processedItems: 0,
@@ -43,6 +46,7 @@ async function readyStartButton(): Promise<HTMLButtonElement> {
 beforeEach(() => {
   vi.mocked(latestGalleryScan).mockResolvedValue(null);
   vi.mocked(startGalleryScan).mockResolvedValue(scan);
+  vi.mocked(startCaptionScan).mockResolvedValue({ ...scan, kind: "CAPTION" });
   vi.mocked(getGalleryScan).mockResolvedValue(scan);
   vi.mocked(cancelGalleryScan).mockResolvedValue(scan);
 });
@@ -57,6 +61,23 @@ test("scan control starts a full scan for the saved gallery", async () => {
   render(<GalleryScanControls galleryId={scan.galleryId} open />);
   fireEvent.click(await readyStartButton());
   await waitFor(() => expect(startGalleryScan).toHaveBeenCalledWith(scan.galleryId));
+});
+
+test("caption control requests missing captions by default", async () => {
+  render(<GalleryScanControls galleryId={scan.galleryId} open kind="CAPTION" />);
+  const button = screen.getByRole("button", { name: "Generate captions" }) as HTMLButtonElement;
+  await waitFor(() => expect(button.disabled).toBe(false));
+  fireEvent.click(button);
+  await waitFor(() => expect(startCaptionScan).toHaveBeenCalledWith(scan.galleryId, false));
+});
+
+test("caption control forwards explicit regeneration", async () => {
+  render(<GalleryScanControls galleryId={scan.galleryId} open kind="CAPTION" />);
+  fireEvent.click(screen.getByRole("switch", { name: "Regenerate existing captions" }));
+  const button = screen.getByRole("button", { name: "Generate captions" }) as HTMLButtonElement;
+  await waitFor(() => expect(button.disabled).toBe(false));
+  fireEvent.click(button);
+  await waitFor(() => expect(startCaptionScan).toHaveBeenCalledWith(scan.galleryId, true));
 });
 
 test("scan control shows the latest completed job", async () => {

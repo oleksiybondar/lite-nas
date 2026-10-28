@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -31,9 +32,10 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 	if places == nil || places.captionScript == "" {
 		return nil
 	}
-	if _, err := os.Stat(places.captionScript); err != nil || !places.captionMu.TryLock() {
+	if _, err := os.Stat(places.captionScript); err != nil {
 		return nil
 	}
+	places.captionMu.Lock()
 	command := exec.CommandContext(ctx, "python3", "-u", places.captionScript)
 	input, err := command.StdinPipe()
 	if err != nil {
@@ -46,8 +48,10 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 		places.captionMu.Unlock()
 		return nil
 	}
-	command.Stderr = io.Discard
+	// Model import and AppArmor failures belong in the service journal.
+	command.Stderr = os.Stderr
 	if err := command.Start(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "moments: BLIP worker could not start: %v\n", err)
 		_ = input.Close()
 		places.captionMu.Unlock()
 		return nil
@@ -56,8 +60,14 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 	var ready struct {
 		Ready bool `json:"ready"`
 	}
-	line, err := worker.readLine(ctx, 30*time.Second)
-	if err != nil || json.Unmarshal(line, &ready) != nil || !ready.Ready {
+	line, err := worker.readLine(ctx, 180*time.Second)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "moments: BLIP worker startup failed: %v\n", err)
+		worker.close()
+		return nil
+	}
+	if json.Unmarshal(line, &ready) != nil || !ready.Ready {
+		_, _ = fmt.Fprintln(os.Stderr, "moments: BLIP worker did not report ready")
 		worker.close()
 		return nil
 	}

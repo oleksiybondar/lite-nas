@@ -7,6 +7,7 @@ import {
   type GalleryRecord,
   type GalleryScan,
   galleryListSchema,
+  galleryScanKindSchema,
   galleryScanSchema,
   galleryScansSchema,
   gallerySchema,
@@ -67,6 +68,17 @@ export async function startGalleryScan(galleryId: string): Promise<GalleryScan> 
   );
 }
 
+/** Starts a caption-only scan, optionally replacing saved captions. */
+export async function startCaptionScan(galleryId: string, force: boolean): Promise<GalleryScan> {
+  return galleryScanSchema.parse(
+    await readJson(momentsApiPath(`/api/galleries/${z.uuid().parse(galleryId)}/caption-scans`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: z.boolean().parse(force) }),
+    }),
+  );
+}
+
 /** Publishes metadata for one completed browser upload without replacing other files. */
 export async function scanUploadedMedia(galleryId: string, path: string): Promise<void> {
   await readJson(momentsApiPath(`/api/galleries/${z.uuid().parse(galleryId)}/media-metadata`), {
@@ -77,9 +89,16 @@ export async function scanUploadedMedia(galleryId: string, path: string): Promis
 }
 
 /** Reads the most recent owner-visible scan job for a gallery. */
-export async function latestGalleryScan(galleryId: string): Promise<GalleryScan | null> {
+export async function latestGalleryScan(
+  galleryId: string,
+  kind: GalleryScan["kind"] = "MEDIA",
+): Promise<GalleryScan | null> {
   const result = galleryScansSchema.parse(
-    await readJson(momentsApiPath(`/api/galleries/${z.uuid().parse(galleryId)}/scans?limit=1`)),
+    await readJson(
+      momentsApiPath(
+        `/api/galleries/${z.uuid().parse(galleryId)}/scans?limit=1&kind=${galleryScanKindSchema.parse(kind)}`,
+      ),
+    ),
   );
   return result.items[0] ?? null;
 }

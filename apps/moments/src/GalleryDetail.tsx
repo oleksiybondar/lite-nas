@@ -8,6 +8,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
@@ -116,6 +117,7 @@ export function GalleryDetail({
   const ownedCollection = gallery.type === "COLLECTION" && owned;
   const albumDirectory = gallery.type === "ALBUM" && owned ? gallery.uploadDirectory : null;
   const locations = galleryLocationNames(gallery);
+  const locationLabel = locations.join(" · ");
   /** Scans only the uploaded path and refreshes the album listing. */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: upload, metadata scan, and refresh have distinct failure messages.
   const onUploaded = async (file: File): Promise<void> => {
@@ -174,8 +176,12 @@ export function GalleryDetail({
         )}
       </Stack>
       {gallery.description && <Typography>{gallery.description}</Typography>}
-      {locations.length > 0 && (
-        <Typography color="text.secondary">Locations: {locations.join(" · ")}</Typography>
+      {locationLabel && (
+        <Tooltip title={locationLabel} arrow>
+          <Typography color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
+            Locations: {locationLabel}
+          </Typography>
+        </Tooltip>
       )}
       {owned && (
         <Stack direction="row" spacing={1} flexWrap="wrap">

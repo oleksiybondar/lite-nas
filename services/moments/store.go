@@ -107,6 +107,12 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			model TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS media_embeddings (
+			path TEXT PRIMARY KEY REFERENCES media_files(path) ON DELETE CASCADE,
+			model TEXT NOT NULL,
+			text_hash TEXT NOT NULL,
+			vector BLOB NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS reverse_geocode_cache (
 			coordinate_key TEXT PRIMARY KEY,
 			place_name TEXT NOT NULL,
@@ -117,6 +123,7 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			id TEXT PRIMARY KEY,
 			gallery_id TEXT NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
 			requested_by TEXT NOT NULL,
+			kind TEXT NOT NULL DEFAULT 'MEDIA' CHECK(kind IN ('MEDIA','CAPTION')),
 			status TEXT NOT NULL,
 			total_items INTEGER,
 			processed_items INTEGER NOT NULL DEFAULT 0,
@@ -172,7 +179,24 @@ func openGalleryStore(path string) (*galleryStore, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate Moments shared media: %w", err)
 	}
+	if err := migrateScanJobKinds(db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate Moments scan job kinds: %w", err)
+	}
 	return &galleryStore{db: db}, nil
+}
+
+// migrateScanJobKinds identifies earlier full-scan rows as media jobs.
+func migrateScanJobKinds(db *sql.DB) error {
+	var columns int
+	if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info('media_scan_jobs') WHERE name='kind'`).Scan(&columns); err != nil {
+		return err
+	}
+	if columns == 0 {
+		_, err := db.Exec(`ALTER TABLE media_scan_jobs ADD COLUMN kind TEXT NOT NULL DEFAULT 'MEDIA' CHECK(kind IN ('MEDIA','CAPTION'))`)
+		return err
+	}
+	return nil
 }
 
 // migrateSharedMedia copies existing gallery-scoped extraction into path-keyed tables once.

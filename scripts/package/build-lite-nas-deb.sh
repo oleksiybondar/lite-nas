@@ -675,6 +675,10 @@ install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/caption_image.py" \
 	"$package_root/usr/share/lite-nas/moments/caption_image.py"
 install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_caption_model.py" \
 	"$package_root/usr/share/lite-nas/moments/install_caption_model.py"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/embed_text.py" \
+	"$package_root/usr/share/lite-nas/moments/embed_text.py"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_embedding_model.py" \
+	"$package_root/usr/share/lite-nas/moments/install_embedding_model.py"
 package.copyTree "$moments_assets_path" \
 	"$package_root/usr/libexec/lite-nas/moments-assets"
 install -D -m 0755 "$resources_monitor_binary_path" \

@@ -17,10 +17,11 @@ import (
 	"lite-nas/shared/browserauth"
 )
 
-// scanJob is the durable, caller-visible snapshot of one full rescan.
+// scanJob is the durable, caller-visible snapshot of one media or caption scan.
 type scanJob struct {
 	ID              string  `json:"id"`
 	GalleryID       string  `json:"galleryId"`
+	Kind            string  `json:"kind"`
 	Status          string  `json:"status"`
 	TotalItems      *int    `json:"totalItems"`
 	ProcessedItems  int     `json:"processedItems"`
@@ -48,8 +49,18 @@ type scanIDInput struct {
 type scanListInput struct {
 	GalleryAuth
 	ID     string `path:"galleryId" format:"uuid"`
+	Kind   string `query:"kind" enum:"MEDIA,CAPTION"`
 	Limit  int    `query:"limit" minimum:"1" maximum:"100"`
 	Offset int    `query:"offset" minimum:"0" maximum:"100000"`
+}
+
+// captionScanInput accepts an explicit request to regenerate saved captions.
+type captionScanInput struct {
+	GalleryAuth
+	ID   string `path:"galleryId" format:"uuid"`
+	Body struct {
+		Force bool `json:"force"`
+	}
 }
 
 // scanListOutput pages scan history without exposing another user's jobs.
@@ -62,6 +73,7 @@ type scanListOutput struct {
 // activeScan holds the user token only in process memory and a cancellation handle.
 type activeScan struct {
 	jobID  string
+	kind   string
 	token  string
 	cancel context.CancelFunc
 }
@@ -89,9 +101,26 @@ func newScanManager(store *galleryStore, auth browserauth.AuthService, files fil
 // mountScanRoutes registers start, status, history, and cancellation.
 func mountScanRoutes(api huma.API, c galleryController) {
 	huma.Post(api, "/api/galleries/{galleryId}/scans", c.startScan)
+	huma.Post(api, "/api/galleries/{galleryId}/caption-scans", c.startCaptionScan)
 	huma.Get(api, "/api/galleries/{galleryId}/scans", c.listScans)
 	huma.Get(api, "/api/scans/{scanId}", c.getScan)
 	huma.Delete(api, "/api/scans/{scanId}", c.cancelScan)
+}
+
+// startCaptionScan starts a caption-only job for an owner-visible gallery.
+func (c galleryController) startCaptionScan(ctx context.Context, input *captionScanInput) (*scanOutput, error) {
+	user, err := c.userID(input.GalleryAuth)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := c.ownedGallery(ctx, input.ID, user); err != nil {
+		return nil, err
+	}
+	job, err := c.scans.start(input.ID, user, accessToken(input.Authorization, input.AccessToken), "CAPTION", input.Body.Force)
+	if err != nil {
+		return nil, err
+	}
+	return &scanOutput{Status: http.StatusAccepted, Body: job}, nil
 }
 
 // scanFromRow reads a durable job without materializing credentials.
@@ -100,7 +129,7 @@ func scanFromRow(row *sql.Row) (scanJob, string, error) {
 	var owner string
 	var total sql.NullInt64
 	var started, finished, summary sql.NullString
-	err := row.Scan(&job.ID, &job.GalleryID, &owner, &job.Status, &total,
+	err := row.Scan(&job.ID, &job.GalleryID, &owner, &job.Kind, &job.Status, &total,
 		&job.ProcessedItems, &job.SuccessfulItems, &job.FailedItems,
 		&job.CreatedAt, &started, &finished, &summary)
 	if total.Valid {
@@ -119,7 +148,7 @@ func scanFromRow(row *sql.Row) (scanJob, string, error) {
 	return job, owner, err
 }
 
-const scanColumns = `id,gallery_id,requested_by,status,total_items,processed_items,successful_items,failed_items,created_at,started_at,finished_at,error_summary`
+const scanColumns = `id,gallery_id,requested_by,kind,status,total_items,processed_items,successful_items,failed_items,created_at,started_at,finished_at,error_summary`
 
 // lookupScan enforces same-user polling and hides other users' job IDs.
 func (c galleryController) lookupScan(ctx context.Context, id, user string) (scanJob, error) {
@@ -142,7 +171,7 @@ func (c galleryController) startScan(ctx context.Context, input *galleryIDInput)
 	if _, err := c.ownedGallery(ctx, input.ID, user); err != nil {
 		return nil, err
 	}
-	job, err := c.scans.start(input.ID, user, accessToken(input.Authorization, input.AccessToken))
+	job, err := c.scans.start(input.ID, user, accessToken(input.Authorization, input.AccessToken), "MEDIA", false)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +191,7 @@ func (c galleryController) listScans(ctx context.Context, input *scanListInput) 
 	if limit == 0 {
 		limit = 50
 	}
-	rows, err := c.store.db.QueryContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE gallery_id=? AND requested_by=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`, input.ID, user, limit, input.Offset)
+	rows, err := c.store.db.QueryContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE gallery_id=? AND requested_by=? AND (?='' OR kind=?) ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`, input.ID, user, input.Kind, input.Kind, limit, input.Offset)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("scan history failed")
 	}
@@ -174,7 +203,7 @@ func (c galleryController) listScans(ctx context.Context, input *scanListInput) 
 		var owner string
 		var total sql.NullInt64
 		var started, finished, summary sql.NullString
-		if err := rows.Scan(&job.ID, &job.GalleryID, &owner, &job.Status, &total,
+		if err := rows.Scan(&job.ID, &job.GalleryID, &owner, &job.Kind, &job.Status, &total,
 			&job.ProcessedItems, &job.SuccessfulItems, &job.FailedItems,
 			&job.CreatedAt, &started, &finished, &summary); err != nil {
 			return nil, huma.Error500InternalServerError("scan history failed")
@@ -235,11 +264,19 @@ func (c galleryController) cancelScan(ctx context.Context, input *scanIDInput) (
 }
 
 // start reserves one gallery and one global worker seat before persisting a job.
-func (m *scanManager) start(galleryID, user, token string) (scanJob, error) {
+func (m *scanManager) start(galleryID, user, token, kind string, force bool) (scanJob, error) {
 	m.mu.Lock()
 	if _, exists := m.active[galleryID]; exists {
 		m.mu.Unlock()
 		return scanJob{}, huma.Error409Conflict("gallery scan already active")
+	}
+	if kind == "CAPTION" {
+		for _, active := range m.active {
+			if active.kind == "CAPTION" {
+				m.mu.Unlock()
+				return scanJob{}, huma.Error429TooManyRequests("caption scan already active")
+			}
+		}
 	}
 	select {
 	case m.seats <- struct{}{}:
@@ -248,17 +285,21 @@ func (m *scanManager) start(galleryID, user, token string) (scanJob, error) {
 		return scanJob{}, huma.Error429TooManyRequests("scan capacity reached")
 	}
 	workerCtx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
-	job := scanJob{ID: uuid.NewString(), GalleryID: galleryID, Status: "PENDING", CreatedAt: timestamp()}
-	_, err := m.store.db.Exec(`INSERT INTO media_scan_jobs(id,gallery_id,requested_by,status,created_at) VALUES(?,?,?,?,?)`, job.ID, galleryID, user, job.Status, job.CreatedAt)
+	job := scanJob{ID: uuid.NewString(), GalleryID: galleryID, Kind: kind, Status: "PENDING", CreatedAt: timestamp()}
+	_, err := m.store.db.Exec(`INSERT INTO media_scan_jobs(id,gallery_id,requested_by,kind,status,created_at) VALUES(?,?,?,?,?,?)`, job.ID, galleryID, user, job.Kind, job.Status, job.CreatedAt)
 	if err != nil {
 		cancel()
 		<-m.seats
 		m.mu.Unlock()
 		return scanJob{}, huma.Error500InternalServerError("scan creation failed")
 	}
-	m.active[galleryID] = &activeScan{jobID: job.ID, token: token, cancel: cancel}
+	m.active[galleryID] = &activeScan{jobID: job.ID, kind: kind, token: token, cancel: cancel}
 	m.mu.Unlock()
-	go m.run(workerCtx, job, user)
+	if kind == "CAPTION" {
+		go m.runCaptionScan(workerCtx, job, user, force)
+	} else {
+		go m.run(workerCtx, job, user)
+	}
 	return job, nil
 }
 
@@ -329,15 +370,7 @@ func scanMediaFromSource(info sourceMetadata, places *cityIndex) scanMedia {
 
 // run discovers authorized files, extracts metadata, then atomically publishes success.
 func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
-	defer func() {
-		m.mu.Lock()
-		if active := m.active[job.GalleryID]; active != nil && active.jobID == job.ID {
-			active.cancel()
-			delete(m.active, job.GalleryID)
-		}
-		m.mu.Unlock()
-		<-m.seats
-	}()
+	defer m.release(job)
 	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status='DISCOVERING',started_at=? WHERE id=?`, timestamp(), job.ID)
 	g, err := m.store.galleryByID(ctx, job.GalleryID)
 	if err != nil || g.OwnerID != user {
@@ -356,13 +389,6 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 	total := len(paths)
 	_, _ = m.store.db.Exec(`UPDATE media_scan_jobs SET status='RUNNING',total_items=? WHERE id=?`, total, job.ID)
 	media := make([]scanMedia, 0, total)
-	var captioner *captionWorker
-	captionAttempted := false
-	defer func() {
-		if captioner != nil {
-			captioner.close()
-		}
-	}()
 	failed := 0
 	for index, path := range paths {
 		if ctx.Err() != nil {
@@ -381,15 +407,6 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 		} else {
 			item := scanMediaFromSource(info, m.places)
 			enrichLocation(ctx, &item, info, m.places)
-			if item.Type == "IMAGE" {
-				if !captionAttempted {
-					captioner = startCaptionWorker(ctx, m.places)
-					captionAttempted = true
-				}
-				if captioner != nil {
-					item.Caption = captioner.caption(ctx, m.files, token, path)
-				}
-			}
 			media = append(media, item)
 		}
 		if index%10 == 9 || index == len(paths)-1 {
@@ -411,6 +428,17 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 		return
 	}
 	m.finish(job.ID, "COMPLETED", "")
+}
+
+// release frees one finished job's gallery reservation and worker seat.
+func (m *scanManager) release(job scanJob) {
+	m.mu.Lock()
+	if active := m.active[job.GalleryID]; active != nil && active.jobID == job.ID {
+		active.cancel()
+		delete(m.active, job.GalleryID)
+	}
+	m.mu.Unlock()
+	<-m.seats
 }
 
 // confirmDeleted checks only previously linked paths missing from discovery.

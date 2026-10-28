@@ -2,8 +2,10 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: the scan control keeps its lifecycle and feedback together.
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +13,7 @@ import {
   cancelGalleryScan,
   getGalleryScan,
   latestGalleryScan,
+  startCaptionScan,
   startGalleryScan,
 } from "./moments-data";
 import type { GalleryScan } from "./schemas";
@@ -19,18 +22,22 @@ import type { GalleryScan } from "./schemas";
 const scanIsActive = (scan: GalleryScan | null): boolean =>
   scan?.status === "PENDING" || scan?.status === "DISCOVERING" || scan?.status === "RUNNING";
 
-/** Starts, monitors, and cancels a saved gallery's full media scan. */
+/** Starts, monitors, and cancels one kind of saved gallery scan. */
 export const GalleryScanControls = ({
   galleryId,
   open,
+  kind = "MEDIA",
 }: {
   galleryId: string;
   open: boolean;
+  kind?: GalleryScan["kind"];
 }): ReactElement => {
   const [scan, setScan] = useState<GalleryScan | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [force, setForce] = useState(false);
+  const label = kind === "CAPTION" ? "caption" : "media";
   const loadedGallery = useRef<string | null>(null);
   const historyLoaded = useRef(false);
 
@@ -42,12 +49,12 @@ export const GalleryScanControls = ({
     let active = true;
     setLoading(true);
     setError(null);
-    void latestGalleryScan(galleryId)
+    void latestGalleryScan(galleryId, kind)
       .then((job) => {
         if (active) setScan(job);
       })
       .catch(() => {
-        if (active) setError("Could not load media scan status.");
+        if (active) setError(`Could not load ${label} scan status.`);
       })
       .finally(() => {
         if (active) {
@@ -58,7 +65,7 @@ export const GalleryScanControls = ({
     return () => {
       active = false;
     };
-  }, [galleryId, open]);
+  }, [galleryId, open, kind, label]);
 
   useEffect(() => {
     if (!scanIsActive(scan) || !scan) return;
@@ -72,7 +79,7 @@ export const GalleryScanControls = ({
           setError(null);
         }
       } catch {
-        if (active) setError("Could not refresh media scan progress.");
+        if (active) setError(`Could not refresh ${label} scan progress.`);
       } finally {
         if (active) timer = window.setTimeout(() => void poll(), 3000);
       }
@@ -82,15 +89,19 @@ export const GalleryScanControls = ({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [scan]);
+  }, [scan, label]);
 
   const start = async (): Promise<void> => {
     setActionBusy(true);
     setError(null);
     try {
-      setScan(await startGalleryScan(galleryId));
+      setScan(
+        await (kind === "CAPTION"
+          ? startCaptionScan(galleryId, force)
+          : startGalleryScan(galleryId)),
+      );
     } catch {
-      setError("Could not start media scan.");
+      setError(`Could not start ${label} scan.`);
     } finally {
       setActionBusy(false);
     }
@@ -103,7 +114,7 @@ export const GalleryScanControls = ({
     try {
       setScan(await cancelGalleryScan(scan.id));
     } catch {
-      setError("Could not cancel media scan.");
+      setError(`Could not cancel ${label} scan.`);
     } finally {
       setActionBusy(false);
     }
@@ -120,13 +131,21 @@ export const GalleryScanControls = ({
       data-testid="gallery-scan-controls"
       sx={{ borderTop: 1, borderColor: "divider", pt: 2 }}
     >
-      <Typography variant="h6">Media scan</Typography>
+      <Typography variant="h6">{kind === "CAPTION" ? "Image captions" : "Media scan"}</Typography>
       <Typography variant="body2" color="text.secondary">
-        Scan the gallery's files to update searchable media types and tags.
+        {kind === "CAPTION"
+          ? "Generate searchable descriptions for images without captions. The local BLIP model is used only for this action."
+          : "Scan the gallery's files to update searchable media types and tags."}
       </Typography>
+      {kind === "CAPTION" && (
+        <FormControlLabel
+          control={<Switch checked={force} onChange={(event) => setForce(event.target.checked)} />}
+          label="Regenerate existing captions"
+        />
+      )}
       <Stack direction="row" spacing={1}>
         <Button disabled={loading || actionBusy || active} onClick={() => void start()}>
-          Scan media
+          {kind === "CAPTION" ? "Generate captions" : "Scan media"}
         </Button>
         {active && (
           <Button disabled={actionBusy} onClick={() => void cancel()}>

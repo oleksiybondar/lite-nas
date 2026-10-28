@@ -28,7 +28,8 @@ same-origin schema. File Service docs require an authenticated user.
 | `POST /api/galleries/{galleryId}/shares` | Owner adds a member by `{ "username": "oleksiybondar" }`; Moments resolves the login through RBAC and stores its stable UID. |
 | `PUT/DELETE /api/galleries/{galleryId}/shares/{userId}` | Owner-controlled read-only sharing. |
 | `PUT/GET/DELETE /api/galleries/{galleryId}/thumbnail/image` | Store, serve, or remove an optional uploaded PNG/JPEG cover. PUT accepts `image/png`, `image/jpeg`, or `application/octet-stream`. |
-| `POST/GET /api/galleries/{galleryId}/scans` | Start a full rescan or page the owner's job history. |
+| `POST/GET /api/galleries/{galleryId}/scans` | Start a metadata-only full rescan or page the owner's job history. Pass `kind=MEDIA` or `kind=CAPTION` when listing one job type. |
+| `POST /api/galleries/{galleryId}/caption-scans` | Owner-only caption generation. JSON `{ "force": false }` skips already-captioned images; `true` regenerates them. The job uses the existing scan polling and cancellation routes. |
 | `GET/DELETE /api/scans/{scanId}` | Same-user progress polling with token renewal, or cancellation. |
 | `GET /api/galleries/{galleryId}/media-metadata` | Page the last successfully published scan records. |
 | `POST /api/galleries/{galleryId}/media-metadata` | Owner-only update for one completed album upload: `{ "path": "/absolute/album/file.jpg" }`. The file is reauthorized through File Service, and only changed metadata for that path is updated. |
@@ -36,6 +37,14 @@ same-origin schema. File Service docs require an authenticated user.
 | `GET /api/galleries/{galleryId}/tags` | Return both user tags and aggregated scan tags. Each tag has `type=USER` or `type=AUTO`, a `category`, `value`, and `count`. For user tags, `category=USER` and `count=1`; for auto tags, count is the number of media records carrying that tag. |
 | `GET/POST /api/galleries/{galleryId}/user-tags` | List user tags or create one with `{ "value": "Family" }`. Reads follow gallery visibility; creation requires the owner. |
 | `GET/PATCH/DELETE /api/galleries/{galleryId}/user-tags/{tagId}` | Read, rename with `{ "value": "Friends" }`, or remove one user tag. Reads follow gallery visibility; only the owner can mutate. Values are unique per gallery after case folding and Unicode normalization. |
+
+Search shows albums and collections before individual photos in the Moments UI.
+When the optional local multilingual text model is installed, `matchingMedia`
+uses semantic ranking for multiword or non-Latin `q` input. A single Latin word
+uses the existing text match first and tries semantic ranking only when no
+photos match. Gallery `items` and their pagination remain lexical. Semantic
+vectors contain text derived from each physical file's caption, source tags,
+and person names; no original image bytes enter the text-model worker.
 
 Huma validates typed route and query inputs. Gallery IDs are UUIDs. Paths use
 File Service's clean absolute Unix path namespace. At creation or reference
@@ -110,10 +119,12 @@ pinned `transformers` 4.x environment and download the pinned model once to
 `/usr/local/lib/lite-nas/moments/blip-model`. The model and virtual environment
 are root-owned and read-only to Moments. The Python worker runs in a separate
 AppArmor child profile without network or Moments database access. The systemd
-unit limits the combined Go service and caption worker to 3.2 GB of memory and
+service keeps `NoNewPrivileges=yes`; model child profiles are stacked with the
+parent profile so the kernel permits a strictly narrowing transition. The unit
+limits the combined Go service and caption worker to 3.2 GB of memory and
 200% CPU, and disables swap for that unit. A setup failure does not stop
-Moments deployment. Repeated deploys reuse a completed download; service scans load
-the model offline without writing model files. On upgrade, a model already in
+Moments deployment. Repeated deploys reuse a completed download; only caption
+scans load the model offline without writing model files. On upgrade, a model already in
 `/var/lib/lite-nas/moments/blip-model` is moved into the protected path when
 the pinned revision and every model-file checksum match. The move reuses the
 existing 1 GB weights without downloading or copying them on the same filesystem;
@@ -125,6 +136,21 @@ retained. Set
 shared across linked galleries, and searchable through `q`. Image bytes pass
 from File Service to the local worker in memory and are not stored in the
 Moments database.
+
+Optional semantic search uses the pinned multilingual E5 small ONNX model. Its
+470 MB model file and 17 MB tokenizer are downloaded once into
+`/usr/local/lib/lite-nas/moments/e5-model`, checked against pinned hashes, and
+reused on later deployments. A separate Python environment uses the
+distribution's `python3-onnxruntime` package when available, with a pinned pip
+fallback. Both model directories are readable by root and the Moments service
+group only. The embedding worker has its own AppArmor child profile without
+network, database, or original-media access. Both model workers start on demand
+and exit after their job. An initial semantic query embeds visible files whose
+caption or tags have changed; later queries reuse their path-keyed vectors.
+Search continues with text matching if the embedding environment is unavailable,
+busy, or fails. Set `embedding_script=` to disable it. Model weights are not
+Debian archive packages, so the `.deb` recommends available Python runtimes;
+model setup remains optional and fail-safe.
 
 ## Full rescan
 

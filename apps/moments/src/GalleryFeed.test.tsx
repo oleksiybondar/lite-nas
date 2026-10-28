@@ -55,6 +55,19 @@ const album: GalleryRecord = {
   updatedAt: "2026-10-26T00:00:00Z",
 };
 
+const placeNames = ["Copenhagen, Denmark", "Drammen, Norway", "Valbrottveien, Drammen, Norway"];
+const placeSummary = placeNames.join(" · ");
+const albumWithPlaces: GalleryRecord = {
+  ...album,
+  tags: placeNames.map((value) => ({
+    id: album.id,
+    type: "AUTO",
+    category: "LOCATION",
+    value,
+    count: 1,
+  })),
+};
+
 /** Prepares the first gallery page returned to feed tests. */
 function mockFirstPage(items: GalleryRecord[]): void {
   vi.mocked(listGalleries).mockResolvedValue({
@@ -87,6 +100,20 @@ test.each([
   mockFirstPage([album]);
   renderHomeFeed();
   expect((await screen.findByText("First album")).closest("a")?.getAttribute("href")).toBe(href);
+});
+
+test("gallery card locations stay on one line", async () => {
+  mockFirstPage([albumWithPlaces]);
+  renderHomeFeed();
+  const summary = await screen.findByText(placeSummary);
+  expect(summary.classList.contains("MuiTypography-noWrap")).toBe(true);
+});
+
+test("gallery card hover reveals every location", async () => {
+  mockFirstPage([albumWithPlaces]);
+  renderHomeFeed();
+  fireEvent.mouseOver(await screen.findByText(placeSummary));
+  expect((await screen.findByRole("tooltip")).textContent).toBe(placeSummary);
 });
 
 test("home feed loads the next backend page when its end becomes visible", async () => {
@@ -155,6 +182,14 @@ test("feed search sends its query to the paged gallery API", async () => {
       expect.objectContaining({ q: "beach" }),
     ),
   );
+});
+
+test("search shows galleries before individual photos", async () => {
+  renderHomeFeed();
+  fireEvent.change(screen.getByLabelText("Search galleries"), { target: { value: "dog" } });
+  const photos = await screen.findByRole("heading", { name: "Photos (0)" });
+  const galleries = screen.getByRole("heading", { name: "Albums and collections" });
+  expect(galleries.compareDocumentPosition(photos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test.each([

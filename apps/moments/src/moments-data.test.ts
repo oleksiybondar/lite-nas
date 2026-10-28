@@ -35,6 +35,7 @@ const gallery: GalleryRecord = {
 const scan = {
   id: "00000000-0000-4000-8000-000000000002",
   galleryId: gallery.id,
+  kind: "MEDIA",
   status: "PENDING",
   totalItems: null,
   processedItems: 0,
@@ -62,7 +63,16 @@ test("media scan history reads the latest owner job", async () => {
   const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [scan] })));
   vi.stubGlobal("fetch", fetchMock);
   await latestGalleryScan(gallery.id);
-  expect(fetchMock.mock.calls[0][0]).toBe(`/api/galleries/${gallery.id}/scans?limit=1`);
+  expect(fetchMock.mock.calls[0][0]).toBe(`/api/galleries/${gallery.id}/scans?limit=1&kind=MEDIA`);
+});
+
+test("caption scan history reads only caption jobs", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] })));
+  vi.stubGlobal("fetch", fetchMock);
+  await latestGalleryScan(gallery.id, "CAPTION");
+  expect(fetchMock.mock.calls[0][0]).toBe(
+    `/api/galleries/${gallery.id}/scans?limit=1&kind=CAPTION`,
+  );
 });
 
 test("media scan polling reads a validated job", async () => {

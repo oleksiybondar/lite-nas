@@ -29,18 +29,19 @@ const configPath = "/etc/lite-nas/moments.conf"
 
 // serviceConfig holds the existing LiteNAS infrastructure settings for Moments.
 type serviceConfig struct {
-	HTTP           sharedconfig.HTTPConfig
-	Messaging      sharedconfig.MessagingConfig
-	AuthTokens     sharedconfig.AuthTokenConfig
-	Logging        sharedconfig.LoggingConfig
-	CookieDomain   string
-	DatabasePath   string
-	FileServiceURL string
-	ThumbnailDir   string
-	WorkingDir     string
-	PlaceDataPath  string
-	GeocoderURL    string
-	CaptionScript  string
+	HTTP            sharedconfig.HTTPConfig
+	Messaging       sharedconfig.MessagingConfig
+	AuthTokens      sharedconfig.AuthTokenConfig
+	Logging         sharedconfig.LoggingConfig
+	CookieDomain    string
+	DatabasePath    string
+	FileServiceURL  string
+	ThumbnailDir    string
+	WorkingDir      string
+	PlaceDataPath   string
+	GeocoderURL     string
+	CaptionScript   string
+	EmbeddingScript string
 }
 
 // loadConfig reads the service listener, messaging, and browser cookie scope.
@@ -102,6 +103,13 @@ func loadConfig(path string) (serviceConfig, error) {
 	if captionScript != "" && fileaccess.ValidateHostPath(captionScript) != nil {
 		return serviceConfig{}, errors.New("caption_script must be a clean absolute path")
 	}
+	embeddingScript := "/usr/share/lite-nas/moments/embed_text.py"
+	if storage := iniFile.Section("storage"); storage.HasKey("embedding_script") {
+		embeddingScript = storage.Key("embedding_script").String()
+	}
+	if embeddingScript != "" && fileaccess.ValidateHostPath(embeddingScript) != nil {
+		return serviceConfig{}, errors.New("embedding_script must be a clean absolute path")
+	}
 	parsed, err := url.Parse(fileServiceURL)
 	if err != nil || parsed.Scheme != "http" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
@@ -109,7 +117,7 @@ func loadConfig(path string) (serviceConfig, error) {
 	if err := validateListener(parsed.Host); err != nil {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
 	}
-	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript}, nil
+	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript, EmbeddingScript: embeddingScript}, nil
 }
 
 // validateListener keeps the Moments API behind the local Nginx proxy.
@@ -168,6 +176,7 @@ func run(ctx context.Context, path string) error {
 	}
 	places.online = newReverseGeocoder(store, cfg.GeocoderURL)
 	places.captionScript = cfg.CaptionScript
+	places.embeddingScript = cfg.EmbeddingScript
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,
 		Handler:           newRouterWithRuntime(browserauth.NewAuthService(infra.Client, verifier), cfg.CookieDomain, store, newFileServiceClient(cfg.FileServiceURL), cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, places),

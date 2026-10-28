@@ -3,6 +3,7 @@ import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { MouseEvent, ReactElement } from "react";
 import { GalleryAlbumMenu } from "./GalleryAlbumMenu";
@@ -28,6 +29,7 @@ export const galleryLink = (gallery: Pick<GalleryRecord, "id">): string => {
 };
 
 /** Opens a feed gallery and gives its owner a direct edit action. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: the fixed card content and owner action form one card.
 export const GalleryFeedCard = ({
   gallery,
   userId,
@@ -40,12 +42,14 @@ export const GalleryFeedCard = ({
   onEdit: (gallery: GalleryRecord) => void;
 }): ReactElement => {
   const locations = galleryLocationNames(gallery);
+  const locationLabel = locations.join(" · ");
   return (
     <Card
       data-test-class="moments-gallery-card"
       data-test-name={gallery.name}
       sx={{
         position: "relative",
+        minWidth: 0,
         "&:hover .moments-card-action, &:focus-within .moments-card-action": { opacity: 1 },
         "@media (hover: none)": { "& .moments-card-action": { opacity: 1 } },
       }}
@@ -54,17 +58,33 @@ export const GalleryFeedCard = ({
         component="a"
         href={galleryLink(gallery)}
         onClick={(event) => openGalleryLink(event, gallery, onOpen)}
+        sx={{ minWidth: 0 }}
       >
         <GalleryCover gallery={gallery} />
-        <CardContent>
-          <Typography variant="h6">{gallery.name}</Typography>
+        <CardContent
+          sx={{
+            height: 128,
+            boxSizing: "border-box",
+            overflow: "hidden",
+            "&:last-child": { pb: 2 },
+          }}
+        >
+          <Typography variant="h6" noWrap>
+            {gallery.name}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             {gallery.type === "ALBUM" ? "Album" : "Collection"} · {gallery.visibility.toLowerCase()}
           </Typography>
-          {gallery.description && <Typography variant="body2">{gallery.description}</Typography>}
-          <Typography variant="body2" color="text.secondary">
-            {locations.join(" · ")}
-          </Typography>
+          {gallery.description && (
+            <Typography variant="body2" noWrap>
+              {gallery.description}
+            </Typography>
+          )}
+          <Tooltip title={locationLabel} arrow>
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {locationLabel}
+            </Typography>
+          </Tooltip>
         </CardContent>
       </CardActionArea>
       {gallery.type === "ALBUM" && <GalleryAlbumMenu gallery={gallery} userId={userId} />}

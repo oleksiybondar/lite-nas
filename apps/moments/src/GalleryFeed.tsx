@@ -281,6 +281,24 @@ export function GalleryFeed({
         </Button>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
+      <Typography variant="h6">Albums and collections</Typography>
+      {shown.length === 0 && !busy && !error && page >= pages && (
+        <Typography>No galleries yet.</Typography>
+      )}
+      <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(230px, 1fr))" gap={2}>
+        {shown.map((gallery) => (
+          <GalleryFeedCard
+            key={gallery.id}
+            gallery={gallery}
+            userId={userId}
+            onOpen={onOpen}
+            onEdit={(gallery) => {
+              setEditing(gallery);
+              setEditorOpen(true);
+            }}
+          />
+        ))}
+      </Box>
       {hasMediaSearch && (
         <Stack spacing={1.5} data-testid="moments-media-search-results">
           <Typography variant="h6">Photos {scope === "shared" ? "" : `(${mediaTotal})`}</Typography>
@@ -304,24 +322,6 @@ export function GalleryFeed({
           )}
         </Stack>
       )}
-      <Typography variant="h6">Albums and collections</Typography>
-      {shown.length === 0 && !busy && !error && page >= pages && (
-        <Typography>No galleries yet.</Typography>
-      )}
-      <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(230px, 1fr))" gap={2}>
-        {shown.map((gallery) => (
-          <GalleryFeedCard
-            key={gallery.id}
-            gallery={gallery}
-            userId={userId}
-            onOpen={onOpen}
-            onEdit={(gallery) => {
-              setEditing(gallery);
-              setEditorOpen(true);
-            }}
-          />
-        ))}
-      </Box>
       <Box ref={sentinel} minHeight={8} />
       {typeof IntersectionObserver === "undefined" && page < pages && !busy && (
         <Button onClick={() => setPage((current) => current + 1)}>Load more</Button>

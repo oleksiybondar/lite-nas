@@ -155,6 +155,8 @@ assert_cmd "Moments offline city data packaged" assert_file usr/share/lite-nas/m
 assert_cmd "Moments city data attribution packaged" assert_file usr/share/lite-nas/moments/GEONAMES-ATTRIBUTION.md
 assert_cmd "Moments optional caption worker packaged" assert_file usr/share/lite-nas/moments/caption_image.py
 assert_cmd "Moments caption model installer packaged" assert_file usr/share/lite-nas/moments/install_caption_model.py
+assert_cmd "Moments embedding worker packaged" assert_file usr/share/lite-nas/moments/embed_text.py
+assert_cmd "Moments embedding model installer packaged" assert_file usr/share/lite-nas/moments/install_embedding_model.py
 
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
 assert_cmd "file-writer deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-writer.sh

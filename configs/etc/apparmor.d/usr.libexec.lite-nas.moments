@@ -6,36 +6,102 @@ profile /usr/libexec/lite-nas/moments flags=(attach_disconnected,mediate_deleted
   include <abstractions/lite-nas-go-base>
   include <abstractions/lite-nas-nats-client>
   include <abstractions/lite-nas-auth-client>
+  # Stacked model profiles intersect this parent policy under NoNewPrivileges.
+  include <abstractions/python>
 
   /usr/libexec/lite-nas/moments mr,
   /etc/lite-nas/moments.conf r,
   /etc/lite-nas/certificates/auth/token-signing.crt r,
   /usr/share/lite-nas/moments/cities1000.zip r,
+  /usr/share/lite-nas/moments/ r,
   /usr/share/lite-nas/moments/caption_image.py r,
+  /usr/share/lite-nas/moments/embed_text.py r,
+  /usr/local/lib/lite-nas/moments/caption-venv/ r,
+  /usr/local/lib/lite-nas/moments/caption-venv/** r,
+  /usr/local/lib/lite-nas/moments/caption-venv/**.so* mr,
+  /usr/local/lib/lite-nas/moments/blip-model/ r,
+  /usr/local/lib/lite-nas/moments/blip-model/** r,
+  /usr/local/lib/lite-nas/moments/embedding-venv/ r,
+  /usr/local/lib/lite-nas/moments/embedding-venv/** r,
+  /usr/local/lib/lite-nas/moments/embedding-venv/**.so* mr,
+  /usr/local/lib/lite-nas/moments/e5-model/ r,
+  /usr/local/lib/lite-nas/moments/e5-model/** r,
+  /usr/lib/**.so* mr,
+  /usr/bin/python3{,.[0-9]*} mr,
   /proc/sys/net/core/somaxconn r,
+  /proc/sys/kernel/random/boot_id r,
+  owner /proc/[0-9]*/task/[0-9]*/comm rw,
+  /sys/devices/system/node/ r,
+  /sys/devices/system/cpu/{kernel_max,present} r,
+  /sys/devices/system/cpu/cpu[0-9]*/topology/physical_package_id r,
+  /tmp/ rw,
+  /tmp/** rwk,
   /var/log/lite-nas/moments.log rw,
   /var/lib/lite-nas/moments/ rw,
   /var/lib/lite-nas/moments/moments.db{,-shm,-wal,-journal} rwk,
   /var/lib/lite-nas/moments/thumbnails/ rw,
   /var/lib/lite-nas/moments/thumbnails/* rwk,
 
-  /usr/bin/python3{,.[0-9]*} Cx -> blip,
-  /usr/local/lib/lite-nas/moments/caption-venv/bin/python3{,.[0-9]*} Cx -> blip,
+  # Name both loaded profiles; a relative &blip is resolved as a missing child.
+  /usr/bin/python3{,.[0-9]*} Px -> /usr/libexec/lite-nas/moments//&/usr/libexec/lite-nas/moments//blip,
+  /usr/local/lib/lite-nas/moments/caption-venv/bin/python3{,.[0-9]*} Px -> /usr/libexec/lite-nas/moments//&/usr/libexec/lite-nas/moments//blip,
+  /usr/local/lib/lite-nas/moments/embedding-venv/bin/python3{,.[0-9]*} Px -> /usr/libexec/lite-nas/moments//&/usr/libexec/lite-nas/moments//embedding,
+  signal (send) set=(kill) peer=/usr/libexec/lite-nas/moments//&/usr/libexec/lite-nas/moments//blip,
+  signal (send) set=(kill) peer=/usr/libexec/lite-nas/moments//&/usr/libexec/lite-nas/moments//embedding,
 
   profile blip {
     include <abstractions/base>
     include <abstractions/python>
 
     /usr/share/lite-nas/moments/caption_image.py r,
+    /usr/share/lite-nas/moments/ r,
     /usr/local/lib/lite-nas/moments/caption-venv/ r,
     /usr/local/lib/lite-nas/moments/caption-venv/** r,
     /usr/local/lib/lite-nas/moments/caption-venv/**.so* mr,
     /usr/local/lib/lite-nas/moments/blip-model/ r,
     /usr/local/lib/lite-nas/moments/blip-model/** r,
     /usr/lib/**.so* mr,
+    /usr/bin/python3{,.[0-9]*} mr,
+    /proc/sys/kernel/random/boot_id r,
+    owner /proc/[0-9]*/task/[0-9]*/comm rw,
+    /sys/devices/system/node/ r,
+    /sys/devices/system/cpu/{kernel_max,present} r,
+    /sys/devices/system/cpu/cpu[0-9]*/topology/physical_package_id r,
+    /tmp/ rw,
+    /tmp/** rwk,
+    network unix stream,
+    network unix dgram,
+    signal (receive) set=(kill) peer=/usr/libexec/lite-nas/moments,
 
-    # Image bytes arrive on stdin; the model needs no sockets or service data.
-    deny network,
+    # Temporary files stay inside systemd's private tmpfs; network access is
+    # limited to local Unix sockets needed by Python libraries.
+  }
+
+  profile embedding {
+    include <abstractions/base>
+    include <abstractions/python>
+
+    /usr/share/lite-nas/moments/embed_text.py r,
+    /usr/share/lite-nas/moments/ r,
+    /usr/local/lib/lite-nas/moments/embedding-venv/ r,
+    /usr/local/lib/lite-nas/moments/embedding-venv/** r,
+    /usr/local/lib/lite-nas/moments/embedding-venv/**.so* mr,
+    /usr/local/lib/lite-nas/moments/e5-model/ r,
+    /usr/local/lib/lite-nas/moments/e5-model/** r,
+    /usr/lib/**.so* mr,
+    /usr/bin/python3{,.[0-9]*} mr,
+    /proc/sys/kernel/random/boot_id r,
+    owner /proc/[0-9]*/task/[0-9]*/comm rw,
+    /sys/devices/system/node/ r,
+    /sys/devices/system/cpu/{kernel_max,present} r,
+    /sys/devices/system/cpu/cpu[0-9]*/topology/physical_package_id r,
+    /tmp/ rw,
+    /tmp/** rwk,
+    network unix stream,
+    network unix dgram,
+    signal (receive) set=(kill) peer=/usr/libexec/lite-nas/moments,
+
+    # Search text arrives on stdin; this child cannot open media or SQLite.
   }
 
   include if exists <local/usr.libexec.lite-nas.moments>
