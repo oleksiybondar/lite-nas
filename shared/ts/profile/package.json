@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./data": "./data.ts"
   },
   "peerDependencies": {
     "@mui/icons-material": "^7.3.9",
