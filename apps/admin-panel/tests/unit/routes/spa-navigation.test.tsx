@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { DashboardPage } from "@pages/DashboardPage";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, expect, test } from "vitest";
 

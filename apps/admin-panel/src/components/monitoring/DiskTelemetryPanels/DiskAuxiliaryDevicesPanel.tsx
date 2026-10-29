@@ -1,8 +1,13 @@
+import {
+  localizeMonitoringMetricLabel,
+  localizeMonitoringMetricValue,
+} from "@components/monitoring/metric-labels";
 import type {
   DiskAuxiliaryDeviceItem,
   DiskAuxiliaryDevicesPanelData,
 } from "@helpers/disk-metric-panel";
 import type { MetricChartLabel } from "@helpers/system-metric-chart";
+import { useLanguage } from "@lite-nas/language";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
@@ -25,6 +30,7 @@ type DiskAuxiliaryDevicesPanelProps = {
 export const DiskAuxiliaryDevicesPanel = ({
   devices,
 }: DiskAuxiliaryDevicesPanelProps): ReactElement | null => {
+  const { getLabel } = useLanguage();
   if (devices.loopDevices.length === 0 && devices.otherDevices.length === 0) {
     return null;
   }
@@ -33,23 +39,25 @@ export const DiskAuxiliaryDevicesPanel = ({
     <Paper data-testid="disk-auxiliary-devices-panel" sx={{ p: 2, width: "100%" }}>
       <Stack spacing={1.25}>
         <Typography data-testid="disk-auxiliary-devices-panel-title" variant="h4">
-          Loop & other block devices
+          {getLabel("admin.monitoringMetrics.loopAndBlockDevices")}
         </Typography>
-        {renderSummaryRow(devices.summaryLabels)}
+        {renderSummaryRow(devices.summaryLabels, getLabel)}
         <Divider />
         <Stack direction="row" flexWrap="wrap" gap={1.5} useFlexGap>
-          {renderDeviceSection(
-            "Loop devices",
-            "disk-loop-devices-section",
-            devices.loopDevices,
-            "No loop-backed virtual devices observed.",
-          )}
-          {renderDeviceSection(
-            "Other block devices",
-            "disk-other-block-devices-section",
-            devices.otherDevices,
-            "No secondary block devices observed.",
-          )}
+          {renderDeviceSection({
+            title: getLabel("admin.monitoringMetrics.loopDevices"),
+            testId: "disk-loop-devices-section",
+            devices: devices.loopDevices,
+            emptyLabel: getLabel("admin.monitoringMetrics.noLoopDevices"),
+            getLabel,
+          })}
+          {renderDeviceSection({
+            title: getLabel("admin.monitoringMetrics.otherBlockDevices"),
+            testId: "disk-other-block-devices-section",
+            devices: devices.otherDevices,
+            emptyLabel: getLabel("admin.monitoringMetrics.noOtherBlockDevices"),
+            getLabel,
+          })}
         </Stack>
       </Stack>
     </Paper>
@@ -59,7 +67,10 @@ export const DiskAuxiliaryDevicesPanel = ({
 /**
  * Renders the summary chip row shown above the auxiliary device lists.
  */
-const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
+const renderSummaryRow = (
+  summaryLabels: MetricChartLabel[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack
       data-testid="disk-auxiliary-devices-summary-row"
@@ -72,7 +83,10 @@ const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
         return (
           <Chip
             key={label.key}
-            label={`${label.key}: ${label.value}`}
+            label={`${localizeMonitoringMetricLabel(label.key, getLabel)}: ${localizeMonitoringMetricValue(
+              label.value,
+              getLabel,
+            )}`}
             size="small"
             variant="outlined"
           />
@@ -85,12 +99,19 @@ const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
 /**
  * Renders one categorized auxiliary device section.
  */
-const renderDeviceSection = (
-  title: string,
-  testId: string,
-  devices: DiskAuxiliaryDeviceItem[],
-  emptyLabel: string,
-): ReactElement => {
+const renderDeviceSection = ({
+  title,
+  testId,
+  devices,
+  emptyLabel,
+  getLabel,
+}: {
+  title: string;
+  testId: string;
+  devices: DiskAuxiliaryDeviceItem[];
+  emptyLabel: string;
+  getLabel: (key: string) => string;
+}): ReactElement => {
   return (
     <Stack data-testid={testId} spacing={1} sx={{ flex: "1 1 320px", minWidth: 0 }}>
       <Typography variant="body2">{title}</Typography>
@@ -105,7 +126,7 @@ const renderDeviceSection = (
       >
         {devices.length > 0 ? (
           devices.map((device) => {
-            return renderDeviceRow(device);
+            return renderDeviceRow(device, getLabel);
           })
         ) : (
           <Typography color="text.secondary" variant="body2">
@@ -120,7 +141,10 @@ const renderDeviceSection = (
 /**
  * Renders one compact auxiliary device row with role and source metadata.
  */
-const renderDeviceRow = (device: DiskAuxiliaryDeviceItem): ReactElement => {
+const renderDeviceRow = (
+  device: DiskAuxiliaryDeviceItem,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Paper
       data-test-class="disk-auxiliary-device-row"
@@ -138,12 +162,18 @@ const renderDeviceRow = (device: DiskAuxiliaryDeviceItem): ReactElement => {
           >
             {device.name}
           </Typography>
-          <Chip label={device.roleLabel} size="small" variant="outlined" />
+          <Chip
+            label={localizeMonitoringMetricLabel(device.roleLabel, getLabel)}
+            size="small"
+            variant="outlined"
+          />
         </Stack>
         <Typography variant="body2">{device.subtitle}</Typography>
         <Typography variant="body2">{device.connectionLabel}</Typography>
         <Typography variant="body2">{device.mountsLabel}</Typography>
-        <Typography variant="body2">Size: {device.sizeLabel}</Typography>
+        <Typography variant="body2">
+          {getLabel("admin.monitoringMetrics.size")}: {device.sizeLabel}
+        </Typography>
       </Stack>
     </Paper>
   );

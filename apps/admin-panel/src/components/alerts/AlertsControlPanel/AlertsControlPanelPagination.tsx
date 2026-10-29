@@ -1,5 +1,6 @@
 import { PaginationControl } from "@components/pagination";
 import { useAlertsControlPanel } from "@hooks/useAlertsControlPanel";
+import { useLanguage } from "@lite-nas/language";
 import type { ReactElement } from "react";
 
 /**
@@ -7,6 +8,7 @@ import type { ReactElement } from "react";
  */
 export const AlertsControlPanelPagination = (): ReactElement => {
   const { page, setPage, totalCount, totalPages } = useAlertsControlPanel();
+  const { getLabel } = useLanguage();
 
   return (
     <PaginationControl
@@ -16,7 +18,9 @@ export const AlertsControlPanelPagination = (): ReactElement => {
         totalCount,
         totalPages,
       }}
-      summary={`${totalCount} alerts across ${Math.max(totalPages, 1)} pages`}
+      summary={getLabel("admin.alerts.paginationSummary")
+        .replace("{count}", String(totalCount))
+        .replace("{pages}", String(Math.max(totalPages, 1)))}
       testIdPrefix="alerts"
     />
   );

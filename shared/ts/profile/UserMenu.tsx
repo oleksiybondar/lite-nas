@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
@@ -34,6 +35,7 @@ export const UserMenu = ({
   onApplicationSettings,
   onLogout,
 }: UserMenuProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const closeAndRun = (action: () => void): void => {
     setAnchorElement(null);
@@ -42,9 +44,9 @@ export const UserMenu = ({
 
   return (
     <>
-      <Tooltip title="User menu">
+      <Tooltip title={getLabel("profile.userMenu")}>
         <IconButton
-          aria-label="User menu"
+          aria-label={getLabel("profile.userMenu")}
           color="inherit"
           data-testid="user-menu-button"
           onClick={(event: MouseEvent<HTMLButtonElement>) => setAnchorElement(event.currentTarget)}
@@ -93,7 +95,7 @@ export const UserMenu = ({
           <ListItemIcon>
             <ManageAccountsRoundedIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="User profile" />
+          <ListItemText primary={getLabel("profile.userProfile")} />
         </MenuItem>
         <MenuItem
           data-testid="user-menu-application-settings-link"
@@ -102,14 +104,14 @@ export const UserMenu = ({
           <ListItemIcon>
             <SettingsRoundedIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="Application settings" />
+          <ListItemText primary={getLabel("profile.applicationSettings")} />
         </MenuItem>
         <Divider />
         <MenuItem data-testid="user-menu-logout-button" onClick={() => closeAndRun(onLogout)}>
           <ListItemIcon>
             <LogoutRoundedIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="Logout" />
+          <ListItemText primary={getLabel("profile.logout")} />
         </MenuItem>
       </Menu>
     </>

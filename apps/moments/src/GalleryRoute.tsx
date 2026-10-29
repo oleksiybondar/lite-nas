@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
@@ -20,6 +21,7 @@ export function GalleryRoute({
   maxConcurrent: number;
   workingDir: string;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const { id } = useParams();
   const navigate = useNavigate();
   const [gallery, setGallery] = useState<GalleryRecord | null>(null);
@@ -30,7 +32,7 @@ export function GalleryRoute({
     const parsed = z.uuid().safeParse(id);
     if (!parsed.success) {
       setGallery(null);
-      setError("Gallery link is invalid.");
+      setError(getLabel("moments.gallery.invalidLink"));
       setLoading(false);
       return;
     }
@@ -43,7 +45,7 @@ export function GalleryRoute({
         if (active) setGallery(result);
       })
       .catch(() => {
-        if (active) setError("Could not open this gallery.");
+        if (active) setError(getLabel("moments.gallery.openFailed"));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -51,7 +53,7 @@ export function GalleryRoute({
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [getLabel, id]);
 
   if (gallery)
     return (
@@ -69,7 +71,7 @@ export function GalleryRoute({
       <Button onClick={() => navigate("/")} sx={{ alignSelf: "start" }}>
         Back to galleries
       </Button>
-      {loading && <Typography>Loading gallery…</Typography>}
+      {loading && <Typography>{getLabel("moments.gallery.loadingGallery")}</Typography>}
       {error && <Alert severity="error">{error}</Alert>}
     </Stack>
   );

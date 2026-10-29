@@ -1,5 +1,6 @@
 import { UserMenu } from "@lite-nas/profile";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 
 describe("shared user menu", () => {
   test.each([

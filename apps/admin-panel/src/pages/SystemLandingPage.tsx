@@ -1,4 +1,5 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
+import { useLanguage } from "@lite-nas/language";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import TerminalIcon from "@mui/icons-material/Terminal";
@@ -8,31 +9,32 @@ import type { ReactElement } from "react";
  * Landing page for system-level administration categories.
  */
 export const SystemLandingPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <CategoryLandingPage
       cards={[
         {
-          description: "CPU, memory, disk, network, and ZFS runtime telemetry.",
+          description: getLabel("admin.landing.systemPerformance"),
           icon: <SpeedRoundedIcon />,
           path: "/system/performance",
-          title: "Performance",
+          title: getLabel("navigation.Performance"),
         },
         {
-          description: "Explore runtime processes and service-managed workloads.",
+          description: getLabel("admin.landing.systemProcesses"),
           icon: <TerminalIcon />,
           path: "/system/processes",
-          title: "Processes",
+          title: getLabel("navigation.Processes"),
         },
         {
-          description: "Raspberry Pi temperature, voltage, clocks, throttling, and fan state.",
+          description: getLabel("admin.landing.systemSensors"),
           icon: <DeviceThermostatRoundedIcon />,
           path: "/system/sensors",
-          title: "Sensors",
+          title: getLabel("navigation.Sensors"),
         },
       ]}
-      overline="System"
-      summary="Inspect runtime health, host telemetry, and board-level signals from one place."
-      title="System"
+      overline={getLabel("navigation.System")}
+      summary={getLabel("admin.landing.systemSummary")}
+      title={getLabel("navigation.System")}
     />
   );
 };

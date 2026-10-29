@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import EditIcon from "@mui/icons-material/Edit";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -28,6 +29,16 @@ export const galleryLink = (gallery: Pick<GalleryRecord, "id">): string => {
   return `${prefix}/galleries/${gallery.id}`;
 };
 
+/** Resolves the localized human label for a persisted gallery type. */
+const galleryTypeLabel = (getLabel: (key: string) => string, type: GalleryRecord["type"]): string =>
+  getLabel(type === "ALBUM" ? "moments.editor.album" : "moments.editor.collection");
+
+/** Resolves the localized human label for a persisted visibility value. */
+const visibilityLabel = (
+  getLabel: (key: string) => string,
+  visibility: GalleryRecord["visibility"],
+): string => getLabel(visibility === "PRIVATE" ? "moments.feed.private" : "moments.feed.public");
+
 /** Opens a feed gallery and gives its owner a direct edit action. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: the fixed card content and owner action form one card.
 export const GalleryFeedCard = ({
@@ -41,8 +52,12 @@ export const GalleryFeedCard = ({
   onOpen: (gallery: GalleryRecord) => void;
   onEdit: (gallery: GalleryRecord) => void;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const locations = galleryLocationNames(gallery);
   const locationLabel = locations.join(" · ");
+  const typeLabel = galleryTypeLabel(getLabel, gallery.type);
+  const visibility = visibilityLabel(getLabel, gallery.visibility);
+  const editLabel = `${getLabel("moments.feed.edit")} ${typeLabel.toLocaleLowerCase()} ${gallery.name}`;
   return (
     <Card
       data-test-class="moments-gallery-card"
@@ -73,7 +88,7 @@ export const GalleryFeedCard = ({
             {gallery.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {gallery.type === "ALBUM" ? "Album" : "Collection"} · {gallery.visibility.toLowerCase()}
+            {typeLabel} · {visibility}
           </Typography>
           {gallery.description && (
             <Typography variant="body2" noWrap>
@@ -90,7 +105,7 @@ export const GalleryFeedCard = ({
       {gallery.type === "ALBUM" && <GalleryAlbumMenu gallery={gallery} userId={userId} />}
       {gallery.ownerId === userId && (
         <IconButton
-          aria-label={`Edit ${gallery.type === "ALBUM" ? "album" : "collection"} ${gallery.name}`}
+          aria-label={editLabel}
           className="moments-card-action"
           onClick={() => onEdit(gallery)}
           size="small"

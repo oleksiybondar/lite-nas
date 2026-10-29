@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { GalleryProvider, type GalleryState } from "./GalleryContext";
 import { GalleryItemMenu } from "./GalleryItemMenu";
 import type { GalleryItem } from "./gallery-model";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 const item: GalleryItem = {
   id: "photo-1",

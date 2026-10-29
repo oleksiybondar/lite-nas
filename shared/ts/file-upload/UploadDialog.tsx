@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import {
   Alert,
   Box,
@@ -63,6 +64,7 @@ interface UploadSubmitOptions extends Omit<UploadQueueOptions, "signal" | "remov
   setError: (message: string) => void;
   setFiles: Dispatch<SetStateAction<File[]>>;
   onClose: () => void;
+  getLabel: (key: string) => string;
 }
 
 /** Props for the stateless upload dialog view. */
@@ -97,6 +99,7 @@ function addFiles(
   selected: FileList | null,
   setFiles: Dispatch<SetStateAction<File[]>>,
   setError: (message: string) => void,
+  getLabel: (key: string) => string,
 ): void {
   if (selected === null) {
     return;
@@ -104,7 +107,7 @@ function addFiles(
   const next = Array.from(selected);
   const invalid = next.find((file) => !uploadFilenameSchema.safeParse(file.name).success);
   if (invalid) {
-    setError(`Invalid file name: ${invalid.name}`);
+    setError(getLabel("fileUpload.invalidName").replace("{name}", invalid.name));
     return;
   }
   setFiles((current) => [...current, ...next]);
@@ -134,7 +137,7 @@ async function submitUpload(options: UploadSubmitOptions): Promise<void> {
     return;
   }
   if (!hostPathSchema.safeParse(options.directory).success) {
-    options.setError("The destination directory is invalid.");
+    options.setError(options.getLabel("fileUpload.invalidDestination"));
     return;
   }
   const controller = new AbortController();
@@ -152,7 +155,7 @@ async function submitUpload(options: UploadSubmitOptions): Promise<void> {
     options.setProgress(null);
     options.onClose();
   } catch (caught) {
-    options.setError(uploadErrorMessage(caught, controller.signal));
+    options.setError(uploadErrorMessage(caught, controller.signal, options.getLabel));
   } finally {
     options.controllerRef.current = null;
     options.setBusy(false);
@@ -160,11 +163,15 @@ async function submitUpload(options: UploadSubmitOptions): Promise<void> {
 }
 
 /** Returns a user-facing upload error, including explicit cancellation. */
-function uploadErrorMessage(caught: unknown, signal: AbortSignal): string {
+function uploadErrorMessage(
+  caught: unknown,
+  signal: AbortSignal,
+  getLabel: (key: string) => string,
+): string {
   if (signal.aborted) {
-    return "Upload cancelled.";
+    return getLabel("fileUpload.cancelled");
   }
-  return caught instanceof Error ? caught.message : "Upload failed.";
+  return caught instanceof Error ? caught.message : getLabel("fileUpload.failed");
 }
 
 /** Clears queued upload state and closes the dialog when no transfer is active. */
@@ -197,6 +204,7 @@ function UploadDropZone({
   inputRef: RefObject<HTMLInputElement>;
   onFilesSelected: (files: FileList | null) => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const handleDrop = (event: DragEvent<HTMLElement>): void => {
     event.preventDefault();
     if (!busy) {
@@ -215,14 +223,14 @@ function UploadDropZone({
       sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 3, textAlign: "center" }}
     >
       <Stack spacing={1} alignItems="center">
-        <Typography>Drag files here or select them from your device.</Typography>
+        <Typography>{getLabel("fileUpload.dragFiles")}</Typography>
         <Button
           onClick={() => inputRef.current?.click()}
           disabled={busy}
           variant="outlined"
           data-testid="file-upload-select-button"
         >
-          Select files
+          {getLabel("fileUpload.selectFiles")}
         </Button>
         <input ref={inputRef} type="file" multiple hidden onChange={handleSelection} />
       </Stack>
@@ -246,6 +254,7 @@ function UploadDetails({
   percent?: number;
   error: string;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <>
       {files.length > 0 && <UploadSelection files={files} />}
@@ -256,7 +265,7 @@ function UploadDetails({
         </Alert>
       )}
       <Typography variant="caption" color="text.secondary">
-        Existing files with the same name may be replaced when your permissions allow it.
+        {getLabel("fileUpload.replaceHint")}
       </Typography>
     </>
   );
@@ -264,10 +273,15 @@ function UploadDetails({
 
 /** Lists the names currently waiting in the upload queue. */
 function UploadSelection({ files }: { files: File[] }): ReactElement {
-  const countLabel = files.length === 1 ? "file" : "files";
+  const { getLabel } = useLanguage();
   return (
     <Typography variant="body2" data-testid="file-upload-selection">
-      {files.length} {countLabel} selected: {files.map((file) => file.name).join(", ")}
+      {(files.length === 1
+        ? getLabel("fileUpload.selectedOne")
+        : getLabel("fileUpload.selectedMany")
+      )
+        .replace("{count}", String(files.length))
+        .replace("{names}", files.map((file) => file.name).join(", "))}
     </Typography>
   );
 }
@@ -278,10 +292,11 @@ function UploadProgressView({
   progress,
   percent,
 }: Omit<UploadProgressViewProps, "busy">): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <Stack spacing={1} data-testid="file-upload-progress">
       <Typography variant="body2">
-        {activeName}: {progress?.phase ?? "starting"}
+        {activeName}: {progress?.phase ?? getLabel("fileUpload.starting")}
         {percent === undefined ? "" : ` ${percent}%`}
       </Typography>
       <LinearProgress
@@ -306,14 +321,15 @@ function UploadDialogActions({
   onCancel: () => void;
   onUpload: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <DialogActions>
       {busy ? (
         <Button onClick={onCancel} data-testid="file-upload-cancel-button">
-          Cancel upload
+          {getLabel("fileUpload.cancelUpload")}
         </Button>
       ) : (
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{getLabel("fileUpload.close")}</Button>
       )}
       <Button
         onClick={onUpload}
@@ -321,7 +337,7 @@ function UploadDialogActions({
         variant="contained"
         data-testid="file-upload-submit-button"
       >
-        Upload
+        {getLabel("fileUpload.upload")}
       </Button>
     </DialogActions>
   );
@@ -329,6 +345,7 @@ function UploadDialogActions({
 
 /** Renders the complete upload modal using state supplied by its controller. */
 function UploadDialogView(props: UploadDialogViewProps): ReactElement {
+  const { getLabel } = useLanguage();
   const percent =
     props.progress && props.progress.total > 0
       ? Math.round((props.progress.completed / props.progress.total) * 100)
@@ -341,7 +358,7 @@ function UploadDialogView(props: UploadDialogViewProps): ReactElement {
       maxWidth="sm"
       data-testid="file-upload-dialog"
     >
-      <DialogTitle>Upload files</DialogTitle>
+      <DialogTitle>{getLabel("fileUpload.title")}</DialogTitle>
       <UploadDialogContent {...props} percent={percent} />
       <UploadDialogActions
         busy={props.busy}
@@ -355,12 +372,14 @@ function UploadDialogView(props: UploadDialogViewProps): ReactElement {
 }
 
 /** Selects or drops files and sends them through the proprietary upload flow. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: upload controller state and submission callbacks stay together.
 export function UploadDialog({
   open,
   directory,
   onClose,
   onUploaded,
 }: UploadDialogProps): ReactElement {
+  const { getLabel } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -385,6 +404,7 @@ export function UploadDialog({
       setFiles,
       onUploaded,
       onClose,
+      getLabel,
     });
   };
 
@@ -403,7 +423,7 @@ export function UploadDialog({
       controllerRef={controllerRef}
       onClose={() => closeUpload({ busy, setFiles, setProgress, setError, onClose })}
       onUpload={handleUpload}
-      onFilesSelected={(selected) => addFiles(selected, setFiles, setError)}
+      onFilesSelected={(selected) => addFiles(selected, setFiles, setError, getLabel)}
     />
   );
 }
@@ -434,11 +454,12 @@ function UploadDialogContent({
   onPrivateChange: (value: boolean) => void;
   onFilesSelected: (files: FileList | null) => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <DialogContent>
       <Stack spacing={2}>
         <Typography variant="body2" color="text.secondary">
-          Destination: {directory}
+          {getLabel("fileUpload.destination").replace("{directory}", directory)}
         </Typography>
         <FormControlLabel
           control={
@@ -448,7 +469,7 @@ function UploadDialogContent({
               onChange={(_, checked) => onPrivateChange(!checked)}
             />
           }
-          label="Readable by other users"
+          label={getLabel("fileUpload.readableByOthers")}
         />
         <UploadDropZone busy={busy} inputRef={inputRef} onFilesSelected={onFilesSelected} />
         <UploadDetails

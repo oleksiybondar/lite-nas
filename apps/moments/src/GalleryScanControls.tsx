@@ -1,5 +1,6 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: scan history, polling, and user actions belong to one status control.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: the scan control keeps its lifecycle and feedback together.
+import { useLanguage } from "@lite-nas/language";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -32,12 +33,13 @@ export const GalleryScanControls = ({
   open: boolean;
   kind?: GalleryScan["kind"];
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const [scan, setScan] = useState<GalleryScan | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [force, setForce] = useState(false);
-  const label = kind === "CAPTION" ? "caption" : "media";
+  const label = getLabel(kind === "CAPTION" ? "moments.scan.captions" : "moments.scan.media");
   const loadedGallery = useRef<string | null>(null);
   const historyLoaded = useRef(false);
 
@@ -54,7 +56,7 @@ export const GalleryScanControls = ({
         if (active) setScan(job);
       })
       .catch(() => {
-        if (active) setError(`Could not load ${label} scan status.`);
+        if (active) setError(getLabel("moments.scan.loadingStatus").replace("{kind}", label));
       })
       .finally(() => {
         if (active) {
@@ -65,7 +67,7 @@ export const GalleryScanControls = ({
     return () => {
       active = false;
     };
-  }, [galleryId, open, kind, label]);
+  }, [galleryId, open, kind, label, getLabel]);
 
   useEffect(() => {
     if (!scanIsActive(scan) || !scan) return;
@@ -79,7 +81,7 @@ export const GalleryScanControls = ({
           setError(null);
         }
       } catch {
-        if (active) setError(`Could not refresh ${label} scan progress.`);
+        if (active) setError(getLabel("moments.scan.refreshFailed").replace("{kind}", label));
       } finally {
         if (active) timer = window.setTimeout(() => void poll(), 3000);
       }
@@ -89,7 +91,7 @@ export const GalleryScanControls = ({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [scan, label]);
+  }, [scan, label, getLabel]);
 
   const start = async (): Promise<void> => {
     setActionBusy(true);
@@ -101,7 +103,7 @@ export const GalleryScanControls = ({
           : startGalleryScan(galleryId)),
       );
     } catch {
-      setError(`Could not start ${label} scan.`);
+      setError(getLabel("moments.scan.startFailed").replace("{kind}", label));
     } finally {
       setActionBusy(false);
     }
@@ -114,7 +116,7 @@ export const GalleryScanControls = ({
     try {
       setScan(await cancelGalleryScan(scan.id));
     } catch {
-      setError(`Could not cancel ${label} scan.`);
+      setError(getLabel("moments.scan.cancelFailed").replace("{kind}", label));
     } finally {
       setActionBusy(false);
     }
@@ -131,33 +133,39 @@ export const GalleryScanControls = ({
       data-testid="gallery-scan-controls"
       sx={{ borderTop: 1, borderColor: "divider", pt: 2 }}
     >
-      <Typography variant="h6">{kind === "CAPTION" ? "Image captions" : "Media scan"}</Typography>
+      <Typography variant="h6">
+        {getLabel(kind === "CAPTION" ? "moments.scan.captions" : "moments.scan.media")}
+      </Typography>
       <Typography variant="body2" color="text.secondary">
         {kind === "CAPTION"
-          ? "Generate searchable descriptions for images without captions. The local BLIP model is used only for this action."
-          : "Scan the gallery's files to update searchable media types and tags."}
+          ? getLabel("moments.scan.descriptionCaptions")
+          : getLabel("moments.scan.descriptionMedia")}
       </Typography>
       {kind === "CAPTION" && (
         <FormControlLabel
           control={<Switch checked={force} onChange={(event) => setForce(event.target.checked)} />}
-          label="Regenerate existing captions"
+          label={getLabel("moments.scan.regenerate")}
         />
       )}
       <Stack direction="row" spacing={1}>
         <Button disabled={loading || actionBusy || active} onClick={() => void start()}>
-          {kind === "CAPTION" ? "Generate captions" : "Scan media"}
+          {getLabel(
+            kind === "CAPTION" ? "moments.scan.generateCaptions" : "moments.scan.scanMedia",
+          )}
         </Button>
         {active && (
           <Button disabled={actionBusy} onClick={() => void cancel()}>
-            Cancel scan
+            {getLabel("moments.scan.cancel")}
           </Button>
         )}
       </Stack>
       {scan && (
         <Typography role="status" variant="body2">
-          {scan.status.toLowerCase()} · {scan.processedItems}
-          {scan.totalItems === null ? "" : ` / ${scan.totalItems}`} processed ·{" "}
-          {scan.successfulItems} successful · {scan.failedItems} failed
+          {getLabel(`moments.scan.status.${scan.status.toLowerCase()}`)} · {scan.processedItems}
+          {scan.totalItems === null ? "" : ` / ${scan.totalItems}`}{" "}
+          {getLabel("moments.scan.processed")} · {scan.successfulItems}{" "}
+          {getLabel("moments.scan.successful")} · {scan.failedItems}{" "}
+          {getLabel("moments.scan.failed")}
         </Typography>
       )}
       {active && (

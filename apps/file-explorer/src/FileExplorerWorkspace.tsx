@@ -166,16 +166,13 @@ function ActionConfirmation({
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <ConfirmActionDialog
       open={action !== null}
-      title={
-        action
-          ? `${action.kind[0].toUpperCase()}${action.kind.slice(1)} ${action.entries.length} item(s)`
-          : "Confirm action"
-      }
-      description={confirmationDescription(action)}
-      confirmLabel={action?.kind ?? "Confirm"}
+      title={getLabel("explorer.confirmAction")}
+      description={confirmationDescription(action, getLabel)}
+      confirmLabel={action ? getLabel(`common.${action.kind}`) : getLabel("explorer.confirm")}
       onClose={onClose}
       onConfirm={onConfirm}
     />
@@ -183,12 +180,22 @@ function ActionConfirmation({
 }
 
 /** Creates the confirmation text from the action snapshot. */
-function confirmationDescription(action: PendingAction | null): string {
+function confirmationDescription(
+  action: PendingAction | null,
+  getLabel: (key: string) => string,
+): string {
   if (action === null) {
     return "";
   }
-  const destination = action.destination ? ` to ${action.destination}` : "";
-  return `Type yes to ${action.kind} ${action.entries.length} selected item(s)${destination}. Existing files at the destination will be replaced.`;
+  return getLabel("explorer.confirmSummary")
+    .replace("{action}", getLabel(`common.${action.kind}`))
+    .replace("{count}", String(action.entries.length))
+    .replace(
+      "{destination}",
+      action.destination
+        ? ` ${getLabel("explorer.confirmDestination").replace("{path}", action.destination)}`
+        : "",
+    );
 }
 
 /** Displays the upload and new-folder dialogs for the active directory. */
@@ -236,14 +243,20 @@ function PreviewDialog({
   path: string | null;
   onClose: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const kind = path === null ? null : filePreviewKind({ kind: "file", path });
   const extension = path?.slice(path.lastIndexOf(".") + 1).toLowerCase() ?? "";
   const PreviewContent = kind === null ? null : previewContentByKind[kind];
   return (
     <Dialog open={path !== null} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        {path === null ? "Preview" : displayName(path)}
-        <IconButton aria-label="Close preview" onClick={onClose} edge="end" size="small">
+        {path === null ? getLabel("explorer.preview") : displayName(path)}
+        <IconButton
+          aria-label={getLabel("explorer.closePreview")}
+          onClick={onClose}
+          edge="end"
+          size="small"
+        >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -286,9 +299,10 @@ function ImagePreview({ path }: PreviewContentProps): ReactElement {
 
 /** Shows a PDF through the browser's built-in document viewer. */
 function PdfPreview({ path }: PreviewContentProps): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <iframe
-      title="PDF preview"
+      title={getLabel("explorer.pdfPreview")}
       src={fileServicePath("/f", path)}
       style={{ width: "100%", height: "70vh", border: 0 }}
     />
@@ -297,6 +311,7 @@ function PdfPreview({ path }: PreviewContentProps): ReactElement {
 
 /** Shows browser controls for a supported video or audio resource. */
 function MediaPreview({ path, extension }: PreviewContentProps): ReactElement {
+  const { getLabel } = useLanguage();
   const source = fileServicePath("/f", path);
   if (["mp4", "m4v", "mov", "avi", "mkv", "webm", "ogv"].includes(extension)) {
     return (
@@ -307,39 +322,44 @@ function MediaPreview({ path, extension }: PreviewContentProps): ReactElement {
         src={source}
         sx={{ width: "100%", maxHeight: "70vh" }}
       >
-        Your browser cannot play this video.
+        {getLabel("explorer.videoUnsupported")}
       </Box>
     );
   }
   return (
     <Box component="audio" controls preload="metadata" src={source} sx={{ width: "100%", mt: 2 }}>
-      Your browser cannot play this audio file.
+      {getLabel("explorer.audioUnsupported")}
     </Box>
   );
 }
 
 /** Loads authorized text and displays it as escaped source with its file type. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Loading, error, and source rendering form one preview lifecycle.
 function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement {
+  const { getLabel } = useLanguage();
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
     setContent(null);
     setError("");
-    void loadTextPreview(path, controller.signal)
+    void loadTextPreview(path, controller.signal, getLabel)
       .then(setContent)
-      .catch((caught: unknown) => setError(previewLoadError(caught, controller.signal.aborted)));
+      .catch((caught: unknown) =>
+        setError(previewLoadError(caught, controller.signal.aborted, getLabel)),
+      );
     return () => controller.abort();
-  }, [path]);
+  }, [path, getLabel]);
 
-  if (error) return <Alert severity="error">{error}</Alert>;
-  if (content === null) return <CircularProgress aria-label="Loading text preview" />;
+  const previewStatus = renderTextPreviewStatus(error, content, getLabel);
+  if (previewStatus) return previewStatus;
+  if (content === null) return null;
   if (extension === "md") return <MarkdownFilePreview content={content} />;
   const highlighted = highlightSource(content, extension);
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
-        {extension.toUpperCase()} source
+        {getLabel("explorer.sourceLabel").replace("{extension}", extension.toUpperCase())}
       </Typography>
       <Box
         component="pre"
@@ -373,6 +393,19 @@ function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement
   );
 }
 
+/** Renders the loading or error state before text content is available. */
+function renderTextPreviewStatus(
+  error: string,
+  content: string | null,
+  getLabel: (key: string) => string,
+): ReactElement | null {
+  if (error) return <Alert severity="error">{error}</Alert>;
+  if (content === null) {
+    return <CircularProgress aria-label={getLabel("explorer.textPreviewLoading")} />;
+  }
+  return null;
+}
+
 const markdownRenderer = new MarkdownIt({ html: false, linkify: false, typographer: false });
 
 /** Renders Markdown syntax while keeping embedded HTML inert. */
@@ -396,19 +429,31 @@ function MarkdownFilePreview({ content }: { content: string }): ReactElement {
 }
 
 /** Fetches one source file with the current same-origin user session. */
-async function loadTextPreview(path: string, signal: AbortSignal): Promise<string> {
+async function loadTextPreview(
+  path: string,
+  signal: AbortSignal,
+  getLabel: (key: string) => string,
+): Promise<string> {
   const response = await fetch(fileServicePath("/f", path), {
     credentials: "same-origin",
     signal,
   });
-  if (!response.ok) throw new Error(`Could not load file (HTTP ${response.status}).`);
+  if (!response.ok) {
+    throw new Error(
+      getLabel("explorer.fileLoadHttpFailed").replace("{status}", String(response.status)),
+    );
+  }
   return response.text();
 }
 
 /** Converts a preview fetch error to a visible message, ignoring dismissed loads. */
-function previewLoadError(caught: unknown, aborted: boolean): string {
+function previewLoadError(
+  caught: unknown,
+  aborted: boolean,
+  getLabel: (key: string) => string,
+): string {
   if (aborted) return "";
-  return caught instanceof Error ? caught.message : "Could not load this file.";
+  return caught instanceof Error ? caught.message : getLabel("explorer.fileLoadFailed");
 }
 
 /** Renders upload, folder, action confirmation, and preview dialogs together. */

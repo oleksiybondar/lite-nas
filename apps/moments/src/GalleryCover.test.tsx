@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+
+import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { GalleryCover } from "./GalleryCover";
 import { galleryFiles } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./moments-data", () => ({ galleryFiles: vi.fn() }));
 

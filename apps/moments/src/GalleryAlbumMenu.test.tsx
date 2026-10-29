@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { GalleryAlbumMenu } from "./GalleryAlbumMenu";
 import {
@@ -9,6 +10,7 @@ import {
   removeCollectionDirectory,
 } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./moments-data", () => ({
   addCollectionDirectory: vi.fn(),

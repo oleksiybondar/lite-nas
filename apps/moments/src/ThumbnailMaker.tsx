@@ -1,5 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: thumbnail controls keep each user action close to its handler.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: the initial builder keeps its reviewable UI sections together.
+
+import { useLanguage } from "@lite-nas/language";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import DownloadIcon from "@mui/icons-material/Download";
 import ShuffleIcon from "@mui/icons-material/Shuffle";
@@ -44,6 +46,13 @@ import {
 } from "./thumbnail-model";
 
 type Template = "scatter" | "ribbon" | "grid" | "featured";
+const backgroundLabelKeys: Record<ThumbnailDocument["background"], string> = {
+  transparent: "transparent",
+  white: "white",
+  cream: "cream",
+  paper: "paper",
+  charcoal: "charcoal",
+};
 type Drag = {
   id: string;
   action: "move" | "resize" | "rotate" | "composition";
@@ -218,6 +227,7 @@ export const ThumbnailMaker = ({
   items: readonly GalleryItem[];
   onSave: (image: Blob) => Promise<void>;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const gallery = items.filter((item) => item.kind === "image");
   const [documentValue, setDocument] = useState<ThumbnailDocument>(initialDocument);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -276,16 +286,16 @@ export const ThumbnailMaker = ({
           setImages(loaded);
           setMessage(
             loaded.size < documentValue.layers.length
-              ? "Some images could not be loaded. Check their sources before export."
+              ? getLabel("moments.thumbnail.loadingSome")
               : null,
           );
         }
       })
       .catch(() => {
         if (requestId === imageRequestRef.current)
-          setMessage("An image could not be loaded. Check its source before export.");
+          setMessage(getLabel("moments.thumbnail.loadFailed"));
       });
-  }, [documentValue]);
+  }, [documentValue, getLabel]);
 
   useEffect(
     () => () => {
@@ -357,11 +367,13 @@ export const ThumbnailMaker = ({
   /** Appends one source while respecting the document's image limit. */
   const addSource = (src: string, name: string): void => {
     if (!thumbnailSourceSchema.safeParse(src).success) {
-      setMessage("Unsupported image source.");
+      setMessage(getLabel("moments.thumbnail.unsupported"));
       return;
     }
     if (documentValue.layers.length >= MAX_THUMBNAIL_LAYERS) {
-      setMessage(`A thumbnail can contain up to ${MAX_THUMBNAIL_LAYERS} images.`);
+      setMessage(
+        getLabel("moments.thumbnail.maxLayers").replace("{count}", String(MAX_THUMBNAIL_LAYERS)),
+      );
       return;
     }
     const layer = newThumbnailLayer(src, name);
@@ -374,7 +386,9 @@ export const ThumbnailMaker = ({
   const onUpload = async (files: FileList | null): Promise<void> => {
     if (!files) return;
     if (files.length > MAX_THUMBNAIL_LAYERS - documentValue.layers.length) {
-      setMessage(`A thumbnail can contain up to ${MAX_THUMBNAIL_LAYERS} images.`);
+      setMessage(
+        getLabel("moments.thumbnail.maxLayers").replace("{count}", String(MAX_THUMBNAIL_LAYERS)),
+      );
       return;
     }
     const allowed = Array.from(files);
@@ -382,11 +396,11 @@ export const ThumbnailMaker = ({
       const layers: ThumbnailLayer[] = [];
       for (const file of allowed) {
         if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type))
-          throw new Error("Use PNG, JPEG, WebP, or GIF images.");
-        if (file.size > 20 * 1024 * 1024) throw new Error("Each upload must be 20 MB or smaller.");
+          throw new Error(getLabel("moments.thumbnail.formats"));
+        if (file.size > 20 * 1024 * 1024) throw new Error(getLabel("moments.thumbnail.maxUpload"));
         const src = await readUpload(file);
         if (!thumbnailSourceSchema.safeParse(src).success)
-          throw new Error("The uploaded image could not be validated.");
+          throw new Error(getLabel("moments.thumbnail.validateUpload"));
         layers.push(newThumbnailLayer(src, file.name));
       }
       setDocument((current) => ({
@@ -396,14 +410,16 @@ export const ThumbnailMaker = ({
       if (layers[0]) setSelectedId(layers[0].id);
       setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Upload failed.");
+      setMessage(
+        error instanceof Error ? error.message : getLabel("moments.thumbnail.uploadFailed"),
+      );
     }
   };
 
   /** Picks up to the random-selection limit of distinct gallery images. */
   const randomize = (): void => {
     if (gallery.length === 0) {
-      setMessage("Gallery images are not ready.");
+      setMessage(getLabel("moments.thumbnail.notReady"));
       return;
     }
     const count = Math.min(MAX_RANDOM_THUMBNAIL_LAYERS, Math.max(1, randomCount), gallery.length);
@@ -547,8 +563,9 @@ export const ThumbnailMaker = ({
   /** Renders the validated recipe at export resolution for download or storage. */
   const renderImage = async (format: "png" | "jpeg"): Promise<Blob> => {
     const result = thumbnailDocumentSchema.safeParse(documentValue);
-    if (!result.success) throw new Error("Add at least one valid image first.");
-    if (images.size !== result.data.layers.length) throw new Error("Wait for previews to load.");
+    if (!result.success) throw new Error(getLabel("moments.thumbnail.addImageFirst"));
+    if (images.size !== result.data.layers.length)
+      throw new Error(getLabel("moments.thumbnail.waitPreviews"));
     const [width, height] = thumbnailExportSize(result.data, images);
     const canvas = window.document.createElement("canvas");
     const context = beginThumbnail(canvas, result.data, width, height, format === "jpeg");
@@ -571,8 +588,8 @@ export const ThumbnailMaker = ({
     try {
       const blob = await renderImage(format);
       downloadBlob(blob, `moments-thumbnail.${format === "jpeg" ? "jpg" : "png"}`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Image export failed.");
+    } catch {
+      setMessage(getLabel("moments.thumbnail.exportFailed"));
     }
   };
 
@@ -582,8 +599,8 @@ export const ThumbnailMaker = ({
     try {
       await onSave(await renderImage("png"));
       setMessage(null);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save thumbnail.");
+    } catch {
+      setMessage(getLabel("moments.thumbnail.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -594,12 +611,12 @@ export const ThumbnailMaker = ({
     try {
       const parsed: unknown = JSON.parse(jsonText);
       const result = thumbnailDocumentSchema.safeParse(parsed);
-      if (!result.success) throw new Error("JSON does not match the thumbnail format.");
+      if (!result.success) throw new Error(getLabel("moments.thumbnail.jsonFormat"));
       setDocument(result.data);
       setSelectedId(result.data.layers[0]?.id ?? null);
       setMessage(null);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Invalid JSON.");
+    } catch {
+      setMessage(getLabel("moments.thumbnail.invalidJson"));
     }
   };
 
@@ -607,7 +624,7 @@ export const ThumbnailMaker = ({
   const exportJson = (): void => {
     const result = thumbnailDocumentSchema.safeParse(documentValue);
     if (!result.success) {
-      setMessage("Add at least one valid image before exporting JSON.");
+      setMessage(getLabel("moments.thumbnail.exportJsonFirst"));
       return;
     }
     downloadBlob(
@@ -655,10 +672,12 @@ export const ThumbnailMaker = ({
   return (
     <Stack spacing={3} data-testid="thumbnail-maker">
       <Box>
-        <Typography variant="h4">Generate gallery cover</Typography>
+        <Typography variant="h4">{getLabel("moments.thumbnail.galleryTitle")}</Typography>
         <Typography color="text.secondary">
-          Arrange up to {MAX_THUMBNAIL_LAYERS} gallery or uploaded images, then save the cover or
-          download it.
+          {getLabel("moments.thumbnail.arrangeHelp").replace(
+            "{count}",
+            String(MAX_THUMBNAIL_LAYERS),
+          )}
         </Typography>
       </Box>
       {message && (
@@ -671,15 +690,16 @@ export const ThumbnailMaker = ({
           <Paper sx={{ p: 2 }}>
             <Stack spacing={2}>
               <Typography variant="h6">
-                Images ({documentValue.layers.length}/{MAX_THUMBNAIL_LAYERS})
+                {getLabel("moments.thumbnail.images")} ({documentValue.layers.length}/
+                {MAX_THUMBNAIL_LAYERS})
               </Typography>
               <GalleryImagePicker
                 items={gallery}
-                label="Add gallery photo"
+                label={getLabel("moments.thumbnail.addGalleryPhoto")}
                 onChoose={(item) => addSource(item.url, item.filename)}
               />
               <Button component="label" startIcon={<AddPhotoAlternateIcon />} variant="outlined">
-                Upload images
+                {getLabel("moments.thumbnail.uploadImages")}
                 <input
                   hidden
                   multiple
@@ -693,7 +713,7 @@ export const ThumbnailMaker = ({
               </Button>
               <Stack direction="row" spacing={1}>
                 <TextField
-                  label="Random count"
+                  label={getLabel("moments.thumbnail.randomCount")}
                   size="small"
                   type="number"
                   value={randomCount}
@@ -708,23 +728,25 @@ export const ThumbnailMaker = ({
                   }
                 />
                 <Button onClick={randomize} startIcon={<ShuffleIcon />} variant="contained">
-                  Random
+                  {getLabel("moments.thumbnail.random")}
                 </Button>
               </Stack>
               <TextField
                 select
-                label="Template"
+                label={getLabel("moments.thumbnail.template")}
                 size="small"
                 value={template}
                 onChange={(event) => setTemplate(event.target.value as Template)}
               >
-                <MenuItem value="scatter">Scattered photos</MenuItem>
-                <MenuItem value="ribbon">Curved card ribbon</MenuItem>
-                <MenuItem value="grid">Neat grid</MenuItem>
-                <MenuItem value="featured">Featured photo</MenuItem>
+                <MenuItem value="scatter">{getLabel("moments.thumbnail.templateScatter")}</MenuItem>
+                <MenuItem value="ribbon">{getLabel("moments.thumbnail.templateRibbon")}</MenuItem>
+                <MenuItem value="grid">{getLabel("moments.thumbnail.templateGrid")}</MenuItem>
+                <MenuItem value="featured">
+                  {getLabel("moments.thumbnail.templateFeatured")}
+                </MenuItem>
               </TextField>
               <Button disabled={documentValue.layers.length === 0} onClick={applyTemplate}>
-                Apply template to selected images
+                {getLabel("moments.thumbnail.applyTemplate")}
               </Button>
               <Stack sx={{ maxHeight: 250, overflowY: "auto" }} spacing={0.5}>
                 {documentValue.layers.map((layer) => (
@@ -748,10 +770,10 @@ export const ThumbnailMaker = ({
           </Paper>
           <Paper sx={{ p: 2 }}>
             <Stack spacing={2}>
-              <Typography variant="h6">Canvas</Typography>
+              <Typography variant="h6">{getLabel("moments.thumbnail.canvas")}</Typography>
               <TextField
                 select
-                label="Aspect ratio"
+                label={getLabel("moments.thumbnail.aspectRatio")}
                 size="small"
                 value={documentValue.aspect}
                 onChange={(event) =>
@@ -769,7 +791,7 @@ export const ThumbnailMaker = ({
               </TextField>
               <TextField
                 select
-                label="Background"
+                label={getLabel("moments.thumbnail.background")}
                 size="small"
                 value={documentValue.background}
                 onChange={(event) =>
@@ -781,24 +803,28 @@ export const ThumbnailMaker = ({
               >
                 {["transparent", "white", "cream", "paper", "charcoal"].map((background) => (
                   <MenuItem key={background} value={background}>
-                    {background}
+                    {getLabel(
+                      `moments.thumbnail.background${backgroundLabelKeys[background as ThumbnailDocument["background"]][0].toUpperCase()}${backgroundLabelKeys[background as ThumbnailDocument["background"]].slice(1)}`,
+                    )}
                   </MenuItem>
                 ))}
               </TextField>
-              <Typography variant="subtitle1">Whole composition</Typography>
+              <Typography variant="subtitle1">
+                {getLabel("moments.thumbnail.composition")}
+              </Typography>
               <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1 }}>
                 <NumericInput
-                  label="X %"
+                  label={getLabel("moments.thumbnail.xPercent")}
                   value={documentValue.composition.x}
                   onCommit={(value) => updateComposition({ x: value })}
                 />
                 <NumericInput
-                  label="Y %"
+                  label={getLabel("moments.thumbnail.yPercent")}
                   value={documentValue.composition.y}
                   onCommit={(value) => updateComposition({ y: value })}
                 />
                 <NumericInput
-                  label="Scale"
+                  label={getLabel("moments.thumbnail.scale")}
                   value={documentValue.composition.scale}
                   step={0.05}
                   onCommit={(value) => updateComposition({ scale: value })}
@@ -812,14 +838,14 @@ export const ThumbnailMaker = ({
                     })
                   }
                 >
-                  Zoom out
+                  {getLabel("moments.thumbnail.zoomOut")}
                 </Button>
                 <Button
                   onClick={() =>
                     updateComposition({ scale: Math.min(4, documentValue.composition.scale + 0.1) })
                   }
                 >
-                  Zoom in
+                  {getLabel("moments.thumbnail.zoomIn")}
                 </Button>
               </Stack>
               <Button
@@ -830,7 +856,7 @@ export const ThumbnailMaker = ({
                   )
                 }
               >
-                Fit composition
+                {getLabel("moments.thumbnail.fitComposition")}
               </Button>
               <FormControlLabel
                 control={
@@ -839,7 +865,7 @@ export const ThumbnailMaker = ({
                     onChange={(_, checked) => setMoveComposition(checked)}
                   />
                 }
-                label="Drag whole composition"
+                label={getLabel("moments.thumbnail.dragComposition")}
               />
             </Stack>
           </Paper>
@@ -858,7 +884,7 @@ export const ThumbnailMaker = ({
             >
               <canvas
                 ref={canvasRef}
-                aria-label="Thumbnail preview"
+                aria-label={getLabel("moments.thumbnail.preview")}
                 onPointerDown={chooseCanvasLayer}
                 onPointerMove={moveDrag}
                 onPointerUp={finishDrag}
@@ -898,7 +924,7 @@ export const ThumbnailMaker = ({
                       onPointerMove={moveDrag}
                       onPointerUp={finishDrag}
                       onPointerCancel={finishDrag}
-                      aria-label="Rotate image"
+                      aria-label={getLabel("moments.thumbnail.rotate")}
                       sx={{
                         position: "absolute",
                         top: -18,
@@ -915,7 +941,7 @@ export const ThumbnailMaker = ({
                       onPointerMove={moveDrag}
                       onPointerUp={finishDrag}
                       onPointerCancel={finishDrag}
-                      aria-label="Resize image"
+                      aria-label={getLabel("moments.thumbnail.resize")}
                       sx={{
                         position: "absolute",
                         bottom: -9,
@@ -934,17 +960,19 @@ export const ThumbnailMaker = ({
           {selected && (
             <Paper sx={{ p: 2 }}>
               <Stack spacing={2}>
-                <Typography variant="h6">Selected image: {selected.name}</Typography>
+                <Typography variant="h6">
+                  {getLabel("moments.thumbnail.selectedImage").replace("{name}", selected.name)}
+                </Typography>
                 <GalleryImagePicker
                   items={gallery}
-                  label="Replace with gallery photo"
+                  label={getLabel("moments.thumbnail.replacePhoto")}
                   onChoose={(item) =>
                     updateLayer(selected.id, { src: item.url, name: item.filename })
                   }
                 />
                 <TextField
                   select
-                  label="Image frame ratio"
+                  label={getLabel("moments.thumbnail.frameRatio")}
                   size="small"
                   value={selectedRatioPreset}
                   onChange={(event) => {
@@ -957,9 +985,11 @@ export const ThumbnailMaker = ({
                   }}
                 >
                   <MenuItem value="custom" disabled>
-                    Custom
+                    {getLabel("moments.thumbnail.custom")}
                   </MenuItem>
-                  <MenuItem value="original">Original photo</MenuItem>
+                  <MenuItem value="original">
+                    {getLabel("moments.thumbnail.originalPhoto")}
+                  </MenuItem>
                   {ratioOptions.map((ratio) => (
                     <MenuItem key={ratio} value={ratio}>
                       {ratio}
@@ -973,20 +1003,20 @@ export const ThumbnailMaker = ({
                     gap: 1,
                   }}
                 >
-                  {numericField("X %", "x")}
-                  {numericField("Y %", "y")}
-                  {numericField("Width %", "width")}
-                  {numericField("Height %", "height")}
-                  {numericField("Angle °", "angle")}
-                  {numericField("Zoom", "zoom", 0.1)}
-                  {numericField("Focus X %", "focusX")}
-                  {numericField("Focus Y %", "focusY")}
+                  {numericField(getLabel("moments.thumbnail.xPercent"), "x")}
+                  {numericField(getLabel("moments.thumbnail.yPercent"), "y")}
+                  {numericField(getLabel("moments.thumbnail.widthPercent"), "width")}
+                  {numericField(getLabel("moments.thumbnail.heightPercent"), "height")}
+                  {numericField(getLabel("moments.thumbnail.angle"), "angle")}
+                  {numericField(getLabel("moments.thumbnail.zoom"), "zoom", 0.1)}
+                  {numericField(getLabel("moments.thumbnail.focusX"), "focusX")}
+                  {numericField(getLabel("moments.thumbnail.focusY"), "focusY")}
                 </Box>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                   <TextField
                     select
                     fullWidth
-                    label="Frame"
+                    label={getLabel("moments.thumbnail.frame")}
                     size="small"
                     value={selected.frame}
                     onChange={(event) =>
@@ -995,14 +1025,14 @@ export const ThumbnailMaker = ({
                       })
                     }
                   >
-                    <MenuItem value="none">None (keep transparency)</MenuItem>
-                    <MenuItem value="polaroid">Polaroid</MenuItem>
-                    <MenuItem value="rounded">Rounded card</MenuItem>
+                    <MenuItem value="none">{getLabel("moments.thumbnail.noFrame")}</MenuItem>
+                    <MenuItem value="polaroid">{getLabel("moments.thumbnail.polaroid")}</MenuItem>
+                    <MenuItem value="rounded">{getLabel("moments.thumbnail.rounded")}</MenuItem>
                   </TextField>
                   <TextField
                     select
                     fullWidth
-                    label="Effect"
+                    label={getLabel("moments.thumbnail.effect")}
                     size="small"
                     value={selected.effect}
                     onChange={(event) =>
@@ -1011,11 +1041,11 @@ export const ThumbnailMaker = ({
                       })
                     }
                   >
-                    <MenuItem value="none">Original</MenuItem>
-                    <MenuItem value="grayscale">Grayscale</MenuItem>
-                    <MenuItem value="sepia">Sepia</MenuItem>
-                    <MenuItem value="warm">Warm</MenuItem>
-                    <MenuItem value="grain">Subtle grain</MenuItem>
+                    <MenuItem value="none">{getLabel("moments.thumbnail.originalEffect")}</MenuItem>
+                    <MenuItem value="grayscale">{getLabel("moments.thumbnail.grayscale")}</MenuItem>
+                    <MenuItem value="sepia">{getLabel("moments.thumbnail.sepia")}</MenuItem>
+                    <MenuItem value="warm">{getLabel("moments.thumbnail.warm")}</MenuItem>
+                    <MenuItem value="grain">{getLabel("moments.thumbnail.grain")}</MenuItem>
                   </TextField>
                 </Stack>
                 <FormControlLabel
@@ -1025,7 +1055,7 @@ export const ThumbnailMaker = ({
                       onChange={(_, checked) => updateLayer(selected.id, { shadow: checked })}
                     />
                   }
-                  label="Shadow"
+                  label={getLabel("moments.thumbnail.shadow")}
                 />
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   <Button
@@ -1036,7 +1066,7 @@ export const ThumbnailMaker = ({
                       }))
                     }
                   >
-                    Remove
+                    {getLabel("moments.thumbnail.remove")}
                   </Button>
                   <Button
                     onClick={() =>
@@ -1049,7 +1079,7 @@ export const ThumbnailMaker = ({
                       })
                     }
                   >
-                    Send back
+                    {getLabel("moments.thumbnail.sendBack")}
                   </Button>
                   <Button
                     onClick={() =>
@@ -1062,7 +1092,7 @@ export const ThumbnailMaker = ({
                       })
                     }
                   >
-                    Bring forward
+                    {getLabel("moments.thumbnail.bringForward")}
                   </Button>
                 </Stack>
               </Stack>
@@ -1070,32 +1100,34 @@ export const ThumbnailMaker = ({
           )}
           <Paper sx={{ p: 2 }}>
             <Stack spacing={2}>
-              <Typography variant="h6">Export and import</Typography>
+              <Typography variant="h6">{getLabel("moments.thumbnail.exportImport")}</Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 <Button
                   variant="contained"
                   disabled={saving || documentValue.layers.length === 0}
                   onClick={() => void saveImage()}
                 >
-                  {saving ? "Saving…" : "Save as gallery cover"}
+                  {saving
+                    ? getLabel("moments.thumbnail.saving")
+                    : getLabel("moments.thumbnail.saveCover")}
                 </Button>
                 <Button startIcon={<DownloadIcon />} onClick={() => void exportImage("png")}>
-                  Download PNG
+                  {getLabel("moments.thumbnail.downloadPng")}
                 </Button>
                 <Button startIcon={<DownloadIcon />} onClick={() => void exportImage("jpeg")}>
-                  Download JPG
+                  {getLabel("moments.thumbnail.downloadJpg")}
                 </Button>
-                <Button onClick={exportJson}>Download JSON</Button>
+                <Button onClick={exportJson}>{getLabel("moments.thumbnail.downloadJson")}</Button>
               </Stack>
               <TextField
                 multiline
                 minRows={3}
-                label="Paste thumbnail JSON to load"
+                label={getLabel("moments.thumbnail.pasteJson")}
                 value={jsonText}
                 onChange={(event) => setJsonText(event.target.value)}
               />
               <Button disabled={!jsonText.trim()} onClick={importJson}>
-                Load JSON
+                {getLabel("moments.thumbnail.loadJson")}
               </Button>
             </Stack>
           </Paper>

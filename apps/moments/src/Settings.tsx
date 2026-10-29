@@ -1,8 +1,11 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: tab content and its feedback stay together in the settings screen.
+
+import { useLanguage } from "@lite-nas/language";
 import { ProfilePreferencesPanel, writeProfileAvatar } from "@lite-nas/profile";
 import { PreferencesPageHeader, PreferencesTabs } from "@lite-nas/settings";
 import { type ThemeMode, ThemePreferencesPanel } from "@lite-nas/theme";
 import CollectionsIcon from "@mui/icons-material/Collections";
+import GroupIcon from "@mui/icons-material/Group";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import PaletteIcon from "@mui/icons-material/Palette";
 import Box from "@mui/material/Box";
@@ -14,10 +17,11 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { z } from "zod";
 import { request } from "./api";
+import { FriendsSettings } from "./FriendsSettings";
 import { imageConcurrencySchema } from "./schemas";
 
 /** Settings sections exposed in the Moments preferences sidebar. */
-const settingsViewSchema = z.enum(["profile", "appearance", "gallery"]);
+const settingsViewSchema = z.enum(["profile", "appearance", "gallery", "friends"]);
 export type SettingsView = z.infer<typeof settingsViewSchema>;
 
 /** Shows profile, appearance, and gallery preferences in one tabbed settings area. */
@@ -49,6 +53,7 @@ export const Settings = ({
   galleryMessage: string | null;
   onMaxConcurrentChange: (value: number) => void;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const [savedMode, setSavedMode] = useState(mode);
   const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,9 +67,9 @@ export const Settings = ({
         file,
       );
       window.dispatchEvent(new Event("lite-nas-avatar-updated"));
-      setAvatarMessage("Avatar saved.");
+      setAvatarMessage(getLabel("profile.avatarSaved"));
     } catch {
-      setAvatarMessage("Could not save avatar.");
+      setAvatarMessage(getLabel("profile.avatarSaveFailed"));
     } finally {
       setBusy(false);
     }
@@ -73,12 +78,12 @@ export const Settings = ({
   return (
     <Stack spacing={3} data-testid="moments-settings" sx={{ width: "100%" }}>
       <PreferencesPageHeader
-        title="Settings"
-        summary="Manage your profile, appearance, and gallery experience."
+        title={getLabel("moments.settings.title")}
+        summary={getLabel("moments.settings.summary")}
       />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={3} alignItems="stretch">
         <PreferencesTabs
-          label="Moments settings tabs"
+          label={getLabel("moments.settings.tabs")}
           layout="sidebar"
           value={view}
           onChange={(next) => {
@@ -86,9 +91,30 @@ export const Settings = ({
             if (parsed.success) onViewChange(parsed.data);
           }}
         >
-          <Tab icon={<ManageAccountsIcon />} iconPosition="start" label="Profile" value="profile" />
-          <Tab icon={<PaletteIcon />} iconPosition="start" label="Appearance" value="appearance" />
-          <Tab icon={<CollectionsIcon />} iconPosition="start" label="Gallery" value="gallery" />
+          <Tab
+            icon={<ManageAccountsIcon />}
+            iconPosition="start"
+            label={getLabel("moments.settings.profile")}
+            value="profile"
+          />
+          <Tab
+            icon={<PaletteIcon />}
+            iconPosition="start"
+            label={getLabel("moments.settings.appearance")}
+            value="appearance"
+          />
+          <Tab
+            icon={<CollectionsIcon />}
+            iconPosition="start"
+            label={getLabel("moments.settings.gallery")}
+            value="gallery"
+          />
+          <Tab
+            icon={<GroupIcon />}
+            iconPosition="start"
+            label={getLabel("moments.settings.friends")}
+            value="friends"
+          />
         </PreferencesTabs>
         <Box sx={{ flex: 1, minWidth: 0, maxWidth: 900 }}>
           {view === "profile" && (
@@ -123,13 +149,12 @@ export const Settings = ({
           )}
           {view === "gallery" && (
             <Stack spacing={2}>
-              <Typography variant="h5">Gallery</Typography>
+              <Typography variant="h5">{getLabel("moments.settings.gallery")}</Typography>
               <Typography color="text.secondary" variant="body2">
-                Control how many gallery images load at the same time. This setting is saved to your
-                user profile.
+                {getLabel("moments.settings.galleryHint")}
               </Typography>
               <TextField
-                label="Maximum concurrent gallery image loads"
+                label={getLabel("moments.settings.maxConcurrent")}
                 type="number"
                 value={maxConcurrent}
                 inputProps={{ min: 1, max: 20 }}
@@ -142,6 +167,7 @@ export const Settings = ({
               {galleryMessage && <Typography color="error">{galleryMessage}</Typography>}
             </Stack>
           )}
+          {view === "friends" && <FriendsSettings />}
         </Box>
       </Stack>
     </Stack>

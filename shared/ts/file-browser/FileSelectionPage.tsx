@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import CloseIcon from "@mui/icons-material/Close";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
@@ -44,9 +45,15 @@ function SelectionDialog({
   onSelect,
   ...pickerProps
 }: FileSelectionDialogProps): ReactElement {
-  const title = pickerProps.kind === "directory" ? "Select folder" : "Select file";
-  const closeLabel =
-    pickerProps.kind === "directory" ? "Close folder selector" : "Close file selector";
+  const { getLabel } = useLanguage();
+  const title = getLabel(
+    pickerProps.kind === "directory" ? "fileBrowser.selectFolder" : "fileBrowser.selectFile",
+  );
+  const closeLabel = getLabel(
+    pickerProps.kind === "directory"
+      ? "fileBrowser.closeFolderSelector"
+      : "fileBrowser.closeFileSelector",
+  );
   return (
     <Dialog
       open={open}
@@ -108,6 +115,7 @@ function FileSelectionControls({
   onSelect,
   request,
 }: FileSelectionPageProps): ReactElement {
+  const { getLabel } = useLanguage();
   const explorer = useFileExplorer();
   const [showHidden, setShowHidden] = useState(false);
   const panel = explorer.panels[0];
@@ -117,7 +125,12 @@ function FileSelectionControls({
   )[0];
   const selectedPath = selected?.kind === kind ? selected.path : null;
   const chosenPath = kind === "directory" ? (selectedPath ?? panel.directory) : selectedPath;
-  const label = kind === "directory" ? "Select folder" : "Select file";
+  const label = getLabel(
+    kind === "directory" ? "fileBrowser.selectFolder" : "fileBrowser.selectFile",
+  );
+  const hiddenFilesLabel = getLabel(
+    showHidden ? "fileBrowser.hideHidden" : "fileBrowser.showHidden",
+  );
 
   return (
     <Stack
@@ -150,13 +163,9 @@ function FileSelectionControls({
       </Box>
       <Paper variant="outlined" sx={{ flex: "0 0 auto", p: 1 }}>
         <Stack direction="row" alignItems="center" gap={1}>
-          <Tooltip
-            title={showHidden ? "Hide hidden files and folders" : "Show hidden files and folders"}
-          >
+          <Tooltip title={hiddenFilesLabel}>
             <IconButton
-              aria-label={
-                showHidden ? "Hide hidden files and folders" : "Show hidden files and folders"
-              }
+              aria-label={hiddenFilesLabel}
               aria-pressed={showHidden}
               onClick={() => setShowHidden((visible) => !visible)}
               color={showHidden ? "primary" : "default"}
@@ -164,8 +173,12 @@ function FileSelectionControls({
               {showHidden ? <VisibilityIcon /> : <VisibilityOffIcon />}
             </IconButton>
           </Tooltip>
-          <Typography noWrap title={chosenPath ?? "Choose a file"} sx={{ flex: 1, minWidth: 0 }}>
-            {chosenPath ?? "Choose a file"}
+          <Typography
+            noWrap
+            title={chosenPath ?? getLabel("fileBrowser.chooseFile")}
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            {chosenPath ?? getLabel("fileBrowser.chooseFile")}
           </Typography>
           <Button
             variant="contained"

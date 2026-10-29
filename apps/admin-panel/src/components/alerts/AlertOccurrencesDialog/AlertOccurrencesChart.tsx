@@ -11,6 +11,7 @@ import {
   mapPercentChartSeriesX,
 } from "@components/monitoring/percent-chart-shared";
 import type { AlertOccurrenceItemDTO } from "@dto/alerts/alerts";
+import { useLanguage } from "@lite-nas/language";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import { type ReactElement, useMemo } from "react";
@@ -35,22 +36,27 @@ const chartFrame = createPercentChartFrame({
 export const AlertOccurrencesChart = ({
   occurrences,
 }: AlertOccurrencesChartProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const theme = useTheme();
   const chartState = useAlertOccurrencesChartState(occurrences);
 
   if (chartState === null) {
-    return renderAlertOccurrencesChartEmptyState();
+    return renderAlertOccurrencesChartEmptyState(getLabel);
   }
 
   return (
     <ChartSvgContainer
-      ariaLabel="Alert occurrences chart"
+      ariaLabel={getLabel("admin.alerts.occurrencesChart")}
       capacity={chartState.chartCapacity}
       frame={chartFrame}
       heightPx={320}
       length={chartState.chartPoints.length}
       testId="alert-occurrences-chart"
-      tooltip={buildAlertOccurrencesTooltipRenderer(chartState, theme.palette.primary.main)}
+      tooltip={buildAlertOccurrencesTooltipRenderer(
+        chartState,
+        theme.palette.primary.main,
+        getLabel,
+      )}
     >
       {renderAlertOccurrencesGrid(theme.palette.divider, chartState.yAxisLabels)}
       {renderAlertOccurrencesZeroLineIfNeeded(theme.palette.text.primary, chartState.zeroLineY)}
@@ -122,10 +128,10 @@ const useAlertOccurrencesChartState = (
 /**
  * Renders the chart empty state when no numeric occurrences are available.
  */
-const renderAlertOccurrencesChartEmptyState = (): ReactElement => {
+const renderAlertOccurrencesChartEmptyState = (getLabel: (key: string) => string): ReactElement => {
   return (
     <Typography color="text.secondary" data-testid="alert-occurrences-chart-empty" variant="body2">
-      Chart data will appear after numeric occurrences are loaded.
+      {getLabel("admin.alerts.chartEmpty")}
     </Typography>
   );
 };
@@ -307,6 +313,7 @@ const resolveAlertOccurrencesZeroLineY = (minValue: number, maxValue: number): n
 const buildAlertOccurrencesTooltipRenderer = (
   chartState: AlertOccurrencesChartState,
   lineColor: string,
+  getLabel: (key: string) => string,
 ): ((hoveredPoint: { index: number; x: number } | null) => ReactElement | null) => {
   return (hoveredPoint) => {
     if (hoveredPoint === null) {
@@ -325,7 +332,7 @@ const buildAlertOccurrencesTooltipRenderer = (
         items={[
           {
             color: lineColor,
-            label: buildAlertOccurrencesTooltipLabel(occurrence),
+            label: buildAlertOccurrencesTooltipLabel(occurrence, getLabel),
             value: formatAlertOccurrenceValue(occurrence),
           },
         ]}
@@ -339,12 +346,15 @@ const buildAlertOccurrencesTooltipRenderer = (
 /**
  * Resolves the tooltip series label for one numeric occurrence.
  */
-const buildAlertOccurrencesTooltipLabel = (occurrence: AlertOccurrenceItemDTO): string => {
+const buildAlertOccurrencesTooltipLabel = (
+  occurrence: AlertOccurrenceItemDTO,
+  getLabel: (key: string) => string,
+): string => {
   if (occurrence.ValueUnit === null || occurrence.ValueUnit === "") {
-    return "Value";
+    return getLabel("admin.alerts.chartValue");
   }
 
-  return `Value (${occurrence.ValueUnit})`;
+  return getLabel("admin.alerts.valueWithUnit").replace("{unit}", occurrence.ValueUnit);
 };
 
 /**

@@ -8,8 +8,12 @@ import {
   galleryFiles,
   getGalleryScan,
   latestGalleryScan,
+  listFriends,
   listGalleries,
+  loadFriendAvatar,
   removeCollectionDirectory,
+  removeFriend,
+  saveFriend,
   saveGalleryThumbnail,
   shareGalleryByUsername,
   startGalleryScan,
@@ -56,6 +60,71 @@ test("media scan start uses the owner gallery route", async () => {
   expect({ path: fetchMock.mock.calls[0][0], method: fetchMock.mock.calls[0][1].method }).toEqual({
     path: `/api/galleries/${gallery.id}/scans`,
     method: "POST",
+  });
+});
+
+// Requirements: moments-backend/FR-010. Missing avatar files do not reveal whether a login exists.
+test("unknown and missing-avatar logins share the same avatar fallback", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("not found", { status: 404 }))
+    .mockResolvedValueOnce(new Response("not found", { status: 404 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const results = await Promise.all([
+    loadFriendAvatar("not-a-real-account"),
+    loadFriendAvatar("account-without-avatar"),
+  ]);
+  expect({ results, paths: fetchMock.mock.calls.map(([path]) => path) }).toEqual({
+    results: [null, null],
+    paths: [
+      "/f/home/not-a-real-account/.lite-nas/avatar.image",
+      "/f/home/account-without-avatar/.lite-nas/avatar.image",
+    ],
+  });
+});
+
+const friendFixture = {
+  username: "not-a-real-account",
+  firstName: "Not",
+  lastName: "Found",
+  nickname: "imaginary",
+  createdAt: "2026-10-26T00:00:00Z",
+  updatedAt: "2026-10-26T00:00:00Z",
+};
+
+// Requirements: moments-backend/FR-010. The list is returned from the private Moments store.
+test("friend contacts list the saved usernames", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValue(new Response(JSON.stringify({ items: [friendFixture] })));
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(listFriends()).resolves.toEqual([friendFixture]);
+});
+
+// Requirements: moments-backend/FR-010. Saving a friend does not perform a user lookup.
+test("saving an unknown friend login sends only user-entered contact details", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await saveFriend({
+    username: friendFixture.username,
+    firstName: friendFixture.firstName,
+    lastName: friendFixture.lastName,
+    nickname: friendFixture.nickname,
+  });
+  expect(fetchMock.mock.calls[0][1]).toMatchObject({
+    method: "PUT",
+    body: JSON.stringify({ firstName: "Not", lastName: "Found", nickname: "imaginary" }),
+  });
+});
+
+// Requirements: moments-backend/FR-010. Saved contacts can be removed.
+test("friend contact removal accepts the bodyless success response", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(removeFriend("bob")).resolves.toBeUndefined();
+  expect({ path: fetchMock.mock.calls[0][0], method: fetchMock.mock.calls[0][1].method }).toEqual({
+    path: "/api/friends/bob",
+    method: "DELETE",
   });
 });
 

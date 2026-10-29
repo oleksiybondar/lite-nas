@@ -1,4 +1,5 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
+import { useLanguage } from "@lite-nas/language";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
@@ -9,43 +10,44 @@ import type { ReactElement } from "react";
  * Landing page for Raspberry Pi sensor telemetry.
  */
 export const SystemSensorsLandingPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <CategoryLandingPage
       cards={[
         {
-          description: "Board and SoC thermal readings for cooling and load diagnostics.",
+          description: getLabel("admin.landing.sensorTemperature"),
           icon: <DeviceThermostatRoundedIcon />,
           path: "/system/sensors/temperature",
-          title: "Temperature",
+          title: getLabel("navigation.Temperature"),
         },
         {
-          description: "Voltage signals that can reveal power-supply instability.",
+          description: getLabel("admin.landing.sensorVoltage"),
           icon: <ElectricBoltRoundedIcon />,
           path: "/system/sensors/voltage",
-          title: "Voltage",
+          title: getLabel("navigation.Voltage"),
         },
         {
-          description: "Clock frequencies for CPU, core, and related Raspberry Pi domains.",
+          description: getLabel("admin.landing.sensorClock"),
           icon: <SpeedRoundedIcon />,
           path: "/system/sensors/clock",
-          title: "Clock",
+          title: getLabel("navigation.Clock"),
         },
         {
-          description: "Thermal and undervoltage throttling flags reported by the board.",
+          description: getLabel("admin.landing.sensorThrottling"),
           icon: <WarningAmberRoundedIcon />,
           path: "/system/sensors/throttling",
-          title: "Throttling",
+          title: getLabel("navigation.Throttling"),
         },
         {
-          description: "Fan state and speed signals when active cooling is available.",
+          description: getLabel("admin.landing.sensorFan"),
           icon: <SpeedRoundedIcon />,
           path: "/system/sensors/fan",
-          title: "Fan",
+          title: getLabel("navigation.Fan"),
         },
       ]}
-      overline="System"
-      summary="Track board-level Raspberry Pi signals that affect reliability, cooling, and power behavior."
-      title="Sensors"
+      overline={getLabel("navigation.System")}
+      summary={getLabel("admin.landing.sensorsSummary")}
+      title={getLabel("navigation.Sensors")}
     />
   );
 };

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { languageStorageKey } from "@lite-nas/language";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import {
@@ -14,6 +14,7 @@ import {
   saveSharedMode,
 } from "./api";
 import type { Me } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./api", () => ({
   sessionExpiredEvent: "lite-nas-moments-session-expired",
@@ -155,6 +156,19 @@ test("settings sidebar opens gallery preferences", async () => {
   await chooseUserAction("user-menu-application-settings-link");
   fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
   expect(screen.getByLabelText("Maximum concurrent gallery image loads")).toBeTruthy();
+});
+
+// Requirements: moments-backend/FR-010. Users can maintain their own saved-login list.
+test("settings sidebar opens the private friends list", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Friends" }));
+  expect(
+    await screen.findByText(
+      "Save logins in your private contact list. Missing accounts and unavailable avatars look the same.",
+    ),
+  ).toBeTruthy();
 });
 
 test("Moments title returns from settings to the home feed", async () => {

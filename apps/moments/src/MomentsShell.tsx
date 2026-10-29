@@ -1,6 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: shell navigation stays together for gallery and settings views.
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: shell view routing stays explicit for the current screens.
 
+import { useLanguage } from "@lite-nas/language";
 import type { ThemeMode } from "@lite-nas/theme";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -36,6 +37,7 @@ const settingsRoutes: Record<string, SettingsView> = {
   "/settings/profile": "profile",
   "/settings/appearance": "appearance",
   "/settings/gallery": "gallery",
+  "/settings/friends": "friends",
 };
 
 /** Provides the authenticated header, live gallery views, and shared settings. */
@@ -50,6 +52,7 @@ export const MomentsShell = ({
   onModeChange: (mode: ThemeMode) => void;
   onSignedOut: () => void;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const scope = feedRoutes[location.pathname] ?? "home";
@@ -99,7 +102,7 @@ export const MomentsShell = ({
       await saveSharedMode(value);
       setMessage(null);
     } catch {
-      setMessage("Saved in this browser, but the user file could not be updated.");
+      setMessage(getLabel("language.saveFailed"));
     }
   };
   const onLogout = async (): Promise<void> => {
@@ -107,7 +110,7 @@ export const MomentsShell = ({
       await logout();
       onSignedOut();
     } catch {
-      setMessage("Sign out failed.");
+      setMessage(getLabel("moments.settings.logoutFailed"));
     }
   };
 
@@ -139,7 +142,7 @@ export const MomentsShell = ({
         }}
       >
         {configError && (
-          <Typography color="error">Could not load Moments configuration.</Typography>
+          <Typography color="error">{getLabel("moments.settings.configFailed")}</Typography>
         )}
         <Routes>
           {["/", "/mine", "/shared"].map((path) => (
@@ -157,7 +160,7 @@ export const MomentsShell = ({
                       onOpen={(gallery) => navigate(`/galleries/${gallery.id}`)}
                     />
                   ) : (
-                    !configError && <Typography>Loading Moments…</Typography>
+                    !configError && <Typography>{getLabel("moments.loading")}</Typography>
                   )}
                 </Box>
               }
@@ -173,7 +176,7 @@ export const MomentsShell = ({
               />
             }
           />
-          {["profile", "appearance", "gallery"].map((tab) => (
+          {["profile", "appearance", "gallery", "friends"].map((tab) => (
             <Route
               key={tab}
               path={`/settings/${tab}`}
@@ -195,11 +198,7 @@ export const MomentsShell = ({
                     setMaxConcurrent(value);
                     void saveGalleryConcurrency(value)
                       .then(() => setGalleryMessage(null))
-                      .catch(() =>
-                        setGalleryMessage(
-                          "Saved in this browser, but the user file could not be updated.",
-                        ),
-                      );
+                      .catch(() => setGalleryMessage(getLabel("language.saveFailed")));
                   }}
                 />
               }

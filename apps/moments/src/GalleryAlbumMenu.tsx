@@ -1,5 +1,6 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: album membership loading, mutation feedback, and menu state remain together.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: this menu owns its loaded choices and action states.
+import { useLanguage } from "@lite-nas/language";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
@@ -43,6 +44,7 @@ export const GalleryAlbumMenu = ({
   userId: string;
 }): ReactElement | null => {
   const menuId = useId();
+  const { getLabel } = useLanguage();
   const loadVersion = useRef(0);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [choices, setChoices] = useState<CollectionChoice[]>([]);
@@ -78,7 +80,7 @@ export const GalleryAlbumMenu = ({
       );
       if (version === loadVersion.current) setChoices(loaded);
     } catch {
-      if (version === loadVersion.current) setError("Could not load your collections.");
+      if (version === loadVersion.current) setError(getLabel("moments.albumMenu.loadFailed"));
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
@@ -99,7 +101,7 @@ export const GalleryAlbumMenu = ({
         ),
       );
     } catch {
-      setError("Could not update the collection.");
+      setError(getLabel("moments.albumMenu.updateFailed"));
     } finally {
       setChangingId(null);
     }
@@ -109,7 +111,7 @@ export const GalleryAlbumMenu = ({
   return (
     <>
       <IconButton
-        aria-label={`Collection options for ${gallery.name}`}
+        aria-label={getLabel("moments.albumMenu.options").replace("{name}", gallery.name)}
         aria-haspopup="menu"
         aria-controls={anchor ? menuId : undefined}
         aria-expanded={anchor ? "true" : undefined}
@@ -132,9 +134,9 @@ export const GalleryAlbumMenu = ({
         <MoreVertIcon fontSize="small" />
       </IconButton>
       <Menu id={menuId} anchorEl={anchor} open={anchor !== null} onClose={close}>
-        {loading && <MenuItem disabled>Loading collections…</MenuItem>}
+        {loading && <MenuItem disabled>{getLabel("moments.albumMenu.loading")}</MenuItem>}
         {!loading && choices.length === 0 && !error && (
-          <MenuItem disabled>No collections yet.</MenuItem>
+          <MenuItem disabled>{getLabel("moments.albumMenu.empty")}</MenuItem>
         )}
         {choices.map((choice) => (
           <MenuItem
@@ -142,7 +144,10 @@ export const GalleryAlbumMenu = ({
             disabled={changingId !== null}
             onClick={() => void change(choice)}
           >
-            {choice.included ? "Remove from" : "Add to"} {choice.collection.name}
+            {choice.included
+              ? getLabel("moments.albumMenu.removeFrom")
+              : getLabel("moments.albumMenu.addTo")}{" "}
+            {choice.collection.name}
           </MenuItem>
         ))}
         {error && (

@@ -2,12 +2,14 @@ import type { ApiContextValue } from "@dto/api/api";
 import { useApi } from "@hooks/useApi";
 import { useAuth } from "@hooks/useAuth";
 import { useProfileAvatar } from "@hooks/useProfileAvatar";
+import { useLanguage } from "@lite-nas/language";
 import { avatarFileSchema, ProfilePreferencesPanel, writeProfileAvatar } from "@lite-nas/profile";
 import type { ReactElement } from "react";
 import { useState } from "react";
 
 /** Connects the shared profile screen to the authenticated admin API. */
 export const PreferencesProfilePage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   const { me } = useAuth();
   const { put } = useApi();
   const avatar = useProfileAvatar();
@@ -18,7 +20,7 @@ export const PreferencesProfilePage = (): ReactElement => {
   const upload = async (file: File | undefined): Promise<void> => {
     const parsed = avatarFileSchema.safeParse(file);
     if (!parsed.success) {
-      setMessage(parsed.error.issues[0]?.message ?? "Choose a valid PNG or JPEG image.");
+      setMessage(getLabel("profile.invalidAvatar"));
       return;
     }
     await saveAvatar(parsed.data);
@@ -30,9 +32,9 @@ export const PreferencesProfilePage = (): ReactElement => {
     try {
       await writeProfileAvatar((url, image) => sendAvatar(put, url, image), file);
       window.dispatchEvent(new Event("lite-nas-avatar-updated"));
-      setMessage("Avatar saved.");
+      setMessage(getLabel("profile.avatarSaved"));
     } catch (error) {
-      setMessage(avatarSaveError(error));
+      setMessage(avatarSaveErrorMessage(error, getLabel));
     } finally {
       setBusy(false);
     }
@@ -52,15 +54,15 @@ export const PreferencesProfilePage = (): ReactElement => {
   );
 };
 
+/** Adds an optional transport detail to the localized avatar upload error. */
+const avatarSaveErrorMessage = (error: unknown, getLabel: (key: string) => string): string => {
+  const detail = error instanceof Error ? ` ${error.message}` : "";
+  return `${getLabel("profile.avatarSaveFailed")}${detail}`;
+};
+
 /** Sends a validated avatar using the admin API pipeline and its file MIME type. */
 const sendAvatar = (put: ApiContextValue["put"], url: string, image: File): Promise<Response> => {
   const action = put(url, image);
   if (image.type) action.header("Content-Type", image.type);
   return action.execute();
-};
-
-/** Includes the safe File Service status when an avatar upload fails. */
-const avatarSaveError = (error: unknown): string => {
-  const cause = error instanceof Error ? ` ${error.message}` : "";
-  return `Avatar could not be saved.${cause}`;
 };

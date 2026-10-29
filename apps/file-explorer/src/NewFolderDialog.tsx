@@ -22,16 +22,17 @@ async function createFolder(
   name: string,
   privateDirectory: boolean,
   onCreate: (name: string, privateDirectory: boolean) => Promise<void>,
+  getLabel: (key: string) => string,
 ): Promise<string | null> {
   const parsed = newFolderNameSchema.safeParse(name);
   if (!parsed.success) {
-    return "Enter a folder name without path separators.";
+    return getLabel("explorer.folderNameInvalid");
   }
   try {
     await onCreate(parsed.data, privateDirectory);
     return null;
   } catch (caught) {
-    return caught instanceof Error ? caught.message : "Could not create the folder.";
+    return caught instanceof Error ? caught.message : getLabel("explorer.folderCreateFailed");
   }
 }
 
@@ -110,7 +111,7 @@ export function NewFolderDialog({
   const submit = async (): Promise<void> => {
     setBusy(true);
     setError("");
-    const creationError = await createFolder(name, privateDirectory, onCreate);
+    const creationError = await createFolder(name, privateDirectory, onCreate, getLabel);
     setBusy(false);
     if (creationError !== null) {
       setError(creationError);

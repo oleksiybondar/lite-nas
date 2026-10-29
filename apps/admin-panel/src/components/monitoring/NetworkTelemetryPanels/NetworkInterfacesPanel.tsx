@@ -1,4 +1,5 @@
 import type { NetworkInterfacePanelItem } from "@helpers/network-metric-panel";
+import { useLanguage } from "@lite-nas/language";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -23,11 +24,12 @@ export const NetworkInterfacesPanel = ({
   capacity,
   interfaces,
 }: NetworkInterfacesPanelProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Paper data-testid="network-interfaces-panel" sx={{ p: 2, width: "100%" }}>
       <Stack spacing={1.5}>
         <Typography data-testid="network-interfaces-panel-title" variant="h2">
-          Interfaces
+          {getLabel("admin.monitoringMetrics.interfaces")}
         </Typography>
         {interfaces.length === 0 ? (
           <Typography
@@ -35,7 +37,7 @@ export const NetworkInterfacesPanel = ({
             data-testid="network-interfaces-panel-empty"
             variant="body2"
           >
-            Interface data will appear after telemetry points are loaded.
+            {getLabel("admin.monitoringMetrics.interfaceDataEmpty")}
           </Typography>
         ) : (
           <Stack data-testid="network-interfaces-subrow" spacing={1.5}>

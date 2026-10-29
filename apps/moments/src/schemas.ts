@@ -229,6 +229,27 @@ export const shareUsernameSchema = z.object({
     .regex(/^[A-Za-z0-9_][A-Za-z0-9._-]*$/),
 });
 
+/** Saved account login and optional user-maintained display names. */
+export const friendSchema = z.object({
+  username: shareUsernameSchema.shape.username,
+  firstName: z.string().max(80),
+  lastName: z.string().max(80),
+  nickname: z.string().max(80),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** Friend list payload returned for the signed-in account. */
+export const friendsSchema = z.object({ items: z.array(friendSchema) });
+
+/** User-supplied display details saved alongside a login. */
+export const friendInputSchema = z.object({
+  username: shareUsernameSchema.shape.username,
+  firstName: z.string().max(80),
+  lastName: z.string().max(80),
+  nickname: z.string().max(80),
+});
+
 /** Operator choice for parallel lazy image downloads. */
 export const imageConcurrencySchema = z.number().int().min(1).max(20);
 

@@ -1,5 +1,6 @@
 import { MonitoringPollingSettingsCard } from "@components/monitoring/MonitoringPollingSettingsCard";
 import { MonitoringSettingsTabs } from "@components/monitoring/MonitoringSettingsTabs";
+import { useLanguage } from "@lite-nas/language";
 import { PreferencesPageHeader } from "@lite-nas/settings";
 import Stack from "@mui/material/Stack";
 import type { ReactElement } from "react";
@@ -8,34 +9,35 @@ import type { ReactElement } from "react";
  * Preferences page for metrics-oriented monitoring polling behavior.
  */
 export const PreferencesMonitoringSettingsPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Stack data-testid="preferences-monitoring-settings-page" maxWidth="720px" spacing={3}>
       <PreferencesPageHeader
         testIdPrefix="preferences-monitoring-settings"
-        title="Monitoring"
-        summary="Configure how performance telemetry views bootstrap history, poll live updates, and retain cached points in this browser."
+        title={getLabel("navigation.Monitoring")}
+        summary={getLabel("admin.landing.monitoringPageSummary")}
       />
       <MonitoringSettingsTabs value="metrics" />
       <Stack data-testid="preferences-monitoring-settings-performance-section" spacing={2}>
         <MonitoringPollingSettingsCard
-          description="Polling settings used by host CPU and memory telemetry views."
+          description={getLabel("admin.landing.pollSystem")}
           storageKey="system-metrics"
-          title="System metrics"
+          title={getLabel("admin.landing.systemMetrics")}
         />
         <MonitoringPollingSettingsCard
-          description="Polling settings used by interface throughput and network state telemetry views."
+          description={getLabel("admin.landing.pollNetwork")}
           storageKey="network-metrics"
-          title="Network metrics"
+          title={getLabel("admin.landing.networkMetrics")}
         />
         <MonitoringPollingSettingsCard
-          description="Polling settings used by block-device and filesystem telemetry views."
+          description={getLabel("admin.landing.pollDisk")}
           storageKey="disk-metrics"
-          title="Disk metrics"
+          title={getLabel("admin.landing.diskMetrics")}
         />
         <MonitoringPollingSettingsCard
-          description="Polling settings used by ZFS pool and storage telemetry views."
+          description={getLabel("admin.landing.pollZfs")}
           storageKey="zfs-metrics"
-          title="ZFS metrics"
+          title={getLabel("admin.landing.zfsMetrics")}
         />
       </Stack>
     </Stack>

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { GalleryDetail } from "./GalleryDetail";
 import {
@@ -13,6 +14,7 @@ import {
   scanUploadedMedia,
 } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("@lite-nas/file-browser", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@lite-nas/file-browser")>()),

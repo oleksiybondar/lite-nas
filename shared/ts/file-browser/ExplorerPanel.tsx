@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -36,6 +37,7 @@ interface DirectoryListing {
 
 /** Loads one directory and ignores responses from an obsolete panel request. */
 function useDirectoryListing(directory: string, request?: FileServiceRequest): DirectoryListing {
+  const { getLabel } = useLanguage();
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,7 +51,7 @@ function useDirectoryListing(directory: string, request?: FileServiceRequest): D
       .catch((caught: unknown) => {
         if (!controller.signal.aborted) {
           setEntries([]);
-          setError(errorMessage(caught));
+          setError(errorMessage(caught, getLabel));
         }
       })
       .finally(() => {
@@ -58,14 +60,14 @@ function useDirectoryListing(directory: string, request?: FileServiceRequest): D
         }
       });
     return () => controller.abort();
-  }, [directory, request]);
+  }, [directory, getLabel, request]);
 
   return { entries, loading, error };
 }
 
 /** Converts a listing failure into the message shown in the panel. */
-function errorMessage(caught: unknown): string {
-  return caught instanceof Error ? caught.message : "Could not load this directory.";
+function errorMessage(caught: unknown, getLabel: (key: string) => string): string {
+  return caught instanceof Error ? caught.message : getLabel("fileBrowser.couldNotLoad");
 }
 
 /** Moves keyboard focus to the adjacent entry row. */
@@ -132,9 +134,10 @@ function DirectoryRows({
   selectableKind?: FileEntry["kind"];
   singleSelection?: boolean;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <List
-      aria-label={`Files and directories in ${directory}`}
+      aria-label={`${getLabel("fileBrowser.details")}: ${directory}`}
       onKeyDown={moveEntryFocus}
       sx={{ py: 0 }}
     >
@@ -143,7 +146,11 @@ function DirectoryRows({
           <ListItemIcon sx={{ minWidth: 40 }}>
             <ArrowUpwardIcon />
           </ListItemIcon>
-          <ListItemText primary=".." secondary="Parent directory" sx={{ my: 0.25 }} />
+          <ListItemText
+            primary=".."
+            secondary={getLabel("fileBrowser.parentDirectory")}
+            sx={{ my: 0.25 }}
+          />
         </ListItemButton>
       )}
       {entries.map((entry) => (
@@ -267,9 +274,10 @@ function PanelHeader({
   onBack: () => void;
   onRefresh: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <Stack direction="row" alignItems="center" gap={1}>
-      <IconButton aria-label="Back" disabled={!canGoBack} onClick={onBack}>
+      <IconButton aria-label={getLabel("fileBrowser.back")} disabled={!canGoBack} onClick={onBack}>
         <ArrowBackIcon />
       </IconButton>
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -277,10 +285,10 @@ function PanelHeader({
           {directory}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {selectedCount} selected
+          {getLabel("fileBrowser.selected").replace("{count}", String(selectedCount))}
         </Typography>
       </Box>
-      <IconButton aria-label="Refresh directory" onClick={onRefresh}>
+      <IconButton aria-label={getLabel("fileBrowser.refresh")} onClick={onRefresh}>
         <RefreshIcon />
       </IconButton>
     </Stack>
@@ -320,6 +328,7 @@ function PanelDirectory({
   open: (entry: FileEntry) => void;
   request?: FileServiceRequest;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const { entries, loading, error } = useDirectoryListing(directory, request);
   const visibleEntries = filterFileEntries(
     visibleFileEntries(entries, showHidden),
@@ -342,7 +351,7 @@ function PanelDirectory({
         <Box sx={{ minWidth: 1040 }}>
           <Box
             role="row"
-            aria-label="File details"
+            aria-label={getLabel("fileBrowser.details")}
             sx={{
               display: "grid",
               gridTemplateColumns: "minmax(260px, 2fr) 100px 130px 100px 130px 130px 190px",
@@ -353,10 +362,10 @@ function PanelDirectory({
               borderColor: "divider",
             }}
           >
-            {["Name", "Size", "File type", "Permissions", "Owner", "Group", "Last modified"].map(
-              (label) => (
-                <Typography key={label} variant="caption" fontWeight="bold">
-                  {label}
+            {["name", "size", "fileType", "permissions", "owner", "group", "lastModified"].map(
+              (key) => (
+                <Typography key={key} variant="caption" fontWeight="bold">
+                  {getLabel(`fileBrowser.${key}`)}
                 </Typography>
               ),
             )}
@@ -375,7 +384,7 @@ function PanelDirectory({
             singleSelection={singleSelection}
           />
           {visibleEntries.length === 0 && (
-            <Typography color="text.secondary">This directory is empty.</Typography>
+            <Typography color="text.secondary">{getLabel("fileBrowser.empty")}</Typography>
           )}
         </Box>
       )}

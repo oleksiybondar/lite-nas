@@ -1,4 +1,5 @@
 import { useAlertsControlPanel } from "@hooks/useAlertsControlPanel";
+import { useLanguage } from "@lite-nas/language";
 import TextField from "@mui/material/TextField";
 import type { ReactElement } from "react";
 
@@ -7,11 +8,12 @@ import type { ReactElement } from "react";
  */
 export const AlertsControlPanelSearch = (): ReactElement => {
   const { search, setSearch } = useAlertsControlPanel();
+  const { getLabel } = useLanguage();
 
   return (
     <TextField
       data-testid="alerts-search-control"
-      label="Search current page"
+      label={getLabel("admin.alerts.searchCurrentPage")}
       name="alertsSearch"
       onChange={(event) => {
         setSearch(event.target.value);

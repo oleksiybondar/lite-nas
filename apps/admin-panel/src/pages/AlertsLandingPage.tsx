@@ -3,6 +3,7 @@ import {
   CategoryLandingPage,
 } from "@components/navigation/CategoryLandingPage";
 import { useRbac } from "@hooks/useRbac";
+import { useLanguage } from "@lite-nas/language";
 import MemoryIcon from "@mui/icons-material/Memory";
 import SecurityIcon from "@mui/icons-material/Security";
 import type { ReactElement } from "react";
@@ -12,13 +13,14 @@ import type { ReactElement } from "react";
  */
 export const AlertsLandingPage = (): ReactElement => {
   const { requireOperator, requireSecurity } = useRbac();
+  const { getLabel } = useLanguage();
 
   return (
     <CategoryLandingPage
-      cards={buildAlertDomainCards(requireOperator(), requireSecurity())}
-      overline="Alerts"
-      summary="Browse operator and security alert dashboards by domain before drilling into status-specific queues."
-      title="Alerts"
+      cards={buildAlertDomainCards(requireOperator(), requireSecurity(), getLabel)}
+      overline={getLabel("navigation.Alerts")}
+      summary={getLabel("admin.landing.alertsSummary")}
+      title={getLabel("navigation.Alerts")}
     />
   );
 };
@@ -29,24 +31,25 @@ export const AlertsLandingPage = (): ReactElement => {
 const buildAlertDomainCards = (
   showSystemAlerts: boolean,
   showSecurityAlerts: boolean,
+  getLabel: (key: string) => string,
 ): CategoryLandingCard[] => {
   const cards: CategoryLandingCard[] = [];
 
   if (showSystemAlerts) {
     cards.push({
-      description: "Operational alerts for infrastructure, services, and runtime health.",
+      description: getLabel("admin.landing.alertsSystem"),
       icon: <MemoryIcon />,
       path: "/alerts/system",
-      title: "System",
+      title: getLabel("navigation.System"),
     });
   }
 
   if (showSecurityAlerts) {
     cards.push({
-      description: "Security alerts for access, policy, and protection events.",
+      description: getLabel("admin.landing.alertsSecurity"),
       icon: <SecurityIcon />,
       path: "/alerts/security",
-      title: "Security",
+      title: getLabel("navigation.Security"),
     });
   }
 

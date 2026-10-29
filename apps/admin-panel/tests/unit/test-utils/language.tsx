@@ -9,4 +9,4 @@ export const TestLanguageBoundary = ({ children }: PropsWithChildren): ReactElem
 
 /** Renders an isolated component with the English browser fallback. */
 export const renderWithLanguage = (component: ReactElement): ReturnType<typeof render> =>
-  render(<TestLanguageBoundary>{component}</TestLanguageBoundary>);
+  render(component, { wrapper: TestLanguageBoundary });

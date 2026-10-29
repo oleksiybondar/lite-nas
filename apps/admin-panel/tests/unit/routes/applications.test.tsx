@@ -4,7 +4,8 @@ import { FileExplorerEmbeddedPage } from "@pages/FileExplorerEmbeddedPage";
 import { MomentsEmbeddedPage } from "@pages/MomentsEmbeddedPage";
 import { applicationsRoutes } from "@routes/applications/routes";
 import { appNavigationItems, buildAppNavigationItems } from "@routes/navigation";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 vi.mock("@hooks/useMomentsAvailability", () => ({ useMomentsAvailability: vi.fn() }));

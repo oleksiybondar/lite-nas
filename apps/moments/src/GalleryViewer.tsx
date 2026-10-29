@@ -1,6 +1,8 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: this component composes the existing viewer regions and their controls.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: this component composes the existing viewer regions and their controls.
 // biome-ignore-all lint/style/noNestedTernary: media kind selection is localized to the preview renderer.
+
+import { useLanguage } from "@lite-nas/language";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import CloseIcon from "@mui/icons-material/Close";
@@ -35,6 +37,7 @@ import { useWall } from "./WallContext";
 
 /** Presents the selected original in a modal while leaving the wall mounted. */
 export const GalleryViewer = (): ReactElement => {
+  const { getLabel } = useLanguage();
   const { items, queue, metadata } = useGallery();
   const stream = useStream();
   const {
@@ -192,7 +195,7 @@ export const GalleryViewer = (): ReactElement => {
               }}
             >
               <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
-                <Tooltip title="Download original file">
+                <Tooltip title={getLabel("moments.viewer.download")}>
                   <span>
                     <IconButton
                       size="small"
@@ -200,19 +203,30 @@ export const GalleryViewer = (): ReactElement => {
                       href={downloadUrl ?? undefined}
                       download={current.filename}
                       color="inherit"
-                      aria-label={`Download ${current.filename}`}
+                      aria-label={getLabel("moments.viewer.downloadNamed").replace(
+                        "{filename}",
+                        current.filename,
+                      )}
                       disabled={!downloadUrl}
                     >
                       <DownloadIcon fontSize="small" />
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title={fullscreen ? "Exit fullscreen" : "Show fullscreen"}>
+                <Tooltip
+                  title={getLabel(
+                    fullscreen ? "moments.viewer.exitFullscreen" : "moments.viewer.showFullscreen",
+                  )}
+                >
                   <span>
                     <IconButton
                       size="small"
                       color="inherit"
-                      aria-label={fullscreen ? "Exit fullscreen" : "Show fullscreen"}
+                      aria-label={getLabel(
+                        fullscreen
+                          ? "moments.viewer.exitFullscreen"
+                          : "moments.viewer.showFullscreen",
+                      )}
                       disabled={!document.fullscreenEnabled}
                       onClick={() => void toggleFullscreen().catch(() => {})}
                     >
@@ -238,10 +252,18 @@ export const GalleryViewer = (): ReactElement => {
               <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={1.25}>
                 {current.kind !== "video" ? (
                   <>
-                    <Tooltip title={playing ? "Pause slideshow" : "Play slideshow"}>
+                    <Tooltip
+                      title={getLabel(
+                        playing ? "moments.viewer.pauseSlideshow" : "moments.viewer.playSlideshow",
+                      )}
+                    >
                       <IconButton
                         size="small"
-                        aria-label={playing ? "Pause slideshow" : "Play slideshow"}
+                        aria-label={getLabel(
+                          playing
+                            ? "moments.viewer.pauseSlideshow"
+                            : "moments.viewer.playSlideshow",
+                        )}
                         onClick={() => setPlaying(!playing)}
                         sx={{
                           bgcolor: "primary.main",
@@ -263,7 +285,7 @@ export const GalleryViewer = (): ReactElement => {
                         const result = imageDelaySchema.safeParse(Number(event.target.value));
                         if (result.success) setDelay(result.data);
                       }}
-                      aria-label="Slideshow image delay"
+                      aria-label={getLabel("moments.viewer.slideshowDelay")}
                       sx={{
                         color: "white",
                         minWidth: 64,
@@ -278,8 +300,8 @@ export const GalleryViewer = (): ReactElement => {
                   </>
                 ) : (
                   <Stack direction="row" alignItems="center" gap={0.25}>
-                    <Typography variant="caption">Autoplay</Typography>
-                    <Tooltip title="Autoplay videos">
+                    <Typography variant="caption">{getLabel("moments.viewer.autoplay")}</Typography>
+                    <Tooltip title={getLabel("moments.viewer.autoplayVideos")}>
                       <Switch
                         size="small"
                         checked={videoAutoplay}
@@ -287,15 +309,15 @@ export const GalleryViewer = (): ReactElement => {
                           const result = videoAutoplaySchema.safeParse(event.target.checked);
                           if (result.success) setVideoAutoplay(result.data);
                         }}
-                        inputProps={{ "aria-label": "Autoplay videos" }}
+                        inputProps={{ "aria-label": getLabel("moments.viewer.autoplayVideos") }}
                       />
                     </Tooltip>
                   </Stack>
                 )}
-                <Tooltip title="Close viewer">
+                <Tooltip title={getLabel("moments.viewer.close")}>
                   <IconButton
                     size="small"
-                    aria-label="Close viewer"
+                    aria-label={getLabel("moments.viewer.close")}
                     onClick={closeViewer}
                     sx={{
                       bgcolor: "error.main",
@@ -319,7 +341,10 @@ export const GalleryViewer = (): ReactElement => {
               <Typography
                 component="output"
                 variant="h2"
-                aria-label={`Next slide in ${countdown} seconds`}
+                aria-label={getLabel("moments.viewer.nextSlide").replace(
+                  "{countdown}",
+                  String(countdown),
+                )}
                 sx={{
                   position: "absolute",
                   top: 12,
@@ -369,11 +394,11 @@ export const GalleryViewer = (): ReactElement => {
                 px={2}
                 py={1}
                 sx={{ borderTop: "1px solid rgba(255,255,255,0.16)" }}
-                aria-label="Gallery previews"
+                aria-label={getLabel("moments.viewer.previews")}
               >
                 <IconButton
                   color="inherit"
-                  aria-label="Previous item"
+                  aria-label={getLabel("moments.viewer.previous")}
                   disabled={selected === 0}
                   onClick={() => navigate(-1)}
                 >
@@ -397,7 +422,10 @@ export const GalleryViewer = (): ReactElement => {
                       onClick={() => {
                         if (selected !== null) navigate(index - selected);
                       }}
-                      aria-label={`Show ${item.filename}`}
+                      aria-label={getLabel("moments.viewer.show").replace(
+                        "{filename}",
+                        item.filename,
+                      )}
                       aria-pressed={selected === index}
                       sx={{
                         width: 76,
@@ -429,7 +457,7 @@ export const GalleryViewer = (): ReactElement => {
                 </Stack>
                 <IconButton
                   color="inherit"
-                  aria-label="Next item"
+                  aria-label={getLabel("moments.viewer.next")}
                   disabled={selected === items.length - 1}
                   onClick={() => navigate(1)}
                 >

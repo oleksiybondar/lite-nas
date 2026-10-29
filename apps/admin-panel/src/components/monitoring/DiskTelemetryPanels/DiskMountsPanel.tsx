@@ -1,4 +1,8 @@
 import {
+  localizeMonitoringMetricLabel,
+  localizeMonitoringMetricValue,
+} from "@components/monitoring/metric-labels";
+import {
   createMonitoringScrollableTableSx,
   monitoringDetailColumnSx,
 } from "@components/monitoring/table-panel-shared";
@@ -8,6 +12,7 @@ import type {
   DiskMountsPanelData,
 } from "@helpers/disk-metric-panel";
 import type { MetricChartLabel } from "@helpers/system-metric-chart";
+import { useLanguage } from "@lite-nas/language";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -32,13 +37,14 @@ type DiskMountsPanelProps = {
  * Renders the active storage mounts and filesystem summary panel.
  */
 export const DiskMountsPanel = ({ mounts }: DiskMountsPanelProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Paper data-testid="disk-mounts-panel" sx={{ p: 2, width: "100%" }}>
       <Stack spacing={1.25}>
         <Typography data-testid="disk-mounts-panel-title" variant="h4">
-          Mounts & filesystems
+          {getLabel("admin.monitoringMetrics.mountsPanelTitle")}
         </Typography>
-        {renderSummaryRow(mounts.summaryLabels)}
+        {renderSummaryRow(mounts.summaryLabels, getLabel)}
         <Stack
           data-testid="disk-mounts-detail-columns"
           direction="row"
@@ -46,8 +52,8 @@ export const DiskMountsPanel = ({ mounts }: DiskMountsPanelProps): ReactElement 
           gap={1.5}
           useFlexGap
         >
-          {renderMountsTable(mounts.mountRows)}
-          {renderFilesystemsTable(mounts.filesystemRows)}
+          {renderMountsTable(mounts.mountRows, getLabel)}
+          {renderFilesystemsTable(mounts.filesystemRows, getLabel)}
         </Stack>
       </Stack>
     </Paper>
@@ -57,7 +63,10 @@ export const DiskMountsPanel = ({ mounts }: DiskMountsPanelProps): ReactElement 
 /**
  * Renders the summary metadata row above the storage detail tables.
  */
-const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
+const renderSummaryRow = (
+  summaryLabels: MetricChartLabel[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack data-testid="disk-mounts-summary-row" direction="row" flexWrap="wrap" gap={1} useFlexGap>
       {summaryLabels.map((label) => {
@@ -68,7 +77,8 @@ const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
             key={label.key}
             variant="body2"
           >
-            {label.key}: {label.value}
+            {localizeMonitoringMetricLabel(label.key, getLabel)}:{" "}
+            {localizeMonitoringMetricValue(label.value, getLabel)}
           </Typography>
         );
       })}
@@ -79,7 +89,10 @@ const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
 /**
  * Renders the active storage mounts table.
  */
-const renderMountsTable = (rows: DiskMountPanelRow[]): ReactElement => {
+const renderMountsTable = (
+  rows: DiskMountPanelRow[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Paper sx={monitoringDetailColumnSx} variant="outlined">
       <Stack spacing={0.625}>
@@ -88,16 +101,16 @@ const renderMountsTable = (rows: DiskMountPanelRow[]): ReactElement => {
           data-test-name="Storage mounts"
           variant="body2"
         >
-          Storage mounts
+          {getLabel("admin.monitoringMetrics.storageMounts")}
         </Typography>
         <TableContainer data-testid="disk-mounts-table" sx={diskMountScrollableTableSx}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Mount</TableCell>
-                <TableCell>Device</TableCell>
-                <TableCell>FS</TableCell>
-                <TableCell align="right">Usage</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.mount")}</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.device")}</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.filesystemShort")}</TableCell>
+                <TableCell align="right">{getLabel("admin.monitoringMetrics.usage")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -118,7 +131,9 @@ const renderMountsTable = (rows: DiskMountPanelRow[]): ReactElement => {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4}>No storage mounts observed</TableCell>
+                  <TableCell colSpan={4}>
+                    {getLabel("admin.monitoringMetrics.noStorageMounts")}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -132,7 +147,10 @@ const renderMountsTable = (rows: DiskMountPanelRow[]): ReactElement => {
 /**
  * Renders the filesystem distribution summary table.
  */
-const renderFilesystemsTable = (rows: DiskFilesystemPanelRow[]): ReactElement => {
+const renderFilesystemsTable = (
+  rows: DiskFilesystemPanelRow[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Paper sx={monitoringDetailColumnSx} variant="outlined">
       <Stack spacing={0.625}>
@@ -141,15 +159,15 @@ const renderFilesystemsTable = (rows: DiskFilesystemPanelRow[]): ReactElement =>
           data-test-name="Filesystem mix"
           variant="body2"
         >
-          Filesystem mix
+          {getLabel("admin.monitoringMetrics.filesystemMix")}
         </Typography>
         <TableContainer data-testid="disk-filesystems-table" sx={diskMountScrollableTableSx}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Filesystem</TableCell>
-                <TableCell>Class</TableCell>
-                <TableCell align="right">Mounts</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.filesystems")}</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.class")}</TableCell>
+                <TableCell align="right">{getLabel("admin.monitoringMetrics.mounts")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -162,14 +180,20 @@ const renderFilesystemsTable = (rows: DiskFilesystemPanelRow[]): ReactElement =>
                       key={row.filesystem}
                     >
                       <TableCell>{row.filesystem}</TableCell>
-                      <TableCell>{row.type}</TableCell>
+                      <TableCell>
+                        {row.type === "unknown"
+                          ? getLabel("admin.monitoringMetrics.unknown")
+                          : row.type}
+                      </TableCell>
                       <TableCell align="right">{row.mountCount}</TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3}>No filesystem summaries observed</TableCell>
+                  <TableCell colSpan={3}>
+                    {getLabel("admin.monitoringMetrics.noFilesystemSummaries")}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>

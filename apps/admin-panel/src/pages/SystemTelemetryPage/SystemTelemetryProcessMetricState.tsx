@@ -2,6 +2,7 @@ import { createMonitoringScrollableTableSx } from "@components/monitoring/table-
 import type { ProcessMetricProcessDTO, ProcessMetricSortKey } from "@dto/monitoring/process-metric";
 import { formatMetricBytes } from "@helpers/metric-display";
 import { useProcessMetric } from "@hooks/useProcessMetric";
+import { useLanguage } from "@lite-nas/language";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import type { SxProps, Theme } from "@mui/material/styles";
@@ -35,14 +36,15 @@ type SortableHeaderCellOptions = {
  */
 export const SystemTelemetryProcessMetricState = (): ReactElement => {
   const state = useProcessMetric();
+  const { getLabel } = useLanguage();
 
   return (
     <SystemTelemetrySnapshotScaffold
-      content={renderProcessMetricTable(state)}
-      controls={renderProcessMetricControls(state)}
+      content={renderProcessMetricTable(state, getLabel)}
+      controls={renderProcessMetricControls(state, getLabel)}
       hasNextPage={state.hasNextPage}
       hasPreviousPage={state.hasPreviousPage}
-      itemLabel="processes"
+      itemLabel={getLabel("admin.telemetry.process.itemLabel")}
       pageSize={state.pageSize}
       pagination={{
         page: state.page,
@@ -50,10 +52,12 @@ export const SystemTelemetryProcessMetricState = (): ReactElement => {
         totalCount: state.visibleProcessesCount,
         totalPages: state.totalPages,
       }}
-      summary={buildProcessMetricSummary(state)}
+      summary={buildProcessMetricSummary(state, getLabel)}
       testIdPrefix="process-metric"
-      title="Processes snapshot"
-      totalSummary={`${state.visibleProcessesCount} of ${state.totalProcesses} processes match the current search.`}
+      title={getLabel("admin.telemetry.process.title")}
+      totalSummary={getLabel("admin.telemetry.process.totalSummary")
+        .replace("{visible}", String(state.visibleProcessesCount))
+        .replace("{total}", String(state.totalProcesses))}
     />
   );
 };
@@ -61,12 +65,15 @@ export const SystemTelemetryProcessMetricState = (): ReactElement => {
 /**
  * Renders the shared search and reset controls for the processes snapshot view.
  */
-const renderProcessMetricControls = (state: ReturnType<typeof useProcessMetric>): ReactElement => {
+const renderProcessMetricControls = (
+  state: ReturnType<typeof useProcessMetric>,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack direction={{ md: "row", xs: "column" }} spacing={1.5}>
       <TextField
         data-testid="process-metric-search-control"
-        label="Search processes"
+        label={getLabel("admin.telemetry.process.search")}
         name="processMetricSearch"
         onChange={(event) => {
           state.setSearch(event.target.value);
@@ -80,7 +87,7 @@ const renderProcessMetricControls = (state: ReturnType<typeof useProcessMetric>)
         onClick={state.clearFilters}
         variant="text"
       >
-        Clear search
+        {getLabel("admin.telemetry.process.clear")}
       </Button>
     </Stack>
   );
@@ -89,7 +96,10 @@ const renderProcessMetricControls = (state: ReturnType<typeof useProcessMetric>)
 /**
  * Renders the current page of process rows inside the task-manager-style table.
  */
-const renderProcessMetricTable = (state: ReturnType<typeof useProcessMetric>): ReactElement => {
+const renderProcessMetricTable = (
+  state: ReturnType<typeof useProcessMetric>,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <TableContainer data-testid="process-metric-table" sx={processTableScrollableSx}>
       <Table size="small" stickyHeader sx={{ minWidth: 1200 }}>
@@ -102,7 +112,7 @@ const renderProcessMetricTable = (state: ReturnType<typeof useProcessMetric>): R
               sx: processCompactColumnSx,
             })}
             {renderSortableProcessHeaderCell(state, {
-              label: "Name",
+              label: getLabel("admin.telemetry.process.columnName"),
               sortKey: "name",
               sx: processNameColumnSx,
             })}
@@ -119,11 +129,13 @@ const renderProcessMetricTable = (state: ReturnType<typeof useProcessMetric>): R
               sx: processCompactColumnSx,
             })}
             {renderSortableProcessHeaderCell(state, {
-              label: "User",
+              label: getLabel("admin.telemetry.process.columnUser"),
               sortKey: "username",
               sx: processCompactColumnSx,
             })}
-            <TableCell sx={processCompactColumnSx}>State</TableCell>
+            <TableCell sx={processCompactColumnSx}>
+              {getLabel("admin.telemetry.process.columnState")}
+            </TableCell>
             {renderSortableProcessHeaderCell(state, {
               align: "right",
               label: "CPU",
@@ -137,18 +149,20 @@ const renderProcessMetricTable = (state: ReturnType<typeof useProcessMetric>): R
               sx: processCompactColumnSx,
             })}
             <TableCell align="right" sx={processCompactColumnSx}>
-              Threads
+              {getLabel("admin.telemetry.process.columnThreads")}
             </TableCell>
             <TableCell align="right" sx={processCompactColumnSx}>
-              FDs
+              {getLabel("admin.telemetry.process.columnFileDescriptors")}
             </TableCell>
             <TableCell align="right" sx={processCompactColumnSx}>
-              Action
+              {getLabel("admin.telemetry.process.columnAction")}
             </TableCell>
-            <TableCell sx={processStartedColumnSx}>Started</TableCell>
+            <TableCell sx={processStartedColumnSx}>
+              {getLabel("admin.telemetry.process.columnStarted")}
+            </TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>{renderProcessMetricRows(state)}</TableBody>
+        <TableBody>{renderProcessMetricRows(state, getLabel)}</TableBody>
       </Table>
     </TableContainer>
   );
@@ -184,11 +198,12 @@ const renderSortableProcessHeaderCell = (
  */
 const renderProcessMetricRows = (
   state: ReturnType<typeof useProcessMetric>,
+  getLabel: (key: string) => string,
 ): ReactElement | ReactElement[] => {
   if (state.processes.length === 0) {
     return (
       <TableRow data-testid="process-metric-empty-row">
-        <TableCell colSpan={12}>No processes match the current search.</TableCell>
+        <TableCell colSpan={12}>{getLabel("admin.telemetry.process.empty")}</TableCell>
       </TableRow>
     );
   }
@@ -225,7 +240,9 @@ const renderProcessMetricRows = (
         <TableCell align="right" sx={processCompactColumnSx}>
           {process.gid}
         </TableCell>
-        <TableCell sx={processCompactColumnSx}>{process.username ?? "unknown"}</TableCell>
+        <TableCell sx={processCompactColumnSx}>
+          {process.username ?? getLabel("admin.telemetry.process.unknown")}
+        </TableCell>
         <TableCell sx={processCompactColumnSx}>{process.state}</TableCell>
         <TableCell align="right" sx={processCompactColumnSx}>
           {formatProcessCPUPct(process.cpu.cpu_pct)}
@@ -247,11 +264,14 @@ const renderProcessMetricRows = (
               void state.terminate(process.pid);
             }}
             sx={{ minWidth: 96 }}
-            title={`Terminate process ${process.pid}`}
+            title={getLabel("admin.telemetry.process.terminateTitle").replace(
+              "{pid}",
+              String(process.pid),
+            )}
             variant="outlined"
             size="small"
           >
-            Terminate
+            {getLabel("admin.telemetry.process.terminate")}
           </Button>
         </TableCell>
         <TableCell sx={processStartedColumnSx}>{process.start_time}</TableCell>
@@ -285,22 +305,34 @@ const renderProcessCommandLine = (process: ProcessMetricProcessDTO): ReactElemen
 /**
  * Resolves the short summary copy shown above the process snapshot table.
  */
-const buildProcessMetricSummary = (state: ReturnType<typeof useProcessMetric>): string => {
+const buildProcessMetricSummary = (
+  state: ReturnType<typeof useProcessMetric>,
+  getLabel: (key: string) => string,
+): string => {
   if (state.isLoading) {
-    return "Loading the latest process snapshot from the gateway.";
+    return getLabel("admin.telemetry.process.loading");
   }
 
   if (state.isError) {
-    return state.error?.message ?? "Failed to load the latest process snapshot.";
+    return state.error?.message ?? getLabel("admin.telemetry.process.loadFailed");
   }
 
-  const refreshState = state.isFetching ? " A refresh is currently in progress." : "";
+  const refreshState = state.isFetching ? getLabel("admin.telemetry.process.refreshing") : "";
   const sortState =
     state.sortKey === null
-      ? " No client-side sorting is applied."
-      : ` Sorted by ${state.sortKey} (${state.sortDirection}).`;
+      ? getLabel("admin.telemetry.process.unsorted")
+      : getLabel("admin.telemetry.process.sorted")
+          .replace("{key}", getLabel(`admin.telemetry.process.sort.${state.sortKey}`))
+          .replace(
+            "{direction}",
+            getLabel(`admin.telemetry.process.direction.${state.sortDirection}`),
+          );
 
-  return `${state.visibleProcessesCount} of ${state.totalProcesses} processes match the current search.${sortState}${refreshState}`;
+  return getLabel("admin.telemetry.process.summary")
+    .replace("{visible}", String(state.visibleProcessesCount))
+    .replace("{total}", String(state.totalProcesses))
+    .replace("{sortState}", sortState)
+    .replace("{refreshState}", refreshState);
 };
 
 /**

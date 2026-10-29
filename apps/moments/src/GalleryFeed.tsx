@@ -1,4 +1,6 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: the feed keeps pagination, filters, and create/edit modal transitions together.
+
+import { useLanguage } from "@lite-nas/language";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -29,12 +31,12 @@ import {
 export type GalleryFeedScope = "home" | "mine" | "shared";
 
 /** Labels used by the multi-select while the API keeps stable media values. */
-const mediaTypeLabels: Record<GalleryMediaType, string> = {
-  IMAGE: "Photos",
-  VIDEO: "Videos",
-  AUDIO: "Audio",
-  LIVE_PHOTO: "Live Photos",
-  OTHER: "Other",
+const mediaTypeLabelKeys: Record<GalleryMediaType, string> = {
+  IMAGE: "image",
+  VIDEO: "video",
+  AUDIO: "audio",
+  LIVE_PHOTO: "livePhoto",
+  OTHER: "other",
 };
 
 /** Lists real, paged gallery metadata and opens an album or collection. */
@@ -50,6 +52,7 @@ export function GalleryFeed({
   workingDir: string;
   onOpen: (gallery: GalleryRecord) => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const [items, setItems] = useState<GalleryRecord[]>([]);
   const [mediaMatches, setMediaMatches] = useState<MatchingMedia[]>([]);
   const [mediaTotal, setMediaTotal] = useState(0);
@@ -118,7 +121,7 @@ export function GalleryFeed({
         }
       })
       .catch(() => {
-        if (active) setError("Could not load galleries.");
+        if (active) setError(getLabel("moments.feed.loadFailed"));
       })
       .finally(() => {
         if (active) setBusy(false);
@@ -126,7 +129,7 @@ export function GalleryFeed({
     return () => {
       active = false;
     };
-  }, [page, scope, userId, search, kind, visibility, mediaTypes, location]);
+  }, [page, scope, userId, search, kind, visibility, mediaTypes, location, getLabel]);
   useEffect(() => {
     if (busy || page >= pages || !sentinel.current || typeof IntersectionObserver === "undefined")
       return;
@@ -147,7 +150,7 @@ export function GalleryFeed({
     }))
     .filter((item) => item.linkedGalleries.length > 0);
   const hasMediaSearch = Boolean(search || location.trim());
-  const title = { home: "Home", mine: "My collections", shared: "Shared collections" }[scope];
+  const title = getLabel(`moments.feed.${scope}`);
   /** Loads the next image page without disturbing gallery pagination. */
   const loadMoreMedia = async (): Promise<void> => {
     const version = requestVersion.current;
@@ -170,7 +173,8 @@ export function GalleryFeed({
       setMediaMatches((previous) => [...previous, ...(result.matchingMedia?.items ?? [])]);
       setMediaTotal(result.matchingMedia?.total ?? 0);
     } catch {
-      if (version === requestVersion.current) setMediaError("Could not load more photos.");
+      if (version === requestVersion.current)
+        setMediaError(getLabel("moments.feed.morePhotosFailed"));
     } finally {
       if (version === requestVersion.current) setMediaBusy(false);
     }
@@ -185,12 +189,12 @@ export function GalleryFeed({
             setCreating(true);
           }}
         >
-          Create album or collection
+          {getLabel("moments.editor.createTitle")}
         </Button>
       </Stack>
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
         <TextField
-          label="Search galleries"
+          label={getLabel("moments.feed.search")}
           value={searchDraft}
           onChange={(event) => setSearchDraft(event.target.value)}
           size="small"
@@ -198,7 +202,7 @@ export function GalleryFeed({
         />
         <TextField
           select
-          label="Type"
+          label={getLabel("moments.feed.type")}
           value={kind}
           onChange={(event) => {
             setKind(event.target.value as typeof kind);
@@ -207,13 +211,13 @@ export function GalleryFeed({
           size="small"
           sx={{ minWidth: 145 }}
         >
-          <MenuItem value="">All types</MenuItem>
-          <MenuItem value="ALBUM">Albums</MenuItem>
-          <MenuItem value="COLLECTION">Collections</MenuItem>
+          <MenuItem value="">{getLabel("moments.feed.allTypes")}</MenuItem>
+          <MenuItem value="ALBUM">{getLabel("moments.feed.albums")}</MenuItem>
+          <MenuItem value="COLLECTION">{getLabel("moments.feed.collections")}</MenuItem>
         </TextField>
         <TextField
           select
-          label="Visibility"
+          label={getLabel("moments.feed.visibility")}
           value={visibility}
           onChange={(event) => {
             setVisibility(event.target.value as typeof visibility);
@@ -222,24 +226,28 @@ export function GalleryFeed({
           size="small"
           sx={{ minWidth: 150 }}
         >
-          <MenuItem value="">Any visibility</MenuItem>
-          <MenuItem value="PRIVATE">Private</MenuItem>
-          <MenuItem value="PUBLIC">Public</MenuItem>
+          <MenuItem value="">{getLabel("moments.feed.anyVisibility")}</MenuItem>
+          <MenuItem value="PRIVATE">{getLabel("moments.feed.private")}</MenuItem>
+          <MenuItem value="PUBLIC">{getLabel("moments.feed.public")}</MenuItem>
         </TextField>
         <FormControl size="small" sx={{ minWidth: 180, maxWidth: 300 }}>
           <InputLabel id="moments-media-type-label" shrink>
-            Media type
+            {getLabel("moments.feed.mediaType")}
           </InputLabel>
           <Select
             labelId="moments-media-type-label"
-            label="Media type"
+            label={getLabel("moments.feed.mediaType")}
             multiple
             displayEmpty
             value={mediaTypes}
             renderValue={(selected) =>
               selected.length === 0
-                ? "Any media"
-                : selected.map((value) => mediaTypeLabels[value]).join(", ")
+                ? getLabel("moments.feed.anyMedia")
+                : selected
+                    .map((value) =>
+                      getLabel(`moments.feed.mediaLabels.${mediaTypeLabelKeys[value]}`),
+                    )
+                    .join(", ")
             }
             onChange={(event) => {
               const parsed = galleryMediaTypeSelectionSchema.safeParse(event.target.value);
@@ -251,13 +259,15 @@ export function GalleryFeed({
             {galleryMediaTypeSchema.options.map((value) => (
               <MenuItem key={value} value={value}>
                 <Checkbox checked={mediaTypes.includes(value)} size="small" />
-                <ListItemText primary={mediaTypeLabels[value]} />
+                <ListItemText
+                  primary={getLabel(`moments.feed.mediaLabels.${mediaTypeLabelKeys[value]}`)}
+                />
               </MenuItem>
             ))}
           </Select>
         </FormControl>
         <TextField
-          label="Location"
+          label={getLabel("moments.feed.locationLabel")}
           value={location}
           onChange={(event) => {
             setLocation(event.target.value);
@@ -277,13 +287,13 @@ export function GalleryFeed({
             resetFeed();
           }}
         >
-          Clear filters
+          {getLabel("moments.feed.clearFilters")}
         </Button>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
-      <Typography variant="h6">Albums and collections</Typography>
+      <Typography variant="h6">{getLabel("moments.feed.albumsAndCollections")}</Typography>
       {shown.length === 0 && !busy && !error && page >= pages && (
-        <Typography>No galleries yet.</Typography>
+        <Typography>{getLabel("moments.feed.noGalleries")}</Typography>
       )}
       <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(230px, 1fr))" gap={2}>
         {shown.map((gallery) => (
@@ -301,9 +311,11 @@ export function GalleryFeed({
       </Box>
       {hasMediaSearch && (
         <Stack spacing={1.5} data-testid="moments-media-search-results">
-          <Typography variant="h6">Photos {scope === "shared" ? "" : `(${mediaTotal})`}</Typography>
+          <Typography variant="h6">
+            {getLabel("moments.feed.photos")} {scope === "shared" ? "" : `(${mediaTotal})`}
+          </Typography>
           {shownMedia.length === 0 && !busy && !mediaBusy && (
-            <Typography>No matching photos.</Typography>
+            <Typography>{getLabel("moments.feed.noPhotos")}</Typography>
           )}
           <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(210px, 1fr))" gap={2}>
             {shownMedia.map((item) => (
@@ -317,16 +329,20 @@ export function GalleryFeed({
               onClick={() => void loadMoreMedia()}
               sx={{ alignSelf: "start" }}
             >
-              {mediaBusy ? "Loading photos…" : "Load more photos"}
+              {mediaBusy
+                ? getLabel("moments.feed.loadingPhotos")
+                : getLabel("moments.feed.loadMore")}
             </Button>
           )}
         </Stack>
       )}
       <Box ref={sentinel} minHeight={8} />
       {typeof IntersectionObserver === "undefined" && page < pages && !busy && (
-        <Button onClick={() => setPage((current) => current + 1)}>Load more</Button>
+        <Button onClick={() => setPage((current) => current + 1)}>
+          {getLabel("moments.feed.loadMore")}
+        </Button>
       )}
-      {busy && <Typography>Loading galleries…</Typography>}
+      {busy && <Typography>{getLabel("moments.feed.loadingGalleries")}</Typography>}
       <GalleryEditorDialog
         open={creating || editorOpen}
         gallery={editing ?? undefined}

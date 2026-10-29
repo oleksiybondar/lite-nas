@@ -1,7 +1,12 @@
+import {
+  localizeMonitoringMetricLabel,
+  localizeMonitoringMetricValue,
+} from "@components/monitoring/metric-labels";
 import { ValueLineChart } from "@components/monitoring/ValueLineChart";
 import type { DiskDevicePanelItem } from "@helpers/disk-metric-panel";
 import { formatDiskReadWriteValue, formatDiskUtilizationValue } from "@helpers/disk-metric-panel";
 import type { MetricChartLabel } from "@helpers/system-metric-chart";
+import { useLanguage } from "@lite-nas/language";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
@@ -30,6 +35,7 @@ const diskDeviceChartSectionSx = {
  * Renders one disk device card with metadata, cumulative totals, and time-series charts.
  */
 export const DiskDeviceCard = ({ capacity, device }: DiskDeviceCardProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Paper
       data-test-class="disk-device-card"
@@ -39,12 +45,12 @@ export const DiskDeviceCard = ({ capacity, device }: DiskDeviceCardProps): React
     >
       <Stack spacing={1}>
         {renderDeviceHeader(device.name, device.sizeLabel)}
-        {renderBodyText("disk-device-subtitle", device.name, device.subtitle)}
-        {renderBodyText("disk-device-connection", device.name, device.connectionLabel)}
-        {renderBodyText("disk-device-mounts", device.name, device.mountsLabel)}
-        {renderLabels(device.ioSummaryLabels)}
+        {renderBodyText("disk-device-subtitle", device.name, device.subtitle, getLabel)}
+        {renderBodyText("disk-device-connection", device.name, device.connectionLabel, getLabel)}
+        {renderBodyText("disk-device-mounts", device.name, device.mountsLabel, getLabel)}
+        {renderLabels(device.ioSummaryLabels, getLabel)}
         <Divider />
-        {renderChartsRow(capacity, device)}
+        {renderChartsRow(capacity, device, getLabel)}
       </Stack>
     </Paper>
   );
@@ -73,10 +79,21 @@ const renderDeviceHeader = (name: string, sizeLabel: string): ReactElement => {
 /**
  * Renders one compact device metadata line.
  */
-const renderBodyText = (testClass: string, testName: string, value: string): ReactElement => {
+const renderBodyText = (
+  testClass: string,
+  testName: string,
+  value: string,
+  getLabel: (key: string) => string,
+): ReactElement => {
+  const unavailableLabel: Record<string, string> = {
+    "No additional metadata reported": "admin.monitoringMetrics.metadataUnavailable",
+    "No direct partitions or mounts reported": "admin.monitoringMetrics.partitionsUnavailable",
+  };
+  const labelKey = unavailableLabel[value];
+  const localizedValue = labelKey ? getLabel(labelKey) : value;
   return (
     <Typography data-test-class={testClass} data-test-name={testName} variant="body2">
-      {value}
+      {localizedValue}
     </Typography>
   );
 };
@@ -84,7 +101,10 @@ const renderBodyText = (testClass: string, testName: string, value: string): Rea
 /**
  * Renders the current read/write total labels row.
  */
-const renderLabels = (labels: MetricChartLabel[]): ReactElement => {
+const renderLabels = (
+  labels: MetricChartLabel[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack data-test-class="disk-device-totals" direction="row" flexWrap="wrap" gap={1} useFlexGap>
       {labels.map((label) => {
@@ -95,7 +115,8 @@ const renderLabels = (labels: MetricChartLabel[]): ReactElement => {
             key={label.key}
             variant="body2"
           >
-            {label.key}: {label.value}
+            {localizeMonitoringMetricLabel(label.key, getLabel)}:{" "}
+            {localizeMonitoringMetricValue(label.value, getLabel)}
           </Typography>
         );
       })}
@@ -106,7 +127,11 @@ const renderLabels = (labels: MetricChartLabel[]): ReactElement => {
 /**
  * Renders the responsive chart row inside one disk device card.
  */
-const renderChartsRow = (capacity: number, device: DiskDevicePanelItem): ReactElement => {
+const renderChartsRow = (
+  capacity: number,
+  device: DiskDevicePanelItem,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack
       data-test-class="disk-device-chart-row"
@@ -117,13 +142,13 @@ const renderChartsRow = (capacity: number, device: DiskDevicePanelItem): ReactEl
     >
       {renderChartSection(
         capacity,
-        "Read/write throughput",
+        getLabel("admin.monitoringMetrics.readWriteThroughput"),
         device.readWriteSeries,
         formatDiskReadWriteValue,
       )}
       {renderChartSection(
         capacity,
-        "Busy time",
+        getLabel("admin.monitoringMetrics.busyTime"),
         device.utilizationSeries,
         formatDiskUtilizationValue,
       )}

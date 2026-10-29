@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -18,6 +19,7 @@ export const AlertOccurrencesDialogLayout = ({
   summary,
   title,
 }: AlertOccurrencesDialogLayoutProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Dialog
       data-testid="alert-occurrences-dialog"
@@ -37,7 +39,7 @@ export const AlertOccurrencesDialogLayout = ({
       <DialogContent dividers>{children}</DialogContent>
       <DialogActions>
         <Button data-testid="alert-occurrences-dialog-close-button" onClick={onClose}>
-          Close
+          {getLabel("admin.alerts.close")}
         </Button>
       </DialogActions>
     </Dialog>

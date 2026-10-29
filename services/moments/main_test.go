@@ -192,9 +192,9 @@ func TestLogoutCookieBoundary(t *testing.T) {
 		stub         authStub
 		want         int
 	}{
-		{"missing", "", authStub{}, http.StatusUnauthorized},
+		{"missing", "", authStub{}, http.StatusOK},
 		{"valid", "refresh", authStub{session: mustMomentsSession()}, http.StatusOK},
-		{"denied", "refresh", authStub{err: browserauth.ErrUnauthorized}, http.StatusUnauthorized},
+		{"denied", "refresh", authStub{err: browserauth.ErrUnauthorized}, http.StatusOK},
 		{"unavailable", "refresh", authStub{err: errors.New("RPC unavailable")}, http.StatusInternalServerError},
 	} {
 		t.Run(test.name, func(t *testing.T) {

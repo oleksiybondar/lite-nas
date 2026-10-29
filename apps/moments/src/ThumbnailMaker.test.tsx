@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { GalleryItem } from "./gallery-model";
 import { ThumbnailMaker } from "./ThumbnailMaker";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./ThumbnailCanvas", () => ({
   beginThumbnail: vi.fn(() => ({})),
@@ -80,7 +82,7 @@ test("a generated cover keeps the selected template and canvas controls usable",
   fireEvent.mouseDown(screen.getByLabelText("Aspect ratio"));
   fireEvent.click(screen.getByRole("option", { name: "1:1" }));
   fireEvent.mouseDown(screen.getByLabelText("Background"));
-  fireEvent.click(screen.getByRole("option", { name: "white" }));
+  fireEvent.click(screen.getByRole("option", { name: "White" }));
   fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
   fireEvent.click(screen.getByRole("button", { name: "Fit composition" }));
   expect(await screen.findByText("Selected image: photo.jpg")).toBeTruthy();

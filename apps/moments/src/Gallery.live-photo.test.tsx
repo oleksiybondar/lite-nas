@@ -2,11 +2,12 @@
 
 import { createAppTheme } from "@lite-nas/theme";
 import { ThemeProvider } from "@mui/material/styles";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Gallery } from "./Gallery";
 import { type GalleryItem, galleryItemsFromPaths } from "./gallery-model";
 import { StreamProvider } from "./StreamContext";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 const identifier = "A4976DD1-CFD7-4302-9602-FD5B546987BA";
 
@@ -125,7 +126,7 @@ test("Live Photo playback starts the associated movie", async () => {
 test("a Live Photo falls back to its movie when the still cannot display", async () => {
   renderLivePhotoGallery();
   fireEvent.error(await screen.findByAltText("IMG_2062.HEIC"));
-  expect(await screen.findByRole("button", { name: "Play IMG_2062.MOV" })).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "Play video IMG_2062.MOV" })).toBeTruthy();
 });
 
 // Requirements: moments/FR-003. The viewer uses the paired movie after HEIC display fails.
@@ -215,18 +216,20 @@ test("Live Photo clears buffering when frames become ready", async () => {
 test("standalone movie playback starts only after the user presses Play", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
   renderLivePhotoGallery(galleryItemsFromPaths(["/f/home/test/clip.MOV"]));
-  fireEvent.click(await screen.findByRole("button", { name: "Play clip.MOV" }));
-  expect(screen.getByLabelText("clip.MOV").getAttribute("src")).toBe("/s/home/test/clip.MOV");
+  fireEvent.click(await screen.findByRole("button", { name: "Play video clip.MOV" }));
+  expect(screen.getByLabelText("Play video clip.MOV").getAttribute("src")).toBe(
+    "/s/home/test/clip.MOV",
+  );
 });
 
 // Requirements: moments/FR-003. A failed original movie can switch to transcoding.
 test("standalone movie falls back to a transcoded stream", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
   renderLivePhotoGallery(galleryItemsFromPaths(["/f/home/test/clip.MOV"]));
-  fireEvent.click(await screen.findByRole("button", { name: "Play clip.MOV" }));
-  fireEvent.error(screen.getByLabelText("clip.MOV"));
+  fireEvent.click(await screen.findByRole("button", { name: "Play video clip.MOV" }));
+  fireEvent.error(screen.getByLabelText("Play video clip.MOV"));
   await waitFor(() =>
-    expect(screen.getByLabelText("clip.MOV").getAttribute("src")).toBe(
+    expect(screen.getByLabelText("Play video clip.MOV").getAttribute("src")).toBe(
       "/s/transcode/home/test/clip.MOV?start=0",
     ),
   );
@@ -236,9 +239,9 @@ test("standalone movie falls back to a transcoded stream", async () => {
 test("standalone movie reports when its fallback also fails", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
   renderLivePhotoGallery(galleryItemsFromPaths(["/f/home/test/clip.MOV"]));
-  fireEvent.click(await screen.findByRole("button", { name: "Play clip.MOV" }));
-  fireEvent.error(screen.getByLabelText("clip.MOV"));
-  fireEvent.error(screen.getByLabelText("clip.MOV"));
+  fireEvent.click(await screen.findByRole("button", { name: "Play video clip.MOV" }));
+  fireEvent.error(screen.getByLabelText("Play video clip.MOV"));
+  fireEvent.error(screen.getByLabelText("Play video clip.MOV"));
   expect(await screen.findByText("Video unavailable")).toBeTruthy();
 });
 
@@ -246,11 +249,11 @@ test("standalone movie reports when its fallback also fails", async () => {
 test("transcoded movie can seek forward in the wall", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
   renderLivePhotoGallery(galleryItemsFromPaths(["/f/home/test/clip.MOV"]));
-  fireEvent.click(await screen.findByRole("button", { name: "Play clip.MOV" }));
-  fireEvent.error(screen.getByLabelText("clip.MOV"));
+  fireEvent.click(await screen.findByRole("button", { name: "Play video clip.MOV" }));
+  fireEvent.error(screen.getByLabelText("Play video clip.MOV"));
   fireEvent.click(screen.getByRole("button", { name: "Forward 30s" }));
   await waitFor(() =>
-    expect(screen.getByLabelText("clip.MOV").getAttribute("src")).toBe(
+    expect(screen.getByLabelText("Play video clip.MOV").getAttribute("src")).toBe(
       "/s/transcode/home/test/clip.MOV?start=30",
     ),
   );

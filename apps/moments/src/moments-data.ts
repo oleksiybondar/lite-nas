@@ -4,6 +4,8 @@ import { momentsApiPath, request } from "./api";
 import {
   collectionReferencesSchema,
   createGallerySchema,
+  friendInputSchema,
+  friendsSchema,
   type GalleryRecord,
   type GalleryScan,
   galleryListSchema,
@@ -17,6 +19,48 @@ import {
   userTagInputSchema,
   userTagsSchema,
 } from "./schemas";
+
+/** Returns the signed-in user's saved contacts without resolving account existence. */
+export async function listFriends(): Promise<z.infer<typeof friendsSchema>["items"]> {
+  return friendsSchema.parse(await readJson(momentsApiPath("/api/friends"))).items;
+}
+
+/** Saves a login and optional display names in the caller's private friend list. */
+export async function saveFriend(friend: z.input<typeof friendInputSchema>): Promise<void> {
+  const parsed = friendInputSchema.parse(friend);
+  const response = await request(
+    `${momentsApiPath("/api/friends")}/${encodeURIComponent(parsed.username)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: parsed.firstName,
+        lastName: parsed.lastName,
+        nickname: parsed.nickname,
+      }),
+    },
+  );
+  if (!response.ok) throw new Error(`Moments request failed (HTTP ${response.status}).`);
+}
+
+/** Removes one saved login from the caller's private friend list. */
+export async function removeFriend(username: string): Promise<void> {
+  const parsed = friendInputSchema.shape.username.parse(username);
+  const response = await request(
+    `${momentsApiPath("/api/friends")}/${encodeURIComponent(parsed)}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) throw new Error(`Moments request failed (HTTP ${response.status}).`);
+}
+
+/** Reads an eligible cross-user avatar; all non-success responses share the same empty result. */
+export async function loadFriendAvatar(username: string): Promise<Blob | null> {
+  const login = friendInputSchema.shape.username.parse(username);
+  const response = await request(`/f/home/${encodeURIComponent(login)}/.lite-nas/avatar.image`);
+  if (!response.ok) return null;
+  const blob = await response.blob();
+  return blob.type === "image/png" || blob.type === "image/jpeg" ? blob : null;
+}
 
 /** Reads a protected JSON response through the shared session renewal path. */
 async function readJson(path: string, init?: RequestInit): Promise<unknown> {

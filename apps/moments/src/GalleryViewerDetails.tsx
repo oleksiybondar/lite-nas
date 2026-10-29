@@ -1,4 +1,6 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: camera and location actions compose one metadata overlay.
+
+import { useLanguage } from "@lite-nas/language";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
@@ -21,6 +23,7 @@ const cameraIcon = (name: string): typeof PhotoCameraOutlinedIcon => {
 import type { GalleryItem } from "./gallery-model";
 
 /** Places selected-item metadata actions over the lower-left of viewer media. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: the compact overlay owns its camera and location actions together.
 export const GalleryViewerDetails = ({
   item,
   details,
@@ -28,6 +31,7 @@ export const GalleryViewerDetails = ({
   item: GalleryItem;
   details: PhotoMetadata | null | undefined;
 }): ReactElement | null => {
+  const { getLabel } = useLanguage();
   const mapUrl = details?.location ? googleMapsUrl(details.location) : null;
   const deviceName = details?.camera?.toLowerCase() ?? "";
   const DeviceIcon = cameraIcon(deviceName);
@@ -54,19 +58,22 @@ export const GalleryViewerDetails = ({
               pointerEvents: "auto",
             }}
           >
-            <DeviceIcon fontSize="small" aria-label={`Camera: ${details.camera}`} />
+            <DeviceIcon
+              fontSize="small"
+              aria-label={`${getLabel("moments.gallery.camera")}: ${details.camera}`}
+            />
           </Box>
         </Tooltip>
       )}
       {mapUrl && (
-        <Tooltip title="Show on map">
+        <Tooltip title={getLabel("moments.gallery.showOnMap")}>
           <IconButton
             component="a"
             href={mapUrl}
             target="_blank"
             rel="noopener noreferrer"
             size="small"
-            aria-label={`Show ${item.filename} on map`}
+            aria-label={`${getLabel("moments.gallery.showOnMap")} ${item.filename}`}
             sx={{
               color: "common.white",
               bgcolor: "rgba(0,0,0,0.58)",

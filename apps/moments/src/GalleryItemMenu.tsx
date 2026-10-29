@@ -1,4 +1,5 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: this one item menu combines target collections and owner-only removal.
+import { useLanguage } from "@lite-nas/language";
 import CloseIcon from "@mui/icons-material/Close";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Alert from "@mui/material/Alert";
@@ -27,6 +28,7 @@ export const GalleryItemMenu = ({
   wall?: boolean;
 }): ReactElement => {
   const menuId = useId();
+  const { getLabel } = useLanguage();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
@@ -40,7 +42,7 @@ export const GalleryItemMenu = ({
       await action();
       return true;
     } catch {
-      setError("Collection update failed.");
+      setError(getLabel("moments.itemMenu.updateFailed"));
       return false;
     }
   };
@@ -50,7 +52,7 @@ export const GalleryItemMenu = ({
       <IconButton
         size={wall ? "small" : "medium"}
         color="inherit"
-        aria-label={`More options for ${item.filename}`}
+        aria-label={getLabel("moments.itemMenu.moreOptions").replace("{filename}", item.filename)}
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
         aria-expanded={open ? "true" : undefined}
@@ -80,7 +82,7 @@ export const GalleryItemMenu = ({
             key={collection.id}
             onClick={() => void run(() => collectionActions.add(collection.id, path))}
           >
-            Add to {collection.name}
+            {getLabel("moments.itemMenu.addTo").replace("{collection}", collection.name)}
           </MenuItem>
         ))}
         <MenuItem
@@ -90,19 +92,19 @@ export const GalleryItemMenu = ({
             setCreateOpen(true);
           }}
         >
-          Add to new collection
+          {getLabel("moments.itemMenu.addToNew")}
         </MenuItem>
         {collectionActions?.canRemove(path) && (
           <MenuItem onClick={() => void run(() => collectionActions.remove(path))}>
-            Remove from collection
+            {getLabel("moments.itemMenu.removeFrom")}
           </MenuItem>
         )}
       </Menu>
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box sx={{ flex: 1 }}>New collection</Box>
+          <Box sx={{ flex: 1 }}>{getLabel("moments.itemMenu.newTitle")}</Box>
           <IconButton
-            aria-label="Close new collection"
+            aria-label={getLabel("moments.itemMenu.close")}
             onClick={() => setCreateOpen(false)}
             edge="end"
             size="small"
@@ -112,7 +114,7 @@ export const GalleryItemMenu = ({
         </DialogTitle>
         <DialogContent>
           <TextField
-            label="Collection name"
+            label={getLabel("moments.itemMenu.name")}
             value={name}
             onChange={(event) => setName(event.target.value)}
             inputProps={{ maxLength: 160 }}
@@ -125,7 +127,9 @@ export const GalleryItemMenu = ({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateOpen(false)}>
+            {getLabel("moments.itemMenu.cancel")}
+          </Button>
           <Button
             disabled={!name.trim()}
             onClick={() => {
@@ -138,7 +142,7 @@ export const GalleryItemMenu = ({
               });
             }}
           >
-            Create and add
+            {getLabel("moments.itemMenu.createAndAdd")}
           </Button>
         </DialogActions>
       </Dialog>

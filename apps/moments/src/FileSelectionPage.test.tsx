@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
+
 import {
   FileSelectionDialog,
   FileSelectionPage,
   FolderSelectionDialog,
 } from "@lite-nas/file-browser";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 /** Returns one valid File Service listing entry for picker interaction tests. */
 function entry(name: string, kind: "file" | "directory") {

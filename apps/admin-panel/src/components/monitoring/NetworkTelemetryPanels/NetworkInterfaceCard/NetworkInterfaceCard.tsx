@@ -1,6 +1,11 @@
+import {
+  localizeMonitoringMetricLabel,
+  localizeMonitoringMetricValue,
+} from "@components/monitoring/metric-labels";
 import { ValueLineChart } from "@components/monitoring/ValueLineChart";
 import { formatMetricBytesPerSecond, formatMetricValue } from "@helpers/metric-display";
 import type { MetricChartLabel, MetricMultiChartSeries } from "@helpers/system-metric-chart";
+import { useLanguage } from "@lite-nas/language";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
@@ -22,6 +27,7 @@ export const NetworkInterfaceCard = ({
   capacity,
   networkInterface,
 }: NetworkInterfaceCardProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Paper
       data-test-class="network-interface-card"
@@ -30,20 +36,22 @@ export const NetworkInterfaceCard = ({
       variant="outlined"
     >
       <Stack spacing={1}>
-        {renderInterfaceHeader(networkInterface.name, networkInterface.status)}
+        {renderInterfaceHeader(networkInterface.name, networkInterface.status, getLabel)}
         {renderBodyText(
           "network-interface-adapter",
           networkInterface.name,
           networkInterface.adapterLabel,
+          getLabel,
         )}
         {renderBodyText(
           "network-interface-link-details",
           networkInterface.name,
           networkInterface.linkDetailsLabel,
+          getLabel,
         )}
-        {renderTotals(networkInterface.totalsLabels)}
+        {renderTotals(networkInterface.totalsLabels, getLabel)}
         <Divider />
-        {renderChartsRow(capacity, networkInterface)}
+        {renderChartsRow(capacity, networkInterface, getLabel)}
       </Stack>
     </Paper>
   );
@@ -52,7 +60,11 @@ export const NetworkInterfaceCard = ({
 /**
  * Renders the interface name and status chip row.
  */
-const renderInterfaceHeader = (name: string, status: string): ReactElement => {
+const renderInterfaceHeader = (
+  name: string,
+  status: string,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack alignItems="center" direction="row" justifyContent="space-between" spacing={1}>
       <Typography data-test-class="network-interface-name" data-test-name={name} variant="h4">
@@ -62,7 +74,11 @@ const renderInterfaceHeader = (name: string, status: string): ReactElement => {
         color={status === "up" ? "success" : "default"}
         data-test-class="network-interface-status"
         data-test-name={name}
-        label={status}
+        label={
+          status === "up" || status === "down"
+            ? getLabel(`admin.monitoringMetrics.${status}`)
+            : status
+        }
         size="small"
         variant="outlined"
       />
@@ -73,10 +89,21 @@ const renderInterfaceHeader = (name: string, status: string): ReactElement => {
 /**
  * Renders one compact interface metadata line.
  */
-const renderBodyText = (testClass: string, testName: string, value: string): ReactElement => {
+const renderBodyText = (
+  testClass: string,
+  testName: string,
+  value: string,
+  getLabel: (key: string) => string,
+): ReactElement => {
+  const unavailableLabel: Record<string, string> = {
+    "Adapter details unavailable": "admin.monitoringMetrics.adapterDetailsUnavailable",
+    "Link details unavailable": "admin.monitoringMetrics.linkDetailsUnavailable",
+  };
+  const labelKey = unavailableLabel[value];
+  const localizedValue = labelKey ? getLabel(labelKey) : value;
   return (
     <Typography data-test-class={testClass} data-test-name={testName} variant="body2">
-      {value}
+      {localizedValue}
     </Typography>
   );
 };
@@ -84,7 +111,10 @@ const renderBodyText = (testClass: string, testName: string, value: string): Rea
 /**
  * Renders the total RX/TX labels row.
  */
-const renderTotals = (labels: MetricChartLabel[]): ReactElement => {
+const renderTotals = (
+  labels: MetricChartLabel[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack
       data-test-class="network-interface-totals"
@@ -101,7 +131,8 @@ const renderTotals = (labels: MetricChartLabel[]): ReactElement => {
             key={label.key}
             variant="body2"
           >
-            {label.key}: {label.value}
+            {localizeMonitoringMetricLabel(label.key, getLabel)}:{" "}
+            {localizeMonitoringMetricValue(label.value, getLabel)}
           </Typography>
         );
       })}
@@ -115,6 +146,7 @@ const renderTotals = (labels: MetricChartLabel[]): ReactElement => {
 const renderChartsRow = (
   capacity: number,
   networkInterface: NetworkInterfaceCardProps["networkInterface"],
+  getLabel: (key: string) => string,
 ): ReactElement => {
   return (
     <Stack
@@ -126,19 +158,19 @@ const renderChartsRow = (
     >
       {renderChartSection(
         capacity,
-        "RX/TX throughput",
+        getLabel("admin.monitoringMetrics.rxTxThroughput"),
         networkInterface.throughputSeries,
         formatMetricBytesPerSecond,
       )}
       {renderChartSection(
         capacity,
-        "RX/TX packets per second",
+        getLabel("admin.monitoringMetrics.rxTxPackets"),
         networkInterface.packetRateSeries,
         formatMetricValue,
       )}
       {renderChartSection(
         capacity,
-        "RX/TX errors + drops",
+        getLabel("admin.monitoringMetrics.rxTxErrorsDrops"),
         networkInterface.errorAndDropSeries,
         formatMetricValue,
       )}

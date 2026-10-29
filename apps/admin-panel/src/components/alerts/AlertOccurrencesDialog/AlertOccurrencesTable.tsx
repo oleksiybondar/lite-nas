@@ -7,6 +7,7 @@ import { PaginationControl } from "@components/pagination";
 import { useClientPagination } from "@domain/pagination/hooks/useClientPagination";
 import { usePaginationState } from "@domain/pagination/hooks/usePaginationState";
 import type { AlertOccurrenceItemDTO } from "@dto/alerts/alerts";
+import { useLanguage } from "@lite-nas/language";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -27,11 +28,12 @@ const defaultOccurrencesPageSize = 25;
 export const AlertOccurrencesTable = ({
   occurrences,
 }: AlertOccurrencesTableProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const tableState = useAlertOccurrencesTableState(occurrences);
 
   return (
     <Stack spacing={2}>
-      {renderAlertOccurrencesTableHeader(tableState.filteredCount, occurrences.length)}
+      {renderAlertOccurrencesTableHeader(tableState.filteredCount, occurrences.length, getLabel)}
       <AlertOccurrencesSearch search={tableState.search} setSearch={tableState.setSearch} />
       <PaginationControl
         pagination={{
@@ -43,6 +45,7 @@ export const AlertOccurrencesTable = ({
         summary={buildAlertOccurrencesPaginationSummary(
           tableState.filteredCount,
           tableState.paginatedOccurrences.totalPages,
+          getLabel,
         )}
         testIdPrefix="alert-occurrences-top"
       />
@@ -50,15 +53,15 @@ export const AlertOccurrencesTable = ({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Timestamp</TableCell>
-              <TableCell>Value</TableCell>
-              <TableCell>Value type</TableCell>
-              <TableCell>Event ID</TableCell>
-              <TableCell>Event record ID</TableCell>
+              <TableCell>{getLabel("admin.alerts.timestamp")}</TableCell>
+              <TableCell>{getLabel("admin.alerts.value")}</TableCell>
+              <TableCell>{getLabel("admin.alerts.valueType")}</TableCell>
+              <TableCell>{getLabel("admin.alerts.eventId")}</TableCell>
+              <TableCell>{getLabel("admin.alerts.eventRecordId")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {renderAlertOccurrencesTableRows(tableState.paginatedOccurrences.records)}
+            {renderAlertOccurrencesTableRows(tableState.paginatedOccurrences.records, getLabel)}
           </TableBody>
         </Table>
       </TableContainer>
@@ -72,6 +75,7 @@ export const AlertOccurrencesTable = ({
         summary={buildAlertOccurrencesPageSummary(
           tableState.paginatedOccurrences.page,
           tableState.paginatedOccurrences.totalPages,
+          getLabel,
         )}
         testIdPrefix="alert-occurrences-bottom"
       />
@@ -146,6 +150,7 @@ const AlertOccurrencesTableRow = ({ occurrence }: AlertOccurrencesTableRowProps)
 const renderAlertOccurrencesTableHeader = (
   filteredCount: number,
   totalCount: number,
+  getLabel: (key: string) => string,
 ): ReactElement => {
   return (
     <Stack
@@ -156,10 +161,12 @@ const renderAlertOccurrencesTableHeader = (
     >
       <Stack spacing={0.5}>
         <Typography data-testid="alert-occurrences-table-title" variant="h6">
-          Occurrence history
+          {getLabel("admin.alerts.occurrenceHistory")}
         </Typography>
         <Typography color="text.secondary" variant="body2">
-          {filteredCount} of {totalCount} occurrences match the current search.
+          {getLabel("admin.alerts.occurrencesMatch")
+            .replace("{filtered}", String(filteredCount))
+            .replace("{total}", String(totalCount))}
         </Typography>
       </Stack>
     </Stack>
@@ -191,13 +198,14 @@ const filterAlertOccurrences = (
  */
 const renderAlertOccurrencesTableRows = (
   occurrences: AlertOccurrenceItemDTO[],
+  getLabel: (key: string) => string,
 ): ReactElement | ReactElement[] => {
   if (occurrences.length === 0) {
     return (
       <TableRow data-testid="alert-occurrences-table-empty-row">
         <TableCell colSpan={5}>
           <Typography color="text.secondary" variant="body2">
-            No occurrences match the current search.
+            {getLabel("admin.alerts.noOccurrencesMatch")}
           </Typography>
         </TableCell>
       </TableRow>
@@ -220,13 +228,22 @@ const renderAlertOccurrencesTableRows = (
 const buildAlertOccurrencesPaginationSummary = (
   filteredCount: number,
   totalPages: number,
+  getLabel: (key: string) => string,
 ): string => {
-  return `${filteredCount} matching occurrences across ${Math.max(totalPages, 1)} pages`;
+  return getLabel("admin.alerts.occurrencesPagination")
+    .replace("{count}", String(filteredCount))
+    .replace("{pages}", String(Math.max(totalPages, 1)));
 };
 
 /**
  * Builds the bottom pagination summary for the occurrences table.
  */
-const buildAlertOccurrencesPageSummary = (page: number, totalPages: number): string => {
-  return `Page ${page} of ${Math.max(totalPages, 1)}`;
+const buildAlertOccurrencesPageSummary = (
+  page: number,
+  totalPages: number,
+  getLabel: (key: string) => string,
+): string => {
+  return getLabel("admin.alerts.pageSummary")
+    .replace("{page}", String(page))
+    .replace("{pages}", String(Math.max(totalPages, 1)));
 };

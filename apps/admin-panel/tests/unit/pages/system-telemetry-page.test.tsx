@@ -10,7 +10,8 @@ import type {
 } from "@dto/monitoring/network-metric";
 import type { ProcessMetricProcessDTO } from "@dto/monitoring/process-metric";
 import { SystemTelemetryPage } from "@pages/SystemTelemetryPage/SystemTelemetryPage";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import type { PropsWithChildren, ReactElement } from "react";
 import { Route, Routes } from "react-router-dom";
@@ -760,8 +761,8 @@ const assertNetworkTelemetryPage = (): void => {
   expect(screen.getAllByText("Intel I219-LM")).toHaveLength(2);
   expect(screen.getAllByText("ethernet | 1,000 Mbps | full | MTU 1,500")).toHaveLength(2);
   expect(screen.getByText("eth1")).toBeInTheDocument();
-  expect(screen.getByText("up")).toBeInTheDocument();
-  expect(screen.getByText("down")).toBeInTheDocument();
+  expect(screen.getByText("Up")).toBeInTheDocument();
+  expect(screen.getByText("Down")).toBeInTheDocument();
   expect(screen.getByText("Total RX: 140 B")).toBeInTheDocument();
   expect(screen.getByText("Total TX: 190 B")).toBeInTheDocument();
   expect(screen.getAllByTestId("value-line-chart")).toHaveLength(7);
@@ -810,7 +811,7 @@ const assertDiskTelemetryPage = (): void => {
     "Loop & other block devices",
   );
   expect(screen.getByText("loop0")).toBeInTheDocument();
-  expect(screen.getByText("snap image")).toBeInTheDocument();
+  expect(screen.getByText("Snap image")).toBeInTheDocument();
   expect(screen.getByTestId("disk-other-block-devices-section")).toHaveTextContent(
     "No secondary block devices observed.",
   );

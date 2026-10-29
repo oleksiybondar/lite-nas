@@ -1,4 +1,5 @@
 import { FileSelectionDialog, FolderSelectionDialog } from "@lite-nas/file-browser";
+import { useLanguage } from "@lite-nas/language";
 import CloseIcon from "@mui/icons-material/Close";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -23,6 +24,7 @@ import {
   addUserTag,
   chooseGalleryThumbnailPath,
   createGallery,
+  listFriends,
   listUserTags,
   removeUserTag,
   saveGalleryThumbnail,
@@ -52,6 +54,7 @@ export function GalleryEditorDialog({
   onSaved: (gallery: GalleryRecord) => void;
   onCoverSaved?: (gallery: GalleryRecord) => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const [kind, setKind] = useState<"ALBUM" | "COLLECTION">(gallery?.type ?? "ALBUM");
   const [name, setName] = useState(gallery?.name ?? "");
   const [description, setDescription] = useState(gallery?.description ?? "");
@@ -63,6 +66,9 @@ export function GalleryEditorDialog({
   const [tags, setTags] = useState("");
   const [username, setUsername] = useState("");
   const [sharing, setSharing] = useState<string[]>([]);
+  const [friends, setFriends] = useState<
+    { username: string; firstName: string; lastName: string; nickname: string }[]
+  >([]);
   const [tagsReady, setTagsReady] = useState(!gallery);
   const [createdGallery, setCreatedGallery] = useState<GalleryRecord | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -71,9 +77,10 @@ export function GalleryEditorDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initializedFor = useRef<string | null>(null);
-  let coverLabel = "Cover: first gallery image";
-  if (gallery?.thumbnailImageUrl) coverLabel = "Cover: uploaded image";
-  if (gallery?.thumbnailPath) coverLabel = `Cover file: ${gallery.thumbnailPath}`;
+  let coverLabel = getLabel("moments.editor.coverFirst");
+  if (gallery?.thumbnailImageUrl) coverLabel = getLabel("moments.editor.coverUploaded");
+  if (gallery?.thumbnailPath)
+    coverLabel = getLabel("moments.editor.coverFile").replace("{path}", gallery.thumbnailPath);
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: initializing create and edit drafts belongs to this modal lifecycle.
   useEffect(() => {
     if (!open) {
@@ -92,6 +99,9 @@ export function GalleryEditorDialog({
     setTags("");
     setUsername("");
     setSharing([]);
+    void listFriends()
+      .then(setFriends)
+      .catch(() => setFriends([]));
     setTagsReady(!gallery);
     setCreatedGallery(null);
     setCoverPickerOpen(false);
@@ -103,9 +113,9 @@ export function GalleryEditorDialog({
           setTags(items.map((item) => item.value).join(", "));
           setTagsReady(true);
         })
-        .catch(() => setError("Could not load gallery tags."));
+        .catch(() => setError(getLabel("moments.editor.loadTagsFailed")));
     }
-  }, [open, gallery, workingDir]);
+  }, [open, gallery, workingDir, getLabel]);
 
   /** Persists a selected NAS image without discarding other modal drafts. */
   const chooseCover = async (path: string): Promise<void> => {
@@ -116,7 +126,7 @@ export function GalleryEditorDialog({
       onCoverSaved?.(saved);
       setError(null);
     } catch {
-      setError("Could not use the selected image as the cover.");
+      setError(getLabel("moments.editor.coverUseFailed"));
     } finally {
       setBusy(false);
     }
@@ -132,8 +142,8 @@ export function GalleryEditorDialog({
       setGeneratorOpen(false);
       setError(null);
     } catch {
-      setError("Could not upload the cover image.");
-      throw new Error("Could not upload the cover image.");
+      setError(getLabel("moments.editor.coverUploadFailed"));
+      throw new Error(getLabel("moments.editor.coverUploadFailed"));
     } finally {
       setBusy(false);
     }
@@ -192,8 +202,8 @@ export function GalleryEditorDialog({
     } catch {
       setError(
         metadataSaved
-          ? "Gallery details saved, but tags or sharing failed. Fix the entry and retry."
-          : "Could not save gallery. Check its details and try again.",
+          ? getLabel("moments.editor.partialSaveFailed")
+          : getLabel("moments.editor.saveFailed"),
       );
     } finally {
       setBusy(false);
@@ -205,10 +215,16 @@ export function GalleryEditorDialog({
       <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth keepMounted>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Box sx={{ flex: 1 }}>
-            {gallery ? "Edit album or collection" : "Create album or collection"}
+            {gallery
+              ? getLabel("moments.editor.editTitle")
+              : getLabel("moments.editor.createTitle")}
           </Box>
           <IconButton
-            aria-label={gallery ? "Close gallery editor" : "Close gallery creator"}
+            aria-label={
+              gallery
+                ? getLabel("moments.editor.closeEditor")
+                : getLabel("moments.editor.closeCreator")
+            }
             disabled={busy}
             onClick={onClose}
             edge="end"
@@ -222,21 +238,21 @@ export function GalleryEditorDialog({
             {!gallery && (
               <TextField
                 select
-                label="Type"
+                label={getLabel("moments.editor.type")}
                 value={kind}
                 onChange={(event) => setKind(event.target.value as "ALBUM" | "COLLECTION")}
               >
-                <MenuItem value="ALBUM">Album</MenuItem>
-                <MenuItem value="COLLECTION">Collection</MenuItem>
+                <MenuItem value="ALBUM">{getLabel("moments.editor.album")}</MenuItem>
+                <MenuItem value="COLLECTION">{getLabel("moments.editor.collection")}</MenuItem>
               </TextField>
             )}
             <TextField
-              label="Name"
+              label={getLabel("moments.editor.name")}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
             <TextField
-              label="Description"
+              label={getLabel("moments.editor.description")}
               multiline
               minRows={3}
               value={description}
@@ -244,29 +260,29 @@ export function GalleryEditorDialog({
             />
             <TextField
               select
-              label="Visibility"
+              label={getLabel("moments.editor.visibility")}
               value={visibility}
               onChange={(event) => setVisibility(event.target.value as "PRIVATE" | "PUBLIC")}
             >
-              <MenuItem value="PRIVATE">Private</MenuItem>
-              <MenuItem value="PUBLIC">Public</MenuItem>
+              <MenuItem value="PRIVATE">{getLabel("moments.feed.private")}</MenuItem>
+              <MenuItem value="PUBLIC">{getLabel("moments.feed.public")}</MenuItem>
             </TextField>
             <TextField
               select
-              label="Gallery layout"
+              label={getLabel("moments.editor.layout")}
               value={layout}
               onChange={(event) => {
                 const parsed = galleryLayoutModeSchema.safeParse(event.target.value);
                 if (parsed.success) setLayout(parsed.data);
               }}
             >
-              <MenuItem value="mosaic">Mosaic</MenuItem>
-              <MenuItem value="justified">Justified rows</MenuItem>
-              <MenuItem value="masonry">Masonry</MenuItem>
-              <MenuItem value="grid">Even grid</MenuItem>
+              <MenuItem value="mosaic">{getLabel("moments.editor.layoutMosaic")}</MenuItem>
+              <MenuItem value="justified">{getLabel("moments.editor.layoutJustified")}</MenuItem>
+              <MenuItem value="masonry">{getLabel("moments.editor.layoutMasonry")}</MenuItem>
+              <MenuItem value="grid">{getLabel("moments.editor.layoutGrid")}</MenuItem>
             </TextField>
             <TextField
-              label="Tags (comma separated)"
+              label={getLabel("moments.editor.tags")}
               value={tags}
               onChange={(event) => setTags(event.target.value)}
             />
@@ -274,20 +290,29 @@ export function GalleryEditorDialog({
               <>
                 <Stack direction="row" spacing={1}>
                   <TextField
-                    label="Share with username"
+                    select
+                    label={getLabel("moments.editor.shareWith")}
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     fullWidth
-                  />
+                  >
+                    {friends.map((friend) => (
+                      <MenuItem key={friend.username} value={friend.username}>
+                        {friend.nickname ||
+                          [friend.firstName, friend.lastName].filter(Boolean).join(" ") ||
+                          friend.username}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                   <Button
-                    disabled={!username.trim()}
+                    disabled={!username}
                     onClick={() => {
                       const login = username.trim();
                       setSharing((current) => [...new Set([...current, login])]);
                       setUsername("");
                     }}
                   >
-                    Add
+                    {getLabel("moments.editor.add")}
                   </Button>
                 </Stack>
                 {sharing.length > 0 && (
@@ -306,7 +331,9 @@ export function GalleryEditorDialog({
               </>
             )}
             {kind === "ALBUM" && !gallery && (
-              <Button onClick={() => setPickerOpen(true)}>Source folder: {directory}</Button>
+              <Button onClick={() => setPickerOpen(true)}>
+                {getLabel("moments.editor.sourceFolder").replace("{directory}", directory)}
+              </Button>
             )}
             {gallery && (
               <Stack spacing={1}>
@@ -314,10 +341,10 @@ export function GalleryEditorDialog({
                   {coverLabel}
                 </Typography>
                 <Button onClick={() => setCoverPickerOpen(true)} disabled={busy}>
-                  Choose NAS cover file
+                  {getLabel("moments.editor.chooseCover")}
                 </Button>
                 <Button component="label" disabled={busy}>
-                  Upload cover
+                  {getLabel("moments.editor.uploadCover")}
                   <input
                     hidden
                     type="file"
@@ -330,7 +357,7 @@ export function GalleryEditorDialog({
                   />
                 </Button>
                 <Button onClick={() => setGeneratorOpen(true)} disabled={busy}>
-                  Generate cover
+                  {getLabel("moments.editor.generateCover")}
                 </Button>
               </Stack>
             )}
@@ -350,10 +377,10 @@ export function GalleryEditorDialog({
         </DialogContent>
         <DialogActions>
           <Button disabled={busy} onClick={onClose}>
-            Cancel
+            {getLabel("moments.editor.cancel")}
           </Button>
           <Button disabled={busy || !tagsReady || !name.trim()} onClick={() => void submit()}>
-            {gallery ? "Save" : "Create"}
+            {gallery ? getLabel("moments.editor.save") : getLabel("moments.editor.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -386,9 +413,9 @@ export function GalleryEditorDialog({
             maxWidth="xl"
           >
             <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box sx={{ flex: 1 }}>Generate cover</Box>
+              <Box sx={{ flex: 1 }}>{getLabel("moments.editor.generateCover")}</Box>
               <IconButton
-                aria-label="Close thumbnail generator"
+                aria-label={getLabel("moments.editor.closeGenerator")}
                 onClick={() => setGeneratorOpen(false)}
                 edge="end"
                 size="small"

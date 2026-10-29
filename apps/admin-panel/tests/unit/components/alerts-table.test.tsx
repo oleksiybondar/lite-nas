@@ -1,10 +1,11 @@
 import { AlertsTable } from "@components/alerts/AlertsTable";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import {
   AlertsProvidersTestHarness,
   createAlertListItem,
   createAlertsContextValue,
 } from "@tests/unit/test-utils/alerts";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 describe("AlertsTable", () => {

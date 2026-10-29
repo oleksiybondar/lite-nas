@@ -1,10 +1,8 @@
-import Alert from "@mui/material/Alert";
-import Avatar from "@mui/material/Avatar";
-import Button from "@mui/material/Button";
-import Paper from "@mui/material/Paper";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import type { ChangeEvent, ReactElement } from "react";
+import { useState } from "react";
+import { avatarFileSchema } from "./avatar-validation";
+import { ProfileAvatarCropDialog } from "./ProfileAvatarCropDialog";
+import { ProfileIdentityCard } from "./ProfileIdentityCard";
 
 /** Data and actions supplied by an application using the shared profile screen. */
 export interface ProfilePreferencesPanelProps {
@@ -16,7 +14,7 @@ export interface ProfilePreferencesPanelProps {
   onAvatarSelected: (file: File | undefined) => void;
 }
 
-/** Displays profile and avatar controls without owning app authentication or transport. */
+/** Displays profile identity and avatar controls without owning application transport. */
 export const ProfilePreferencesPanel = ({
   username,
   avatarUrl,
@@ -25,59 +23,45 @@ export const ProfilePreferencesPanel = ({
   message,
   onAvatarSelected,
 }: ProfilePreferencesPanelProps): ReactElement => {
+  const [source, setSource] = useState<string | null>(null);
+
+  /** Opens the crop dialog for a valid image or reports an invalid selection. */
   const handleSelection = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    onAvatarSelected(file);
+    if (!file) return;
+    if (!avatarFileSchema.safeParse(file).success) {
+      onAvatarSelected(file);
+      return;
+    }
+    setSource(URL.createObjectURL(file));
+  };
+
+  /** Closes the crop dialog and releases its temporary browser URL. */
+  const closeCrop = (): void => {
+    if (source) URL.revokeObjectURL(source);
+    setSource(null);
   };
 
   return (
-    <Stack data-testid="preferences-profile-page" maxWidth="720px" spacing={3}>
-      <Stack data-testid="preferences-profile-header" spacing={1}>
-        <Typography color="primary" data-testid="preferences-profile-overline" variant="overline">
-          Preferences
-        </Typography>
-        <Typography data-testid="preferences-profile-title" variant="h1">
-          User profile
-        </Typography>
-      </Stack>
-      <Paper data-testid="preferences-profile-card" sx={{ p: 3 }}>
-        <Stack spacing={2} alignItems="flex-start">
-          <Typography data-testid="preferences-profile-details-title" variant="h2">
-            Profile details
-          </Typography>
-          <Avatar
-            alt={username}
-            src={avatarUrl ?? fallbackAvatarUrl ?? undefined}
-            sx={{ height: 80, width: 80 }}
-            data-testid="profile-avatar"
-          >
-            {username.slice(0, 2).toUpperCase()}
-          </Avatar>
-          <Typography>{username}</Typography>
-          <Button
-            component="label"
-            variant="outlined"
-            disabled={busy}
-            data-testid="profile-avatar-upload-button"
-          >
-            {busy ? "Uploading…" : "Upload avatar"}
-            <input
-              hidden
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={handleSelection}
-              data-testid="profile-avatar-file-input"
-            />
-          </Button>
-          <Typography color="text.secondary" variant="body2">
-            PNG or JPEG, up to 5 MB.
-          </Typography>
-          {message ? (
-            <Alert severity={message === "Avatar saved." ? "success" : "warning"}>{message}</Alert>
-          ) : null}
-        </Stack>
-      </Paper>
-    </Stack>
+    <>
+      <ProfileIdentityCard
+        username={username}
+        avatarUrl={avatarUrl}
+        fallbackAvatarUrl={fallbackAvatarUrl}
+        busy={busy}
+        message={message}
+        onFileSelected={handleSelection}
+      />
+      <ProfileAvatarCropDialog
+        key={source}
+        source={source}
+        onClose={closeCrop}
+        onSave={(file) => {
+          onAvatarSelected(file);
+          closeCrop();
+        }}
+      />
+    </>
   );
 };

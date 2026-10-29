@@ -1,4 +1,5 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
+import { useLanguage } from "@lite-nas/language";
 import MiscellaneousServicesIcon from "@mui/icons-material/MiscellaneousServices";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import type { ReactElement } from "react";
@@ -7,25 +8,26 @@ import type { ReactElement } from "react";
  * Landing page for process and service runtime inspection.
  */
 export const SystemProcessesLandingPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <CategoryLandingPage
       cards={[
         {
-          description: "Inspect runtime processes, resource-heavy workloads, and execution state.",
+          description: getLabel("admin.landing.processesOverview"),
           icon: <TerminalIcon />,
           path: "/system/processes/processes",
-          title: "Processes",
+          title: getLabel("navigation.Processes"),
         },
         {
-          description: "Review system services, startup state, and managed unit health.",
+          description: getLabel("admin.landing.servicesOverview"),
           icon: <MiscellaneousServicesIcon />,
           path: "/system/processes/services",
-          title: "Services",
+          title: getLabel("navigation.Services"),
         },
       ]}
-      overline="System"
-      summary="Track operating-system workloads from individual processes up to managed services."
-      title="Processes"
+      overline={getLabel("navigation.System")}
+      summary={getLabel("admin.landing.processesSummary")}
+      title={getLabel("navigation.Processes")}
     />
   );
 };

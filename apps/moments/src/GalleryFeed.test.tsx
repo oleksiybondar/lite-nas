@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { GalleryFeed } from "./GalleryFeed";
 import { listGalleries } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./moments-data", () => ({
   listGalleries: vi.fn(),
@@ -168,7 +170,7 @@ test("Load more continues pagination when intersection observation is unavailabl
       metadata: { page: 2, size: 20, total_count: 21, total_pages: 2 },
     });
   renderHomeFeed();
-  fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Load more photos" }));
   expect(await screen.findByText("Second album")).toBeTruthy();
 });
 

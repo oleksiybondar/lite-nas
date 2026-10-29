@@ -151,13 +151,31 @@ func (c authController) refresh(ctx context.Context, input *refreshInput) (*sess
 // logout revokes the refresh token and expires the issued cookie scope.
 func (c authController) logout(ctx context.Context, input *refreshInput) (*logoutOutput, error) {
 	if strings.TrimSpace(input.RefreshToken) == "" {
-		return nil, huma.Error401Unauthorized("missing refresh token")
+		// Logout is idempotent: an expired or already-cleared browser session
+		// should still be able to leave the authenticated UI and expire stale cookies.
+		return c.logoutResponse(time.Now()), nil
 	}
 	session, err := c.service.Logout(ctx, time.Now(), input.RefreshToken, browserauth.AuthRequestContext{UserAgent: strings.TrimSpace(input.UserAgent)})
 	if err != nil {
+		if errors.Is(err, browserauth.ErrUnauthorized) {
+			// A stale token has no active session left to revoke, but its cookie
+			// still needs to be removed so the browser can finish signing out.
+			return c.logoutResponse(time.Now()), nil
+		}
 		return nil, authError(err)
 	}
-	return &logoutOutput{SetCookie: []http.Cookie{browserauth.ClearAccessCookie(session.AccessExpires, c.cookieDomain), browserauth.ClearRefreshCookie(session.RefreshExpiry, c.cookieDomain)}, Body: responseMeta{Success: true, Timestamp: time.Now(), Message: "logged out"}}, nil
+	return c.logoutResponse(session.AccessExpires), nil
+}
+
+// logoutResponse clears both browser cookies and returns the common logout envelope.
+func (c authController) logoutResponse(now time.Time) *logoutOutput {
+	return &logoutOutput{
+		SetCookie: []http.Cookie{
+			browserauth.ClearAccessCookie(now, c.cookieDomain),
+			browserauth.ClearRefreshCookie(now, c.cookieDomain),
+		},
+		Body: responseMeta{Success: true, Timestamp: now, Message: "logged out"},
+	}
 }
 
 // me returns the verified user profile from the shared auth client.

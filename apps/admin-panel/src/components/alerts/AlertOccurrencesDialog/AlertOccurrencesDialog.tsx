@@ -4,6 +4,7 @@ import { AlertOccurrencesTable } from "@components/alerts/AlertOccurrencesDialog
 import { hasNumericAlertOccurrences } from "@components/alerts/AlertOccurrencesDialog/helpers";
 import { useAlertOccurrences } from "@domain/alerts/hooks/useAlertOccurrences";
 import type { AlertOccurrenceItemDTO } from "@dto/alerts/alerts";
+import { useLanguage } from "@lite-nas/language";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -21,6 +22,7 @@ export const AlertOccurrencesDialog = ({
   triggerIcon,
   triggerLabel,
 }: AlertOccurrencesDialogProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const dialogState = useAlertOccurrencesDialogState();
 
   return renderAlertOccurrencesDialog({
@@ -33,6 +35,7 @@ export const AlertOccurrencesDialog = ({
       <AlertOccurrencesDialogContent domain={domain} eventId={eventId} />
     ) : null,
     eventId,
+    getLabel,
   });
 };
 
@@ -62,6 +65,7 @@ const useAlertOccurrencesDialogState = (): AlertOccurrencesDialogState => {
 type RenderAlertOccurrencesDialogInput = {
   body: ReactElement | null;
   eventId: string;
+  getLabel: (key: string) => string;
   onClose: () => void;
   onOpen: () => void;
   open: boolean;
@@ -75,6 +79,7 @@ type RenderAlertOccurrencesDialogInput = {
 const renderAlertOccurrencesDialog = ({
   body,
   eventId,
+  getLabel,
   onClose,
   onOpen,
   open,
@@ -96,8 +101,8 @@ const renderAlertOccurrencesDialog = ({
       <AlertOccurrencesDialogLayout
         onClose={onClose}
         open={open}
-        summary={`Occurrence history for event ${eventId}.`}
-        title="Alert occurrences"
+        summary={getLabel("admin.alerts.eventOccurrenceSummary").replace("{eventId}", eventId)}
+        title={getLabel("admin.alerts.occurrencesTitle")}
       >
         {body}
       </AlertOccurrencesDialogLayout>
@@ -123,6 +128,7 @@ const AlertOccurrencesDialogContent = ({
   domain,
   eventId,
 }: AlertOccurrencesDialogContentProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const occurrencesQuery = useAlertOccurrences({
     domain,
     enabled: true,
@@ -136,6 +142,7 @@ const AlertOccurrencesDialogContent = ({
     isError: occurrencesQuery.isError,
     isLoading: occurrencesQuery.isLoading,
     occurrences,
+    getLabel,
   });
 };
 
@@ -160,6 +167,7 @@ type RenderAlertOccurrencesDialogBodyInput = {
    * Loaded occurrence rows used to choose table or chart mode.
    */
   occurrences: AlertOccurrenceItemDTO[];
+  getLabel: (key: string) => string;
 };
 
 /**
@@ -171,6 +179,7 @@ const renderAlertOccurrencesDialogBody = ({
   isError,
   isLoading,
   occurrences,
+  getLabel,
 }: RenderAlertOccurrencesDialogBodyInput): ReactElement => {
   if (isLoading) {
     return (
@@ -189,7 +198,8 @@ const renderAlertOccurrencesDialogBody = ({
   if (isError) {
     return (
       <Alert data-testid="alert-occurrences-error-state" severity="error">
-        {error?.message ?? `Failed to load occurrences for ${eventId}.`}
+        {error?.message ??
+          getLabel("admin.alerts.occurrencesLoadFailed").replace("{eventId}", eventId)}
       </Alert>
     );
   }
@@ -201,7 +211,7 @@ const renderAlertOccurrencesDialogBody = ({
         data-testid="alert-occurrences-empty-state"
         variant="body2"
       >
-        No occurrences were returned for {eventId}.
+        {getLabel("admin.alerts.noOccurrencesReturned").replace("{eventId}", eventId)}
       </Typography>
     );
   }

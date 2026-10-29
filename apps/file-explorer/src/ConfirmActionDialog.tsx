@@ -14,12 +14,15 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 
 /** Runs a confirmed action and returns its displayable error when it fails. */
-async function runConfirmedAction(onConfirm: () => Promise<void>): Promise<string | null> {
+async function runConfirmedAction(
+  onConfirm: () => Promise<void>,
+  getLabel: (key: string) => string,
+): Promise<string | null> {
   try {
     await onConfirm();
     return null;
   } catch (caught) {
-    return caught instanceof Error ? caught.message : "The action failed.";
+    return caught instanceof Error ? caught.message : getLabel("explorer.queueErrorFallback");
   }
 }
 
@@ -51,7 +54,7 @@ export function ConfirmActionDialog({
     }
     setBusy(true);
     setError("");
-    const actionError = await runConfirmedAction(onConfirm);
+    const actionError = await runConfirmedAction(onConfirm, getLabel);
     setBusy(false);
     if (actionError !== null) {
       setError(actionError);

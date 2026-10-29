@@ -5,8 +5,9 @@ import { AlertsLandingPage } from "@pages/AlertsLandingPage";
 import { AlertsSecurityLandingPage } from "@pages/AlertsSecurityLandingPage";
 import { AlertsSystemLandingPage } from "@pages/AlertsSystemLandingPage";
 import { AlertsControlPanelProvider } from "@providers/AlertsControlPanelProvider";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { createAlertsContextValue } from "@tests/unit/test-utils/alerts";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { mockRbacAccess } from "@tests/unit/test-utils/rbac";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 

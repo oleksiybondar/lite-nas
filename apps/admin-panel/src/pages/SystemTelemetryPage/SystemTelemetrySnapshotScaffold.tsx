@@ -1,5 +1,6 @@
 import { PaginationControl } from "@components/pagination";
 import type { PaginationControlState } from "@dto/pagination";
+import { useLanguage } from "@lite-nas/language";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -68,6 +69,8 @@ export const SystemTelemetrySnapshotScaffold = ({
   title,
   totalSummary,
 }: SystemTelemetrySnapshotScaffoldProps): ReactElement => {
+  const { getLabel } = useLanguage();
+  const pageCount = Math.max(pagination.totalPages, 1);
   return (
     <Paper data-testid={`${testIdPrefix}-state-card`} sx={{ p: 3 }}>
       <Stack spacing={2}>
@@ -89,13 +92,19 @@ export const SystemTelemetrySnapshotScaffold = ({
         </Typography>
         <PaginationControl
           pagination={pagination}
-          summary={`${pagination.totalCount} matching ${itemLabel} across ${Math.max(pagination.totalPages, 1)} pages`}
+          summary={getLabel("admin.pagination.matchingSummary")
+            .replace("{count}", String(pagination.totalCount))
+            .replace("{items}", itemLabel)
+            .replace("{pages}", String(pageCount))}
           testIdPrefix={`${testIdPrefix}-top`}
         />
         {content}
         <PaginationControl
           pagination={pagination}
-          summary={`${pagination.totalCount} matching ${itemLabel} across ${Math.max(pagination.totalPages, 1)} pages`}
+          summary={getLabel("admin.pagination.matchingSummary")
+            .replace("{count}", String(pagination.totalCount))
+            .replace("{items}", itemLabel)
+            .replace("{pages}", String(pageCount))}
           testIdPrefix={`${testIdPrefix}-bottom`}
         />
         <Typography
@@ -103,9 +112,19 @@ export const SystemTelemetrySnapshotScaffold = ({
           data-testid={`${testIdPrefix}-pagination-state`}
           variant="caption"
         >
-          Page {pagination.page} of {Math.max(pagination.totalPages, 1)}. Showing up to {pageSize}{" "}
-          {itemLabel} per page. Previous page available: {String(hasPreviousPage)}. Next page
-          available: {String(hasNextPage)}.
+          {getLabel("admin.pagination.stateSummary")
+            .replace("{page}", String(pagination.page))
+            .replace("{pages}", String(pageCount))
+            .replace("{pageSize}", String(pageSize))
+            .replace("{items}", itemLabel)
+            .replace(
+              "{previous}",
+              getLabel(`admin.pagination.${hasPreviousPage ? "available" : "unavailable"}`),
+            )
+            .replace(
+              "{next}",
+              getLabel(`admin.pagination.${hasNextPage ? "available" : "unavailable"}`),
+            )}
         </Typography>
       </Stack>
     </Paper>

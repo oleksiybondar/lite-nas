@@ -150,6 +150,7 @@ func mountGalleryRoutes(api huma.API, controller galleryController) {
 	mountThumbnailRoutes(api, controller)
 	mountResultRoutes(api, controller)
 	mountUserTagRoutes(api, controller)
+	mountFriendRoutes(api, controller)
 }
 
 // userID verifies the current LiteNAS session without accepting a caller-supplied owner.

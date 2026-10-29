@@ -1,5 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: each wall item owns its focus and hover lifecycle.
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: still and video fallback share one tile's controls.
+
+import { useLanguage } from "@lite-nas/language";
 import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -26,6 +28,7 @@ export const GalleryWallItem = ({
   onOpen: () => void;
   hoverActions?: ReactNode;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const { queue } = useGallery();
@@ -71,7 +74,7 @@ export const GalleryWallItem = ({
         <Box
           component="button"
           type="button"
-          aria-label={`Open ${item.filename}`}
+          aria-label={`${getLabel("moments.gallery.openFile")} ${item.filename}`}
           onClick={onOpen}
           sx={{
             width: "100%",
@@ -89,7 +92,7 @@ export const GalleryWallItem = ({
           }}
         >
           <Typography variant="body2" textAlign="center" noWrap sx={{ px: 1 }}>
-            Preview unavailable
+            {getLabel("moments.gallery.unsupportedPreview")}
           </Typography>
         </Box>
       )}
@@ -116,7 +119,7 @@ export const GalleryWallItem = ({
           <IconButton
             onClick={onOpen}
             size="small"
-            aria-label={`Open ${item.filename} in viewer`}
+            aria-label={`${getLabel("moments.viewer.openInViewer")} ${item.filename}`}
             sx={{
               color: "common.white",
               bgcolor: "rgba(0,0,0,0.55)",

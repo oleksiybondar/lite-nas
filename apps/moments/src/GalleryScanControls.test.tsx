@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { GalleryScanControls } from "./GalleryScanControls";
 import {
@@ -10,6 +11,7 @@ import {
   startGalleryScan,
 } from "./moments-data";
 import type { GalleryScan } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./moments-data", () => ({
   cancelGalleryScan: vi.fn(),
@@ -83,7 +85,7 @@ test("caption control forwards explicit regeneration", async () => {
 test("scan control shows the latest completed job", async () => {
   vi.mocked(latestGalleryScan).mockResolvedValue({ ...scan, status: "COMPLETED" });
   render(<GalleryScanControls galleryId={scan.galleryId} open />);
-  expect((await screen.findByRole("status")).textContent).toContain("completed");
+  expect((await screen.findByRole("status")).textContent).toContain("Completed");
 });
 
 test("scan control shows measured progress after discovery", async () => {
@@ -148,5 +150,5 @@ test("scan control reports a failed start", async () => {
   vi.mocked(startGalleryScan).mockRejectedValue(new Error("unavailable"));
   render(<GalleryScanControls galleryId={scan.galleryId} open />);
   fireEvent.click(await readyStartButton());
-  expect(await screen.findByText("Could not start media scan.")).toBeTruthy();
+  expect(await screen.findByText("Media scan could not be started.")).toBeTruthy();
 });

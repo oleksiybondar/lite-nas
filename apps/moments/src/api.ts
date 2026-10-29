@@ -1,4 +1,4 @@
-import { loadLocalLanguage } from "@lite-nas/language";
+import { getLabel, loadLocalLanguage } from "@lite-nas/language";
 import {
   authDestination,
   readProfileDocument,
@@ -19,6 +19,9 @@ import {
 
 /** Event raised when a browser session cannot authorize protected requests. */
 export const sessionExpiredEvent = "lite-nas-moments-session-expired";
+
+/** Resolves API failures with the language selected in the current browser. */
+const localLabel = (key: string): string => getLabel(loadLocalLanguage(), key);
 
 /** Routes embedded Moments API calls around the admin host's gateway API. */
 export const momentsApiPath = (path: string): string => {
@@ -85,7 +88,7 @@ export const loadMe = async (): Promise<Me | null> => {
     notifySessionExpired();
     return null;
   }
-  if (!response.ok) throw new Error("Could not load your session.");
+  if (!response.ok) throw new Error(localLabel("moments.api.sessionFailed"));
   const body: unknown = await response.json();
   return meSchema.parse(body).data;
 };
@@ -103,7 +106,7 @@ export const login = async (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) throw new Error("Sign in failed.");
+  if (!response.ok) throw new Error(localLabel("common.signInFailed"));
   return authDestination(
     sessionSchema.parse(await response.json()).data.redirect_to ?? destination,
   );
@@ -116,13 +119,13 @@ export const logout = async (): Promise<void> => {
     headers: { "Content-Type": "application/json" },
     body: "{}",
   });
-  if (!response.ok) throw new Error("Sign out failed.");
+  if (!response.ok) throw new Error(localLabel("moments.settings.logoutFailed"));
 };
 
 /** Returns the server configured initial path for Moments file pickers. */
 export const loadMomentsConfig = async (): Promise<string> => {
   const response = await request(momentsApiPath("/api/config"));
-  if (!response.ok) throw new Error("Could not load Moments settings.");
+  if (!response.ok) throw new Error(localLabel("moments.settings.configFailed"));
   const body: unknown = await response.json();
   return momentsConfigSchema.parse(body).workingDir;
 };

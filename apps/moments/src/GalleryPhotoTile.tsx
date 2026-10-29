@@ -1,6 +1,8 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: image state and EXIF overlays compose one wall tile.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: image state and EXIF overlays compose one wall tile.
 // biome-ignore-all lint/a11y/useMediaCaption: paired motion assets have no caption file in the gallery contract.
+
+import { useLanguage } from "@lite-nas/language";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PhoneAndroidOutlinedIcon from "@mui/icons-material/PhoneAndroidOutlined";
 import PhotoCameraOutlinedIcon from "@mui/icons-material/PhotoCameraOutlined";
@@ -41,6 +43,7 @@ export const GalleryPhotoTile = ({
   onOpen: () => void;
   interested: boolean;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   const { queue, metadata: reader } = useGallery();
   const stream = useStream();
   const { selected } = useCarousel();
@@ -127,7 +130,7 @@ export const GalleryPhotoTile = ({
       <Box
         component="button"
         type="button"
-        aria-label={`Open ${item.filename}`}
+        aria-label={`${getLabel("moments.gallery.openFile")} ${item.filename}`}
         onClick={onOpen}
         sx={{
           position: "absolute",
@@ -176,7 +179,9 @@ export const GalleryPhotoTile = ({
             sx={{ position: "absolute", inset: 0, pointerEvents: "none" }}
           />
         )}
-        {status === "error" && <Typography sx={{ p: 2 }}>Image unavailable</Typography>}
+        {status === "error" && (
+          <Typography sx={{ p: 2 }}>{getLabel("moments.gallery.imageUnavailable")}</Typography>
+        )}
       </Box>
       {item.motionUrl && (
         <Box
@@ -198,7 +203,7 @@ export const GalleryPhotoTile = ({
               setMotionError(true);
               stopMotion();
             }}
-            aria-label={`Live Photo motion ${item.filename}`}
+            aria-label={`${getLabel("moments.viewer.playLivePhoto")} ${item.filename}`}
             style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
           />
         </Box>
@@ -216,7 +221,7 @@ export const GalleryPhotoTile = ({
             if (motionPlaying) stopMotion();
             else playMotion();
           }}
-          aria-label={`${motionPlaying ? "Stop" : "Play"} Live Photo ${item.filename}`}
+          aria-label={`${getLabel(motionPlaying ? "moments.gallery.stopMotion" : "moments.viewer.playLivePhoto")} ${item.filename}`}
           sx={{
             position: "absolute",
             top: 8,
@@ -309,14 +314,14 @@ export const GalleryPhotoTile = ({
               </Tooltip>
             )}
             {mapUrl && (
-              <Tooltip title="Show on map">
+              <Tooltip title={getLabel("moments.gallery.showOnMap")}>
                 <IconButton
                   component="a"
                   href={mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   size="small"
-                  aria-label="Show on map"
+                  aria-label={getLabel("moments.gallery.showOnMap")}
                   sx={{ color: "common.white", pointerEvents: "auto", p: 0.5 }}
                 >
                   <MapOutlinedIcon fontSize="small" />

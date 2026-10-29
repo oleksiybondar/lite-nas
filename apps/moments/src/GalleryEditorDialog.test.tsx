@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { GalleryEditorDialog } from "./GalleryEditorDialog";
 import {
   addUserTag,
   chooseGalleryThumbnailPath,
   createGallery,
+  listFriends,
   listUserTags,
   removeUserTag,
   saveGalleryThumbnail,
@@ -13,6 +14,7 @@ import {
   updateGallery,
 } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("@lite-nas/file-browser", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@lite-nas/file-browser")>()),
@@ -37,6 +39,7 @@ vi.mock("./moments-data", () => ({
   addUserTag: vi.fn(),
   chooseGalleryThumbnailPath: vi.fn(),
   createGallery: vi.fn(),
+  listFriends: vi.fn().mockResolvedValue([]),
   listUserTags: vi.fn(),
   removeUserTag: vi.fn(),
   saveGalleryThumbnail: vi.fn(),
@@ -67,6 +70,7 @@ afterEach(() => {
 /** Prepares successful tag requests for one modal submission. */
 function mockTags(items: { id: string; value: string }[] = []): void {
   vi.mocked(listUserTags).mockResolvedValue(items);
+  vi.mocked(listFriends).mockResolvedValue([]);
   vi.mocked(addUserTag).mockResolvedValue(undefined);
   vi.mocked(removeUserTag).mockResolvedValue(undefined);
 }
@@ -182,15 +186,24 @@ test("editing removes a deleted user tag", async () => {
 
 test("private gallery editor sends a login name for sharing", async () => {
   mockTags();
+  vi.mocked(listFriends).mockResolvedValue([
+    {
+      username: "test-friend",
+      firstName: "",
+      lastName: "",
+      nickname: "",
+      createdAt: "2026-10-26T00:00:00Z",
+      updatedAt: "2026-10-26T00:00:00Z",
+    },
+  ]);
   vi.mocked(updateGallery).mockResolvedValue(gallery);
   vi.mocked(shareGalleryByUsername).mockResolvedValue(undefined);
   renderEditor(gallery);
-  fireEvent.change(screen.getByLabelText("Share with username"), {
-    target: { value: "oleksiybondar" },
-  });
+  fireEvent.mouseDown(await screen.findByRole("combobox", { name: "Share with username" }));
+  fireEvent.click(await screen.findByRole("option", { name: "test-friend" }));
   fireEvent.click(await screen.findByRole("button", { name: "Save" }));
   await waitFor(() =>
-    expect(shareGalleryByUsername).toHaveBeenCalledWith(gallery.id, "oleksiybondar"),
+    expect(shareGalleryByUsername).toHaveBeenCalledWith(gallery.id, "test-friend"),
   );
 });
 

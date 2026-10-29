@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   Button,
@@ -16,13 +17,16 @@ import { useFileExplorer } from "./FileExplorerContext";
 
 /** Shows the currently running action beneath total queue progress. */
 function RunningActionProgress({ action }: { action: ExplorerQueuedAction }): ReactElement {
+  const { getLabel } = useLanguage();
   return (
     <>
       <Typography variant="caption" noWrap>
-        Current: {action.label} · {Math.round(action.progress)}%
+        {getLabel("explorer.queueCurrent")
+          .replace("{label}", action.label)
+          .replace("{progress}", String(Math.round(action.progress)))}
       </Typography>
       <LinearProgress
-        aria-label="Current operation progress"
+        aria-label={getLabel("explorer.queueHeading")}
         variant="determinate"
         value={action.progress}
       />
@@ -32,6 +36,7 @@ function RunningActionProgress({ action }: { action: ExplorerQueuedAction }): Re
 
 /** Overall queue progress with expandable per-action results. */
 export function ExplorerActionQueue(): ReactElement | null {
+  const { getLabel } = useLanguage();
   const { queue, clearQueue } = useFileExplorer();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   if (queue.length === 0) {
@@ -56,7 +61,9 @@ export function ExplorerActionQueue(): ReactElement | null {
         aria-expanded={open}
         aria-controls="file-explorer-action-queue"
       >
-        Actions · {completed} of {queue.length} finished
+        {getLabel("explorer.queueProgress")
+          .replace("{completed}", String(completed))
+          .replace("{total}", String(queue.length))}
       </Button>
       <ActionQueuePopover
         open={open}
@@ -70,6 +77,7 @@ export function ExplorerActionQueue(): ReactElement | null {
           setAnchor(null);
           clearQueue();
         }}
+        getLabel={getLabel}
       />
     </>
   );
@@ -85,6 +93,7 @@ function ActionQueuePopover({
   complete,
   onClose,
   onClear,
+  getLabel,
 }: {
   open: boolean;
   anchor: HTMLElement | null;
@@ -94,6 +103,7 @@ function ActionQueuePopover({
   complete: boolean;
   onClose: () => void;
   onClear: () => void;
+  getLabel: (key: string) => string;
 }): ReactElement {
   return (
     <Popper open={open} anchorEl={anchor} placement="bottom-end" sx={{ zIndex: 1300 }}>
@@ -106,7 +116,7 @@ function ActionQueuePopover({
         >
           <Stack spacing={1.5}>
             <Stack spacing={0.75}>
-              <Typography variant="subtitle2">Action progress</Typography>
+              <Typography variant="subtitle2">{getLabel("explorer.queueHeading")}</Typography>
               <LinearProgress variant="determinate" value={overallProgress} />
               {running && <RunningActionProgress action={running} />}
             </Stack>
@@ -117,14 +127,14 @@ function ActionQueuePopover({
                   variant="body2"
                   color={item.status === "error" ? "error" : "text.secondary"}
                 >
-                  {item.status}: {item.label} · {Math.round(item.progress)}%
-                  {item.error ? ` — ${item.error}` : ""}
+                  {getLabel(`explorer.queueStatus.${item.status}`)}: {item.label} ·{" "}
+                  {Math.round(item.progress)}%{item.error ? ` — ${item.error}` : ""}
                 </Typography>
               ))}
             </Stack>
             {complete && (
               <Button size="small" onClick={onClear}>
-                Close completed actions
+                {getLabel("explorer.queueCloseCompleted")}
               </Button>
             )}
           </Stack>

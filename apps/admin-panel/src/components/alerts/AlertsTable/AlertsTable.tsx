@@ -4,6 +4,7 @@ import {
   buildAlertsTableColumns,
 } from "@components/alerts/AlertsTable/helpers";
 import { useAlerts } from "@hooks/useAlerts";
+import { useLanguage } from "@lite-nas/language";
 import Paper from "@mui/material/Paper";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -19,8 +20,9 @@ import type { ReactElement } from "react";
  * Renders the starter alerts table for the current route slice.
  */
 export const AlertsTable = (): ReactElement => {
+  const { getLabel } = useLanguage();
   const { domain, items } = useAlerts();
-  const columns = buildAlertsTableColumns(domain);
+  const columns = buildAlertsTableColumns(domain, getLabel);
 
   return (
     <TableContainer
@@ -38,6 +40,7 @@ export const AlertsTable = (): ReactElement => {
                   data-test-name={column.key}
                   key={column.key}
                   sx={buildAlertsStickyColumnSx(column.key, true)}
+                  title={column.title}
                 >
                   {column.label}
                 </TableCell>
@@ -50,7 +53,7 @@ export const AlertsTable = (): ReactElement => {
             <TableRow data-testid="alerts-table-empty-row">
               <TableCell colSpan={columns.length}>
                 <Typography color="text.secondary" variant="body2">
-                  No alerts found on this page.
+                  {getLabel("admin.alertTable.empty")}
                 </Typography>
               </TableCell>
             </TableRow>

@@ -1,6 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: playback state and its user-initiated controls compose one tile.
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: fallback and time seeking share the tile's video lifecycle.
 // biome-ignore-all lint/a11y/useMediaCaption: original files have no associated caption resource in the gallery contract.
+import { useLanguage } from "@lite-nas/language";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -15,6 +16,7 @@ import { useWall } from "./WallContext";
 
 /** Offers native wall playback without requesting a video until a user presses Play. */
 export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement => {
+  const { getLabel } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<"original" | "transcode" | "failed">("original");
@@ -74,7 +76,7 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
         playsInline
         preload="none"
         onError={() => setMode((current) => (current === "original" ? "transcode" : "failed"))}
-        aria-label={item.filename}
+        aria-label={`${getLabel("moments.viewer.playVideo")} ${item.filename}`}
         style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
       />
       {loaded && mode === "transcode" && (
@@ -91,7 +93,7 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
               )
             }
           >
-            Back 30s
+            {getLabel("moments.viewer.back30")}
           </Button>
           <Button
             size="small"
@@ -105,7 +107,7 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
               )
             }
           >
-            Forward 30s
+            {getLabel("moments.viewer.forward30")}
           </Button>
         </Stack>
       )}
@@ -124,9 +126,9 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
             onClick={play}
             variant="contained"
             size="small"
-            aria-label={`Play ${item.filename}`}
+            aria-label={`${getLabel("moments.viewer.playVideo")} ${item.filename}`}
           >
-            Play
+            {getLabel("moments.viewer.playVideo")}
           </Button>
         </Stack>
       )}
@@ -142,7 +144,7 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
           }}
           variant="caption"
         >
-          Video unavailable
+          {getLabel("moments.viewer.videoUnavailable")}
         </Typography>
       )}
     </Box>

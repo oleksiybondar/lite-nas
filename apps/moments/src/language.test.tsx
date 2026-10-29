@@ -53,27 +53,36 @@ describe("browser language", () => {
         <LanguageSelector />
       </LanguageProvider>,
     );
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Language" }));
-    fireEvent.click(
-      within(screen.getByRole("listbox")).getByRole("option", { name: "Українська" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Language" }));
+    fireEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Українська" }));
     expect(window.localStorage.getItem(languageStorageKey)).toBe("uk");
   });
 });
 
 describe("language flags", () => {
   it.each([
-    ["en", "🇬🇧"],
-    ["uk", "🇺🇦"],
-    ["da", "🇩🇰"],
-  ])("shows the %s flag in the selected value", (language, flag) => {
-    window.localStorage.setItem(languageStorageKey, language);
+    ["English", "🇬🇧"],
+    ["Українська", "🇺🇦"],
+    ["Dansk", "🇩🇰"],
+  ])("shows the %s flag in the language menu", (language, flag) => {
     render(
       <LanguageProvider>
         <LanguageSelector />
       </LanguageProvider>,
     );
-    expect(screen.getByRole("combobox").textContent).toContain(flag);
+    fireEvent.click(screen.getByRole("button", { name: "Language" }));
+    expect(
+      within(screen.getByRole("menu")).getByRole("menuitem", { name: language }).textContent,
+    ).toContain(flag);
+  });
+
+  it("shows only the Material language icon when closed", () => {
+    render(
+      <LanguageProvider>
+        <LanguageSelector />
+      </LanguageProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Language" }).textContent).toBe("");
   });
 });
 
@@ -180,10 +189,8 @@ describe("authenticated language changes", () => {
         <LanguageSelector />
       </LanguageProvider>,
     );
-    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Language" }));
-    fireEvent.click(
-      within(screen.getByRole("listbox")).getByRole("option", { name: "Українська" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Language" }));
+    fireEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Українська" }));
     expect(
       await screen.findByText(
         "Збережено в цьому браузері, але не вдалося оновити файл користувача.",

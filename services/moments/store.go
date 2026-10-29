@@ -55,6 +55,13 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			PRIMARY KEY(gallery_id,user_id)
 		)`,
 		`CREATE INDEX IF NOT EXISTS gallery_shares_user ON gallery_shares(user_id,gallery_id)`,
+		`CREATE TABLE IF NOT EXISTS friends (
+			owner_id TEXT NOT NULL, username TEXT NOT NULL,
+			first_name TEXT NOT NULL DEFAULT '', last_name TEXT NOT NULL DEFAULT '', nickname TEXT NOT NULL DEFAULT '',
+			created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+			PRIMARY KEY(owner_id,username)
+		)`,
+		`CREATE INDEX IF NOT EXISTS friends_owner_name ON friends(owner_id,nickname,username)`,
 		`CREATE TABLE IF NOT EXISTS gallery_references (
 			id TEXT PRIMARY KEY, gallery_id TEXT NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
 			reference_type TEXT NOT NULL CHECK(reference_type IN ('FILE','DIRECTORY')),

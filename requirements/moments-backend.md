@@ -49,6 +49,13 @@ existing browser-session requirements remain in
   path, while gallery links retain membership and Live Photo pairing. An
   upload refreshes references in the owner's collections. Unchanged full-scan
   paths retain their gallery link identity and source tag associations.
+- **moments-backend/FR-010:** Authenticated users can maintain a private,
+  owner-scoped list of Unix logins with optional first name, last name, and
+  nickname. Saving or listing a login does not resolve account existence.
+  Private gallery sharing can select saved logins and resolves them through
+  RBAC only when the owner grants access. Moments may request the fixed public
+  avatar path for a saved login; unknown accounts and unavailable avatar files
+  produce the same empty avatar result in the UI.
 - **moments-backend/FR-006:** A gallery may store an optional opaque JSON
   thumbnail recipe and a separate optional uploaded PNG/JPEG image. Asset
   reads follow gallery visibility; only the owner can upload or delete it.

@@ -1,4 +1,6 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: wall request coordination and virtualized rendering share one viewport state.
+
+import { useLanguage } from "@lite-nas/language";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -12,6 +14,7 @@ import { useWall } from "./WallContext";
 
 /** Materializes a small wall window and coordinates viewport-only image requests. */
 export const GalleryWall = (): ReactElement => {
+  const { getLabel } = useLanguage();
   const { items, queue } = useGallery();
   const { wallRef, onScroll, layoutHeight, window: wallWindow, scrolling } = useWall();
   const { selected, current, open } = useCarousel();
@@ -46,9 +49,9 @@ export const GalleryWall = (): ReactElement => {
         mb={2}
       >
         <Box>
-          <Typography variant="h5">Media</Typography>
+          <Typography variant="h5">{getLabel("moments.gallery.mediaTitle")}</Typography>
           <Typography color="text.secondary" variant="body2">
-            {items.length} media items
+            {items.length} {getLabel("moments.gallery.mediaItems")}
           </Typography>
         </Box>
       </Stack>

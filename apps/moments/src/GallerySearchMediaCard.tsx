@@ -1,4 +1,5 @@
 import { fileServicePath } from "@lite-nas/file-browser";
+import { useLanguage } from "@lite-nas/language";
 import BrokenImageOutlinedIcon from "@mui/icons-material/BrokenImageOutlined";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -19,6 +20,7 @@ export function GallerySearchMediaCard({
   item: MatchingMedia;
   links: MatchingMedia["linkedGalleries"];
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const [failed, setFailed] = useState(false);
   const filename = item.path.slice(item.path.lastIndexOf("/") + 1);
   const preview = streamProtocol.image(fileServicePath("/f", item.path));
@@ -72,7 +74,7 @@ export function GallerySearchMediaCard({
         <Typography variant="body2" fontWeight="bold">
           {item.caption || filename}
         </Typography>
-        <Typography variant="caption">Found in</Typography>
+        <Typography variant="caption">{getLabel("moments.gallery.foundIn")}</Typography>
         {links.map((gallery) => (
           <Box
             key={gallery.id}
@@ -80,7 +82,10 @@ export function GallerySearchMediaCard({
             href={galleryLink(gallery)}
             sx={{ color: "common.white", textDecoration: "underline" }}
           >
-            {gallery.name} · {gallery.type === "ALBUM" ? "Album" : "Collection"}
+            {gallery.name} ·{" "}
+            {gallery.type === "ALBUM"
+              ? getLabel("moments.editor.album")
+              : getLabel("moments.editor.collection")}
           </Box>
         ))}
       </Stack>

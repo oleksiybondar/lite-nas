@@ -1,6 +1,8 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: media lifecycle events and selected-media rendering are coupled.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: media lifecycle events and selected-media rendering are coupled.
 // biome-ignore-all lint/a11y/useMediaCaption: source media has no caption track supplied by the gallery contract.
+
+import { useLanguage } from "@lite-nas/language";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -17,6 +19,7 @@ import { useStream } from "./StreamContext";
 
 /** Displays only the selected original and handles its image or video lifecycle. */
 export const GalleryViewerMedia = (): ReactElement | null => {
+  const { getLabel } = useLanguage();
   const { items, queue } = useGallery();
   const stream = useStream();
   useSyncExternalStore(queue.subscribe, queue.getSnapshot);
@@ -158,8 +161,8 @@ export const GalleryViewerMedia = (): ReactElement | null => {
             {current.motionUrl && status === "ready" && (
               <IconButton
                 size="small"
-                aria-label={`Play Live Photo ${current.filename}`}
-                title="Play Live Photo"
+                aria-label={`${getLabel("moments.viewer.playLivePhoto")} ${current.filename}`}
+                title={getLabel("moments.viewer.playLivePhoto")}
                 onClick={() => {
                   setMotionErrorId(null);
                   setPlaying(false);
@@ -233,7 +236,7 @@ export const GalleryViewerMedia = (): ReactElement | null => {
           )}
           {buffering && (
             <CircularProgress
-              aria-label="Buffering video"
+              aria-label={getLabel("moments.viewer.buffering")}
               sx={{
                 position: "absolute",
                 left: "50%",
@@ -252,12 +255,14 @@ export const GalleryViewerMedia = (): ReactElement | null => {
       )}
       {current.kind === "image" && status === "error" && !fallbackMotion && (
         <Stack alignItems="center" gap={2}>
-          <Typography textAlign="center">Could not load this image.</Typography>
-          <Button onClick={() => queue.retry(current.url)}>Retry image</Button>
+          <Typography textAlign="center">{getLabel("moments.gallery.imageLoadFailed")}</Typography>
+          <Button onClick={() => queue.retry(current.url)}>
+            {getLabel("moments.gallery.retryImage")}
+          </Button>
         </Stack>
       )}
       {(current.kind === "unsupported" || videoError) && (
-        <Typography textAlign="center">This file cannot be previewed in this browser.</Typography>
+        <Typography textAlign="center">{getLabel("moments.gallery.unsupportedPreview")}</Typography>
       )}
     </Stack>
   );

@@ -1,3 +1,4 @@
+import { localizeMonitoringMetricLabel } from "@components/monitoring/metric-labels";
 import {
   createMonitoringScrollableTableSx,
   monitoringDetailColumnSx,
@@ -10,6 +11,7 @@ import type {
   NetworkProtocolsPanelRemoteIPRow,
 } from "@helpers/network-protocols-panel";
 import type { MetricChartLabel } from "@helpers/system-metric-chart";
+import { useLanguage } from "@lite-nas/language";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -44,16 +46,17 @@ export const NetworkProtocolsPanel = ({
   capacity,
   protocols,
 }: NetworkProtocolsPanelProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Paper sx={{ p: 2, width: "100%" }}>
       <Stack spacing={1.25}>
         <Typography data-testid="network-protocols-panel-title" variant="h4">
-          Protocols & sockets
+          {getLabel("admin.monitoringMetrics.protocolsAndSockets")}
         </Typography>
-        {renderSummaryRow(protocols.summaryLabels)}
+        {renderSummaryRow(protocols.summaryLabels, getLabel)}
         <Divider />
-        {renderWorkspaceRow(capacity, protocols)}
-        {renderDetailTables(protocols)}
+        {renderWorkspaceRow(capacity, protocols, getLabel)}
+        {renderDetailTables(protocols, getLabel)}
       </Stack>
     </Paper>
   );
@@ -62,7 +65,10 @@ export const NetworkProtocolsPanel = ({
 /**
  * Renders the summary metadata row above the main protocols workspace.
  */
-const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
+const renderSummaryRow = (
+  summaryLabels: MetricChartLabel[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack
       data-testid="network-protocols-summary-row"
@@ -72,7 +78,7 @@ const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
       useFlexGap
     >
       {summaryLabels.map((label) => {
-        return renderLabel(label, "network-protocols-summary-label");
+        return renderLabel(label, "network-protocols-summary-label", getLabel);
       })}
     </Stack>
   );
@@ -84,6 +90,7 @@ const renderSummaryRow = (summaryLabels: MetricChartLabel[]): ReactElement => {
 const renderWorkspaceRow = (
   capacity: number,
   protocols: NetworkProtocolsPanelData,
+  getLabel: (key: string) => string,
 ): ReactElement => {
   return (
     <Stack
@@ -95,19 +102,21 @@ const renderWorkspaceRow = (
     >
       <Paper sx={networkProtocolMetaColumnSx} variant="outlined">
         <Stack spacing={1}>
-          {renderMetadataSection(
-            "Connection state",
-            "network-protocols-state-row",
-            "network-protocols-state-label",
-            protocols.socketStateLabels,
-          )}
+          {renderMetadataSection({
+            title: getLabel("admin.monitoringMetrics.connectionState"),
+            testId: "network-protocols-state-row",
+            testClass: "network-protocols-state-label",
+            labels: protocols.socketStateLabels,
+            getLabel,
+          })}
           <Divider />
-          {renderMetadataSection(
-            "Protocol distribution",
-            "network-protocols-distribution-row",
-            "network-protocols-distribution-label",
-            protocols.protocolTotalsLabels,
-          )}
+          {renderMetadataSection({
+            title: getLabel("admin.monitoringMetrics.protocolDistribution"),
+            testId: "network-protocols-distribution-row",
+            testClass: "network-protocols-distribution-label",
+            labels: protocols.protocolTotalsLabels,
+            getLabel,
+          })}
         </Stack>
       </Paper>
       <Paper sx={networkProtocolChartColumnSx} variant="outlined">
@@ -117,7 +126,7 @@ const renderWorkspaceRow = (
             data-test-name="Protocol socket totals"
             variant="body2"
           >
-            Protocol socket totals
+            {getLabel("admin.monitoringMetrics.protocolSocketTotals")}
           </Typography>
           <ValueLineChart
             capacity={capacity}
@@ -134,7 +143,10 @@ const renderWorkspaceRow = (
 /**
  * Renders the scrollable detail tables shown under the main protocols workspace.
  */
-const renderDetailTables = (protocols: NetworkProtocolsPanelData): ReactElement => {
+const renderDetailTables = (
+  protocols: NetworkProtocolsPanelData,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Stack
       data-testid="network-protocols-detail-columns"
@@ -143,8 +155,8 @@ const renderDetailTables = (protocols: NetworkProtocolsPanelData): ReactElement 
       gap={1.5}
       useFlexGap
     >
-      {renderPortsTable(protocols.portRows)}
-      {renderRemoteIPsTable(protocols.remoteIPRows)}
+      {renderPortsTable(protocols.portRows, getLabel)}
+      {renderRemoteIPsTable(protocols.remoteIPRows, getLabel)}
     </Stack>
   );
 };
@@ -152,12 +164,19 @@ const renderDetailTables = (protocols: NetworkProtocolsPanelData): ReactElement 
 /**
  * Renders one labeled metadata section inside the left protocols column.
  */
-const renderMetadataSection = (
-  title: string,
-  testId: string,
-  testClass: string,
-  labels: MetricChartLabel[],
-): ReactElement => {
+const renderMetadataSection = ({
+  title,
+  testId,
+  testClass,
+  labels,
+  getLabel,
+}: {
+  title: string;
+  testId: string;
+  testClass: string;
+  labels: MetricChartLabel[];
+  getLabel: (key: string) => string;
+}): ReactElement => {
   return (
     <Stack spacing={0.625}>
       <Typography
@@ -169,7 +188,7 @@ const renderMetadataSection = (
       </Typography>
       <Stack data-testid={testId} spacing={0.5}>
         {labels.map((label) => {
-          return renderLabel(label, testClass);
+          return renderLabel(label, testClass, getLabel);
         })}
       </Stack>
     </Stack>
@@ -179,7 +198,10 @@ const renderMetadataSection = (
 /**
  * Renders the local ports and common app mapping table.
  */
-const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement => {
+const renderPortsTable = (
+  rows: NetworkProtocolsPanelPortRow[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Paper sx={monitoringDetailColumnSx} variant="outlined">
       <Stack spacing={0.625}>
@@ -188,7 +210,7 @@ const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement =>
           data-test-name="Local ports and apps"
           variant="body2"
         >
-          Local ports and apps
+          {getLabel("admin.monitoringMetrics.localPortsAndApps")}
         </Typography>
         <TableContainer
           data-testid="network-protocols-ports-table"
@@ -197,9 +219,9 @@ const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement =>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>App</TableCell>
-                <TableCell>Connection</TableCell>
-                <TableCell align="right">Sockets</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.app")}</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.connection")}</TableCell>
+                <TableCell align="right">{getLabel("admin.monitoringMetrics.sockets")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -211,7 +233,11 @@ const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement =>
                       data-test-name={row.connection}
                       key={row.connection}
                     >
-                      <TableCell>{row.app}</TableCell>
+                      <TableCell>
+                        {row.app === "Unknown app"
+                          ? getLabel("admin.monitoringMetrics.unknownApp")
+                          : row.app}
+                      </TableCell>
                       <TableCell>{row.connection}</TableCell>
                       <TableCell align="right">{row.count}</TableCell>
                     </TableRow>
@@ -219,7 +245,9 @@ const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement =>
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3}>No observed local ports</TableCell>
+                  <TableCell colSpan={3}>
+                    {getLabel("admin.monitoringMetrics.noLocalPorts")}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -233,7 +261,10 @@ const renderPortsTable = (rows: NetworkProtocolsPanelPortRow[]): ReactElement =>
 /**
  * Renders the remote IP connection table.
  */
-const renderRemoteIPsTable = (rows: NetworkProtocolsPanelRemoteIPRow[]): ReactElement => {
+const renderRemoteIPsTable = (
+  rows: NetworkProtocolsPanelRemoteIPRow[],
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Paper sx={monitoringDetailColumnSx} variant="outlined">
       <Stack spacing={0.625}>
@@ -242,7 +273,7 @@ const renderRemoteIPsTable = (rows: NetworkProtocolsPanelRemoteIPRow[]): ReactEl
           data-test-name="Remote IPs"
           variant="body2"
         >
-          Remote IPs
+          {getLabel("admin.monitoringMetrics.remoteIps")}
         </Typography>
         <TableContainer
           data-testid="network-protocols-remote-ips-table"
@@ -251,8 +282,10 @@ const renderRemoteIPsTable = (rows: NetworkProtocolsPanelRemoteIPRow[]): ReactEl
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Remote IP</TableCell>
-                <TableCell align="right">Connections</TableCell>
+                <TableCell>{getLabel("admin.monitoringMetrics.remoteIp")}</TableCell>
+                <TableCell align="right">
+                  {getLabel("admin.monitoringMetrics.connections")}
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -271,7 +304,9 @@ const renderRemoteIPsTable = (rows: NetworkProtocolsPanelRemoteIPRow[]): ReactEl
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={2}>No observed remote IPs</TableCell>
+                  <TableCell colSpan={2}>
+                    {getLabel("admin.monitoringMetrics.noRemoteIps")}
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -285,7 +320,11 @@ const renderRemoteIPsTable = (rows: NetworkProtocolsPanelRemoteIPRow[]): ReactEl
 /**
  * Renders one compact key/value metadata row inside the protocols-and-sockets panel.
  */
-const renderLabel = (label: MetricChartLabel, testClass: string): ReactElement => {
+const renderLabel = (
+  label: MetricChartLabel,
+  testClass: string,
+  getLabel: (key: string) => string,
+): ReactElement => {
   return (
     <Typography
       data-test-class={testClass}
@@ -293,7 +332,7 @@ const renderLabel = (label: MetricChartLabel, testClass: string): ReactElement =
       key={label.key}
       variant="body2"
     >
-      {label.key}: {label.value}
+      {localizeMonitoringMetricLabel(label.key, getLabel)}: {label.value}
     </Typography>
   );
 };

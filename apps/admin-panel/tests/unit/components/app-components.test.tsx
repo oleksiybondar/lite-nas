@@ -90,7 +90,7 @@ describe("shared theme controls", () => {
         value="default"
       />,
     );
-    selectMuiOption("Theme template", "Backup");
+    selectMuiOption("Theme template", "theme.templates.backup");
     expect(onChange).toHaveBeenCalledWith("backup");
   });
 

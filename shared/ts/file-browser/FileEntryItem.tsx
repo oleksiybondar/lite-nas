@@ -1,4 +1,5 @@
 import { formatByteSize } from "@lite-nas/formatting";
+import { useLanguage } from "@lite-nas/language";
 import { Box, ListItemButton, ListItemIcon, ListItemText, Typography } from "@mui/material";
 import type { MouseEvent, ReactElement } from "react";
 
@@ -7,13 +8,18 @@ import type { FileEntry } from "./file-service";
 import { displayName } from "./paths";
 
 /** Human-readable type detail shown under one item name. */
-function typeLabel(entry: FileEntry): string {
+function typeLabel(entry: FileEntry, getLabel: (key: string) => string): string {
   if (entry.kind === "directory") {
-    return "Folder";
+    return getLabel("fileBrowser.folder");
   }
   const name = displayName(entry.path);
   const dot = name.lastIndexOf(".");
-  return dot > 0 && dot < name.length - 1 ? `${name.slice(dot + 1).toUpperCase()} file` : "File";
+  return dot > 0 && dot < name.length - 1
+    ? getLabel("fileBrowser.fileExtension").replace(
+        "{extension}",
+        name.slice(dot + 1).toUpperCase(),
+      )
+    : getLabel("fileBrowser.file");
 }
 
 /** Converts File Service's rwx permission string to a four-digit octal mode. */
@@ -51,6 +57,7 @@ export function FileEntryItem({
   onSelect: (multiple: boolean) => void;
   onOpen: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const name = displayName(entry.path);
 
   /** Uses Ctrl or Command to toggle an item in a multi-selection. */
@@ -93,7 +100,7 @@ export function FileEntryItem({
         {formatByteSize(entry.size)}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        {typeLabel(entry)}
+        {typeLabel(entry, getLabel)}
       </Typography>
       <Typography variant="body2" color="text.secondary">
         {formatPermissions(entry.permissions)}

@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+
+import { cleanup, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
 import { GalleryRoute } from "./GalleryRoute";
 import { getGallery } from "./moments-data";
 import type { GalleryRecord } from "./schemas";
+import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("./moments-data", () => ({ getGallery: vi.fn() }));
 vi.mock("./GalleryDetail", () => ({

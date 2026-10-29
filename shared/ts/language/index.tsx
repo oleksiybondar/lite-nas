@@ -4,12 +4,13 @@ import {
   saveLocalSharedUi,
   sharedUiSchema,
   writeProfileDocument,
-} from "@lite-nas/profile";
+} from "@lite-nas/profile/data";
+import LanguageRoundedIcon from "@mui/icons-material/LanguageRounded";
 import Box from "@mui/material/Box";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
   createContext,
@@ -170,43 +171,58 @@ export const useLanguage = (): LanguageContextValue => {
 /** Compact selector shared by public and authenticated application headers. */
 export const LanguageSelector = (): ReactElement => {
   const { language, setLanguage, getLabel, error } = useLanguage();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+
+  /** Stores a selected language and closes the menu. */
+  const chooseLanguage = (value: Language): void => {
+    setLanguage(value);
+    setAnchor(null);
+  };
+
   return (
-    <FormControl size="small" sx={{ minWidth: 130 }}>
-      <InputLabel id="lite-nas-language-label">{getLabel("language.label")}</InputLabel>
-      <Select
-        data-testid="language-selector"
-        labelId="lite-nas-language-label"
-        label={getLabel("language.label")}
-        value={language}
-        onChange={(event) => {
-          const parsed = languageSchema.safeParse(event.target.value);
-          if (parsed.success) setLanguage(parsed.data);
-        }}
+    <Box sx={{ display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
+      <Tooltip title={getLabel("language.label")}>
+        <IconButton
+          aria-label={getLabel("language.label")}
+          aria-controls={anchor ? "lite-nas-language-menu" : undefined}
+          aria-expanded={anchor ? true : undefined}
+          aria-haspopup="menu"
+          data-testid="language-selector"
+          onClick={(event) => setAnchor(event.currentTarget)}
+        >
+          <LanguageRoundedIcon />
+        </IconButton>
+      </Tooltip>
+      <Menu
+        id="lite-nas-language-menu"
+        anchorEl={anchor}
+        open={anchor !== null}
+        onClose={() => setAnchor(null)}
       >
-        <MenuItem value="en">
+        <MenuItem selected={language === "en"} onClick={() => chooseLanguage("en")}>
           <Box component="span" aria-hidden="true" sx={{ mr: 1 }}>
             🇬🇧
           </Box>
           {getLabel("language.english")}
         </MenuItem>
-        <MenuItem value="uk">
+        <MenuItem selected={language === "uk"} onClick={() => chooseLanguage("uk")}>
           <Box component="span" aria-hidden="true" sx={{ mr: 1 }}>
             🇺🇦
           </Box>
           {getLabel("language.ukrainian")}
         </MenuItem>
-        <MenuItem value="da">
+        <MenuItem selected={language === "da"} onClick={() => chooseLanguage("da")}>
           <Box component="span" aria-hidden="true" sx={{ mr: 1 }}>
             🇩🇰
           </Box>
           {getLabel("language.danish")}
         </MenuItem>
-      </Select>
+      </Menu>
       {error && (
         <Typography color="error" variant="caption">
           {error}
         </Typography>
       )}
-    </FormControl>
+    </Box>
   );
 };

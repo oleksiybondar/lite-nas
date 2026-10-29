@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import TextField from "@mui/material/TextField";
 import type { ReactElement } from "react";
 
@@ -19,10 +20,11 @@ export const AlertOccurrencesSearch = ({
   search,
   setSearch,
 }: AlertOccurrencesSearchProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <TextField
       data-testid="alert-occurrences-search-control"
-      label="Search occurrences"
+      label={getLabel("admin.alerts.searchOccurrences")}
       name="alertOccurrencesSearch"
       onChange={(event) => {
         setSearch(event.target.value);

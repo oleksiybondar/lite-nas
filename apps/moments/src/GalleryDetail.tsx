@@ -4,6 +4,7 @@ import {
   fileServicePath,
 } from "@lite-nas/file-browser";
 import { UploadDialog } from "@lite-nas/file-upload";
+import { useLanguage } from "@lite-nas/language";
 import EditIcon from "@mui/icons-material/Edit";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -44,6 +45,7 @@ export function GalleryDetail({
   workingDir: string;
   onBack: () => void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const [gallery, setGallery] = useState(selected);
   const [paths, setPaths] = useState<string[]>([]);
   const [memberPaths, setMemberPaths] = useState<string[]>([]);
@@ -85,13 +87,13 @@ export function GalleryDetail({
       setCollections(owned);
     })()
       .catch(() => {
-        if (!controller.signal.aborted) setError("Could not load gallery media.");
+        if (!controller.signal.aborted) setError(getLabel("moments.gallery.loadFailed"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [selected.id, userId]);
+  }, [selected.id, userId, getLabel]);
 
   const actions = {
     collections,
@@ -125,9 +127,7 @@ export function GalleryDetail({
     try {
       await scanUploadedMedia(gallery.id, `${albumDirectory.replace(/\/$/, "")}/${file.name}`);
     } catch {
-      setUploadError(
-        `Could not scan metadata for ${file.name}. The upload completed; retry a media scan.`,
-      );
+      setUploadError(getLabel("moments.gallery.uploadScanFailed").replace("{filename}", file.name));
       return;
     }
     try {
@@ -139,7 +139,7 @@ export function GalleryDetail({
       setPaths(nextPaths);
       setUploadError(null);
     } catch {
-      setUploadError(`The upload and metadata scan completed, but the gallery could not refresh.`);
+      setUploadError(getLabel("moments.gallery.uploadRefreshFailed"));
     }
   };
   /** Adds a selected source and refreshes this collection's resolved media. */
@@ -159,7 +159,7 @@ export function GalleryDetail({
       );
       setError(null);
     } catch {
-      setError("Could not add the selected source to this collection.");
+      setError(getLabel("moments.gallery.addFailed"));
     }
   };
   return (
@@ -179,21 +179,33 @@ export function GalleryDetail({
       {locationLabel && (
         <Tooltip title={locationLabel} arrow>
           <Typography color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
-            Locations: {locationLabel}
+            {getLabel("moments.gallery.locations").replace("{locations}", locationLabel)}
           </Typography>
         </Tooltip>
       )}
       {owned && (
         <Stack direction="row" spacing={1} flexWrap="wrap">
-          {ownedCollection && <Button onClick={() => setPicker("file")}>Add file</Button>}
-          {ownedCollection && <Button onClick={() => setPicker("directory")}>Add folder</Button>}
-          {albumDirectory && <Button onClick={() => setUploadOpen(true)}>Upload media</Button>}
+          {ownedCollection && (
+            <Button onClick={() => setPicker("file")}>{getLabel("moments.gallery.addFile")}</Button>
+          )}
+          {ownedCollection && (
+            <Button onClick={() => setPicker("directory")}>
+              {getLabel("moments.gallery.addFolder")}
+            </Button>
+          )}
+          {albumDirectory && (
+            <Button onClick={() => setUploadOpen(true)}>
+              {getLabel("moments.gallery.upload")}
+            </Button>
+          )}
         </Stack>
       )}
       {error && <Alert severity="error">{error}</Alert>}
       {uploadError && <Alert severity="error">{uploadError}</Alert>}
-      {busy && <Typography>Loading media…</Typography>}
-      {!busy && !error && items.length === 0 && <Typography>No media in this gallery.</Typography>}
+      {busy && <Typography>{getLabel("moments.gallery.loading")}</Typography>}
+      {!busy && !error && items.length === 0 && (
+        <Typography>{getLabel("moments.gallery.empty")}</Typography>
+      )}
       {!busy && !error && items.length > 0 && (
         <Gallery
           items={items}

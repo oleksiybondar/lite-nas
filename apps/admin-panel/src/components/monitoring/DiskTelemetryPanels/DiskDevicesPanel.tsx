@@ -1,4 +1,5 @@
 import type { DiskDevicePanelItem } from "@helpers/disk-metric-panel";
+import { useLanguage } from "@lite-nas/language";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -20,15 +21,16 @@ type DiskDevicesPanelProps = {
  * Renders the first draft of the disk devices panel with full device cards.
  */
 export const DiskDevicesPanel = ({ capacity, devices }: DiskDevicesPanelProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Paper data-testid="disk-devices-panel" sx={{ p: 2, width: "100%" }}>
       <Stack spacing={1.5}>
         <Typography data-testid="disk-devices-panel-title" variant="h2">
-          Devices
+          {getLabel("admin.monitoringMetrics.devices")}
         </Typography>
         {devices.length === 0 ? (
           <Typography color="text.secondary" data-testid="disk-devices-panel-empty" variant="body2">
-            Disk device data will appear after telemetry points are loaded.
+            {getLabel("admin.monitoringMetrics.diskDataEmpty")}
           </Typography>
         ) : (
           <Stack data-testid="disk-devices-subrow" spacing={1.5}>
