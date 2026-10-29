@@ -37,7 +37,6 @@ if [ "$has_version" -eq 0 ]; then
 fi
 
 "$SCRIPT_DIR/build-lite-nas-deb.sh" "${common_args[@]}"
-"$SCRIPT_DIR/build-file-explorer-deb.sh" "${common_args[@]}"
 
 if [ "$bump_counter" -eq 1 ]; then
 	packageVersion.bumpLocalBuildCounter

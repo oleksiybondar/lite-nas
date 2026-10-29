@@ -95,12 +95,19 @@ assert_depends_contains() {
 	dpkg-deb -f "$package_path" Depends | grep -Fq "$expected"
 }
 
+assert_depends_not_contains() {
+	local unexpected="$1"
+	! dpkg-deb -f "$package_path" Depends | grep -Fq "$unexpected"
+}
+
 log.pushTask "Validating LiteNAS Debian package contents for ${target_arch}"
 dpkg-deb -x "$package_path" "$package_root"
 dpkg-deb -e "$package_path" "$package_control"
 
 assert_cmd "package architecture matches ${target_arch}" assert_control_contains Architecture "$target_arch"
 assert_cmd "package name is lite-nas" assert_control_contains Package "lite-nas"
+assert_cmd "package does not depend on a separate File Explorer package" \
+	assert_depends_not_contains "lite-nas-file-explorer"
 assert_cmd "package depends on postfix" assert_depends_contains "postfix"
 assert_cmd "package depends on sudo" assert_depends_contains "sudo"
 assert_cmd "package depends on AppArmor" assert_depends_contains "apparmor"
@@ -308,6 +315,9 @@ assert_cmd "file-writer sudoers excludes root" assert_file_contains "$packaged_c
 assert_cmd "web-gateway index.html packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.html
 assert_cmd "web-gateway index.css packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.css
 assert_cmd "web-gateway index.js packaged" assert_file usr/share/lite-nas/web-gateway/assets/index.js
+assert_cmd "File Explorer index packaged in main package" assert_file usr/share/lite-nas/file-explorer/index.html
+assert_cmd "File Explorer nginx snippet packaged in main package" \
+	assert_file usr/share/lite-nas/file-explorer/nginx/file-explorer.conf
 log.popTask
 
 log.info "Package content checks passed: $checks_passed"

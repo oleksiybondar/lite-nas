@@ -11,19 +11,21 @@ package_arch=""
 package_version=""
 output_dir=""
 admin_panel_assets_path=""
+file_explorer_assets_path=""
 
 usage() {
 	cat <<'MSG'
 Usage: scripts/package/build-lite-nas-deb-from-source.sh [options]
 
 Options:
-  --source-layout=LAYOUT    Binary source layout: local-build (default) or ci-artifacts.
+  --source-layout=LAYOUT    Binary source layout: local-build (default), ci-artifacts, or build-all.
   --source-root=PATH        Root directory for the chosen source layout.
-                            Defaults to .build for local-build and .artifacts for ci-artifacts.
+                            Defaults to .build for local-build/build-all and .artifacts for ci-artifacts.
   --package-arch=ARCH       Package architecture (amd64 or arm64). Defaults to the current Go architecture.
   --version=VERSION         Debian package version to pass through.
   --output-dir=PATH         Directory where the package and build root will be written.
   --admin-panel-assets=PATH Override the admin-panel asset directory instead of deriving it from the source layout.
+  --file-explorer-assets=PATH Override File Explorer assets instead of deriving them from the source layout.
   -h, --help                Show this help.
 MSG
 }
@@ -54,6 +56,10 @@ while [ "$#" -gt 0 ]; do
 		admin_panel_assets_path="${1#*=}"
 		shift
 		;;
+	--file-explorer-assets=*)
+		file_explorer_assets_path="${1#*=}"
+		shift
+		;;
 	-h | --help)
 		usage
 		exit 0
@@ -82,6 +88,9 @@ case "$source_layout" in
 local-build)
 	source_root="${source_root:-$LITE_NAS_REPO_ROOT/.build}"
 	;;
+build-all)
+	source_root="${source_root:-$LITE_NAS_REPO_ROOT/.build/all}"
+	;;
 ci-artifacts)
 	source_root="${source_root:-$LITE_NAS_REPO_ROOT/.artifacts}"
 	;;
@@ -99,6 +108,9 @@ resolve_binary_path() {
 	local-build)
 		printf '%s/%s/linux-%s/%s\n' "$source_root" "$component_dir" "$package_arch" "$binary_name"
 		;;
+	build-all)
+		printf '%s/linux-%s/%s\n' "$source_root" "$package_arch" "$binary_name"
+		;;
 	ci-artifacts)
 		printf '%s/%s/%s/%s\n' "$source_root" "$package_arch" "$component_dir" "$binary_name"
 		;;
@@ -111,7 +123,21 @@ resolve_admin_panel_assets_path() {
 		return 0
 	fi
 
-	printf '%s/admin-panel\n' "$source_root"
+	if [ "$source_layout" = "build-all" ]; then
+		printf '%s/linux-%s/admin-panel\n' "$source_root" "$package_arch"
+	else
+		printf '%s/admin-panel\n' "$source_root"
+	fi
+}
+
+resolve_file_explorer_assets_path() {
+	if [ -n "$file_explorer_assets_path" ]; then
+		printf '%s\n' "$file_explorer_assets_path"
+	elif [ "$source_layout" = "build-all" ]; then
+		printf '%s/linux-%s/file-explorer\n' "$source_root" "$package_arch"
+	else
+		printf '%s/file-explorer\n' "$source_root"
+	fi
 }
 
 require_input_path() {
@@ -155,6 +181,7 @@ system_service_monitor_binary_path="$(resolve_binary_path system-service-monitor
 service_watchdog_binary_path="$(resolve_binary_path service-watchdog service-watchdog)"
 log_analysis_binary_path="$(resolve_binary_path log-analysis log-analysis)"
 admin_panel_assets_path="$(resolve_admin_panel_assets_path)"
+file_explorer_assets_path="$(resolve_file_explorer_assets_path)"
 
 require_input_path "auth-service binary" "$auth_service_binary_path"
 require_input_path "rbac-service binary" "$rbac_service_binary_path"
@@ -185,6 +212,7 @@ require_input_path "system-service-monitor binary" "$system_service_monitor_bina
 require_input_path "service-watchdog binary" "$service_watchdog_binary_path"
 require_input_path "log-analysis binary" "$log_analysis_binary_path"
 require_input_path "admin-panel assets" "$admin_panel_assets_path"
+require_input_path "File Explorer assets" "$file_explorer_assets_path"
 
 package_args=(
 	--auth-service-binary="$auth_service_binary_path"
@@ -216,6 +244,7 @@ package_args=(
 	--service-watchdog-binary="$service_watchdog_binary_path"
 	--log-analysis-binary="$log_analysis_binary_path"
 	--admin-panel-assets="$admin_panel_assets_path"
+	--file-explorer-assets="$file_explorer_assets_path"
 )
 
 if [ -n "$package_version" ]; then

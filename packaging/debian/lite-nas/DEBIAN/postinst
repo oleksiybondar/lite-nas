@@ -23,9 +23,16 @@ configure_package_validation_mode() {
 	run_deploy_runtime validate
 }
 
+configure_file_explorer() {
+	install -d -m 0755 /usr/share/lite-nas /usr/share/lite-nas/nginx
+	ln -sfn /usr/share/lite-nas/file-explorer/nginx/file-explorer.conf \
+		/usr/share/lite-nas/nginx/file-explorer.conf
+}
+
 configure_package() {
 	REPLACE_NATS_CONFIG="true"
 	debconf_reply=""
+	configure_file_explorer
 
 	if [ "$INSTALL_MODE" = "validate" ]; then
 		configure_package_validation_mode
@@ -50,6 +57,13 @@ configure_package() {
 	else
 		echo "[WARN] LiteNAS postinst will keep existing NATS configuration." >&2
 		run_deploy_runtime full --no-nats-config
+	fi
+
+	if command -v nginx >/dev/null 2>&1; then
+		nginx -t
+		if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx; then
+			systemctl reload nginx
+		fi
 	fi
 }
 

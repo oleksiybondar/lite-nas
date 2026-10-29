@@ -45,6 +45,7 @@ system_service_monitor_binary_path=""
 service_watchdog_binary_path=""
 log_analysis_binary_path=""
 admin_panel_assets_path=""
+file_explorer_assets_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
 package_root=""
@@ -92,13 +93,14 @@ Options:
   --service-watchdog-binary=PATH  Use an existing service-watchdog binary.
   --log-analysis-binary=PATH  Use an existing log-analysis binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
+  --file-explorer-assets=PATH        Include File Explorer Vite assets in this package.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
 MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary log-analysis-binary admin-panel-assets output-dir help h; then
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary log-analysis-binary admin-panel-assets file-explorer-assets output-dir help h; then
 	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary log-analysis-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
@@ -258,6 +260,11 @@ if args.has litenas-integrity-binary && ! litenas_integrity_binary_path="$(args.
 fi
 if args.has admin-panel-assets && ! admin_panel_assets_path="$(args.require_arg admin-panel-assets)"; then
 	log.error "Missing value for --admin-panel-assets"
+	usage >&2
+	exit 64
+fi
+if args.has file-explorer-assets && ! file_explorer_assets_path="$(args.require_arg file-explorer-assets)"; then
+	log.error "Missing value for --file-explorer-assets"
 	usage >&2
 	exit 64
 fi
@@ -441,6 +448,12 @@ if [ -z "$admin_panel_assets_path" ]; then
 		"--output-dir=${admin_panel_assets_path}"
 fi
 
+if [ -z "$file_explorer_assets_path" ]; then
+	file_explorer_assets_path="$output_dir/${package_name}-${package_arch}/file-explorer-assets"
+	"$LITE_NAS_REPO_ROOT/scripts/build-file-explorer.sh" \
+		"--output-dir=${file_explorer_assets_path}"
+fi
+
 if [ ! -f "$auth_service_binary_path" ]; then
 	log.error "Missing auth-service binary: $auth_service_binary_path"
 	exit 1
@@ -575,6 +588,11 @@ if [ ! -f "$litenas_integrity_binary_path" ]; then
 fi
 
 adminPanelAssets.validateBuildOutput "$admin_panel_assets_path"
+if [ ! -f "$file_explorer_assets_path/index.html" ] || [ ! -d "$file_explorer_assets_path/assets" ]; then
+	log.error "Missing File Explorer Vite assets in: $file_explorer_assets_path"
+	exit 1
+fi
+file_explorer_assets_path="$(realpath -- "$file_explorer_assets_path")"
 
 package_root="$output_dir/${package_name}_${package_version}_${package_arch}.root"
 deb_path="$output_dir/${package_name}_${package_version}_${package_arch}.deb"
@@ -695,6 +713,11 @@ package.copyTree "$admin_panel_assets_path" \
 adminPanelAssets.installFlat \
 	"$admin_panel_assets_path" \
 	"$package_root/usr/share/lite-nas/web-gateway/assets"
+package.copyTree "$file_explorer_assets_path" \
+	"$package_root/usr/share/lite-nas/file-explorer"
+install -D -m 0644 \
+	"$LITE_NAS_REPO_ROOT/packaging/debian/lite-nas-file-explorer/nginx/file-explorer.conf" \
+	"$package_root/usr/share/lite-nas/file-explorer/nginx/file-explorer.conf"
 
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
@@ -740,6 +763,7 @@ chmod 0755 \
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
 package.writeMd5sums "$package_root"
+chmod 0755 "$package_root/DEBIAN"
 log.popTask
 
 log.pushTask "Building Debian package ${deb_path}"

@@ -67,6 +67,7 @@ package.prepareMetadata() {
 		"$package_version" \
 		"$template_dir/DEBIAN/control.in" \
 		"$package_root/DEBIAN/control"
+	chmod 0755 "$package_root/DEBIAN"
 }
 
 package.copyDocTreeAndCompressChangelog() {

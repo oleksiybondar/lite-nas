@@ -800,7 +800,6 @@ jobs:
           path: .artifacts/admin-panel
 
       - name: Download File Explorer asset artifact
-        if: ${{ matrix.arch == 'amd64' }}
         uses: actions/download-artifact@v4
         with:
           name: file-explorer-assets
@@ -820,16 +819,9 @@ jobs:
             --source-root=.artifacts \
             --package-arch=${{ matrix.arch }} \
             --version=${{ steps.package-version.outputs.value }} \
+            --file-explorer-assets=.artifacts/file-explorer \
             --output-dir=.build/packages/${{ matrix.arch }} \
             2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/build-package.log
-
-      - name: Build File Explorer Debian package
-        if: ${{ matrix.arch == 'amd64' }}
-        run: |
-          scripts/package/build-file-explorer-deb.sh \
-            --assets-dir=.artifacts/file-explorer \
-            --version=${{ steps.package-version.outputs.value }} \
-            --output-dir=.build/packages/${{ matrix.arch }}
 
       - name: Lint LiteNAS Debian package
         run: |
