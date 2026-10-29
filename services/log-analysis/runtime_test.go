@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,80 +41,53 @@ func TestDetectionMessageIdentifiesAuthenticationChannel(t *testing.T) {
 	}
 }
 
-// Requirements: security-monitoring/FR-001.
-func TestParserExtractsPAMAccount(t *testing.T) {
+// Requirements: security-monitoring/FR-006.
+func TestDetectionMessageIdentifiesUSBDevice(t *testing.T) {
 	t.Parallel()
-	line := "2026-10-25T08:26:06.830681+01:00 host auth-service: pam_unix(litenas-auth:auth): authentication failure; rhost=192.0.2.4 user=alice"
-	record, err := parseAuthRecord("auth", line)
-	if err != nil {
-		t.Fatalf("parse auth: %v", err)
-	}
-	if record.Account != "alice" {
-		t.Fatalf("account = %q", record.Account)
+	message := detectionMessage("Security rule triggered", plugins.Detection{
+		RuleID: "usb_device_connected", Device: "3-5 203a:fff9",
+	})
+	if message != "Security rule triggered: usb_device_connected device 3-5 203a:fff9" {
+		t.Fatalf("message = %q", message)
 	}
 }
 
-// Requirements: security-monitoring/FR-001.
-func TestParserRejectsMalformedTimestamp(t *testing.T) {
+// Requirements: security-monitoring/FR-006.
+func TestSampleUSBRuleIgnoresRootHub(t *testing.T) {
 	t.Parallel()
-	if _, err := parseAuthRecord("auth", "bad host auth-service: failure"); err == nil {
-		t.Fatal("invalid timestamp accepted")
+	rule := mustSampleRule(t, "usb_device_connected")
+	if rule.matches("usb 1-0: New USB device found, idVendor=1d6b, idProduct=0002, bcdDevice= 6.08") {
+		t.Fatal("root hub enumeration matched the USB device rule")
 	}
 }
 
-// Requirements: security-monitoring/FR-001.
-func TestTailerBuffersPartialLine(t *testing.T) {
+// Requirements: security-monitoring/FR-006.
+func TestSampleUSBRuleMatchesConnectedDevice(t *testing.T) {
 	t.Parallel()
-	path := filepath.Join(t.TempDir(), "auth.log")
-	if err := os.WriteFile(path, []byte("first"), 0o600); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	tailer, err := newTailer(path, false)
-	if err != nil {
-		t.Fatalf("tailer: %v", err)
-	}
-	defer tailer.close()
-	var lines []string
-	if err := tailer.readLines(func(line string) error { lines = append(lines, line); return nil }); err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	if err != nil {
-		t.Fatalf("append: %v", err)
-	}
-	if _, err := file.WriteString(" line\n"); err != nil {
-		t.Fatalf("write append: %v", err)
-	}
-	file.Close()
-	if err := tailer.readLines(func(line string) error { lines = append(lines, line); return nil }); err != nil {
-		t.Fatalf("read append: %v", err)
-	}
-	if len(lines) != 1 || lines[0] != "first line" {
-		t.Fatalf("lines = %v", lines)
+	rule := mustSampleRule(t, "usb_device_connected")
+	if !rule.matches("usb 3-5: New USB device found, idVendor=203a, idProduct=fff9, bcdDevice= 1.00") {
+		t.Fatal("connected USB device did not match the USB device rule")
 	}
 }
 
-// TestTailerReadsFirstCreatedLog verifies that a source created after startup
-// is read from its beginning rather than silently made the new baseline.
-// Requirements: security-monitoring/FR-001.
-func TestTailerReadsFirstCreatedLog(t *testing.T) {
-	t.Parallel()
-	path := filepath.Join(t.TempDir(), "auth.log")
-	tailer, err := newTailer(path, true)
+// mustSampleRule compiles one enabled rule from the packaged rules file.
+func mustSampleRule(t *testing.T, id string) compiledRule {
+	t.Helper()
+	spec, err := loadRulesFile("../../configs/etc/lite-nas/log-analysis/rules.json")
 	if err != nil {
-		t.Fatalf("tailer: %v", err)
+		t.Fatalf("sample rules: %v", err)
 	}
-	defer tailer.close()
-	if err := os.WriteFile(path, []byte("first line\n"), 0o600); err != nil {
-		t.Fatalf("write: %v", err)
+	for _, rule := range spec.Rules {
+		if rule.ID == id {
+			compiled, err := compileRulePatterns(rule)
+			if err != nil {
+				t.Fatalf("compile %s: %v", id, err)
+			}
+			return compiled
+		}
 	}
-	var lines []string
-	if err := tailer.readLines(func(line string) error { lines = append(lines, line); return nil }); err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	if len(lines) != 1 || lines[0] != "first line" {
-		t.Fatalf("lines = %v", lines)
-	}
+	t.Fatalf("sample rule %s not found", id)
+	return compiledRule{}
 }
 
 // Requirements: security-monitoring/FR-001.

@@ -159,14 +159,14 @@ test("settings sidebar opens gallery preferences", async () => {
 });
 
 // Requirements: moments-backend/FR-010. Users can maintain their own saved-login list.
-test("header friends entry opens the private friends page", async () => {
+test("header friends entry opens the standalone friends page", async () => {
   vi.mocked(loadMe).mockResolvedValue(me);
   renderMomentsApp();
   fireEvent.click(await screen.findByTestId("moments-friends-button"));
   expect(screen.getByTestId("moments-friends-page")).toBeTruthy();
   expect(
     await screen.findByText(
-      "Save logins in your private contact list. Missing accounts and unavailable avatars look the same.",
+      "Manage your database-backed contacts here. Collaboration features will live in this space too.",
     ),
   ).toBeTruthy();
 });

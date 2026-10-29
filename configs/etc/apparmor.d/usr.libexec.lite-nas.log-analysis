@@ -12,8 +12,8 @@ profile /usr/libexec/lite-nas/log-analysis flags=(attach_disconnected,mediate_de
   /var/log/lite-nas/log-analysis.log rw,
   /etc/lite-nas/log-analysis/ r,
   /etc/lite-nas/log-analysis/** r,
-  /var/log/auth.log r,
-  /var/log/auth.log.* r,
+  # Records arrive on the datagram socket inherited from lite-nas-log-analysis.socket.
+  unix (receive, getattr, getopt, setopt) type=dgram,
 
   include if exists <local/usr.libexec.lite-nas.log-analysis>
 }

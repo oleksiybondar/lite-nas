@@ -1,0 +1,5 @@
+# Included by the distribution rsyslogd profile. Allows the omuxsock action in
+# /etc/rsyslog.d/30-lite-nas-log-analysis.conf to forward records to the
+# LiteNAS Log Analysis ingress socket.
+/run/lite-nas-log-analysis/rsyslog.sock w,
+unix (create, connect, send, getattr, getopt, setopt) type=dgram,

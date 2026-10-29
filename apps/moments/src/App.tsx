@@ -14,6 +14,7 @@ import type { ReactElement } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, useLocation } from "react-router-dom";
 import { loadMe, request, sessionExpiredEvent } from "./api";
+import { FriendsProvider } from "./FriendsContext";
 import { Login } from "./Login";
 import { MomentsLayout } from "./MomentsLayout";
 import { MomentsPublicHeader } from "./MomentsPublicHeader";
@@ -117,5 +118,9 @@ const SessionContent = ({
   }
   if (location.pathname === "/login")
     return <Navigate replace to={loginDestination(location.search)} />;
-  return <MomentsShell me={me} mode={mode} onModeChange={onModeChange} onSignedOut={onSignedOut} />;
+  return (
+    <FriendsProvider>
+      <MomentsShell me={me} mode={mode} onModeChange={onModeChange} onSignedOut={onSignedOut} />
+    </FriendsProvider>
+  );
 };

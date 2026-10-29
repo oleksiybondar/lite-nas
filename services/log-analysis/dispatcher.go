@@ -9,7 +9,7 @@ import (
 	"lite-nas/shared/workers"
 )
 
-// routeIndex groups precompiled rules by physical source and category. The
+// routeIndex groups precompiled rules by configured source and category. The
 // stored plugin references are fully initialized before any listener starts.
 type routeIndex map[string]map[string][]compiledRule
 
@@ -82,7 +82,7 @@ func (d *dispatchWorker) run(_ context.Context) {
 					RuleID: rule.spec.ID, Category: rule.spec.Category,
 					Severity: rule.spec.Severity, Email: rule.spec.EmailOnCritical, Lockdown: rule.spec.Lockdown, Kind: kind,
 					Account: record.Account, SourceAddress: record.SourceAddress,
-					Service: record.Service, At: record.At,
+					Service: record.Service, Device: record.Device, At: record.At,
 				}
 				rule.plugin.Input() <- observation
 			}

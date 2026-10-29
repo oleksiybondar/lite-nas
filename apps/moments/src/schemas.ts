@@ -242,6 +242,24 @@ export const friendSchema = z.object({
 /** Friend list payload returned for the signed-in account. */
 export const friendsSchema = z.object({ items: z.array(friendSchema) });
 
+/** Search and pagination metadata returned with one friends page. */
+export const friendPageSchema = z.object({
+  items: z.array(friendSchema),
+  metadata: z.object({
+    page: z.number().int().positive(),
+    size: z.number().int().positive(),
+    total_count: z.number().int().nonnegative(),
+    total_pages: z.number().int().nonnegative(),
+  }),
+});
+
+/** Bounded query values for the server-side friends list. */
+export const friendPageQuerySchema = z.object({
+  page: z.number().int().positive().max(100000),
+  size: z.number().int().positive().max(500),
+  q: z.string().trim().max(160),
+});
+
 /** User-supplied display details saved alongside a login. */
 export const friendInputSchema = z.object({
   username: shareUsernameSchema.shape.username,

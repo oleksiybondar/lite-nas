@@ -16,7 +16,7 @@ import {
   saveGalleryConcurrency,
   saveSharedMode,
 } from "./api";
-import { FriendsSettings } from "./FriendsSettings";
+import { FriendsPage } from "./FriendsPage";
 import { GalleryFeed, type GalleryFeedScope } from "./GalleryFeed";
 import { GalleryRoute } from "./GalleryRoute";
 import { MomentsHeader } from "./MomentsHeader";
@@ -177,7 +177,8 @@ export const MomentsShell = ({
               />
             }
           />
-          <Route path="/friends" element={<FriendsSettings />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/settings/friends" element={<Navigate to="/friends" replace />} />
           {["profile", "appearance", "gallery"].map((tab) => (
             <Route
               key={tab}

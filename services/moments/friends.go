@@ -21,8 +21,17 @@ type friendRecord struct {
 // friendsOutput returns only the authenticated user's saved friend entries.
 type friendsOutput struct {
 	Body struct {
-		Items []friendRecord `json:"items"`
+		Items    []friendRecord `json:"items"`
+		Metadata friendPage     `json:"metadata"`
 	}
+}
+
+// friendPage reports the count and page coordinates for saved contacts.
+type friendPage struct {
+	Page       int   `json:"page"`
+	Size       int   `json:"size"`
+	TotalCount int64 `json:"total_count"`
+	TotalPages int64 `json:"total_pages"`
 }
 
 // friendInput validates friend metadata without resolving the login to an account.
@@ -42,29 +51,50 @@ type friendPathInput struct {
 	Username string `path:"username" minLength:"1" maxLength:"128" pattern:"^[A-Za-z0-9_][A-Za-z0-9._-]*$"`
 }
 
-// friendListInput validates the authenticated request for listing saved entries.
-type friendListInput struct{ GalleryAuth }
+// friendListInput validates search and pagination for the authenticated saved-contact list.
+type friendListInput struct {
+	GalleryAuth
+	Page int    `query:"page" default:"1" minimum:"1" maximum:"100000"`
+	Size int    `query:"size" default:"20" minimum:"1" maximum:"500"`
+	Q    string `query:"q" maxLength:"160"`
+}
 
-// mountFriendRoutes registers owner-scoped saved contacts without a user search route.
+// mountFriendRoutes registers owner-scoped saved contacts without account discovery.
 func mountFriendRoutes(api huma.API, controller galleryController) {
 	huma.Get(api, "/api/friends", controller.friends)
 	huma.Put(api, "/api/friends/{username}", controller.saveFriend)
 	huma.Delete(api, "/api/friends/{username}", controller.deleteFriend)
 }
 
-// friends lists the caller's saved contacts, including entries for unknown logins.
+// friends returns one searchable page of the caller's contacts, including unknown logins.
 func (c galleryController) friends(ctx context.Context, input *friendListInput) (*friendsOutput, error) {
 	owner, err := c.userID(input.GalleryAuth)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := c.store.db.QueryContext(ctx, `SELECT username,first_name,last_name,nickname,created_at,updated_at FROM friends WHERE owner_id=? ORDER BY COALESCE(NULLIF(nickname,''),username),username`, owner)
+	query := strings.TrimSpace(input.Q)
+	where := ` WHERE owner_id=?`
+	args := []any{owner}
+	if query != "" {
+		where += ` AND (username LIKE ? ESCAPE '\' OR first_name LIKE ? ESCAPE '\' OR last_name LIKE ? ESCAPE '\' OR nickname LIKE ? ESCAPE '\')`
+		pattern := "%" + escapeFriendSearch(query) + "%"
+		args = append(args, pattern, pattern, pattern, pattern)
+	}
+	var totalCount int64
+	if err := c.store.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM friends`+where, args...).Scan(&totalCount); err != nil {
+		return nil, huma.Error500InternalServerError("friend lookup failed")
+	}
+	page, size := input.Page, input.Size
+	offset := (page - 1) * size
+	args = append(args, size, offset)
+	rows, err := c.store.db.QueryContext(ctx, `SELECT username,first_name,last_name,nickname,created_at,updated_at FROM friends`+where+` ORDER BY COALESCE(NULLIF(nickname,''),username),username LIMIT ? OFFSET ?`, args...)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("friend lookup failed")
 	}
 	defer rows.Close()
 	output := &friendsOutput{}
 	output.Body.Items = []friendRecord{}
+	output.Body.Metadata = friendPage{Page: page, Size: size, TotalCount: totalCount, TotalPages: (totalCount + int64(size) - 1) / int64(size)}
 	for rows.Next() {
 		var friend friendRecord
 		if err := rows.Scan(&friend.Username, &friend.FirstName, &friend.LastName, &friend.Nickname, &friend.CreatedAt, &friend.UpdatedAt); err != nil {
@@ -76,6 +106,12 @@ func (c galleryController) friends(ctx context.Context, input *friendListInput) 
 		return nil, huma.Error500InternalServerError("friend lookup failed")
 	}
 	return output, nil
+}
+
+// escapeFriendSearch makes LIKE wildcard characters literal in a contact search.
+func escapeFriendSearch(value string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return replacer.Replace(value)
 }
 
 // saveFriend inserts or updates a login and display details without testing account existence.

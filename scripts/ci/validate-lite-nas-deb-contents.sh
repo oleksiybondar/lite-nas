@@ -134,6 +134,9 @@ for security_service in mount-monitor antivirus system-service-monitor service-w
 	assert_cmd "$security_service AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.$security_service"
 done
 assert_cmd "Log Analysis rules packaged" assert_file "$packaged_config_root/lite-nas/log-analysis/rules.json"
+assert_cmd "Log Analysis ingress socket packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-log-analysis.socket"
+assert_cmd "Log Analysis rsyslog forwarding packaged" assert_file "$packaged_config_root/rsyslog.d/30-lite-nas-log-analysis.conf"
+assert_cmd "rsyslogd Log Analysis AppArmor include packaged" assert_file "$packaged_config_root/apparmor.d/rsyslog.d/lite-nas-log-analysis"
 assert_cmd "Watchdog sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-service-watchdog"
 assert_cmd "mount-monitor binary packaged" assert_executable usr/libexec/lite-nas/mount-monitor
 assert_cmd "antivirus binary packaged" assert_executable usr/libexec/lite-nas/antivirus

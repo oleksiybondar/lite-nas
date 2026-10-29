@@ -26,6 +26,7 @@ type Observation struct {
 	Account       string
 	SourceAddress string
 	Service       string
+	Device        string
 	At            time.Time
 }
 
@@ -43,6 +44,7 @@ type Detection struct {
 	Account            string
 	SourceAddress      string
 	Service            string
+	Device             string
 	ResolveImmediately bool
 	At                 time.Time
 }
@@ -399,6 +401,7 @@ func (p *Plugin) detection(data instanceData, operation string) Detection {
 		Severity: data.Last.Severity, Email: data.Last.Email, Lockdown: data.Last.Lockdown, Operation: operation,
 		EventID: data.EventID, Account: data.Last.Account, SourceAddress: data.Last.SourceAddress,
 		Service:            data.Last.Service,
+		Device:             data.Last.Device,
 		ResolveImmediately: p.cfg.Type == "immediate", At: data.Last.At,
 	}
 }

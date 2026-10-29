@@ -378,9 +378,7 @@
       "saveFailed": "Saved in this browser, but the user file could not be updated.",
       "logoutFailed": "Sign out failed.",
       "configFailed": "Could not load Moments configuration.",
-      "tabs": "Moments settings tabs",
-      "friends": "Friends",
-      "friendsHint": "Save logins in your private contact list. Missing accounts and unavailable avatars look the same."
+      "tabs": "Moments settings tabs"
     },
     "editor": {
       "album": "Album",
@@ -582,10 +580,25 @@
       "mapAttribution": "Online location data"
     },
     "friends": {
+      "title": "Friends",
+      "hint": "Manage your database-backed contacts here. Collaboration features will live in this space too.",
       "username": "Username",
       "firstName": "First name",
       "lastName": "Last name",
       "nickname": "Nickname",
+      "add": "Add friend",
+      "addTitle": "Add a friend",
+      "cancel": "Cancel",
+      "search": "Search friends",
+      "noResults": "No friends match that search.",
+      "loading": "Loading friends",
+      "retry": "Retry",
+      "loadFailed": "Could not load friends.",
+      "saveFailed": "Could not save this friend.",
+      "invalidInput": "Enter a valid username and keep each name under 80 characters.",
+      "removeFailed": "Could not remove this friend.",
+      "pagination": "Friends pages",
+      "resultRange": "Showing {start}–{end} of {total} friends",
       "save": "Save friend",
       "failed": "Could not save or load friends.",
       "empty": "No saved friends yet.",

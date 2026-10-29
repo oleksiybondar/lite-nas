@@ -5,6 +5,8 @@ import {
   collectionReferencesSchema,
   createGallerySchema,
   friendInputSchema,
+  friendPageQuerySchema,
+  friendPageSchema,
   friendsSchema,
   type GalleryRecord,
   type GalleryScan,
@@ -22,7 +24,27 @@ import {
 
 /** Returns the signed-in user's saved contacts without resolving account existence. */
 export async function listFriends(): Promise<z.infer<typeof friendsSchema>["items"]> {
-  return friendsSchema.parse(await readJson(momentsApiPath("/api/friends"))).items;
+  const firstPage = await listFriendsPage(1, 500, "");
+  const items = [...firstPage.items];
+  for (let page = 2; page <= firstPage.metadata.total_pages; page += 1) {
+    items.push(...(await listFriendsPage(page, 500, "")).items);
+  }
+  return friendsSchema.parse({ items }).items;
+}
+
+/** Returns one server-filtered page of saved contacts with validated pagination. */
+export async function listFriendsPage(
+  page: number,
+  size: number,
+  q: string,
+): Promise<z.infer<typeof friendPageSchema>> {
+  const parsed = friendPageQuerySchema.parse({ page, size, q });
+  const query = new URLSearchParams({
+    page: String(parsed.page),
+    size: String(parsed.size),
+  });
+  if (parsed.q) query.set("q", parsed.q);
+  return friendPageSchema.parse(await readJson(`${momentsApiPath("/api/friends")}?${query}`));
 }
 
 /** Saves a login and optional display names in the caller's private friend list. */

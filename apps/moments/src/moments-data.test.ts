@@ -9,6 +9,7 @@ import {
   getGalleryScan,
   latestGalleryScan,
   listFriends,
+  listFriendsPage,
   listGalleries,
   loadFriendAvatar,
   removeCollectionDirectory,
@@ -94,11 +95,30 @@ const friendFixture = {
 
 // Requirements: moments-backend/FR-010. The list is returned from the private Moments store.
 test("friend contacts list the saved usernames", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ items: [friendFixture] })));
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        items: [friendFixture],
+        metadata: { page: 1, size: 500, total_count: 1, total_pages: 1 },
+      }),
+    ),
+  );
   vi.stubGlobal("fetch", fetchMock);
   await expect(listFriends()).resolves.toEqual([friendFixture]);
+});
+
+test("paged friend search encodes server pagination and query parameters", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        items: [],
+        metadata: { page: 2, size: 12, total_count: 13, total_pages: 2 },
+      }),
+    ),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  await listFriendsPage(2, 12, "ari example");
+  expect(fetchMock.mock.calls[0][0]).toBe("/api/friends?page=2&size=12&q=ari+example");
 });
 
 // Requirements: moments-backend/FR-010. Saving a friend does not perform a user lookup.

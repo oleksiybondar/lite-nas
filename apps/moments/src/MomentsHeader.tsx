@@ -50,7 +50,7 @@ export const MomentsHeader = ({
         <Button onClick={onMine}>{getLabel("moments.myCollections")}</Button>
         <Button onClick={onShared}>{getLabel("moments.sharedCollections")}</Button>
         <Button data-testid="moments-friends-button" onClick={onFriends}>
-          {getLabel("moments.settings.friends")}
+          {getLabel("moments.friends.title")}
         </Button>
         <LanguageSelector />
         <UserMenu

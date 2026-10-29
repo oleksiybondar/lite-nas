@@ -31,8 +31,8 @@ var compiledPluginTypes = map[string]pluginConstructor{
 	"keyed_threshold": plugins.NewKeyedThreshold,
 }
 
-// run constructs all configured plugin instances before any log listener or
-// dispatcher starts. It then waits for the bounded pipeline to drain on stop.
+// run constructs all configured plugin instances before the rsyslog receiver
+// or dispatcher starts. It then waits for the bounded pipeline to drain on stop.
 func run(ctx context.Context) error {
 	reader, err := fileio.NewFileReader(packagedAnalysisConfig)
 	if err != nil {
@@ -43,6 +43,10 @@ func run(ctx context.Context) error {
 		return err
 	}
 	spec, err := loadRulesFile(cfg.RulesFile)
+	if err != nil {
+		return err
+	}
+	senders, err := resolveSenderUIDs(cfg.SenderUsers)
 	if err != nil {
 		return err
 	}
@@ -60,17 +64,16 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	conn, err := activatedDatagramSocket()
+	if err != nil {
+		return err
+	}
+	// The receiver is the only producer; the runtime closes records after it stops.
 	records := make(chan logRecord, 64)
-	listeners := make([]*logListener, 0, len(spec.Sources))
-	for _, source := range spec.Sources {
-		listener, err := newLogListener(source, cfg.PollInterval, records, infra.Logger)
-		if err != nil {
-			for _, opened := range listeners {
-				_ = opened.tailer.close()
-			}
-			return err
-		}
-		listeners = append(listeners, listener)
+	receiver, err := newRsyslogReceiver(conn, spec.Sources, senders, records, infra.Logger)
+	if err != nil {
+		_ = conn.Close()
+		return err
 	}
 	dispatcher := newDispatchWorker(records, routes, instances, infra.Logger)
 	reporterDone := make(chan struct{})
@@ -83,14 +86,10 @@ func run(ctx context.Context) error {
 		plugin.Start(ctx)
 	}
 	dispatcher.Start(ctx)
-	for _, listener := range listeners {
-		listener.Start(ctx)
-	}
+	receiver.Start(ctx)
 	<-ctx.Done()
-	for _, listener := range listeners {
-		<-listener.Done()
-	}
-	close(records)      // All listener producers have stopped.
+	<-receiver.Done()
+	close(records)      // The receiver producer has stopped.
 	<-dispatcher.Done() // Dispatcher has closed each plugin input.
 	for _, plugin := range instances {
 		<-plugin.Done()
@@ -253,8 +252,8 @@ func confirmAlertPersisted(ctx context.Context, eventID string, alertClient mess
 	return nil
 }
 
-// detectionMessage retains the account correlation key in bounded alert text,
-// while never including credential material from the source log.
+// detectionMessage retains the account or device correlation key in bounded
+// alert text, while never including credential material from the source log.
 func detectionMessage(prefix string, effect plugins.Detection) string {
 	message := prefix + ": " + effect.RuleID
 	if channel := authenticationChannel(effect.Service); channel != "" {
@@ -262,6 +261,12 @@ func detectionMessage(prefix string, effect plugins.Detection) string {
 	}
 	if effect.Account != "" {
 		message += " for account " + effect.Account
+	}
+	if effect.SourceAddress != "" {
+		message += " from " + effect.SourceAddress
+	}
+	if effect.Device != "" {
+		message += " device " + effect.Device
 	}
 	if len(message) > 256 {
 		message = message[:256]
@@ -278,6 +283,8 @@ func authenticationChannel(service string) string {
 		return "SSH/CLI"
 	case "login", "su", "su-l":
 		return "local CLI"
+	case "sudo":
+		return "sudo"
 	default:
 		return ""
 	}

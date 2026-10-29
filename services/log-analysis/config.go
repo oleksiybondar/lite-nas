@@ -22,12 +22,16 @@ import (
 // analysisConfig uses the shared INI bootstrap sections and a JSON rule file,
 // matching the existing Resources Monitor rules convention.
 type analysisConfig struct {
-	Messaging    sharedconfig.MessagingConfig
-	Auth         sharedconfig.AuthConfig
-	Logging      sharedconfig.LoggingConfig
-	RulesFile    string
-	PollInterval time.Duration
+	Messaging   sharedconfig.MessagingConfig
+	Auth        sharedconfig.AuthConfig
+	Logging     sharedconfig.LoggingConfig
+	RulesFile   string
+	SenderUsers []string
 }
+
+// senderUserName bounds configured rsyslog account names to portable Unix
+// user names before they are resolved to numeric identities.
+var senderUserName = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
 
 func loadAnalysisConfig(reader fileio.Reader) (analysisConfig, error) {
 	return sharedconfig.LoadConfigWithSharedSections(reader, func(file *ini.File, shared sharedconfig.SharedConfig) (analysisConfig, error) {
@@ -36,35 +40,94 @@ func loadAnalysisConfig(reader fileio.Reader) (analysisConfig, error) {
 		if !filepath.IsAbs(rules) || filepath.Clean(rules) != rules {
 			return analysisConfig{}, errors.New("analysis rules_file must be an absolute clean path")
 		}
-		interval, err := time.ParseDuration(section.Key("poll_interval").MustString("1s"))
-		if err != nil || interval < 100*time.Millisecond || interval > time.Minute {
-			return analysisConfig{}, errors.New("analysis poll_interval must be 100ms-1m")
+		senders := section.Key("sender_users").Strings(",")
+		if len(senders) == 0 || len(senders) > 8 {
+			return analysisConfig{}, errors.New("analysis sender_users must list 1-8 rsyslog accounts")
+		}
+		for _, sender := range senders {
+			if !senderUserName.MatchString(sender) {
+				return analysisConfig{}, fmt.Errorf("analysis sender_users contains invalid account %q", sender)
+			}
 		}
 		if shared.Auth.ServiceLogin == "" {
 			return analysisConfig{}, errors.New("analysis auth service_login is required")
 		}
-		return analysisConfig{Messaging: shared.Messaging, Auth: shared.Auth, Logging: shared.Logging, RulesFile: rules, PollInterval: interval}, nil
+		return analysisConfig{Messaging: shared.Messaging, Auth: shared.Auth, Logging: shared.Logging, RulesFile: rules, SenderUsers: senders}, nil
 	})
 }
 
-// sourceSpec binds one physical rsyslog output file to a recognized parser.
+// Source formats select the compiled field extraction for selected records.
+const (
+	formatAuth   = "auth"
+	formatKernel = "kernel"
+)
+
+// sourceSpec selects forwarded rsyslog records by facility, input module and
+// program name, and binds them to a compiled field extraction format. Every
+// non-empty selector must match; empty selectors do not constrain the record.
+// A record selected by several sources is routed once per source.
 type sourceSpec struct {
-	ID     string `json:"id"`
-	Path   string `json:"path"`
-	Format string `json:"format"`
+	ID         string   `json:"id"`
+	Format     string   `json:"format"`
+	Facilities []string `json:"facilities,omitempty"`
+	Inputs     []string `json:"inputs,omitempty"`
+	Programs   []string `json:"programs,omitempty"`
+}
+
+// selects reports whether this source accepts one validated rsyslog record.
+func (s sourceSpec) selects(record rsyslogRecord) bool {
+	return selectorMatches(s.Facilities, record.Facility) &&
+		selectorMatches(s.Inputs, record.Input) &&
+		selectorMatches(s.Programs, record.Program)
+}
+
+func selectorMatches(allowed []string, value string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, candidate := range allowed {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
+}
+
+// validSourceSpec bounds selector lists and requires at least one selector so
+// a source can never silently accept every forwarded record.
+func validSourceSpec(source sourceSpec) bool {
+	if !validAnalysisID(source.ID) || (source.Format != formatAuth && source.Format != formatKernel) {
+		return false
+	}
+	selectors := [][]string{source.Facilities, source.Inputs, source.Programs}
+	total := 0
+	for _, values := range selectors {
+		if len(values) > 16 {
+			return false
+		}
+		for _, value := range values {
+			if !validAnalysisID(value) {
+				return false
+			}
+		}
+		total += len(values)
+	}
+	return total > 0
 }
 
 // instanceSpec selects one compiled plugin type and its validated parameters.
+// EventIDPrefix optionally overrides the rules-file default for this instance.
 type instanceSpec struct {
-	ID        string `json:"id"`
-	Enabled   bool   `json:"enabled"`
-	Type      string `json:"type"`
-	Threshold int    `json:"threshold"`
-	Window    string `json:"window"`
-	Cooldown  string `json:"cooldown"` // Quiet period before an aggregated event is normalized.
-	Idle      string `json:"idle"`
-	KeyBy     string `json:"key_by"`
-	MaxKeys   int    `json:"max_keys"`
+	ID            string `json:"id"`
+	Enabled       bool   `json:"enabled"`
+	Type          string `json:"type"`
+	Threshold     int    `json:"threshold"`
+	Window        string `json:"window"`
+	Cooldown      string `json:"cooldown"` // Quiet period before an aggregated event is normalized.
+	Idle          string `json:"idle"`
+	KeyBy         string `json:"key_by"`
+	MaxKeys       int    `json:"max_keys"`
+	EventIDPrefix string `json:"event_id_prefix,omitempty"`
 }
 
 // ruleSpec selects observations for one initialized plugin instance.
@@ -130,7 +193,7 @@ func loadRulesFile(path string) (rulesFile, error) {
 	}
 	sources := make(map[string]bool)
 	for _, source := range spec.Sources {
-		if !validAnalysisID(source.ID) || sources[source.ID] || !filepath.IsAbs(source.Path) || filepath.Clean(source.Path) != source.Path || source.Format != "rsyslog_auth" {
+		if !validSourceSpec(source) || sources[source.ID] {
 			return rulesFile{}, fmt.Errorf("invalid source %q", source.ID)
 		}
 		sources[source.ID] = true
@@ -145,6 +208,9 @@ func loadRulesFile(path string) (rulesFile, error) {
 		instances[instance.ID] = instance.Enabled
 		if !instance.Enabled {
 			continue
+		}
+		if instance.EventIDPrefix != "" && !validEventIDPrefix(instance.EventIDPrefix) {
+			return rulesFile{}, fmt.Errorf("instance %s event_id_prefix must be 1-8 alphanumeric characters", instance.ID)
 		}
 		if _, err := instance.pluginConfig(spec.EventIDPrefix); err != nil {
 			return rulesFile{}, fmt.Errorf("instance %s: %w", instance.ID, err)
@@ -191,6 +257,9 @@ func validAnalysisID(value string) bool {
 }
 
 func (spec instanceSpec) pluginConfig(eventIDPrefix string) (plugins.Config, error) {
+	if spec.EventIDPrefix != "" {
+		eventIDPrefix = spec.EventIDPrefix
+	}
 	window, err := time.ParseDuration(spec.Window)
 	if err != nil {
 		return plugins.Config{}, err

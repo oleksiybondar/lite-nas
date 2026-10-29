@@ -231,7 +231,7 @@ deploy.enableAndRefreshService "lite-nas-mount-monitor.service"
 deploy.enableAndRefreshService "lite-nas-antivirus.service"
 deploy.enableAndRefreshService "lite-nas-system-service-monitor.service"
 deploy.enableAndRefreshService "lite-nas-service-watchdog.service"
-deploy.enableAndRefreshService "lite-nas-log-analysis.service"
+deploy.securityMonitor.refreshLogAnalysis
 log.popTask
 
 log.info "LiteNAS package runtime deployment completed."

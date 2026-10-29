@@ -378,9 +378,7 @@
       "saveFailed": "Gemt i browseren, men brugerfilen kunne ikke opdateres.",
       "logoutFailed": "Log ud mislykkedes.",
       "configFailed": "Moments-indstillingerne kunne ikke indlæses.",
-      "tabs": "Moments-indstillinger",
-      "friends": "Venner",
-      "friendsHint": "Gem logins i din private kontaktliste. Manglende konti og utilgængelige avatarer ser ens ud."
+      "tabs": "Moments-indstillinger"
     },
     "editor": {
       "album": "Album",
@@ -582,10 +580,25 @@
       "mapAttribution": "Online kortdata"
     },
     "friends": {
+      "title": "Venner",
+      "hint": "Administrer dine databasebaserede kontakter her. Samarbejdsfunktioner får også plads her.",
       "username": "Brugernavn",
       "firstName": "Fornavn",
       "lastName": "Efternavn",
       "nickname": "Kaldenavn",
+      "add": "Tilføj ven",
+      "addTitle": "Tilføj en ven",
+      "cancel": "Annuller",
+      "search": "Søg efter venner",
+      "noResults": "Ingen venner matcher søgningen.",
+      "loading": "Indlæser venner",
+      "retry": "Prøv igen",
+      "loadFailed": "Vennerne kunne ikke indlæses.",
+      "saveFailed": "Denne ven kunne ikke gemmes.",
+      "invalidInput": "Indtast et gyldigt brugernavn, og hold hvert navn under 80 tegn.",
+      "removeFailed": "Denne ven kunne ikke fjernes.",
+      "pagination": "Vennesider",
+      "resultRange": "Viser {start}–{end} af {total} venner",
       "save": "Gem kontakt",
       "failed": "Kunne ikke gemme eller indlæse kontakter.",
       "empty": "Ingen gemte kontakter endnu.",

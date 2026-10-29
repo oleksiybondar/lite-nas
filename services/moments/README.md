@@ -29,7 +29,7 @@ same-origin schema. File Service docs require an authenticated user.
 | `GET /api/galleries/{galleryId}/shares` | Owner-visible member IDs. |
 | `POST /api/galleries/{galleryId}/shares` | Owner adds a member by `{ "username": "oleksiybondar" }`; Moments resolves the login through RBAC and stores its stable UID. |
 | `PUT/DELETE /api/galleries/{galleryId}/shares/{userId}` | Owner-controlled read-only sharing. |
-| `GET /api/friends` | List the authenticated user's saved contacts. |
+| `GET /api/friends` | Search the authenticated user's saved contacts by `q` and page them with `page` and `size` (defaults 1 and 20; maximum size 500). Returns `items` and `metadata` with page, size, total count, and total pages. Search matches usernames and saved display names; it does not search or discover accounts. |
 | `PUT/DELETE /api/friends/{username}` | Add/update or remove a Unix login and optional first name, last name, and nickname. The list accepts unknown logins and does not search accounts. |
 | `PUT/GET/DELETE /api/galleries/{galleryId}/thumbnail/image` | Store, serve, or remove an optional uploaded PNG/JPEG cover. PUT accepts `image/png`, `image/jpeg`, or `application/octet-stream`. |
 | `POST/GET /api/galleries/{galleryId}/scans` | Start a metadata-only full rescan or page the owner's job history. Pass `kind=MEDIA` or `kind=CAPTION` when listing one job type. |

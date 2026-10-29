@@ -17,6 +17,7 @@ import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { request } from "./api";
+import { useFriends } from "./FriendsContext";
 import { type GalleryLayoutMode, galleryLayoutModeSchema } from "./GalleryLayout";
 import { GalleryScanControls } from "./GalleryScanControls";
 import type { GalleryItem } from "./gallery-model";
@@ -24,7 +25,6 @@ import {
   addUserTag,
   chooseGalleryThumbnailPath,
   createGallery,
-  listFriends,
   listUserTags,
   removeUserTag,
   saveGalleryThumbnail,
@@ -55,6 +55,7 @@ export function GalleryEditorDialog({
   onCoverSaved?: (gallery: GalleryRecord) => void;
 }): ReactElement {
   const { getLabel } = useLanguage();
+  const { loadAllFriends } = useFriends();
   const [kind, setKind] = useState<"ALBUM" | "COLLECTION">(gallery?.type ?? "ALBUM");
   const [name, setName] = useState(gallery?.name ?? "");
   const [description, setDescription] = useState(gallery?.description ?? "");
@@ -99,7 +100,7 @@ export function GalleryEditorDialog({
     setTags("");
     setUsername("");
     setSharing([]);
-    void listFriends()
+    void loadAllFriends()
       .then(setFriends)
       .catch(() => setFriends([]));
     setTagsReady(!gallery);
@@ -115,7 +116,7 @@ export function GalleryEditorDialog({
         })
         .catch(() => setError(getLabel("moments.editor.loadTagsFailed")));
     }
-  }, [open, gallery, workingDir, getLabel]);
+  }, [open, gallery, workingDir, getLabel, loadAllFriends]);
 
   /** Persists a selected NAS image without discarding other modal drafts. */
   const chooseCover = async (path: string): Promise<void> => {

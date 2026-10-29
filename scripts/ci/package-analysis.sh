@@ -69,6 +69,7 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-system-service-monitor.service "$systemd_root/etc/systemd/system/lite-nas-system-service-monitor.service"
 	cp configs/etc/systemd/system/lite-nas-service-watchdog.service "$systemd_root/etc/systemd/system/lite-nas-service-watchdog.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.service "$systemd_root/etc/systemd/system/lite-nas-log-analysis.service"
+	cp configs/etc/systemd/system/lite-nas-log-analysis.socket "$systemd_root/etc/systemd/system/lite-nas-log-analysis.socket"
 
 	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog log-analysis; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
@@ -169,6 +170,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-system-service-monitor.service \
 		lite-nas-service-watchdog.service \
 		lite-nas-log-analysis.service \
+		lite-nas-log-analysis.socket \
 		lite-nas-web-gateway.service \
 		lite-nas-file-service.service \
 		lite-nas-stream-service.service

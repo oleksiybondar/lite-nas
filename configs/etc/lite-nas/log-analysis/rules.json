@@ -1,6 +1,9 @@
 {
   "event_id_prefix": "secauth",
-  "sources": [{ "id": "auth", "path": "/var/log/auth.log", "format": "rsyslog_auth" }],
+  "sources": [
+    { "id": "auth", "format": "auth", "facilities": ["auth", "authpriv"] },
+    { "id": "kernel", "format": "kernel", "inputs": ["imklog"] }
+  ],
   "instances": [
     {
       "id": "single_failure",
@@ -45,6 +48,54 @@
       "idle": "1h",
       "key_by": "source",
       "max_keys": 2048
+    },
+    {
+      "id": "usb_device_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secusb"
+    },
+    {
+      "id": "privilege_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secpriv"
+    },
+    {
+      "id": "account_change_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secacct"
+    },
+    {
+      "id": "ssh_source_probing",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 10,
+      "window": "5m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "source",
+      "max_keys": 2048,
+      "event_id_prefix": "secssh"
     }
   ],
   "rules": [
@@ -53,7 +104,7 @@
       "enabled": true,
       "source": "auth",
       "category": "auth_failure",
-      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
       "instance": "single_failure",
       "severity": "warning",
       "lockdown": false
@@ -63,7 +114,7 @@
       "enabled": true,
       "source": "auth",
       "category": "password_guessing",
-      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
       "success_pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):session\\): session opened for user",
       "require": ["(^|\\s)user=\\S+"],
       "instance": "account_retry",
@@ -76,7 +127,7 @@
       "enabled": true,
       "source": "auth",
       "category": "password_guessing",
-      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
       "exclude": ["(^|\\s)user=\\S+"],
       "instance": "unknown_account_retry",
       "severity": "critical",
@@ -88,8 +139,76 @@
       "enabled": false,
       "source": "auth",
       "category": "password_guessing",
-      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):auth\\): authentication failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
       "instance": "source_probing",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "usb_device_connected",
+      "enabled": true,
+      "source": "kernel",
+      "category": "usb_device",
+      "pattern": "^usb [0-9]+-[0-9.]+: New USB device found, idVendor=[0-9a-f]{4}, idProduct=[0-9a-f]{4}",
+      "exclude": ["idVendor=1d6b,"],
+      "instance": "usb_device_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "sudo_policy_violation",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^[a-z_][a-z0-9_.-]* : +(user NOT in sudoers|user NOT authorized on host|command not allowed) ;",
+      "instance": "privilege_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "privileged_group_membership",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^(add '[^']+' to group '(sudo|admin|adm|root|wheel|shadow|disk|docker|lxd)'|user \\S+ added by \\S+ to group (sudo|admin|adm|root|wheel|shadow|disk|docker|lxd))$",
+      "instance": "privilege_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "login_account_created",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_change",
+      "pattern": "^new user: name=[^,]+, UID=[0-9]+, GID=[0-9]+, home=[^,]*, shell=/",
+      "exclude": ["shell=/(usr/)?s?bin/(nologin|false),"],
+      "instance": "account_change_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "root_password_changed",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_change",
+      "pattern": "pam_unix\\([a-z-]+:chauthtok\\): password changed for root$",
+      "instance": "account_change_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "ssh_preauth_probing",
+      "enabled": true,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "^(Invalid user \\S* from|Failed [a-z/-]+ for \\S+ from) ",
+      "instance": "ssh_source_probing",
       "severity": "critical",
       "email_on_critical": true,
       "lockdown": false

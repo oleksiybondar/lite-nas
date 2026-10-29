@@ -277,7 +277,7 @@ interface PreviewContentProps {
 /** Selects the preview renderer assigned to each supported extension group. */
 const previewContentByKind: Record<
   NonNullable<ReturnType<typeof filePreviewKind>>,
-  (props: PreviewContentProps) => ReactElement
+  (props: PreviewContentProps) => ReactElement | null
 > = {
   image: ImagePreview,
   pdf: PdfPreview,
@@ -335,7 +335,7 @@ function MediaPreview({ path, extension }: PreviewContentProps): ReactElement {
 
 /** Loads authorized text and displays it as escaped source with its file type. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Loading, error, and source rendering form one preview lifecycle.
-function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement {
+function TextFilePreview({ path, extension }: PreviewContentProps): ReactElement | null {
   const { getLabel } = useLanguage();
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState("");

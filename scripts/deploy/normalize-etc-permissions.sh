@@ -260,6 +260,10 @@ deploy.normalizePostfix() {
 deploy.normalizeAppArmor() {
 	log.pushTask "Normalizing AppArmor config permissions"
 	deploy.normalizePath 0755 "$apparmor_config_dir" "$owner"
+	# Directories copied from the repository keep the checkout owner; profiles
+	# and includes loaded by root must not stay writable by that account.
+	deploy.normalizePath 0755 "$apparmor_config_dir/abstractions" "$owner"
+	deploy.normalizePath 0755 "$apparmor_config_dir/rsyslog.d" "$owner"
 
 	if [ -d "$apparmor_config_dir" ]; then
 		while IFS= read -r -d '' apparmor_file; do
@@ -278,9 +282,16 @@ deploy.normalizeSystemd() {
 	if [ -d "$systemd_system_dir" ]; then
 		while IFS= read -r -d '' unit_file; do
 			deploy.normalizePath 0644 "$unit_file" "$owner"
-		done < <(find "$systemd_system_dir" -maxdepth 1 -type f -name 'lite-nas-*.service' -print0)
+		done < <(find "$systemd_system_dir" -maxdepth 1 -type f \( -name 'lite-nas-*.service' -o -name 'lite-nas-*.socket' \) -print0)
 	fi
 
+	log.popTask
+}
+
+deploy.normalizeRsyslog() {
+	log.pushTask "Normalizing rsyslog drop-in permissions"
+	deploy.normalizePath 0755 "$rsyslog_config_dir" "$owner"
+	deploy.normalizePath 0644 "$rsyslog_config_dir/30-lite-nas-log-analysis.conf" "$owner"
 	log.popTask
 }
 
@@ -380,6 +391,7 @@ deploy.normalizeEtcPermissions() {
 	local nginx_snippets_dir="$nginx_config_dir/snippets"
 	local systemd_dir="$target_dir/systemd"
 	local systemd_system_dir="$systemd_dir/system"
+	local rsyslog_config_dir="$target_dir/rsyslog.d"
 	local config_file
 	local certificate_file
 	local identity_dir
@@ -410,5 +422,6 @@ deploy.normalizeEtcPermissions() {
 	deploy.normalizePostfix
 	deploy.normalizeAppArmor
 	deploy.normalizeSystemd
+	deploy.normalizeRsyslog
 	deploy.normalizeSudoers
 }
