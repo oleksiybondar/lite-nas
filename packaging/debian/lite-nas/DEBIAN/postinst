@@ -33,6 +33,7 @@ configure_package() {
 	REPLACE_NATS_CONFIG="true"
 	debconf_reply=""
 	configure_file_explorer
+	"$PACKAGE_ROOT/scripts/rotate-nginx-certificates.sh" --if-missing
 
 	if [ "$INSTALL_MODE" = "validate" ]; then
 		configure_package_validation_mode

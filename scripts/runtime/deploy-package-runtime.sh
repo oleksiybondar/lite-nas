@@ -205,6 +205,8 @@ log.pushTask "Normalizing deployed LiteNAS permissions"
 deploy.normalizeEtcPermissions /etc
 log.popTask
 
+deploy.nginx.validateConfig
+
 log.pushTask "Restarting dependency services"
 deploy.restartAffectedServices
 log.popTask

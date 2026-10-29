@@ -114,6 +114,9 @@ assert_cmd "package depends on AppArmor" assert_depends_contains "apparmor"
 assert_cmd "package depends on OS ffmpeg" assert_depends_contains "ffmpeg"
 assert_cmd "package depends on HEIC decoder tools" assert_depends_contains "libheif-examples"
 assert_cmd "package depends on HEIC HEVC plugin" assert_depends_contains "libheif-plugin-libde265"
+assert_cmd "package depends on Pillow for BLIP captions" assert_depends_contains "python3-pil"
+assert_cmd "package depends on PyTorch for BLIP captions" assert_depends_contains "python3-torch"
+assert_cmd "package depends on Python venv for BLIP setup" assert_depends_contains "python3-venv"
 assert_cmd "package depends on aide" assert_depends_contains "aide"
 assert_cmd "package depends on ClamAV" assert_depends_contains "clamav"
 assert_cmd "package depends on USBGuard" assert_depends_contains "usbguard"
@@ -291,6 +294,15 @@ assert_cmd "nginx AppArmor profile packaged" assert_file "$packaged_config_root/
 
 assert_cmd "PAM config template packaged" assert_file "$packaged_config_root/pam.d/litenas-auth"
 assert_cmd "nginx site config template packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf"
+assert_cmd "web-gateway is the default loopback HTTP virtual host" \
+	assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" \
+	'listen 127.0.0.1:80 default_server;'
+assert_cmd "web-gateway accepts cloudflared on IPv6 loopback" \
+	assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" \
+	'listen [::1]:80 default_server;'
+assert_cmd "Moments accepts cloudflared on IPv6 loopback" \
+	assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-moments.conf" \
+	'listen [::1]:80;'
 assert_cmd "file-service nginx snippet packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-file-service.conf"
 assert_cmd "stream-service nginx snippet packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-stream-service.conf"
 assert_cmd "admin Nginx site includes stream mount" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" 'include /etc/nginx/snippets/lite-nas-stream-service.conf;'

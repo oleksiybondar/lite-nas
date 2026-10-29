@@ -24,7 +24,11 @@ deploy.moments.deploy() {
 		useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin --gid lite-nas-moments --groups lite-nas lite-nas-moments
 	fi
 
-	install -D -m 0755 "$binary_path" /usr/libexec/lite-nas/moments
+	if [ "$(realpath -- "$binary_path")" = "$(realpath -m -- /usr/libexec/lite-nas/moments)" ]; then
+		chmod 0755 /usr/libexec/lite-nas/moments
+	else
+		install -D -m 0755 "$binary_path" /usr/libexec/lite-nas/moments
+	fi
 	deploy.installMergedConfig "$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/moments.conf" /etc/lite-nas/moments.conf \
 		lite-nas-moments lite-nas
 	install -d -m 0750 -o lite-nas-moments -g lite-nas-moments /var/lib/lite-nas/moments
@@ -84,9 +88,8 @@ deploy.moments.installCaptionModel() {
 	install -d -m 0755 -o root -g root /usr/local/lib/lite-nas/moments || return 1
 
 	if ! python3 -c 'import PIL, torch, venv' >/dev/null 2>&1; then
-		if ! command -v apt-get >/dev/null 2>&1 || ! apt-get update || ! apt-get install -y python3-pil python3-torch python3-venv; then
-			return 1
-		fi
+		log.warn "BLIP requires python3-pil, python3-torch, and python3-venv; install the LiteNAS package through APT to resolve these dependencies."
+		return 1
 	fi
 	if [ ! -x "$venv_dir/bin/python3" ] || ! "$venv_dir/bin/python3" -m pip --version >/dev/null 2>&1; then
 		python3 -m venv --system-site-packages "$venv_dir" || return 1
@@ -118,9 +121,6 @@ deploy.moments.installEmbeddingModel() {
 		"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check 'transformers==4.57.6' || return 1
 	fi
 	if ! "$venv_dir/bin/python3" -c 'import onnxruntime, numpy' >/dev/null 2>&1; then
-		if command -v apt-get >/dev/null 2>&1; then
-			apt-get update && apt-get install -y python3-onnxruntime python3-numpy || true
-		fi
 		"$venv_dir/bin/python3" -c 'import onnxruntime, numpy' >/dev/null 2>&1 ||
 			"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check 'onnxruntime==1.23.2' || return 1
 	fi

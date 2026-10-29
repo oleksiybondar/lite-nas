@@ -120,8 +120,9 @@ ACL checks; service identity alone never grants source access.
 Optional image captions use the local BLIP base model. The worker prompts BLIP
 to describe the main visible subject, including an animal when it can recognize
 one. Identification is best effort; a forced caption scan is needed to
-regenerate captions already stored for a file. Debian recommends Pillow,
-PyTorch, and Python venv. Debian and local deployment try to install a
+regenerate captions already stored for a file. The Debian package depends on
+Pillow, PyTorch, and Python venv so APT installs them before package
+configuration. Debian and local deployment try to install a
 pinned `transformers` 4.x environment and download the pinned model once to
 `/usr/local/lib/lite-nas/moments/blip-model`. The model and virtual environment
 are root-owned and read-only to Moments. The Python worker runs in a separate

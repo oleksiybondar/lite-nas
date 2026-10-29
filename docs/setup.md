@@ -403,16 +403,22 @@ cookie on the same HTTPS origin. The cookie is `Secure`, `HttpOnly`,
 `SameSite=Lax`, and scoped to `/`; Nginx forwards it to the matching service,
 which validates the token itself.
 
-Install the matching built packages with dependency resolution:
+Install the single LiteNAS package with dependency resolution:
 
 ```bash
 sudo ./scripts/package/install-lite-nas-deb.sh
 ```
 
-For local installation, use the helper or pass both matching local `.deb`
-files to `apt-get install`. The package declares dependencies such as
-`zfsutils-linux`, `nats-server`, and `lite-nas-file-explorer`; `dpkg -i` does
-not resolve or install them automatically.
+For a package copied onto another host, use APT so it installs the package's
+dependencies before running its maintainer scripts:
+
+```bash
+sudo apt install ./lite-nas_<version>_arm64.deb
+```
+
+The package declares runtime dependencies including `zfsutils-linux`,
+`nats-server`, and the Python Pillow, PyTorch, and venv packages used to set up
+BLIP captions. `dpkg -i` unpacks the package but does not resolve dependencies.
 
 Lint a built package with:
 
