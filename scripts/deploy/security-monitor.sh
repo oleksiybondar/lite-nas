@@ -117,8 +117,11 @@ deploy.securityMonitor.refreshLogAnalysis() {
 		return 0
 	fi
 	systemctl enable lite-nas-log-analysis.socket lite-nas-log-analysis.service
+	# Stop socket activation before stopping its service, otherwise systemd
+	# reports that the triggering socket remains active during the service stop.
+	systemctl stop lite-nas-log-analysis.socket
 	systemctl stop lite-nas-log-analysis.service
-	systemctl restart lite-nas-log-analysis.socket
+	systemctl start lite-nas-log-analysis.socket
 	systemctl start lite-nas-log-analysis.service
 	deploy.securityMonitor.activateRsyslogForwarding
 }
