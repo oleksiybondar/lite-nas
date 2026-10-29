@@ -41,7 +41,11 @@ export const MomentsLayout = ({
         textAlign="center"
       >
         <Typography color="text.secondary" variant="caption">
-          LiteNAS · {getLabel("moments.footer.mapAttribution")} ©{" "}
+          LiteNAS · {getLabel("moments.footer.locationData")}{" "}
+          <a href="https://www.geonames.org/" rel="noreferrer" target="_blank">
+            GeoNames
+          </a>
+          {" · "}
           <a href="https://www.openstreetmap.org/copyright" rel="noreferrer" target="_blank">
             OpenStreetMap contributors
           </a>

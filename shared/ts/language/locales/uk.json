@@ -577,7 +577,7 @@
       "sessionFailed": "Не вдалося завантажити дані сеансу."
     },
     "footer": {
-      "mapAttribution": "Дані онлайн-карт"
+      "locationData": "Дані про місця:"
     },
     "friends": {
       "title": "Друзі",

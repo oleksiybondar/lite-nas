@@ -577,7 +577,7 @@
       "sessionFailed": "Could not load your session."
     },
     "footer": {
-      "mapAttribution": "Online location data"
+      "locationData": "Location data:"
     },
     "friends": {
       "title": "Friends",

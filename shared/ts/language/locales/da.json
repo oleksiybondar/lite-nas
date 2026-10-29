@@ -577,7 +577,7 @@
       "sessionFailed": "Din session kunne ikke indlæses."
     },
     "footer": {
-      "mapAttribution": "Online kortdata"
+      "locationData": "Stedsdata:"
     },
     "friends": {
       "title": "Venner",
