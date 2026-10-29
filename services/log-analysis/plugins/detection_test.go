@@ -36,15 +36,14 @@ func TestGeneratedEventIDMatchesLoggingManagerContract(t *testing.T) {
 }
 
 // Requirements: security-monitoring/FR-001.
-func TestImmediatePluginCreatesOneResolvedEventPerObservation(t *testing.T) {
+func TestImmediatePluginCorrelatesObservationsDuringCooldown(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "immediate", 1, "global")
 	for range 2 {
 		plugin.process(context.Background(), authObservation("alice"))
 	}
 	first, second := <-output, <-output
-	if first.Operation != "create" || second.Operation != "create" || first.EventID == second.EventID ||
-		!first.ResolveImmediately || !second.ResolveImmediately {
+	if first.Operation != "create" || second.Operation != "occurrence" || first.EventID != second.EventID {
 		t.Fatalf("immediate detections = %#v, %#v", first, second)
 	}
 }
@@ -87,7 +86,7 @@ func TestKeyedPluginKeepsAccountsIndependent(t *testing.T) {
 }
 
 // Requirements: security-monitoring/FR-001.
-func TestKeyedPluginNormalizesAfterSuccess(t *testing.T) {
+func TestKeyedPluginIgnoresSuccessForFailureAlertLifecycle(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
 	for range 3 {
@@ -96,8 +95,11 @@ func TestKeyedPluginNormalizesAfterSuccess(t *testing.T) {
 	success := authObservation("alice")
 	success.Kind = "success"
 	plugin.process(context.Background(), success)
-	if len(output) != 2 {
+	if len(output) != 1 {
 		t.Fatalf("detections = %d", len(output))
+	}
+	if got := <-output; got.Operation != "create" {
+		t.Fatalf("detection operation = %q, want create", got.Operation)
 	}
 }
 

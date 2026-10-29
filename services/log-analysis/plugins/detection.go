@@ -33,20 +33,19 @@ type Observation struct {
 // Detection is a typed manager or lockdown effect; plugin workers do not
 // deliver it directly to NATS or email.
 type Detection struct {
-	InstanceID         string
-	RuleID             string
-	Category           string
-	Severity           string
-	Email              bool
-	Lockdown           bool
-	Operation          string
-	EventID            string
-	Account            string
-	SourceAddress      string
-	Service            string
-	Device             string
-	ResolveImmediately bool
-	At                 time.Time
+	InstanceID    string
+	RuleID        string
+	Category      string
+	Severity      string
+	Email         bool
+	Lockdown      bool
+	Operation     string
+	EventID       string
+	Account       string
+	SourceAddress string
+	Service       string
+	Device        string
+	At            time.Time
 }
 
 // Config specifies one validated plugin instance constructed at startup.
@@ -75,7 +74,6 @@ const (
 	windowExpired   input = "window_expired"
 	cooldownExpired input = "cooldown_expired"
 	idleExpired     input = "idle_expired"
-	succeeded       input = "succeeded"
 )
 
 // instanceData holds detection counters separately from manager lifecycle
@@ -220,11 +218,10 @@ func (p *Plugin) process(ctx context.Context, observation Observation) {
 		p.log.Warn("plugin observation lacks required correlation key", "plugin", p.id, "rule", observation.RuleID, "error", err)
 		return
 	}
-	event := observed
 	if observation.Kind == "success" {
-		event = succeeded
+		return
 	}
-	result, err := p.store.ApplyWith(ctx, key, event, func(data instanceData) instanceData { data.Last = observation; return data })
+	result, err := p.store.ApplyWith(ctx, key, observed, func(data instanceData) instanceData { data.Last = observation; return data })
 	if err != nil {
 		p.log.Error("plugin transition failed", "plugin", p.id, "rule", observation.RuleID, "error", err)
 		return
@@ -319,9 +316,6 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 				operation = "create"
 			}
 			detection := p.detection(data, operation)
-			if p.cfg.Type == "immediate" {
-				return instanceData{}, []Detection{detection}, nil
-			}
 			return data, []Detection{detection}, nil
 		},
 		"touch": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
@@ -334,27 +328,17 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 			data.WindowDeadline = time.Time{}
 			return data, nil, nil
 		},
-		"cooldown_reset": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
-			var effects []Detection
-			if data.EventID != "" {
-				effects = []Detection{p.detection(data, "normalize")}
-			}
-			return instanceData{}, effects, nil
+		"cooldown_reset": func(_ context.Context, _ instanceData, _ input) (instanceData, []Detection, error) {
+			// Cooldown ends burst correlation only. The logging manager keeps the
+			// alert active until an operator acknowledges it.
+			return instanceData{}, nil, nil
 		},
-		"normalize": func(_ context.Context, data instanceData, _ input) (instanceData, []Detection, error) {
-			var effects []Detection
-			if data.EventID != "" {
-				effects = []Detection{p.detection(data, "normalize")}
-			}
-			return instanceData{}, effects, nil
+		"forget": func(_ context.Context, _ instanceData, _ input) (instanceData, []Detection, error) {
+			return instanceData{}, nil, nil
 		},
-	}
-	immediateNext := idle
-	if p.cfg.Type != "immediate" {
-		immediateNext = cooldown
 	}
 	rows := []fsm.Row[state, input]{
-		{From: idle, On: observed, Guard: "one", To: immediateNext, Action: "detect"},
+		{From: idle, On: observed, Guard: "one", To: cooldown, Action: "detect"},
 		{From: idle, On: observed, Guard: "many", To: counting, Action: "start"},
 		{From: counting, On: observed, Guard: "below", To: counting, Action: "increment"},
 		{From: counting, On: observed, Guard: "reached", To: cooldown, Action: "detect"},
@@ -363,12 +347,11 @@ func (p *Plugin) newMachine() (*fsm.Machine[state, input, instanceData, Detectio
 		{From: cooldown, On: cooldownExpired, Guard: "cooldown_due", To: idle, Action: "cooldown_reset"},
 	}
 	for _, from := range []state{idle, counting, cooldown} {
-		rows = append(rows, fsm.Row[state, input]{From: from, On: idleExpired, Guard: "idle_due", To: idle, Action: "normalize"})
-		rows = append(rows, fsm.Row[state, input]{From: from, On: succeeded, To: idle, Action: "normalize"})
+		rows = append(rows, fsm.Row[state, input]{From: from, On: idleExpired, Guard: "idle_due", To: idle, Action: "forget"})
 	}
 	return fsm.New(fsm.Definition[state, input, instanceData, Detection]{
 		Initial: idle, States: []state{idle, counting, cooldown},
-		Inputs: []input{observed, windowExpired, cooldownExpired, idleExpired, succeeded},
+		Inputs: []input{observed, windowExpired, cooldownExpired, idleExpired},
 		Rows:   rows, Guards: guards, Actions: actions,
 	})
 }
@@ -400,8 +383,8 @@ func (p *Plugin) detection(data instanceData, operation string) Detection {
 		InstanceID: p.id, RuleID: data.Last.RuleID, Category: data.Last.Category,
 		Severity: data.Last.Severity, Email: data.Last.Email, Lockdown: data.Last.Lockdown, Operation: operation,
 		EventID: data.EventID, Account: data.Last.Account, SourceAddress: data.Last.SourceAddress,
-		Service:            data.Last.Service,
-		Device:             data.Last.Device,
-		ResolveImmediately: p.cfg.Type == "immediate", At: data.Last.At,
+		Service: data.Last.Service,
+		Device:  data.Last.Device,
+		At:      data.Last.At,
 	}
 }

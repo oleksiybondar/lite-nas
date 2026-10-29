@@ -187,34 +187,8 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 				return err
 			}
 			*alertSent = true
-		case "normalize":
-			message := detectionMessage("Security detection cooldown elapsed or successful login observed", effect)
-			response := loggingcontract.OKResponse{}
-			err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
-				loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response)
-			if err != nil {
-				return err
-			}
-			if !response.OK {
-				return errors.New("security logging manager rejected normalization")
-			}
-			*alertSent = true
 		default:
 			return fmt.Errorf("unknown detection operation %q", effect.Operation)
-		}
-	}
-	if effect.Operation == "create" && effect.ResolveImmediately {
-		if err := confirmAlertPersisted(ctx, effect.EventID, alertClient); err != nil {
-			return err
-		}
-		message := detectionMessage("Security detection recorded", effect)
-		response := loggingcontract.OKResponse{}
-		if err := alertClient.Request(ctx, securitycontract.UpdateAlertStateRPCSubject,
-			loggingcontract.UpdateAlertStateInput{EventID: effect.EventID, Status: enum.StatusNormal, Message: &message}, &response); err != nil {
-			return err
-		}
-		if !response.OK {
-			return errors.New("security logging manager rejected immediate detection resolution")
 		}
 	}
 	if effect.Operation != "create" || !effect.Lockdown {
@@ -234,20 +208,6 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 	}
 	if !response.Lockdown {
 		return errors.New("auth service did not apply lockdown")
-	}
-	return nil
-}
-
-// confirmAlertPersisted waits for the manager's asynchronous alert consumer to
-// commit a newly published event before requesting its immediate resolution.
-func confirmAlertPersisted(ctx context.Context, eventID string, alertClient messaging.Client) error {
-	response := loggingcontract.GetAlertResponse{}
-	if err := alertClient.Request(ctx, securitycontract.GetAlertRPCSubject,
-		loggingcontract.GetAlertInput{EventID: eventID}, &response); err != nil {
-		return err
-	}
-	if response.Item == nil {
-		return errors.New("security logging manager has not persisted the new alert")
 	}
 	return nil
 }
