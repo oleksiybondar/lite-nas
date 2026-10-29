@@ -59,6 +59,7 @@ export const useAlertsList = ({
       return alertListResponseSchema.parse(responseJson).data;
     },
     queryKey: buildAlertsQueryKey(queryState),
+    refetchOnWindowFocus: true,
     refetchInterval: alertsRefetchIntervalMilliseconds,
   });
 };
