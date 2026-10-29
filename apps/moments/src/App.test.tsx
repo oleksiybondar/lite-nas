@@ -159,11 +159,11 @@ test("settings sidebar opens gallery preferences", async () => {
 });
 
 // Requirements: moments-backend/FR-010. Users can maintain their own saved-login list.
-test("settings sidebar opens the private friends list", async () => {
+test("header friends entry opens the private friends page", async () => {
   vi.mocked(loadMe).mockResolvedValue(me);
   renderMomentsApp();
-  await chooseUserAction("user-menu-application-settings-link");
-  fireEvent.click(screen.getByRole("tab", { name: "Friends" }));
+  fireEvent.click(await screen.findByTestId("moments-friends-button"));
+  expect(screen.getByTestId("moments-friends-page")).toBeTruthy();
   expect(
     await screen.findByText(
       "Save logins in your private contact list. Missing accounts and unavailable avatars look the same.",

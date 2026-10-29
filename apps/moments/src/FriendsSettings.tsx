@@ -12,7 +12,7 @@ import type { z } from "zod";
 import { listFriends, loadFriendAvatar, removeFriend, saveFriend } from "./moments-data";
 import type { friendSchema } from "./schemas";
 
-/** Validated contact row rendered by the Moments friends settings screen. */
+/** Validated contact row rendered by the Moments friends page. */
 type Friend = z.infer<typeof friendSchema>;
 
 /** Creates a display URL for an eligible avatar, or no URL for any unavailable response. */
@@ -170,7 +170,7 @@ const FriendNameFields = ({
   );
 };
 
-/** Lets users maintain private contact labels and inspect avatars when File Service permits it. */
+/** Provides a standalone page for database-backed contacts and future collaboration features. */
 export const FriendsSettings = (): ReactElement => {
   const { getLabel } = useLanguage();
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -198,7 +198,7 @@ export const FriendsSettings = (): ReactElement => {
   };
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} data-testid="moments-friends-page">
       <Typography variant="h5">{getLabel("moments.settings.friends")}</Typography>
       <Typography color="text.secondary" variant="body2">
         {getLabel("moments.settings.friendsHint")}

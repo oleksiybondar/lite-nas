@@ -5,7 +5,6 @@ import { ProfilePreferencesPanel, writeProfileAvatar } from "@lite-nas/profile";
 import { PreferencesPageHeader, PreferencesTabs } from "@lite-nas/settings";
 import { type ThemeMode, ThemePreferencesPanel } from "@lite-nas/theme";
 import CollectionsIcon from "@mui/icons-material/Collections";
-import GroupIcon from "@mui/icons-material/Group";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import PaletteIcon from "@mui/icons-material/Palette";
 import Box from "@mui/material/Box";
@@ -17,11 +16,10 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { z } from "zod";
 import { request } from "./api";
-import { FriendsSettings } from "./FriendsSettings";
 import { imageConcurrencySchema } from "./schemas";
 
 /** Settings sections exposed in the Moments preferences sidebar. */
-const settingsViewSchema = z.enum(["profile", "appearance", "gallery", "friends"]);
+const settingsViewSchema = z.enum(["profile", "appearance", "gallery"]);
 export type SettingsView = z.infer<typeof settingsViewSchema>;
 
 /** Shows profile, appearance, and gallery preferences in one tabbed settings area. */
@@ -109,12 +107,6 @@ export const Settings = ({
             label={getLabel("moments.settings.gallery")}
             value="gallery"
           />
-          <Tab
-            icon={<GroupIcon />}
-            iconPosition="start"
-            label={getLabel("moments.settings.friends")}
-            value="friends"
-          />
         </PreferencesTabs>
         <Box sx={{ flex: 1, minWidth: 0, maxWidth: 900 }}>
           {view === "profile" && (
@@ -167,7 +159,6 @@ export const Settings = ({
               {galleryMessage && <Typography color="error">{galleryMessage}</Typography>}
             </Stack>
           )}
-          {view === "friends" && <FriendsSettings />}
         </Box>
       </Stack>
     </Stack>

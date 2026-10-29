@@ -14,6 +14,7 @@ export const MomentsHeader = ({
   avatarUrl,
   onMine,
   onShared,
+  onFriends,
   onProfile,
   onApplicationSettings,
   onLogout,
@@ -23,6 +24,7 @@ export const MomentsHeader = ({
   avatarUrl?: string | null;
   onMine: () => void;
   onShared: () => void;
+  onFriends: () => void;
   onProfile: () => void;
   onApplicationSettings: () => void;
   onLogout: () => void;
@@ -47,6 +49,9 @@ export const MomentsHeader = ({
         </Button>
         <Button onClick={onMine}>{getLabel("moments.myCollections")}</Button>
         <Button onClick={onShared}>{getLabel("moments.sharedCollections")}</Button>
+        <Button data-testid="moments-friends-button" onClick={onFriends}>
+          {getLabel("moments.settings.friends")}
+        </Button>
         <LanguageSelector />
         <UserMenu
           login={username}

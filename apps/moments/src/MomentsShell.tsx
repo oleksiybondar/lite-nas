@@ -16,6 +16,7 @@ import {
   saveGalleryConcurrency,
   saveSharedMode,
 } from "./api";
+import { FriendsSettings } from "./FriendsSettings";
 import { GalleryFeed, type GalleryFeedScope } from "./GalleryFeed";
 import { GalleryRoute } from "./GalleryRoute";
 import { MomentsHeader } from "./MomentsHeader";
@@ -37,7 +38,6 @@ const settingsRoutes: Record<string, SettingsView> = {
   "/settings/profile": "profile",
   "/settings/appearance": "appearance",
   "/settings/gallery": "gallery",
-  "/settings/friends": "friends",
 };
 
 /** Provides the authenticated header, live gallery views, and shared settings. */
@@ -123,6 +123,7 @@ export const MomentsShell = ({
           avatarUrl={avatar ?? me.user.avatar_url}
           onMine={() => showFeed("mine")}
           onShared={() => showFeed("shared")}
+          onFriends={() => navigate("/friends")}
           onProfile={() => navigate("/settings/profile")}
           onApplicationSettings={() => navigate("/settings/appearance")}
           onLogout={() => void onLogout()}
@@ -176,7 +177,8 @@ export const MomentsShell = ({
               />
             }
           />
-          {["profile", "appearance", "gallery", "friends"].map((tab) => (
+          <Route path="/friends" element={<FriendsSettings />} />
+          {["profile", "appearance", "gallery"].map((tab) => (
             <Route
               key={tab}
               path={`/settings/${tab}`}
