@@ -2,7 +2,6 @@
 
 import re
 import time
-import uuid
 
 import pytest
 from constants import (
@@ -20,7 +19,6 @@ pytestmark = [
 ]
 
 DEFAULT_EVENT_PAGE_SIZE = 5
-SSH_LOGIN_PATTERN = re.compile(r"sec-ssh-[0-9a-f]{12}")
 SYSTEM_LOGIN_PATTERN = re.compile(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]*")
 ALERT_WAIT_SECONDS = 25.0
 
@@ -126,7 +124,8 @@ def test_failed_ssh_password_is_reported_as_ssh_cli_authentication(
       test account can read events through the security manager CLI.
 
     Action:
-    - Attempt one SSH password login for a unique nonexistent account.
+    - Attempt one SSH password login for the configured test account with an
+      invalid password.
 
     Expected result:
     - The event ID uses the `secauth` prefix and eight decimal counter digits.
@@ -134,8 +133,7 @@ def test_failed_ssh_password_is_reported_as_ssh_cli_authentication(
 
     Requirement: security-monitoring/FR-001, logging-managers/FR-001.
     """
-    login = f"sec-ssh-{uuid.uuid4().hex[:12]}"
-    if not SSH_LOGIN_PATTERN.fullmatch(login):
+    if not SYSTEM_LOGIN_PATTERN.fullmatch(TEST_SUDO_LOGIN):
         raise ValueError
 
     previous_alerts = current_security_alerts(security_cli_client)
@@ -148,7 +146,7 @@ def test_failed_ssh_password_is_reported_as_ssh_cli_authentication(
         "/usr/bin/ssh -F /dev/null -o PreferredAuthentications=password "
         "-o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 "
         "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
-        f"-o ConnectTimeout=5 {login}@localhost"
+        f"-o ConnectTimeout=5 {TEST_SUDO_LOGIN}@localhost"
     )
     security_cli_client.wait("'s password:", timeout=10)
     security_cli_client.send_keys("invalid-system-test-password")
