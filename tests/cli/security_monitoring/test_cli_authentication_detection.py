@@ -110,9 +110,10 @@ def test_failed_su_password_is_reported_as_local_cli_authentication(
         after_rec_id=latest_rec_id,
         category="auth_failure",
         channel="local CLI",
-        status="normal",
+        status="active",
     )
     expect(str((event or {}).get("EventID", ""))).to_match(r"^secauth_[0-9]{8}$")
+    expect((event or {}).get("Acknowledged")).to_be(False)
 
 
 def test_failed_ssh_password_is_reported_as_ssh_cli_authentication(
@@ -159,9 +160,10 @@ def test_failed_ssh_password_is_reported_as_ssh_cli_authentication(
         after_rec_id=latest_rec_id,
         category="auth_failure",
         channel="SSH/CLI",
-        status="normal",
+        status="active",
     )
     expect(str((event or {}).get("EventID", ""))).to_match(r"^secauth_[0-9]{8}$")
+    expect((event or {}).get("Acknowledged")).to_be(False)
 
 
 @pytest.mark.usefixtures("testsudo_cli_client")
@@ -174,7 +176,7 @@ def test_repeated_failed_su_passwords_raise_local_cli_password_guessing_alert(
     - The account keyed PAM password-guessing rule is enabled with a threshold
       of three failures in two minutes.
     - Log Analysis and Security Logging Manager are running.
-    - A successful login to the sudo test account resets its previous guessing state.
+    - Successful logins do not normalize or clear prior authentication alerts.
 
     Action:
     - Attempt three `su -` logins to the configured sudo test account, entering

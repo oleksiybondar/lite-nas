@@ -168,6 +168,8 @@ def test_one_failed_login_is_recorded_as_auth_failure(
         after_rec_id=latest_rec_id,
     )
     expect((event or {}).get("Category")).to_be("auth_failure")
+    expect((event or {}).get("Status")).to_be("active")
+    expect((event or {}).get("Acknowledged")).to_be(False)
 
 
 def test_repeated_failed_logins_create_active_password_guessing_alert(
