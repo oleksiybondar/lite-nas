@@ -45,8 +45,8 @@ export const ProfileAvatarCropDialog = ({
     if (!context) return;
     context.drawImage(
       element,
-      (cropSize / 2 - offset.x - width / 2) / scale,
-      (cropSize / 2 - offset.y - height / 2) / scale,
+      (width / 2 - cropSize / 2 - offset.x) / scale,
+      (height / 2 - cropSize / 2 - offset.y) / scale,
       cropSize / scale,
       cropSize / scale,
       0,

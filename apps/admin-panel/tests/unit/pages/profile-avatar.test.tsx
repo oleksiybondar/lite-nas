@@ -4,6 +4,8 @@ import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
 import { ApiProvider } from "@providers/ApiProvider";
 import { fireEvent, render, screen } from "@testing-library/react";
 
+const drawImageMock = vi.fn();
+
 /** Renders the profile page with one authenticated account and the real API adapter. */
 const renderProfile = (): void => {
   render(
@@ -89,17 +91,39 @@ const testReportsAvatarUploadFailure = async (): Promise<void> => {
   ).toBeInTheDocument();
 };
 
+/** Verifies a wider source image is cropped from within its bounds and centered. */
+const testUsesCenteredSourceCoordinates = async (): Promise<void> => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 201 })));
+  renderProfile();
+  fireEvent.change(screen.getByTestId("profile-avatar-file-input"), {
+    target: { files: [new File(["png bytes"], "face.png", { type: "image/png" })] },
+  });
+  await confirmCrop();
+  expect(drawImageMock).toHaveBeenCalledWith(
+    expect.any(HTMLImageElement),
+    80,
+    0,
+    480,
+    480,
+    0,
+    0,
+    512,
+    512,
+  );
+};
+
 describe("admin-panel-app/FR-003 profile avatar upload", () => {
   beforeEach(() => {
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn(() => "blob:profile-avatar"),
       revokeObjectURL: vi.fn(),
     });
+    drawImageMock.mockClear();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
-      drawImage: vi.fn(),
+      drawImage: drawImageMock,
     } as unknown as CanvasRenderingContext2D);
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => {
-      callback(new Blob(["cropped image"], { type: "image/jpeg" }));
+      callback(new Blob(["cropped image"], { type: "image/png" }));
     });
     Object.defineProperties(HTMLImageElement.prototype, {
       naturalWidth: { configurable: true, get: () => 640 },
@@ -119,4 +143,5 @@ describe("admin-panel-app/FR-003 profile avatar upload", () => {
   );
   test("rejects unsupported image types before upload", testRejectsUnsupportedAvatar);
   test("shows the File Service status when avatar upload fails", testReportsAvatarUploadFailure);
+  test("uses centered source coordinates for a wider image", testUsesCenteredSourceCoordinates);
 });
