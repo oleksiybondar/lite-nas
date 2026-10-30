@@ -11,5 +11,5 @@ type LoginInput struct {
 // boundary before controller execution.
 type LoginRequestBody struct {
 	Login    string `json:"login" required:"true" pattern:"^(?:[A-Za-z0-9._-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$" doc:"Local login or email address."`
-	Password string `json:"password" required:"true" minLength:"4" doc:"Password input for the login flow."`
+	Password string `json:"password" required:"true" minLength:"1" maxLength:"4096" doc:"Password input for the login flow."`
 }

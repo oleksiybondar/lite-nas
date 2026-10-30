@@ -37,6 +37,31 @@ errors: No known data errors
 	assertConfigTree(t, pool.Config.Roots)
 }
 
+// TestParseZpoolStatusAcceptsWrappedStatusText covers ZFS feature notices that span lines.
+func TestParseZpoolStatusAcceptsWrappedStatusText(t *testing.T) {
+	input := `  pool: testpool
+ state: ONLINE
+status: Some supported and requested features are not enabled on the pool.
+	The pool can still be used, but some features are unavailable.
+action: Enable all features using 'zpool upgrade'. Once this is done,
+	the pool may no longer be accessible by software that does not support
+	the features. See zpool-features(7) for details.
+  scan: scrub repaired 0B in 00:00:00 with 0 errors on Sun Jun 14 00:33:25 2026
+config:
+
+	NAME         STATE     READ WRITE CKSUM
+	testpool     ONLINE       0     0     0
+	  /dev/sdb1  ONLINE       0     0     0
+
+errors: No known data errors
+`
+
+	_, diagnostics, err := ParseZpoolStatus(input, ParseModeStrict)
+	if err != nil {
+		t.Fatalf("strict parse failed: %v; diagnostics: %+v", err, diagnostics)
+	}
+}
+
 // TestParseZpoolStatusStrictFailsOnInvalidInput verifies strict mode behavior.
 func TestParseZpoolStatusStrictFailsOnInvalidInput(t *testing.T) {
 	input := "pool: LiteNAS\nstate: ONLINE\n"

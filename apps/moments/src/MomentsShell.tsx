@@ -36,6 +36,7 @@ const feedRoutes: Record<string, GalleryFeedScope> = {
 /** Settings URLs select the matching sidebar tab. */
 const settingsRoutes: Record<string, SettingsView> = {
   "/settings/profile": "profile",
+  "/settings/security": "security",
   "/settings/appearance": "appearance",
   "/settings/gallery": "gallery",
 };
@@ -179,7 +180,7 @@ export const MomentsShell = ({
           />
           <Route path="/friends" element={<FriendsPage />} />
           <Route path="/settings/friends" element={<Navigate to="/friends" replace />} />
-          {["profile", "appearance", "gallery"].map((tab) => (
+          {["profile", "security", "appearance", "gallery"].map((tab) => (
             <Route
               key={tab}
               path={`/settings/${tab}`}

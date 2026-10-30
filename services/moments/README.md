@@ -19,6 +19,8 @@ same-origin schema. File Service docs require an authenticated user.
 | Route | Purpose |
 | --- | --- |
 | `POST /api/auth/login?redirect_to=...` | Issue session cookies and echo a validated app-local path in `data.redirect_to`; unsafe paths resolve to `/`. The browser performs navigation. |
+| `POST /api/auth/password/start` | Start an on-demand PAM password conversation for the signed-in user. |
+| `POST /api/auth/password/reply` | Answer the next PAM prompt; an expired-password login issues cookies only after PAM succeeds. |
 | `GET /api/config` | Return the authenticated user's configured `workingDir` used to start file and folder pickers. |
 | `POST /api/galleries` | Create an `ALBUM` or `COLLECTION`. Albums require an authorized, existing `uploadDirectory`. |
 | `GET /api/galleries` | List accessible albums and collections together, newest first. `page` defaults to 1; `size` defaults to 20 and is capped at 500. The existing `items` and `metadata` remain unchanged. `matchingMedia` has separate `items`, `total`, `limit`, and `offset` for distinct image paths matching `q` or `location`; use `mediaLimit` and `mediaOffset` to page them. Each image includes file metadata, caption, tags, and `linkedGalleries` (`id`, `name`, `type`, `ownerId`) limited to galleries visible to the caller. Repeated `ownerId`, `type`, `visibility`, `mediaType`, and `location` filters use OR within a field and AND across fields. `q` searches gallery names, descriptions, user tags, scan tags, person names, and generated captions. Location and media tag search folds case and Latin accents. |

@@ -8,7 +8,7 @@ export const loginSchema = z.object({
     .string()
     .min(1)
     .regex(/^(?:[A-Za-z0-9._-]+|[^@\s]+@[^@\s]+\.[^@\s]+)$/),
-  password: z.string().min(4),
+  password: z.string().min(1).max(4096),
 });
 
 /** Verified current-user response from the Moments auth API. */

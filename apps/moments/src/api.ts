@@ -1,3 +1,9 @@
+import {
+  type AuthFlow,
+  authFlowSchema,
+  type PasswordConversation,
+  passwordReplySchema,
+} from "@lite-nas/authentication";
 import { getLabel, loadLocalLanguage } from "@lite-nas/language";
 import {
   authDestination,
@@ -98,6 +104,16 @@ export const login = async (
   credentials: { login: string; password: string },
   redirectTo = "/",
 ): Promise<string> => {
+  const result = await beginLogin(credentials, redirectTo);
+  if (!result.authenticated) throw new Error(localLabel("common.passwordChangeFailed"));
+  return authDestination(result.redirect_to ?? redirectTo);
+};
+
+/** Begins login and preserves a PAM password-change prompt when required. */
+export const beginLogin = async (
+  credentials: { login: string; password: string },
+  redirectTo = "/",
+): Promise<AuthFlow> => {
   const payload = loginSchema.parse(credentials);
   const destination = authDestination(redirectTo);
   const path = `${momentsApiPath("/api/auth/login")}?${new URLSearchParams({ redirect_to: destination })}`;
@@ -107,9 +123,40 @@ export const login = async (
     body: JSON.stringify(payload),
   });
   if (!response.ok) throw new Error(localLabel("common.signInFailed"));
-  return authDestination(
-    sessionSchema.parse(await response.json()).data.redirect_to ?? destination,
-  );
+  return authFlowSchema.parse(await response.json()).data;
+};
+
+/** Starts a password change for the current signed-in user. */
+export const startPasswordChange = async (): Promise<AuthFlow> => {
+  const path = momentsApiPath("/api/auth/password/start");
+  const input: RequestInit = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  };
+  let response = await request(path, input);
+  if (response.status === 401 && (await refreshSession())) response = await request(path, input);
+  if (!response.ok) throw new Error(localLabel("common.passwordChangeFailed"));
+  return authFlowSchema.parse(await response.json()).data;
+};
+
+/** Answers one pending PAM prompt through Moments. */
+export const replyPasswordChange = async (
+  conversation: PasswordConversation,
+  answer: string,
+): Promise<AuthFlow> => {
+  const payload = passwordReplySchema.parse({
+    conversation_id: conversation.id,
+    sequence: conversation.sequence,
+    answer,
+  });
+  const response = await request(momentsApiPath("/api/auth/password/reply"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(localLabel("common.passwordChangeFailed"));
+  return authFlowSchema.parse(await response.json()).data;
 };
 
 /** Revokes the current browser refresh session. */

@@ -15,6 +15,7 @@
     "@lite-nas/profile": "file:../../shared/ts/profile",
     "@lite-nas/settings": "file:../../shared/ts/settings",
     "@lite-nas/language": "file:../../shared/ts/language",
+    "@lite-nas/authentication": "file:../../shared/ts/authentication",
     "@lite-nas/file-upload": "file:../../shared/ts/file-upload",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

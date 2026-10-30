@@ -39,14 +39,6 @@ type AuthenticateRequest struct {
 	Password string
 }
 
-// PasswordChangeRequest defines the input for a PAM-backed password update
-// flow.
-type PasswordChangeRequest struct {
-	Username    string
-	OldPassword string
-	NewPassword string
-}
-
 // Result captures the normalized auth outcome returned by the PAM adapter.
 type Result struct {
 	Code              OutcomeCode
@@ -59,7 +51,6 @@ type Result struct {
 // domain layer.
 type Authenticator interface {
 	Authenticate(request AuthenticateRequest) (Result, error)
-	ChangePassword(request PasswordChangeRequest) (Result, error)
 }
 
 func validateServiceName(serviceName string) error {

@@ -1,3 +1,5 @@
+import type { PasswordConversation } from "@lite-nas/authentication";
+
 /**
  * Browser-facing auth principal returned by `/api/auth/me`.
  */
@@ -130,4 +132,10 @@ export type AuthContextValue = {
    * Attempts to expire the current browser session.
    */
   logout: () => Promise<Response>;
+  /** Pending server-owned PAM prompt, when a password change is required. */
+  passwordConversation?: PasswordConversation | null;
+  /** Answers the current PAM prompt. */
+  replyPasswordChange?: (conversation: PasswordConversation, answer: string) => Promise<Response>;
+  /** Begins an on-demand change while keeping the session active. */
+  startPasswordChange?: () => Promise<Response>;
 };

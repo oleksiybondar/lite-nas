@@ -35,14 +35,16 @@ IPAddressAllow=::1
 RestrictNamespaces=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
-# PAM needs to read local account credentials from the protected host account database.
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-AmbientCapabilities=CAP_DAC_READ_SEARCH
+# PAM needs to read the account database and preserve shadow-file ownership
+# while replacing it with a temporary file during password changes.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_CHOWN
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_CHOWN
 UMask=0027
 StateDirectory=lite-nas-auth
 StateDirectoryMode=0700
 ReadOnlyPaths=/etc/lite-nas
-ReadWritePaths=/var/log/lite-nas/auth-service.log /var/lib/lite-nas-auth
+# pam_unix creates and renames temporary files in /etc when updating passwords.
+ReadWritePaths=/etc /var/log/lite-nas/auth-service.log /var/lib/lite-nas-auth
 StandardOutput=null
 StandardError=journal
 

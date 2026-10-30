@@ -7,9 +7,20 @@ profile /usr/libexec/lite-nas/auth-service flags=(attach_disconnected,mediate_de
   include <abstractions/lite-nas-nats-client>
   include <abstractions/authentication>
 
+  # pam_unix preserves shadow ownership when replacing its temporary file.
+  capability chown,
+
   /usr/libexec/lite-nas/auth-service mr,
   /etc/lite-nas/auth.conf r,
   /etc/pam.d/litenas-auth r,
+  # PAM quality checks read the host CrackLib dictionary; pam_unix writes
+  # nshadow before replacing shadow while holding the password lock.
+  /var/cache/cracklib/ r,
+  /var/cache/cracklib/cracklib_dict.{hwm,pwd,pwi} r,
+  /etc/.pwd.lock rwk,
+  /etc/.pam.shadow* rwk,
+  /etc/nshadow rwk,
+  /etc/shadow rw,
   /etc/lite-nas/certificates/auth/token-signing.crt r,
   /etc/lite-nas/certificates/auth/token-signing.key r,
   /var/log/lite-nas/auth-service.log rw,

@@ -1,9 +1,11 @@
 package auth
 
 const (
-	LoginRPCSubject   = "auth.rpc.login"
-	RefreshRPCSubject = "auth.rpc.refresh"
-	LogoutRPCSubject  = "auth.rpc.logout"
+	LoginRPCSubject               = "auth.rpc.login"
+	RefreshRPCSubject             = "auth.rpc.refresh"
+	LogoutRPCSubject              = "auth.rpc.logout"
+	PasswordChangeStartRPCSubject = "auth.rpc.password_change.start"
+	PasswordChangeReplyRPCSubject = "auth.rpc.password_change.reply"
 	// ServiceTokenLoginRPCSubject mints a long-lived service-to-service token pair.
 	// #nosec G101 -- NATS subject name, not a credential.
 	ServiceTokenLoginRPCSubject = "auth.rpc.service_token.login"

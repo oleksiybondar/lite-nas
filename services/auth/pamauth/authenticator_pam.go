@@ -1,7 +1,7 @@
 package pamauth
 
 import (
-	"strings"
+	"errors"
 
 	pam "github.com/msteinert/pam/v2"
 )
@@ -49,31 +49,6 @@ func (a authenticator) Authenticate(request AuthenticateRequest) (Result, error)
 	}, nil
 }
 
-// ChangePassword executes a PAM-backed password update flow and surfaces the
-// resulting structured outcome.
-func (a authenticator) ChangePassword(request PasswordChangeRequest) (Result, error) {
-	conversation := newPasswordChangeConversation(request)
-	transaction, err := a.startTransaction(request.Username, conversation.respond)
-	if err != nil {
-		return newServiceUnavailableResult(request.Username, err.Error()), err
-	}
-	defer endTransaction(transaction)
-
-	if err := transaction.ChangeAuthTok(0); err != nil {
-		return Result{
-			Code:     OutcomeDenied,
-			Username: request.Username,
-			Messages: buildMessages(conversation.messages, Message{Level: MessageLevelError, Text: err.Error()}),
-		}, nil
-	}
-
-	return Result{
-		Code:     OutcomeAuthenticated,
-		Username: request.Username,
-		Messages: conversation.messages,
-	}, nil
-}
-
 func (a authenticator) startTransaction(username string, respond pamResponder) (*pam.Transaction, error) {
 	return pam.StartFunc(a.serviceName, username, respond)
 }
@@ -109,6 +84,13 @@ func (c *authenticateConversation) resultForAuthError(username string, err error
 }
 
 func (c *authenticateConversation) resultForAccountError(username string, err error) Result {
+	if !errors.Is(err, pam.ErrNewAuthtokReqd) {
+		return Result{
+			Code:     OutcomeDenied,
+			Username: username,
+			Messages: buildMessages(c.messages, Message{Level: MessageLevelError, Text: err.Error()}),
+		}
+	}
 	return Result{
 		Code:              OutcomePasswordChangeNeeded,
 		Username:          username,
@@ -117,38 +99,7 @@ func (c *authenticateConversation) resultForAccountError(username string, err er
 	}
 }
 
-type passwordChangeConversation struct {
-	request  PasswordChangeRequest
-	messages []Message
-}
-
-func newPasswordChangeConversation(request PasswordChangeRequest) *passwordChangeConversation {
-	return &passwordChangeConversation{request: request}
-}
-
-func (c *passwordChangeConversation) respond(style pam.Style, msg string) (string, error) {
-	switch style {
-	case pam.PromptEchoOff:
-		return c.resolveSecret(msg), nil
-	default:
-		return c.respondCommon(style, msg)
-	}
-}
-
-func (c *passwordChangeConversation) resolveSecret(msg string) string {
-	lower := strings.ToLower(msg)
-	if strings.Contains(lower, "new") {
-		return c.request.NewPassword
-	}
-
-	return c.request.OldPassword
-}
-
 func (c *authenticateConversation) respondCommon(style pam.Style, msg string) (string, error) {
-	return respondCommon(&c.messages, c.request.Username, style, msg)
-}
-
-func (c *passwordChangeConversation) respondCommon(style pam.Style, msg string) (string, error) {
 	return respondCommon(&c.messages, c.request.Username, style, msg)
 }
 

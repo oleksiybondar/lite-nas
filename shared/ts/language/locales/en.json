@@ -9,6 +9,11 @@
   "common": {
     "login": "Login",
     "password": "Password",
+    "passwordChange": "Change password",
+    "passwordChanged": "Password changed.",
+    "passwordPrompt": "Password answer",
+    "passwordChangeFailed": "Password change failed.",
+    "continue": "Continue",
     "signIn": "Sign in",
     "signInFailed": "Sign in failed.",
     "loading": "Loading…",
@@ -28,6 +33,9 @@
   "admin": {
     "signIn": "Sign in",
     "loginFailed": "Login failed.",
+    "security": {
+      "summary": "Manage the password for your Unix account. PAM applies the configured password policy."
+    },
     "landing": {
       "systemAlertsUnacknowledged": "System alerts that still need acknowledgement from an operator.",
       "systemAlertsActive": "Currently active system alerts that still affect runtime operations.",
@@ -62,6 +70,7 @@
       "sensorFan": "Fan state and speed signals when active cooling is available.",
       "sensorsSummary": "Track board-level Raspberry Pi signals that affect reliability, cooling, and power behavior.",
       "profileOverview": "Review the authenticated Unix account represented by this browser session.",
+      "securitySettingsOverview": "Change the password for your Unix account.",
       "applicationSettingsOverview": "Adjust admin-panel behavior, appearance, and local interface preferences.",
       "preferencesSummary": "Manage settings that belong to your current browser session and admin-panel experience.",
       "themeSettingsOverview": "Adjust the admin-panel theme source, mode, and template for your profile.",
@@ -366,8 +375,9 @@
     },
     "settings": {
       "title": "Settings",
-      "summary": "Manage your profile, appearance, and gallery experience.",
+      "summary": "Manage your profile, security, appearance, and gallery experience.",
       "profile": "Profile",
+      "security": "Security",
       "appearance": "Appearance",
       "gallery": "Gallery",
       "profileSaved": "Avatar saved.",

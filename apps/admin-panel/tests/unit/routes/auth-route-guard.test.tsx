@@ -75,7 +75,11 @@ describe("LoginPage", () => {
   });
 
   test("submits credentials through the auth context", async () => {
-    const login = vi.fn().mockResolvedValue(responseWithStatus(200));
+    const login = vi
+      .fn()
+      .mockResolvedValue(
+        responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
+      );
 
     renderWithAuth(<LoginPage />, { login });
     fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
@@ -99,7 +103,11 @@ describe("LoginPage", () => {
   });
 
   test("returns to the protected route after successful login", async () => {
-    const login = vi.fn().mockResolvedValue(responseWithStatus(200));
+    const login = vi
+      .fn()
+      .mockResolvedValue(
+        responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
+      );
     renderWithLanguage(
       <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: "/system" } }]}>
         <AuthContext.Provider value={createAuthContextValue({ login })}>
@@ -119,7 +127,11 @@ describe("LoginPage", () => {
 
 describe("LoginPage return paths", () => {
   test("returns to redirect_to after login without router state", async () => {
-    const login = vi.fn().mockResolvedValue(responseWithStatus(200));
+    const login = vi
+      .fn()
+      .mockResolvedValue(
+        responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
+      );
     renderWithLanguage(
       <MemoryRouter initialEntries={["/login?redirect_to=%2Fsystem"]}>
         <AuthContext.Provider value={createAuthContextValue({ login })}>
@@ -203,7 +215,11 @@ const createAuthContextValue = (overrides: Partial<AuthContextValue> = {}): Auth
   return {
     isAuthInited: true,
     isAuthenticated: false,
-    login: vi.fn().mockResolvedValue(responseWithStatus(200)),
+    login: vi
+      .fn()
+      .mockResolvedValue(
+        responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
+      ),
     logout: vi.fn().mockResolvedValue(responseWithStatus(204)),
     me: null,
     ...overrides,
@@ -215,4 +231,9 @@ const createAuthContextValue = (overrides: Partial<AuthContextValue> = {}): Auth
  */
 const responseWithStatus = (status: number): Response => {
   return new Response(null, { status });
+};
+
+/** Creates a browser response with a parsed auth body. */
+const responseWithJson = (status: number, body: unknown): Response => {
+  return new Response(JSON.stringify(body), { status });
 };

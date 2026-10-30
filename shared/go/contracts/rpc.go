@@ -115,6 +115,16 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  authcontract.LoginRequest{},
 			Response: authcontract.LoginResponse{},
 		},
+		"password_change_start": {
+			Subject:  authcontract.PasswordChangeStartRPCSubject,
+			Request:  authcontract.PasswordChangeStartRequest{},
+			Response: authcontract.LoginResponse{},
+		},
+		"password_change_reply": {
+			Subject:  authcontract.PasswordChangeReplyRPCSubject,
+			Request:  authcontract.PasswordChangeReplyRequest{},
+			Response: authcontract.LoginResponse{},
+		},
 		"refresh": {
 			Subject:  authcontract.RefreshRPCSubject,
 			Request:  authcontract.RefreshRequest{},

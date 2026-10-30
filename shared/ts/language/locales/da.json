@@ -9,6 +9,11 @@
   "common": {
     "login": "Log ind",
     "password": "Adgangskode",
+    "passwordChange": "Skift adgangskode",
+    "passwordChanged": "Adgangskoden er ændret.",
+    "passwordPrompt": "Svar på adgangskodeprompt",
+    "passwordChangeFailed": "Adgangskoden kunne ikke ændres.",
+    "continue": "Fortsæt",
     "signIn": "Log ind",
     "signInFailed": "Login mislykkedes.",
     "loading": "Indlæser…",
@@ -28,6 +33,9 @@
   "admin": {
     "signIn": "Log ind",
     "loginFailed": "Login mislykkedes.",
+    "security": {
+      "summary": "Administrer adgangskoden til din Unix-konto. PAM håndhæver den konfigurerede adgangskodepolitik."
+    },
     "landing": {
       "systemAlertsUnacknowledged": "Systemadvarsler, der stadig kræver bekræftelse fra en operatør.",
       "systemAlertsActive": "Aktive systemadvarsler, som stadig påvirker driften.",
@@ -62,6 +70,7 @@
       "sensorFan": "Blæserstatus og hastighed, når aktiv køling er tilgængelig.",
       "sensorsSummary": "Følg Raspberry Pi-signaler, der påvirker pålidelighed, køling og strøm.",
       "profileOverview": "Gennemgå den godkendte Unix-konto for denne browsersession.",
+      "securitySettingsOverview": "Skift adgangskoden til din Unix-konto.",
       "applicationSettingsOverview": "Juster adminpanelets adfærd, udseende og lokale grænsefladeindstillinger.",
       "preferencesSummary": "Administrer indstillinger for den aktuelle browsersession og adminpanelet.",
       "themeSettingsOverview": "Juster adminpanelets temakilde, tilstand og skabelon for din profil.",
@@ -366,8 +375,9 @@
     },
     "settings": {
       "title": "Indstillinger",
-      "summary": "Administrer din profil, dit udseende og din gallerioplevelse.",
+      "summary": "Administrer din profil, sikkerhed, dit udseende og din gallerioplevelse.",
       "profile": "Profil",
+      "security": "Sikkerhed",
       "appearance": "Udseende",
       "gallery": "Galleri",
       "profileSaved": "Avatar gemt.",

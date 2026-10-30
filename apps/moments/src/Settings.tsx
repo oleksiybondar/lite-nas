@@ -1,5 +1,6 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: tab content and its feedback stay together in the settings screen.
 
+import { PasswordChangePanel } from "@lite-nas/authentication";
 import { useLanguage } from "@lite-nas/language";
 import { ProfilePreferencesPanel, writeProfileAvatar } from "@lite-nas/profile";
 import { PreferencesPageHeader, PreferencesTabs } from "@lite-nas/settings";
@@ -7,6 +8,7 @@ import { type ThemeMode, ThemePreferencesPanel } from "@lite-nas/theme";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import PaletteIcon from "@mui/icons-material/Palette";
+import SecurityIcon from "@mui/icons-material/Security";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
@@ -15,11 +17,11 @@ import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { z } from "zod";
-import { request } from "./api";
+import { replyPasswordChange, request, startPasswordChange } from "./api";
 import { imageConcurrencySchema } from "./schemas";
 
 /** Settings sections exposed in the Moments preferences sidebar. */
-const settingsViewSchema = z.enum(["profile", "appearance", "gallery"]);
+const settingsViewSchema = z.enum(["profile", "security", "appearance", "gallery"]);
 export type SettingsView = z.infer<typeof settingsViewSchema>;
 
 /** Shows profile, appearance, and gallery preferences in one tabbed settings area. */
@@ -96,6 +98,12 @@ export const Settings = ({
             value="profile"
           />
           <Tab
+            icon={<SecurityIcon />}
+            iconPosition="start"
+            label={getLabel("moments.settings.security")}
+            value="security"
+          />
+          <Tab
             icon={<PaletteIcon />}
             iconPosition="start"
             label={getLabel("moments.settings.appearance")}
@@ -110,14 +118,22 @@ export const Settings = ({
         </PreferencesTabs>
         <Box sx={{ flex: 1, minWidth: 0, maxWidth: 900 }}>
           {view === "profile" && (
-            <ProfilePreferencesPanel
-              username={username}
-              avatarUrl={avatarUrl}
-              fallbackAvatarUrl={fallbackAvatarUrl}
-              busy={busy}
-              message={avatarMessage}
-              onAvatarSelected={(file) => void upload(file)}
-            />
+            <Stack spacing={3}>
+              <ProfilePreferencesPanel
+                username={username}
+                avatarUrl={avatarUrl}
+                fallbackAvatarUrl={fallbackAvatarUrl}
+                busy={busy}
+                message={avatarMessage}
+                onAvatarSelected={(file) => void upload(file)}
+              />
+            </Stack>
+          )}
+          {view === "security" && (
+            <Stack spacing={3} data-testid="moments-security-settings">
+              <Typography variant="h5">{getLabel("moments.settings.security")}</Typography>
+              <PasswordChangePanel onStart={startPasswordChange} onReply={replyPasswordChange} />
+            </Stack>
           )}
           {view === "appearance" && (
             <ThemePreferencesPanel

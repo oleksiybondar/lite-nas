@@ -13,12 +13,16 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
 )
 
 // AuthService defines the auth behavior required by the browser-facing auth
 // controller.
 type AuthService interface {
 	Login(context.Context, time.Time, string, string, services.AuthRequestContext) (services.Session, error)
+	BeginLogin(context.Context, time.Time, string, string, services.AuthRequestContext) (browserauth.PasswordResult, error)
+	BeginPasswordChange(context.Context, string) (browserauth.PasswordResult, error)
+	ReplyPasswordChange(context.Context, time.Time, string, int32, string) (browserauth.PasswordResult, error)
 	Refresh(context.Context, time.Time, string, services.AuthRequestContext) (services.Session, error)
 	Logout(context.Context, time.Time, string, services.AuthRequestContext) (services.Session, error)
 	Me(now time.Time, accessToken string) (services.Session, error)
@@ -53,18 +57,46 @@ func (c AuthController) Login(
 	input *authdto.LoginInput,
 ) (*authdto.SessionOutput, error) {
 	now := time.Now()
-	session, err := c.service.Login(ctx, now, input.Body.Login, input.Body.Password, authRequestContext(input.UserAgent))
+	result, err := c.service.BeginLogin(ctx, now, input.Body.Login, input.Body.Password, authRequestContext(input.UserAgent))
 	if err != nil {
 		return nil, mapAuthError(err, "invalid login or password")
 	}
+	if result.Status == authcontract.StatusDenied {
+		return nil, huma.Error401Unauthorized("invalid login or password")
+	}
+	return c.passwordOutput(now, result, browserauth.RedirectPath(input.RedirectTo)), nil
+}
 
-	return &authdto.SessionOutput{
-		SetCookie: []http.Cookie{
-			browserauth.AccessCookie(session, c.cookieDomain),
-			browserauth.RefreshCookie(session, c.cookieDomain),
-		},
-		Body: buildSessionBody(now, session, browserauth.RedirectPath(input.RedirectTo)),
-	}, nil
+// StartPasswordChange begins a PAM conversation for the signed-in principal.
+func (c AuthController) StartPasswordChange(ctx context.Context, input *authdto.PasswordChangeStartInput) (*authdto.SessionOutput, error) {
+	token := resolveAccessToken(input.Authorization, input.AccessTokenCookie)
+	result, err := c.service.BeginPasswordChange(ctx, token)
+	if err != nil {
+		return nil, mapAuthError(err, "password change failed")
+	}
+	return c.passwordOutput(time.Now(), result, ""), nil
+}
+
+// ReplyPasswordChange forwards one answer to the pending PAM conversation.
+func (c AuthController) ReplyPasswordChange(ctx context.Context, input *authdto.PasswordChangeReplyInput) (*authdto.SessionOutput, error) {
+	result, err := c.service.ReplyPasswordChange(ctx, time.Now(), input.Body.ConversationID, input.Body.Sequence, input.Body.Answer)
+	if err != nil {
+		return nil, mapAuthError(err, "password change failed")
+	}
+	return c.passwordOutput(time.Now(), result, ""), nil
+}
+
+// passwordOutput returns PAM state and only sets cookies for a new session.
+func (c AuthController) passwordOutput(now time.Time, result browserauth.PasswordResult, redirectTo string) *authdto.SessionOutput {
+	output := &authdto.SessionOutput{Body: authdto.NewSessionBody(now, authdto.SessionData{
+		Authenticated: result.Status == authcontract.StatusAuthenticated, User: authdto.AuthUser{ID: result.Session.UserID}, RedirectTo: redirectTo,
+		Status: result.Status, Conversation: result.Conversation, Messages: result.Messages,
+	})}
+	output.Body.Success = result.Status != authcontract.StatusDenied
+	if result.Session.AccessToken != "" {
+		output.SetCookie = []http.Cookie{browserauth.AccessCookie(result.Session, c.cookieDomain), browserauth.RefreshCookie(result.Session, c.cookieDomain)}
+	}
+	return output
 }
 
 // Refresh rotates the auth token pair using the HTTP-only refresh-token cookie.
@@ -95,8 +127,7 @@ func (c AuthController) Refresh(
 	}, nil
 }
 
-// Logout expires the browser auth cookies when a refresh-token cookie is
-// present.
+// Logout revokes an active refresh session and always expires browser auth cookies.
 //
 // Parameters:
 //   - input: validated logout request plus any extracted refresh-token cookie
@@ -107,21 +138,28 @@ func (c AuthController) Logout(
 	now := time.Now()
 	refreshToken := resolveLogoutRefreshToken(input)
 	if strings.TrimSpace(refreshToken) == "" {
-		return nil, huma.Error401Unauthorized("missing refresh token")
+		return c.logoutOutput(now), nil
 	}
 
-	session, err := c.service.Logout(ctx, now, refreshToken, authRequestContext(input.UserAgent))
+	_, err := c.service.Logout(ctx, now, refreshToken, authRequestContext(input.UserAgent))
 	if err != nil {
+		if errors.Is(err, services.ErrUnauthorized) || errors.Is(err, services.ErrMissingRefreshToken()) {
+			return c.logoutOutput(now), nil
+		}
 		return nil, mapAuthError(err, "invalid refresh token")
 	}
+	return c.logoutOutput(now), nil
+}
 
+// logoutOutput clears both cookies in the configured browser scope.
+func (c AuthController) logoutOutput(now time.Time) *authdto.LogoutOutput {
 	return &authdto.LogoutOutput{
 		SetCookie: []http.Cookie{
-			browserauth.ClearAccessCookie(session.AccessExpires, c.cookieDomain),
-			browserauth.ClearRefreshCookie(session.RefreshExpiry, c.cookieDomain),
+			browserauth.ClearAccessCookie(now, c.cookieDomain),
+			browserauth.ClearRefreshCookie(now, c.cookieDomain),
 		},
 		Body: authdto.NewLogoutBody(now, true, "logged out"),
-	}, nil
+	}
 }
 
 // Me returns the currently authenticated stub user represented by the access

@@ -4,10 +4,10 @@ import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react
 import { afterEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import {
+  beginLogin,
   loadGalleryConcurrency,
   loadMe,
   loadMomentsConfig,
-  login,
   logout,
   request,
   saveGalleryConcurrency,
@@ -21,8 +21,10 @@ vi.mock("./api", () => ({
   loadMomentsConfig: vi.fn(),
   loadGalleryConcurrency: vi.fn(),
   loadMe: vi.fn(),
-  login: vi.fn(),
+  beginLogin: vi.fn(),
   logout: vi.fn(),
+  startPasswordChange: vi.fn(),
+  replyPasswordChange: vi.fn(),
   request: vi.fn(),
   saveSharedMode: vi.fn(),
   saveGalleryConcurrency: vi.fn(),
@@ -100,7 +102,12 @@ test("My collections navigation updates the browser URL", async () => {
 // Requirements: moments/FR-001. Signing in replaces the public form with the gallery shell.
 test("successful sign in opens the authenticated Moments home", async () => {
   vi.mocked(loadMe).mockResolvedValueOnce(null).mockResolvedValueOnce(me);
-  vi.mocked(login).mockResolvedValue("/");
+  vi.mocked(beginLogin).mockResolvedValue({
+    authenticated: true,
+    status: "authenticated",
+    user: { id: "alice" },
+    redirect_to: "/",
+  });
   renderMomentsApp();
   await submitLogin();
   expect(await screen.findByTestId("moments-home")).toBeTruthy();
@@ -126,7 +133,12 @@ test("sign in returns to the gallery from a reloadable login URL", async () => {
   const galleryPath = "/galleries/00000000-0000-4000-8000-000000000001";
   window.history.replaceState({}, "", `/login?redirect_to=${encodeURIComponent(galleryPath)}`);
   vi.mocked(loadMe).mockResolvedValueOnce(null).mockResolvedValueOnce(me);
-  vi.mocked(login).mockResolvedValue(galleryPath);
+  vi.mocked(beginLogin).mockResolvedValue({
+    authenticated: true,
+    status: "authenticated",
+    user: { id: "alice" },
+    redirect_to: galleryPath,
+  });
   renderMomentsApp();
   await submitLogin();
   await screen.findByText("Could not open this gallery.");
@@ -136,7 +148,7 @@ test("sign in returns to the gallery from a reloadable login URL", async () => {
 // Requirements: moments/FR-001. Failed credentials leave the user on the form.
 test("failed sign in shows a visible error", async () => {
   vi.mocked(loadMe).mockResolvedValue(null);
-  vi.mocked(login).mockRejectedValue(new Error("invalid credentials"));
+  vi.mocked(beginLogin).mockRejectedValue(new Error("invalid credentials"));
   renderMomentsApp();
   await submitLogin();
   expect(await screen.findByText("Sign in failed.")).toBeTruthy();
@@ -209,6 +221,15 @@ test("user menu opens the shared profile screen", async () => {
   renderMomentsApp();
   await chooseUserAction("user-menu-profile-link");
   expect(screen.getByTestId("preferences-profile-page")).toBeTruthy();
+});
+
+// Requirements: moments/FR-002. Account security is reachable from settings.
+test("settings exposes password change on the security tab", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp();
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+  expect(await screen.findByTestId("password-change-start")).toBeTruthy();
 });
 
 // Requirements: moments/FR-001. A successful logout returns to the public sign-in form.

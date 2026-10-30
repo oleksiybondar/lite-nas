@@ -238,6 +238,8 @@ assert_cmd "stream-service.conf packaged" assert_file "$packaged_config_root/lit
 assert_cmd "stream-service uses dedicated NATS certificate" assert_file_contains "$packaged_config_root/lite-nas/stream-service.conf" 'lite-nas-stream-service/client.crt'
 assert_cmd "stream-service listens on loopback" assert_file_contains "$packaged_config_root/lite-nas/stream-service.conf" 'address=127.0.0.1:8083'
 assert_cmd "stream-service NATS identity is authorized" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" 'user: "lite-nas-stream-service"'
+assert_cmd "password-change start RPC authorized" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" '"auth.rpc.password_change.start"'
+assert_cmd "password-change reply RPC authorized" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" '"auth.rpc.password_change.reply"'
 
 assert_cmd "resources-monitor unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-resources-monitor.service"
 assert_cmd "system logging manager unit template packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-system-logging-manager.service"
@@ -263,6 +265,11 @@ assert_cmd "postfix main.cf template packaged" assert_file "$packaged_config_roo
 assert_cmd "postfix master.cf template packaged" assert_file "$packaged_config_root/postfix/master.cf"
 assert_cmd "postfix AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.lib.postfix.sbin"
 assert_cmd "auth AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.auth-service"
+assert_cmd "auth AppArmor permits shadow ownership preservation" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.auth-service" 'capability chown,'
+assert_cmd "auth AppArmor permits shadow replacement file" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.auth-service" '/etc/nshadow rwk,'
+assert_cmd "auth AppArmor permits PAM password lock" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.auth-service" '/etc/.pwd.lock rwk,'
+assert_cmd "auth AppArmor permits host password dictionary" assert_file_contains "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.auth-service" '/var/cache/cracklib/cracklib_dict.{hwm,pwd,pwi} r,'
+assert_cmd "package bootstrap reloads AppArmor profiles" assert_file_contains usr/libexec/lite-nas/scripts/deploy/lite-nas.sh 'deploy.apparmor.deploy 1'
 assert_cmd "rbac AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.rbac-service"
 assert_cmd "system-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.system-metrics"
 assert_cmd "zfs-metrics AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.zfs-metrics"
@@ -303,6 +310,8 @@ assert_cmd "web-gateway accepts cloudflared on IPv6 loopback" \
 assert_cmd "Moments accepts cloudflared on IPv6 loopback" \
 	assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-moments.conf" \
 	'listen [::1]:80;'
+assert_cmd "admin password conversation has extended proxy timeout" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" 'proxy_read_timeout 310s;'
+assert_cmd "Moments password conversation has extended proxy timeout" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-moments.conf" 'proxy_read_timeout 310s;'
 assert_cmd "file-service nginx snippet packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-file-service.conf"
 assert_cmd "stream-service nginx snippet packaged" assert_file "$packaged_config_root/nginx/snippets/lite-nas-stream-service.conf"
 assert_cmd "admin Nginx site includes stream mount" assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" 'include /etc/nginx/snippets/lite-nas-stream-service.conf;'
@@ -316,6 +325,10 @@ assert_cmd "service admin sudoers rule uses kill helper" assert_file_contains "$
 assert_cmd "auth unit permits PAM helper transition" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "NoNewPrivileges=no"
 assert_cmd "auth unit grants PAM credential read capability" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "CapabilityBoundingSet=CAP_DAC_READ_SEARCH"
 assert_cmd "auth unit makes PAM credential read capability effective" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "AmbientCapabilities=CAP_DAC_READ_SEARCH"
+assert_cmd "auth unit grants shadow ownership capability" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_CHOWN'
+assert_cmd "auth unit makes shadow ownership capability effective" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_CHOWN'
+assert_cmd "auth unit permits shadow replacement" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'ReadWritePaths=/etc '
+assert_cmd "auth defaults to traceable conversation logging" assert_file_contains "$packaged_config_root/lite-nas/auth.conf" 'level=info'
 assert_cmd "file-service unit bounds sudo identity capabilities" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-file-service.service" 'CapabilityBoundingSet=CAP_SETUID CAP_SETGID'
 assert_cmd "zfs admin sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-zfs-adm"
 assert_cmd "rbac sudoers template packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-rbac"

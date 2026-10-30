@@ -15,6 +15,8 @@ import (
 	"lite-nas/services/web-gateway/services"
 	webtest "lite-nas/services/web-gateway/testutil"
 	"lite-nas/shared/authtoken"
+	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/metrics"
@@ -54,6 +56,19 @@ func (s routeAuthService) Login(
 		AccessExpires: now.Add(time.Minute),
 		RefreshExpiry: now.Add(2 * time.Minute),
 	}, nil
+}
+
+func (s routeAuthService) BeginLogin(ctx context.Context, now time.Time, login, password string, requestContext services.AuthRequestContext) (browserauth.PasswordResult, error) {
+	session, err := s.Login(ctx, now, login, password, requestContext)
+	return browserauth.PasswordResult{Session: session, Status: authcontract.StatusAuthenticated}, err
+}
+
+func (s routeAuthService) BeginPasswordChange(context.Context, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, nil
+}
+
+func (s routeAuthService) ReplyPasswordChange(context.Context, time.Time, string, int32, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, nil
 }
 
 func (s routeAuthService) Refresh(
@@ -380,6 +395,14 @@ func TestRouterLogoutAcceptsRefreshTokenCookie(t *testing.T) {
 		routerFixture(nil),
 		request,
 	)
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
+
+// Requirements: web-gateway/FR-004, web-gateway/TR-001
+func TestRouterLogoutWithoutRefreshTokenStillClearsCookies(t *testing.T) {
+	t.Parallel()
+
+	recorder := webtest.ServeRequest(routerFixture(nil), webtest.NewRequest(http.MethodPost, "/api/auth/logout", []byte(`{}`)))
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 }
 

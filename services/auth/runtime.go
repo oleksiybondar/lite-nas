@@ -64,6 +64,7 @@ func run(ctx context.Context) error {
 		Validator:         newRequestValidator(),
 		Client:            infra.Client,
 		Lockdown:          lockdown,
+		Conversations:     newPasswordConversations(ctx, pamServiceName, infra.Logger),
 	}
 	if err := lockdown.replayPending(ctx, infra.Client); err != nil {
 		return err
@@ -100,6 +101,7 @@ type authRuntime struct {
 	Validator         requestValidator
 	Client            messaging.Client
 	Lockdown          *lockdownStore
+	Conversations     *passwordConversations
 }
 
 type authTokenRuntime struct {
@@ -217,8 +219,18 @@ func registerRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error
 }
 
 func registerUserRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error {
-	if err := server.RegisterRPC(authcontract.LoginRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
-		return handleLoginRPC(runtimeDeps, envelope)
+	if err := server.RegisterRPC(authcontract.LoginRPCSubject, func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		return handleLoginRPCWithContext(ctx, runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.PasswordChangeStartRPCSubject, func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		return handlePasswordChangeStartRPC(ctx, runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.PasswordChangeReplyRPCSubject, func(ctx context.Context, envelope messaging.Envelope) (any, error) {
+		return handlePasswordChangeReplyRPC(ctx, runtimeDeps, envelope)
 	}); err != nil {
 		return err
 	}
@@ -280,9 +292,23 @@ func registerServiceRPCHandlers(server messaging.Server, runtimeDeps authRuntime
 }
 
 func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.LoginResponse, error) {
+	return handleLoginRPCWithContext(context.Background(), runtimeDeps, envelope)
+}
+
+func handleLoginRPCWithContext(ctx context.Context, runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.LoginResponse, error) {
 	var request authcontract.LoginRequest
 	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+	}
+	if runtimeDeps.Conversations != nil {
+		if lockdownActive(runtimeDeps) {
+			return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+		}
+		event, flow, ok := runtimeDeps.Conversations.start(ctx, request, false)
+		if !ok {
+			return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+		}
+		return loginResponseForConversation(runtimeDeps, event, flow), nil
 	}
 	if runtimeDeps.Lockdown != nil {
 		// Hold the read lock through session issuance so a completed lockdown
@@ -308,22 +334,27 @@ func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authc
 		}
 	}
 
+	return issueLoginSession(runtimeDeps, request, result), nil
+}
+
+// issueLoginSession mints the token pair after PAM returns an authenticated result.
+func issueLoginSession(runtimeDeps authRuntime, request authcontract.LoginRequest, result pamauth.Result) authcontract.LoginResponse {
 	login := resolvedLogin(result.Username, request.Username)
 	subject, roles := resolvePrincipalRoles(runtimeDeps, login)
 	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles)
 	if !issued {
-		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+		return authcontract.LoginResponse{Status: authcontract.StatusDenied}
 	}
 
 	refreshToken, created := createRefreshToken(runtimeDeps, request, subject, login)
 	if !created {
-		return authcontract.LoginResponse{Status: authcontract.StatusDenied}, nil
+		return authcontract.LoginResponse{Status: authcontract.StatusDenied}
 	}
 
 	response := loginResponseFromPAM(result)
 	response.AccessToken = accessToken
 	response.RefreshToken = refreshToken
-	return response, nil
+	return response
 }
 
 func resolvedLogin(authenticatedUsername string, requestUsername string) string {
@@ -591,6 +622,8 @@ func authStatusFromPAM(outcome pamauth.OutcomeCode) authcontract.Status {
 		return authcontract.StatusAuthenticated
 	case pamauth.OutcomePasswordChangeNeeded:
 		return authcontract.StatusPasswordChangeRequired
+	case pamauth.OutcomeServiceUnavailable:
+		return authcontract.StatusServiceUnavailable
 	default:
 		return authcontract.StatusDenied
 	}

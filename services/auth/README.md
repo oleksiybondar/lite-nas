@@ -73,6 +73,20 @@ The current intended session model is:
 
 This is intentionally a volatile single-node session model.
 
+## Password Changes
+
+When PAM requires a change during login, auth-service keeps that PAM
+transaction in a bounded worker for up to five minutes. Each browser answer
+travels through the gateway and NATS to the next PAM prompt. A successful
+expired-password conversation issues a session; an unsuccessful or expired one
+does not. After three PAM-reported password rejections, the worker ends the
+conversation even if the PAM stack would allow more retries.
+
+Signed-in users may start the same PAM prompt flow on demand. Their current
+session remains active after a successful change. The auth-service logs only
+password-conversation lifecycle events and outcomes, never answers or password
+values.
+
 ## Trust Model
 
 The trust model is intentionally split:

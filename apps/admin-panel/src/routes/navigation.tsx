@@ -324,6 +324,11 @@ export const preferencesNavigationItems: AppNavigationItem[] = [
     title: "User profile",
   },
   {
+    icon: <SecurityIcon />,
+    path: "/preferences/security",
+    title: "Security",
+  },
+  {
     children: [
       {
         icon: <PaletteRoundedIcon />,

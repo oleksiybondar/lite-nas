@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"lite-nas/services/web-gateway/dto"
+	authcontract "lite-nas/shared/contracts/auth"
 )
 
 // AuthUser represents the authenticated user payload returned by auth
@@ -31,9 +32,12 @@ type SessionBody struct {
 // session-issuing endpoints. Token material is transported only through
 // HTTP-only cookies at the gateway boundary.
 type SessionData struct {
-	Authenticated bool     `json:"authenticated"`
-	User          AuthUser `json:"user"`
-	RedirectTo    string   `json:"redirect_to,omitempty"`
+	Authenticated bool                               `json:"authenticated"`
+	User          AuthUser                           `json:"user"`
+	RedirectTo    string                             `json:"redirect_to,omitempty"`
+	Status        authcontract.Status                `json:"status,omitempty"`
+	Conversation  *authcontract.PasswordConversation `json:"conversation,omitempty"`
+	Messages      []authcontract.Message             `json:"messages,omitempty"`
 }
 
 // NewSessionBody creates the session response body with common metadata set.

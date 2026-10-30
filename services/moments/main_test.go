@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
 )
 
 // authStub supplies controlled shared auth outcomes for router boundary tests.
@@ -24,6 +25,18 @@ type authStub struct {
 // Login returns the configured session or error for credential route tests.
 func (stub authStub) Login(context.Context, time.Time, string, string, browserauth.AuthRequestContext) (browserauth.Session, error) {
 	return stub.session, stub.err
+}
+
+func (stub authStub) BeginLogin(context.Context, time.Time, string, string, browserauth.AuthRequestContext) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{Session: stub.session, Status: authcontract.StatusAuthenticated}, stub.err
+}
+
+func (stub authStub) BeginPasswordChange(context.Context, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, stub.err
+}
+
+func (stub authStub) ReplyPasswordChange(context.Context, time.Time, string, int32, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, stub.err
 }
 
 // Refresh returns the configured session or error for cookie rotation tests.

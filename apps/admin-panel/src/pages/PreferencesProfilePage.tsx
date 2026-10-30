@@ -4,6 +4,7 @@ import { useAuth } from "@hooks/useAuth";
 import { useProfileAvatar } from "@hooks/useProfileAvatar";
 import { useLanguage } from "@lite-nas/language";
 import { avatarFileSchema, ProfilePreferencesPanel, writeProfileAvatar } from "@lite-nas/profile";
+import Stack from "@mui/material/Stack";
 import type { ReactElement } from "react";
 import { useState } from "react";
 
@@ -41,16 +42,18 @@ export const PreferencesProfilePage = (): ReactElement => {
   };
 
   return (
-    <ProfilePreferencesPanel
-      username={me?.user.login ?? ""}
-      avatarUrl={avatar}
-      fallbackAvatarUrl={me?.user.avatar_url ?? null}
-      busy={busy}
-      message={message}
-      onAvatarSelected={(file) => {
-        void upload(file);
-      }}
-    />
+    <Stack spacing={3}>
+      <ProfilePreferencesPanel
+        username={me?.user.login ?? ""}
+        avatarUrl={avatar}
+        fallbackAvatarUrl={me?.user.avatar_url ?? null}
+        busy={busy}
+        message={message}
+        onAvatarSelected={(file) => {
+          void upload(file);
+        }}
+      />
+    </Stack>
   );
 };
 

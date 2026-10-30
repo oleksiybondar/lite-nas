@@ -247,6 +247,8 @@ func newRouterWithScanManager(auth browserauth.AuthService, cookieDomain string,
 	})
 	controller := authController{service: auth, cookieDomain: cookieDomain}
 	huma.Post(api, "/api/auth/login", controller.login)
+	huma.Post(api, "/api/auth/password/start", controller.startPasswordChange)
+	huma.Post(api, "/api/auth/password/reply", controller.replyPasswordChange)
 	huma.Post(api, "/api/auth/refresh", controller.refresh)
 	huma.Post(api, "/api/auth/logout", controller.logout)
 	huma.Get(api, "/api/auth/me", controller.me)

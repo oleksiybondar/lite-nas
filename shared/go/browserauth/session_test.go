@@ -96,6 +96,21 @@ func TestLoginRejectsDeniedReply(t *testing.T) {
 	}
 }
 
+// TestBeginLoginPreservesPasswordPrompt exposes expiry without a browser session.
+func TestBeginLoginPreservesPasswordPrompt(t *testing.T) {
+	service := mustBrowserService(authRPCStub{login: authcontract.LoginResponse{
+		Status:       authcontract.StatusPasswordChangeRequired,
+		Conversation: &authcontract.PasswordConversation{ID: "pending", Sequence: 1},
+	}})
+	result, err := service.BeginLogin(t.Context(), time.Now(), "alice", "secret", AuthRequestContext{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Conversation == nil {
+		t.Fatal("conversation is nil, want pending prompt")
+	}
+}
+
 // TestRefreshRotatesSession covers browserauth/FR-001.
 func TestRefreshRotatesSession(t *testing.T) {
 	service := mustBrowserService(authRPCStub{rotate: authcontract.RefreshResponse{

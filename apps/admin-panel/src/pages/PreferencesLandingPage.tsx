@@ -1,6 +1,7 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
 import { useLanguage } from "@lite-nas/language";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
+import SecurityIcon from "@mui/icons-material/Security";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import type { ReactElement } from "react";
 
@@ -17,6 +18,12 @@ export const PreferencesLandingPage = (): ReactElement => {
           icon: <ManageAccountsRoundedIcon />,
           path: "/preferences/profile",
           title: getLabel("navigation.User profile"),
+        },
+        {
+          description: getLabel("admin.landing.securitySettingsOverview"),
+          icon: <SecurityIcon />,
+          path: "/preferences/security",
+          title: getLabel("navigation.Security"),
         },
         {
           description: getLabel("admin.landing.applicationSettingsOverview"),

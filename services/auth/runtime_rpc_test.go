@@ -26,10 +26,6 @@ func (a runtimeAuthenticatorStub) Authenticate(pamauth.AuthenticateRequest) (pam
 	return a.result, a.err
 }
 
-func (a runtimeAuthenticatorStub) ChangePassword(pamauth.PasswordChangeRequest) (pamauth.Result, error) {
-	return a.result, a.err
-}
-
 type runtimeRecordingServer struct {
 	handlers map[string]messaging.RPCHandler
 	errs     map[string]error

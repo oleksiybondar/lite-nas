@@ -151,6 +151,19 @@ describe("preferences page rendering", () => {
     expect(screen.getByRole("heading", { name: "User profile" })).toBeInTheDocument();
   });
 
+  test("links account security from preferences", () => {
+    renderWithThemeManager(
+      <TestMemoryRouter>
+        <PreferencesLandingPage />
+      </TestMemoryRouter>,
+    );
+
+    expect(screen.getByRole("link", { name: /Security/ })).toHaveAttribute(
+      "href",
+      "/preferences/security",
+    );
+  });
+
   test("renders the application settings preferences page", () => {
     renderWithThemeManager(
       <TestMemoryRouter>

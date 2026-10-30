@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
 )
 
 // authController connects Moments routes to the shared browser auth lifecycle.
@@ -24,7 +25,7 @@ type loginInput struct {
 	RedirectTo string `query:"redirect_to" maxLength:"2048"`
 	Body       struct {
 		Login    string `json:"login" required:"true" pattern:"^(?:[A-Za-z0-9._-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$"`
-		Password string `json:"password" required:"true" minLength:"4"`
+		Password string `json:"password" required:"true" minLength:"1" maxLength:"4096"`
 	}
 }
 
@@ -33,6 +34,22 @@ type refreshInput struct {
 	RefreshToken string `cookie:"lite-nas-rt"`
 	UserAgent    string `header:"User-Agent"`
 	Body         struct{}
+}
+
+// passwordChangeStartInput validates an authenticated user's current password.
+type passwordChangeStartInput struct {
+	Authorization string `header:"Authorization"`
+	AccessToken   string `cookie:"lite-nas-at"`
+	Body          struct{}
+}
+
+// passwordChangeReplyInput validates one answer to a PAM conversation.
+type passwordChangeReplyInput struct {
+	Body struct {
+		ConversationID string `json:"conversation_id" required:"true" minLength:"1" maxLength:"128"`
+		Sequence       int32  `json:"sequence" required:"true" minimum:"1"`
+		Answer         string `json:"answer" required:"true" minLength:"1" maxLength:"4096"`
+	}
 }
 
 // meInput accepts the access cookie or an explicit bearer token.
@@ -85,9 +102,12 @@ type sessionBody struct {
 
 // sessionData reports the issued session without exposing token material.
 type sessionData struct {
-	Authenticated bool        `json:"authenticated"`
-	User          sessionUser `json:"user"`
-	RedirectTo    string      `json:"redirect_to,omitempty"`
+	Authenticated bool                               `json:"authenticated"`
+	User          sessionUser                        `json:"user"`
+	RedirectTo    string                             `json:"redirect_to,omitempty"`
+	Status        authcontract.Status                `json:"status,omitempty"`
+	Conversation  *authcontract.PasswordConversation `json:"conversation,omitempty"`
+	Messages      []authcontract.Message             `json:"messages,omitempty"`
 }
 
 // sessionUser identifies the authenticated principal.
@@ -127,13 +147,45 @@ type meUser struct {
 
 // login delegates credential verification to Auth Service.
 func (c authController) login(ctx context.Context, input *loginInput) (*sessionOutput, error) {
-	session, err := c.service.Login(ctx, time.Now(), input.Body.Login, input.Body.Password, browserauth.AuthRequestContext{UserAgent: strings.TrimSpace(input.UserAgent)})
+	result, err := c.service.BeginLogin(ctx, time.Now(), input.Body.Login, input.Body.Password, browserauth.AuthRequestContext{UserAgent: strings.TrimSpace(input.UserAgent)})
 	if err != nil {
 		return nil, authError(err)
 	}
-	output := c.sessionResponse(session)
+	if result.Status == authcontract.StatusDenied {
+		return nil, huma.Error401Unauthorized("invalid authentication")
+	}
+	output := c.passwordResponse(result)
 	output.Body.Data.RedirectTo = browserauth.RedirectPath(input.RedirectTo)
 	return output, nil
+}
+
+// startPasswordChange starts a PAM change for the verified access-token user.
+func (c authController) startPasswordChange(ctx context.Context, input *passwordChangeStartInput) (*sessionOutput, error) {
+	result, err := c.service.BeginPasswordChange(ctx, accessToken(input.Authorization, input.AccessToken))
+	if err != nil {
+		return nil, authError(err)
+	}
+	return c.passwordResponse(result), nil
+}
+
+// replyPasswordChange forwards one answer to the pending PAM worker.
+func (c authController) replyPasswordChange(ctx context.Context, input *passwordChangeReplyInput) (*sessionOutput, error) {
+	result, err := c.service.ReplyPasswordChange(ctx, time.Now(), input.Body.ConversationID, input.Body.Sequence, input.Body.Answer)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return c.passwordResponse(result), nil
+}
+
+// passwordResponse renders the PAM state without issuing cookies for prompts.
+func (c authController) passwordResponse(result browserauth.PasswordResult) *sessionOutput {
+	output := &sessionOutput{}
+	output.Body.responseMeta = responseMeta{Success: result.Status != authcontract.StatusDenied, Timestamp: time.Now()}
+	output.Body.Data = sessionData{Authenticated: result.Status == authcontract.StatusAuthenticated, User: sessionUser{ID: result.Session.UserID}, Status: result.Status, Conversation: result.Conversation, Messages: result.Messages}
+	if result.Session.AccessToken != "" {
+		output.SetCookie = []http.Cookie{browserauth.AccessCookie(result.Session, c.cookieDomain), browserauth.RefreshCookie(result.Session, c.cookieDomain)}
+	}
+	return output
 }
 
 // refresh rotates the cookie session through Auth Service.
