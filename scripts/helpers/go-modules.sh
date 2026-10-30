@@ -8,6 +8,12 @@ readonly LITE_NAS_GO_MODULES_LOADED=1
 export LITE_NAS_SHARED_GO_MODULE="./shared/go"
 readonly LITE_NAS_SHARED_GO_MODULE
 
+export LITE_NAS_BACKUP_RESTORE_MODULE="./services/backup-restore/cmd/backup-restore"
+readonly LITE_NAS_BACKUP_RESTORE_MODULE
+
+export LITE_NAS_BACKUP_RESTORE_CLI_MODULE="./apps/backup-restore-cli"
+readonly LITE_NAS_BACKUP_RESTORE_CLI_MODULE
+
 export LITE_NAS_SYSTEM_METRICS_MODULE="./services/system-metrics"
 readonly LITE_NAS_SYSTEM_METRICS_MODULE
 

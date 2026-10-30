@@ -23,6 +23,7 @@ const (
 	ServiceSystemServiceMonitor   = "system-service-monitor"
 	ServiceWatchdog               = "service-watchdog"
 	ServiceLogAnalysis            = "log-analysis"
+	ServiceBackupRestore          = "backup-restore"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"
 	AppNetworkMetricsCLI       = "network-metrics-cli"
@@ -30,4 +31,5 @@ const (
 	AppSystemLoggingManagerCLI = "system-logging-manager-cli"
 	AppSecurityLoggingMgrCLI   = "security-logging-manager-cli"
 	AppAdminPanel              = "admin-panel"
+	AppBackupRestoreCLI        = "backup-restore-cli"
 )

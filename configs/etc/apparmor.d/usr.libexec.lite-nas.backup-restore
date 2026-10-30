@@ -1,0 +1,45 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/backup-restore flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+
+  /usr/libexec/lite-nas/backup-restore mr,
+  /etc/lite-nas/backup-restore.conf r,
+  /etc/lite-nas/backup.d/ r,
+  /etc/lite-nas/backup.d/*.conf rw,
+  /etc/lite-nas/backup.d/.restore-* rwk,
+  /etc/lite-nas/*.conf rw,
+  /etc/lite-nas/.restore-* rwk,
+  /etc/lite-nas/log-analysis/ r,
+  /etc/lite-nas/log-analysis/** rwk,
+  /etc/lite-nas/security-email-notifier/ r,
+  /etc/lite-nas/security-email-notifier/** rwk,
+  /etc/lite-nas/system-email-notifier/ r,
+  /etc/lite-nas/system-email-notifier/** rwk,
+  /etc/lite-nas/certificates/auth/token-signing.crt r,
+  /etc/logrotate.d/lite-nas rw,
+  /etc/logrotate.d/.restore-* rwk,
+  /etc/ufw/ufw.conf rw,
+  /etc/ufw/.restore-* rwk,
+  /etc/postfix/main.cf rw,
+  /etc/postfix/master.cf rw,
+  /etc/postfix/.restore-* rwk,
+  /etc/rsyslog.d/30-lite-nas-log-analysis.conf rw,
+  /etc/rsyslog.d/.restore-* rwk,
+  /etc/systemd/system/lite-nas-* rw,
+  /etc/systemd/system/.restore-* rwk,
+  /etc/apparmor.d/usr.libexec.lite-nas.* rw,
+  /etc/apparmor.d/usr.lib.postfix.sbin rw,
+  /etc/apparmor.d/.restore-* rwk,
+  /etc/apparmor.d/rsyslog.d/ r,
+  /etc/apparmor.d/rsyslog.d/lite-nas-log-analysis rw,
+  /etc/apparmor.d/rsyslog.d/.restore-* rwk,
+  /var/lib/lite-nas/backup/ rw,
+  /var/lib/lite-nas/backup/** rwkl,
+  /var/log/lite-nas/backup-restore.log rw,
+
+  include if exists <local/usr.libexec.lite-nas.backup-restore>
+}

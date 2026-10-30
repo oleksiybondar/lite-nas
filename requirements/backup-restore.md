@@ -11,8 +11,25 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
 - Start with a compiled generic file plugin driven by application-specific
   backup specification drop-ins. A spec maps one application to its related
   files and directories at their normal absolute paths. A spec may mix
-  individual files and directories from `/etc`, `/var`, or another location;
-  the exact path allowlist and secret-file policy remain open.
+  individual files and directories from `/etc`, `/var`, or another location.
+  The file engine uses the absolute paths declared in the installed spec,
+  regardless of whether LiteNAS installed those files or whether the host uses
+  a standard location. Callers select a configured application; they cannot
+  supply arbitrary paths in backup or restore requests. The secret-file policy
+  remains open.
+- The first implementation slice covers file-based settings for every
+  applicable target in the initial inventory through file-plugin specs,
+  including LiteNAS application configuration. Specs may explicitly select
+  host settings files at any absolute path when the application uses them.
+  Backups are invoked on demand from the CLI. Application CLI exports and
+  restores, and live runtime state are later slices. A target whose complete state requires
+  an application CLI can still have its settings files backed up in this
+  slice; that snapshot alone does not claim to restore its live state.
+- A file entry covers only its named path. A directory entry covers its whole
+  tree. Shared configuration directories such as `/etc/lite-nas` should use
+  individual file entries unless the application owns the whole directory.
+  Restore mode is selected separately: replace removes live entries absent
+  from a selected directory snapshot, while merge preserves them.
 - Each application target, including one that needs an application CLI, has a
   drop-in spec. The presence of a valid spec enables that target. The spec
   names a compiled plugin type; startup maps that name to a constructor and
@@ -25,6 +42,21 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   snapshot, so listing, diff, and restore can identify the same file. Include
   the application's drop-in spec in the snapshot so a restore can roll back
   the spec and the files it describes together.
+- Store each version as a `tar.gz` archive with entries reflecting the host
+  path tree: `/etc/path/to/file.conf` appears as `etc/path/to/file.conf` inside
+  the archive. This permits manual inspection and extraction on another host.
+  Preserve file metadata and symlink entries; when a selected path is a
+  symlink, also capture and restore the linked file under its own path, even
+  when it is outside `/etc`. The service must validate the resolved target
+  path and treat it as an explicit restore destination. The exact metadata set,
+  handling of symlink chains, and path policy still need definition. The service
+  reads archive entries for comparison and merge without requiring the CLI to
+  unpack them or access privileged source paths. Gzip alone compresses one
+  stream; the tar layer supplies the file tree, entry types, and metadata.
+  Stream source files into the archive and publish the completed archive from
+  a temporary file under the service-owned backup root. A RAM filesystem is
+  not required for staging and does not grant access to protected source or
+  restore paths.
 - Define a `lite-nas` application for global package configuration. Assign
   files owned by a particular service or CLI to that application's spec rather
   than including every `/etc/lite-nas` file in the global snapshot.
@@ -34,11 +66,14 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   produce a consistent snapshot.
 - Use NATS through `shared/go/messaging` between the CLI and the backup and
   restore service. The CLI does not read or write privileged host files.
-- Allow backup and restore operations only to administrators and security
-  officers. In the current shared role model, this means `admin`, `sudo`, and
-  `lite-nas-security`; `lite-nas-operator` alone is insufficient. Apply the same
-  rule to inventory, version, and diff reads because those operations can
-  disclose configuration and backup history.
+- In the first slice, restrict local CLI use to root or host administrators
+  (`admin` or `sudo`) and require an administrator-equivalent NATS role or the
+  dedicated backup CLI identity for every operation. The CLI identity has
+  root-only credentials and no administrator host group membership. Apply the
+  same rule to inventory, version, and diff reads
+  because those operations can disclose configuration and backup history.
+  Security-officer access can be reconsidered when browser integration is
+  designed; `lite-nas-operator` alone is insufficient.
 - Expose an inventory of configured applications supported for backup, an
   inventory of applications with stored backups, and versions for a selected
   application. Keep supported targets distinct from targets with history;
@@ -46,9 +81,11 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
 - Support comparison of a selected stored version against current settings.
   The exact diff representation and handling of non-text or sensitive content
   are still open.
-- A normal restore makes a selected directory match its stored snapshot:
-  live entries within that selected directory which are absent from the
-  snapshot are removed. A merge restore keeps those extra live entries.
+- A replace restore makes a whole-directory target match its stored snapshot:
+  live entries beneath that target which are absent from the snapshot are
+  removed. For selected-file targets, replace changes only the listed paths;
+  unlisted neighbors remain. A merge restore keeps extra live entries in both
+  cases.
 - For a file present in both the snapshot and the live application, an
   automatic content merge should preserve current-only keys when a supported
   key-aware format permits that safely. A key present on both sides with
@@ -65,6 +102,14 @@ The first slice excludes browser and admin-panel integration until its service
 contract is settled. The agreed inventory and diff operations should remain
 available to a later Web Gateway adapter without making the CLI own backup
 logic.
+
+The backup and restore service is the single owner of source-file reads,
+metadata collection, stored-version reads and writes, comparisons with live
+files, and restore writes. On-demand CLI requests go through NATS to that
+service. The CLI presents results and collects user choices; it does not read
+privileged source files, compare them independently, or write restored files.
+Web Gateway is a later adapter to the same service operations and does not
+duplicate file or backup logic.
 
 ## First slice: proposed service and CLI skeleton
 
@@ -87,13 +132,19 @@ selects the compiled plugin constructor. For the file plugin, named
 `path=/absolute/path` entry and may coexist in one spec. A CLI-backed plugin's
 spec contains only settings defined and validated by that plugin. Specs are
 loaded and checked at startup, not interpreted from user-supplied paths during
-a NATS request. The exact validation and traversal rules remain open.
+a NATS request. A directory section selects its entire tree; a file section
+selects only its named path. The exact validation and traversal rules remain
+open.
 
-The first packaged `lite-nas` spec is
+The existing packaged `lite-nas` spec is
 `configs/etc/lite-nas/backup.d/lite-nas.conf`. It selects only
-`/etc/logrotate.d/lite-nas` through the file plugin. Service and CLI configs,
-NATS configuration, certificates, and mutable state are outside this first
-global application snapshot and can be assigned to separate specs later.
+`/etc/logrotate.d/lite-nas` through the file plugin. Additional first-slice
+specs must assign selected settings files to their owning
+applications. Mutable state is outside the first slice. Certificate and
+credential inclusion needs an explicit policy before those files are selected.
+The first implementation packages file specs for repository-managed LiteNAS
+configuration, UFW, Postfix, rsyslog, systemd, and AppArmor paths. Additional
+host-specific paths and targets remain administrator-configured.
 The existing config deployment copies the packaged spec to `/etc` and
 preserves an installed version of the same drop-in on later deployments.
 Installed drop-ins are restricted to the LiteNAS group by the normal
@@ -111,9 +162,11 @@ These are review candidates, not established command names, NATS subjects, or
 DTO contracts. Concrete interfaces depend on the remaining first-slice
 decisions below.
 
-The proposed restore request has a replace or merge mode. Merge mode preserves
-live directory entries absent from the snapshot. Where a file exists on both
-sides, the service can perform automatic merging only for formats with an
+The proposed restore request has a replace or merge mode. In replace mode,
+deletion is confined to directory trees explicitly marked as fully covered in
+the stored spec; for selected-file coverage, unrelated files remain in place.
+Merge mode preserves live entries absent from the snapshot. Where a file exists
+on both sides, the service can perform automatic merging only for formats with an
 explicitly defined parser and conflict policy. For unresolved files, the CLI
 can invoke a local merge tool with the material the service makes available,
 then send the resolved content back through the service boundary. The service
@@ -131,9 +184,11 @@ without rewriting the file require manual resolution. The resolved
 content becomes a new stored version as required by FR-006.
 
 Existing CLIs authenticate with a service identity whose token carries roles.
-For this CLI, deployment must also restrict access to its identity certificate
-and private key to authorized host groups; NATS role checks alone would
-authorize the CLI identity rather than identify the human who launched it.
+For this CLI, deployment must also restrict execution and access to its
+identity certificate and private key to root and authorized administrators;
+NATS role checks alone would authorize the CLI identity rather than identify
+the human who launched it. The service stays running and handles requests only
+when they arrive; it does not schedule backups in the first slice.
 
 ## Goal and scope
 
@@ -159,7 +214,10 @@ should perform privileged restore work themselves.
   plugin MUST support backing up and restoring ordinary files and directories
   selected by an application-specific backup spec. A spec MUST be able to mix
   individual files and directories from `/etc`, `/var`, or another allowed
-  location. Stored backup content MUST be compressed.
+  location. A directory selection MUST cover its whole tree, while a file
+  selection MUST cover only its named path. Each stored version MUST be a `tar.gz` archive
+  whose entries use host paths without their leading slash, preserve selected
+  symlinks, and include their linked files under their resolved host paths.
 - **backup-restore/FR-003 — Application-specific plugins:** The design MUST
   permit compiled application-specific plugins where file copying cannot
   correctly export and restore application state. Such a plugin may use the
@@ -168,10 +226,11 @@ should perform privileged restore work themselves.
   committed.
 - **backup-restore/FR-004 — Direct restore:** A user MUST be able to select a
   stored version and request its restoration to the applicable application.
-  The stored application spec MUST be restorable with the version. In normal
-  restore mode, selected directories MUST be reconciled to the snapshot,
-  removing live entries that are absent from that snapshot. Deletion MUST be
-  limited to the selected directory roots.
+  The stored application spec MUST be restorable with the version. In replace
+  mode, selected directories MUST be reconciled to the snapshot by removing
+  live entries absent from it. Individual file selections MUST leave unlisted
+  neighboring files intact. Deletion MUST remain within explicitly selected
+  directory roots.
 - **backup-restore/FR-005 — Text merge:** A user MUST be able to compare and
   merge a backed-up text file with the current version through a graphical
   workflow, then submit the merged text for application through the backup and
@@ -199,9 +258,10 @@ should perform privileged restore work themselves.
   must be fixed before this operation is implemented.
 - **backup-restore/FR-011 — Merge restore:** A user MUST be able to request a
   merge restore that preserves live entries absent from selected snapshot
-  directories. INI MUST be the first supported key-aware text format; its
-  automatic merge MUST retain keys found only in the current file. A key
-  present in both files with different values MUST be reported as a conflict
+  paths, including wholly covered directories. INI MUST be the first supported
+  key-aware text format; its automatic merge MUST retain keys found only in the
+  current file. A key present in both files with different values MUST be
+  reported as a conflict
   for user resolution; the CLI MUST support resolving conflicting files with
   a merge tool and submitting the resolved result to the service.
 
@@ -256,31 +316,60 @@ should perform privileged restore work themselves.
   directory permissions, ownership, and AppArmor access MUST enforce the
   selected storage policy.
 - **backup-restore/SR-002 — Scoped privileged commands:** Any plugin requiring
-  elevated CLI access MUST use a dedicated, narrowly scoped passwordless
-  sudoers rule for the service account. Commands and variable arguments MUST
-  be validated against each program's operand and option rules and invoked
-  without a shell. The specific permissions depend on the eventual plugin
-  inventory.
+  an application CLI MUST validate commands and variable arguments against
+  each program's operand and option rules and invoke them without a shell.
+  The root-run service does not use sudo for file access in the first slice.
+  Application CLI plugins and their command policies belong to later slices.
 - **backup-restore/SR-003 — Validate and authorize requests:** CLI, NATS,
   HTTP, and frontend inputs MUST be validated at their adapter boundaries.
   Backup reads, version reads, merge submissions, and restores MUST be
   authorized before exposing data or changing host state. Inventory, version,
   and diff reads, backup creation, and direct restore require the administrator
-  (`admin` or `sudo`) or security officer (`lite-nas-security`) role. Service
-  identities and any future merge-specific policy remain open.
+  (`admin` or `sudo`) role or the dedicated backup CLI identity in the first
+  slice. The CLI identity credentials MUST remain root-only. Any future
+  merge-specific policy remains open.
 - **backup-restore/OR-001 — Service storage:** Use
   `/var/lib/lite-nas/backup` as the intended service-owned data root, alongside
   existing roots such as `/var/lib/lite-nas/moments`. The exact internal layout
   is undecided.
-- **backup-restore/OR-002 — Deployment:** Deploy as one non-root Go service
-  process with in-process workers, a dedicated service identity, systemd unit,
-  AppArmor policy, configuration, NATS permissions, and local build/deploy
-  integration. Follow the repository's single-package Debian workflow.
+- **backup-restore/OR-002 — Deployment:** As a first-slice exception, deploy
+  one root-run Go service process with in-process workers, a dedicated NATS
+  service identity, systemd unit, AppArmor policy, configuration, NATS
+  permissions, and local build/deploy integration. Keep the process idle except
+  while handling an authorized on-demand request. Constrain writable paths in
+  systemd and AppArmor to the backup store and configured restore targets;
+  drop capabilities not needed for file backup and restore and retain the usual
+  systemd process hardening where compatible. Host-specific specs require
+  matching policy updates. Reassess root execution
+  after the first slice. Follow the repository's single-package Debian workflow.
 - **backup-restore/RR-001 — Optional target absence:** Before invoking a
   target's backup operation, the service MUST determine whether that target is
   available. An absent or uninstalled target MUST not stop an all-application
   backup. A target that is present but fails during backup MUST remain an
   observable failure rather than being silently treated as absent.
+
+## First-slice root-service risk assessment
+
+Root execution is an explicit exception to the normal non-root service model.
+It avoids changing ownership or ACLs on host configuration files and permits
+restoring their ownership and modes. Idle operation limits how often the
+service handles requests, but it does not reduce the privileges of a process
+that is running and listening on NATS. The residual impact of a service
+compromise remains high; this exception must be revisited after the file-based
+slice is operational.
+
+| Risk | First-slice control | Residual risk |
+| --- | --- | --- |
+| An unauthorized caller uses root file operations through NATS. | Authenticate requests, require the `admin` or `sudo` role or the dedicated backup CLI identity on every subject, limit NATS permissions to intended identities, and keep CLI credentials root-only. | A compromised authorized identity can still request privileged operations. |
+| A malicious or mistaken spec or archive writes outside the intended application. | Load specs at startup; accept application IDs and versions rather than caller-supplied paths; validate absolute paths, archive members, symlink targets, and restored spec before use. Confine write paths with systemd and AppArmor. | Root and policy mistakes can still affect host files; arbitrary custom paths require deliberate policy updates. |
+| Replace restore removes unrelated configuration. | File selections affect only named paths. Directory selections cover the whole tree; require an explicit replace request and reconcile only the selected directory root. | An overly broad directory spec can still delete unrelated files; preview remains an open design question. |
+| Backups disclose credentials or signing keys. | Keep archive storage root-owned and private, authorize metadata and diff reads, and avoid sending archive bytes or secret file contents over NATS in the first slice. | Root and authorized administrators can read stored secrets; encryption at rest is not planned. |
+| A large or malformed archive exhausts resources or escapes extraction boundaries. | Bound archive sizes and processing time, reject unsupported entry types and unsafe paths, and validate a complete snapshot before restore. Stream backups to temporary files and publish only complete archives. | Limits and crash recovery still need exact values and implementation. |
+
+Deployment must review the effective systemd and AppArmor rules against every
+configured path; a denied path must produce an observable operation failure.
+Security claims in this table are requirements for the implementation, not
+evidence that the current code already enforces them.
 
 ## Repository evidence and design boundaries
 
@@ -308,21 +397,20 @@ should perform privileged restore work themselves.
    contract? How should the all-application result present completed, skipped,
    and failed targets?
 2. Which operations initiate backups: explicit user requests, schedules,
-   application events, or some combination? What is in scope for the first
-   implementation?
+   application events, or some combination beyond the on-demand first slice?
 3. How are application snapshots identified, retained, and deleted? If a
    drop-in has been removed, may a stored version use its included spec to
    restore the application, provided the current plugin and path policy accept
    that spec?
-4. For generic file backups, what are the exact drop-in location and format,
-   path allowlist, compression format, metadata requirements, ownership and
-   mode restoration rules, and behavior for symlinks, missing files, changed
-   file types, recursive directory contents, and overlapping file/directory
-   entries?
-   What fields identify a plugin type and configure each plugin instance?
+4. For generic file backups, what path validation and special-filesystem
+   exclusions apply to spec-selected absolute paths? Which metadata, ownership,
+   and modes are restored? What happens with missing files, changed file types,
+   recursive directory contents, symlink chains, and overlapping file and
+   directory entries? What fields configure each plugin instance?
 5. Are sensitive values in configuration files shown to all authorized
-   administrators and security officers? Which service identities may make
-   requests, and what policy applies to future merge submissions?
+   administrators? Should security officers gain access in a later slice?
+   Which service identities may make requests, and what policy applies to
+   future merge submissions?
 6. For text merge, what is the comparison base, how are concurrent live-file
    changes detected, and does the new version become durable before or after
    successful rollout? What happens if rollout fails?
@@ -334,16 +422,18 @@ should perform privileged restore work themselves.
    reporting? Which formats support key-aware merging, how are duplicate keys
    within one file handled, what base (if any) is used, and which local CLI
    merge tool workflow resolves files with conflicts?
-9. For each target in the initial inventory, which exact files and live state
-   are backed up, and what is the restore method? Which targets are required in
-   the first release versus added later? Exact sudoers rules and live-state
+9. Which settings files should the repository ship in each initial spec, and
+   which additional host paths remain administrator-configured? Which paths
+   contain sensitive credentials? Which later plugin restores live state?
+   Exact command permissions and live-state
    verification depend on those choices.
 10. What are the limits for storage use, archive size, compression work,
     concurrency, retention, and recovery after a service crash?
 11. Does “all LiteNAS configs” include transport and signing private keys,
     Postfix relay credentials, and generated credential maps? Those files have
-    stricter access than ordinary configuration and affect whether a non-root
-    service can read or expose their backup contents.
+    stricter access than ordinary configuration, and their backup contents
+    require an explicit exposure policy even though the first-slice service
+    runs as root.
 
 No API subjects, DTO fields, archive format, directory hierarchy, or privilege
 allowlist is specified here until the relevant contracts and decisions are

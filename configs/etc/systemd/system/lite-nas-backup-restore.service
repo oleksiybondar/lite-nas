@@ -1,0 +1,42 @@
+[Unit]
+Description=LiteNAS backup and restore service
+After=network-online.target nats-server.service
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/libexec/lite-nas/backup-restore
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_CHOWN CAP_FOWNER
+AmbientCapabilities=
+UMask=0077
+ReadWritePaths=/var/lib/lite-nas/backup /etc/lite-nas /etc/logrotate.d /etc/ufw /etc/postfix /etc/rsyslog.d /etc/systemd/system /etc/apparmor.d
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
