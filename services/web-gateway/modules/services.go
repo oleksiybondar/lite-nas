@@ -10,15 +10,17 @@ import (
 // The fields are populated once during startup and are expected to be treated
 // as logically read-only by the runtime after construction.
 type Services struct {
-	Auth           services.AuthService
-	SystemAlerts   services.AlertsService
-	SecurityAlerts services.AlertsService
-	SystemMetrics  services.SystemMetricsService
-	ProcessMetrics services.ProcessMetricsService
-	ServiceMetrics services.ServiceMetricsService
-	DiskMetrics    services.DiskMetricsService
-	NetworkMetrics services.NetworkMetricsService
-	ZFSMetrics     services.ZFSMetricsService
+	ServicesManagement services.ServicesManagementService
+	SessionsManagement services.SessionsManagementService
+	Auth               services.AuthService
+	SystemAlerts       services.AlertsService
+	SecurityAlerts     services.AlertsService
+	SystemMetrics      services.SystemMetricsService
+	ProcessMetrics     services.ProcessMetricsService
+	ServiceMetrics     services.ServiceMetricsService
+	DiskMetrics        services.DiskMetricsService
+	NetworkMetrics     services.NetworkMetricsService
+	ZFSMetrics         services.ZFSMetricsService
 }
 
 // NewServicesModule assembles the service-layer dependencies used by the
@@ -29,14 +31,16 @@ type Services struct {
 //   - authVerifier: local verifier for JWT access tokens
 func NewServicesModule(client messaging.Client, authVerifier services.AccessTokenVerifier) Services {
 	return Services{
-		Auth:           services.NewAuthService(client, authVerifier),
-		SystemAlerts:   services.NewSystemAlertsService(client),
-		SecurityAlerts: services.NewSecurityAlertsService(client),
-		SystemMetrics:  services.NewSystemMetricsService(client),
-		ProcessMetrics: services.NewProcessMetricsService(client),
-		ServiceMetrics: services.NewServiceMetricsService(client),
-		DiskMetrics:    services.NewDiskMetricsService(client),
-		NetworkMetrics: services.NewNetworkMetricsService(client),
-		ZFSMetrics:     services.NewZFSMetricsService(client),
+		ServicesManagement: services.NewServicesManagementService(client),
+		SessionsManagement: services.NewSessionsManagementService(client),
+		Auth:               services.NewAuthService(client, authVerifier),
+		SystemAlerts:       services.NewSystemAlertsService(client),
+		SecurityAlerts:     services.NewSecurityAlertsService(client),
+		SystemMetrics:      services.NewSystemMetricsService(client),
+		ProcessMetrics:     services.NewProcessMetricsService(client),
+		ServiceMetrics:     services.NewServiceMetricsService(client),
+		DiskMetrics:        services.NewDiskMetricsService(client),
+		NetworkMetrics:     services.NewNetworkMetricsService(client),
+		ZFSMetrics:         services.NewZFSMetricsService(client),
 	}
 }

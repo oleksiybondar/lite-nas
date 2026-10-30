@@ -39,6 +39,7 @@ func NewRouter(
 	mountDocsRoute(apiRouter, config)
 	mountAuthRouter(api, controllerModule, authentication)
 	mountAlertsRouters(api, controllerModule, authentication)
+	mountManagementRouters(api, controllerModule, authentication)
 	mountMetricsRouters(api, controllerModule, authentication)
 	root.Mount("/api", apiRouter)
 	mountIndexRouter(root, controllerModule)

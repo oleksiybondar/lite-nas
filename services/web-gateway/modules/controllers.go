@@ -10,16 +10,18 @@ import (
 // The fields are populated once during startup and are expected to be treated
 // as logically read-only by the runtime after construction.
 type Controllers struct {
-	Auth           controllers.AuthController
-	Static         controllers.StaticController
-	SystemAlerts   controllers.AlertsController
-	SecurityAlerts controllers.AlertsController
-	SystemMetrics  controllers.SystemMetricsController
-	ProcessMetrics controllers.ProcessMetricsController
-	ServiceMetrics controllers.ServiceMetricsController
-	DiskMetrics    controllers.DiskMetricsController
-	NetworkMetrics controllers.NetworkMetricsController
-	ZFSMetrics     controllers.ZFSMetricsController
+	ServicesManagement controllers.ServicesManagementController
+	SessionsManagement controllers.SessionsManagementController
+	Auth               controllers.AuthController
+	Static             controllers.StaticController
+	SystemAlerts       controllers.AlertsController
+	SecurityAlerts     controllers.AlertsController
+	SystemMetrics      controllers.SystemMetricsController
+	ProcessMetrics     controllers.ProcessMetricsController
+	ServiceMetrics     controllers.ServiceMetricsController
+	DiskMetrics        controllers.DiskMetricsController
+	NetworkMetrics     controllers.NetworkMetricsController
+	ZFSMetrics         controllers.ZFSMetricsController
 }
 
 // NewControllersModule assembles the HTTP controllers used by the route layer.
@@ -39,15 +41,17 @@ func NewControllersModule(
 		domain = cookieDomain[0]
 	}
 	return Controllers{
-		Auth:           controllers.NewAuthController(services.Auth, domain),
-		Static:         controllers.NewStaticController(staticFiles, log),
-		SystemAlerts:   controllers.NewSystemAlertsController(services.SystemAlerts),
-		SecurityAlerts: controllers.NewSecurityAlertsController(services.SecurityAlerts),
-		SystemMetrics:  controllers.NewSystemMetricsController(services.SystemMetrics),
-		ProcessMetrics: controllers.NewProcessMetricsController(services.ProcessMetrics),
-		ServiceMetrics: controllers.NewServiceMetricsController(services.ServiceMetrics),
-		DiskMetrics:    controllers.NewDiskMetricsController(services.DiskMetrics),
-		NetworkMetrics: controllers.NewNetworkMetricsController(services.NetworkMetrics),
-		ZFSMetrics:     controllers.NewZFSMetricsController(services.ZFSMetrics),
+		ServicesManagement: controllers.NewServicesManagementController(services.ServicesManagement),
+		SessionsManagement: controllers.NewSessionsManagementController(services.SessionsManagement),
+		Auth:               controllers.NewAuthController(services.Auth, domain),
+		Static:             controllers.NewStaticController(staticFiles, log),
+		SystemAlerts:       controllers.NewSystemAlertsController(services.SystemAlerts),
+		SecurityAlerts:     controllers.NewSecurityAlertsController(services.SecurityAlerts),
+		SystemMetrics:      controllers.NewSystemMetricsController(services.SystemMetrics),
+		ProcessMetrics:     controllers.NewProcessMetricsController(services.ProcessMetrics),
+		ServiceMetrics:     controllers.NewServiceMetricsController(services.ServiceMetrics),
+		DiskMetrics:        controllers.NewDiskMetricsController(services.DiskMetrics),
+		NetworkMetrics:     controllers.NewNetworkMetricsController(services.NetworkMetrics),
+		ZFSMetrics:         controllers.NewZFSMetricsController(services.ZFSMetrics),
 	}
 }
