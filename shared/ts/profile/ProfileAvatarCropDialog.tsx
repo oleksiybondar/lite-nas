@@ -54,13 +54,10 @@ export const ProfileAvatarCropDialog = ({
       canvas.width,
       canvas.height,
     );
-    canvas.toBlob(
-      (blob) => {
-        if (blob) onSave(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
-      },
-      "image/jpeg",
-      0.92,
-    );
+    // Preserve transparent pixels from PNG sources; JPEG would turn them black.
+    canvas.toBlob((blob) => {
+      if (blob) onSave(new File([blob], "avatar.png", { type: "image/png" }));
+    }, "image/png");
   };
 
   /** Keeps the dragged image within the circular crop boundary. */
