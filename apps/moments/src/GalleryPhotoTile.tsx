@@ -22,6 +22,7 @@ import { useCarousel } from "./CarouselContext";
 import { useGallery } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
 import { googleMapsUrl } from "./GalleryMaps";
+import { GalleryUploaderLabel } from "./GalleryUploaderLabel";
 import type { GalleryItem } from "./gallery-model";
 import { useStream } from "./StreamContext";
 import { useWall } from "./WallContext";
@@ -296,6 +297,7 @@ export const GalleryPhotoTile = ({
             </Typography>
           )}
         </Stack>
+        {item.uploaderId && <GalleryUploaderLabel uploaderId={item.uploaderId} />}
         {(details?.camera || mapUrl) && (
           <Stack direction="row" alignItems="center" gap={0.5}>
             {details?.camera && (

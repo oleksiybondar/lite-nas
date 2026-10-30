@@ -6,6 +6,8 @@ export type GalleryItem = {
   id: string;
   url: string;
   filename: string;
+  /** User ID encoded as the immediate child directory of an album upload root. */
+  uploaderId?: string;
   kind: "image" | "video" | "unsupported";
   /** Authorized movie original verified to share this still's Apple content identifier. */
   motionUrl?: string;
@@ -54,6 +56,19 @@ export const galleryItemsFromPaths = (paths: readonly string[]): GalleryItem[] =
       kind = "video";
     return { id: `${index}:${url}`, url, filename, kind };
   });
+
+/** Finds the uploader folder for a file stored directly beneath one album member folder. */
+export const galleryUploaderFromPath = (
+  path: string,
+  albumDirectory: string,
+  currentUserId?: string,
+): string | null => {
+  const prefix = `${albumDirectory.replace(/\/$/, "")}/`;
+  if (!path.startsWith(prefix)) return null;
+  const relative = path.slice(prefix.length).split("/");
+  if (relative.length !== 2 || !relative[0] || relative[0] === currentUserId) return null;
+  return relative[0];
+};
 
 /** Allowed time that a ready still image remains visible in slideshow mode. */
 export const imageDelaySchema = z.union([z.literal(1000), z.literal(3000), z.literal(5000)]);

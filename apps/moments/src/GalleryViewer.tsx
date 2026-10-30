@@ -29,6 +29,7 @@ import { useCarousel } from "./CarouselContext";
 import { useGallery } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
 import { GalleryItemMenu } from "./GalleryItemMenu";
+import { GalleryUploaderLabel } from "./GalleryUploaderLabel";
 import { GalleryViewerDetails } from "./GalleryViewerDetails";
 import { GalleryViewerMedia } from "./GalleryViewerMedia";
 import { galleryDownloadUrl, imageDelaySchema, videoAutoplaySchema } from "./gallery-model";
@@ -243,6 +244,7 @@ export const GalleryViewer = (): ReactElement => {
                 <Typography variant="body2" fontWeight={600} noWrap title={current.filename}>
                   {current.filename}
                 </Typography>
+                {current.uploaderId && <GalleryUploaderLabel uploaderId={current.uploaderId} />}
                 {details?.capturedAt && (
                   <Typography variant="caption" noWrap sx={{ color: "rgba(255,255,255,0.72)" }}>
                     {details.capturedAt}

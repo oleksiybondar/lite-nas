@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useCarousel } from "./CarouselContext";
+import { GalleryUploaderLabel } from "./GalleryUploaderLabel";
 import type { GalleryItem } from "./gallery-model";
 import { useStream } from "./StreamContext";
 import { useWall } from "./WallContext";
@@ -146,6 +147,20 @@ export const GalleryVideoTile = ({ item }: { item: GalleryItem }): ReactElement 
         >
           {getLabel("moments.viewer.videoUnavailable")}
         </Typography>
+      )}
+      {item.uploaderId && (
+        <Stack
+          sx={{
+            position: "absolute",
+            left: 8,
+            top: 8,
+            bgcolor: "rgba(0,0,0,0.72)",
+            px: 1,
+            borderRadius: 1,
+          }}
+        >
+          <GalleryUploaderLabel uploaderId={item.uploaderId} />
+        </Stack>
       )}
     </Box>
   );

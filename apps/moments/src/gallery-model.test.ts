@@ -4,6 +4,7 @@ import {
   galleryFileUrlSchema,
   galleryIsHeic,
   galleryItemsFromPaths,
+  galleryUploaderFromPath,
   imageDelaySchema,
 } from "./gallery-model";
 
@@ -42,4 +43,20 @@ test("HEIC items are images in the gallery", () => {
 
 test("HEIC originals are recognized for JPEG preview routing", () => {
   expect(galleryIsHeic("/f/home/test/IMG_2063.HEIC")).toBe(true);
+});
+
+test("an immediate album member folder identifies the uploader", () => {
+  expect(galleryUploaderFromPath("/home/Photos/1002/photo.jpg", "/home/Photos")).toBe("1002");
+});
+
+test.each([
+  ["/home/Photos/photo.jpg", "/home/Photos"],
+  ["/home/Photos/trip/2026/photo.jpg", "/home/Photos"],
+  ["/home/PhotosElse/1002/photo.jpg", "/home/Photos"],
+])("non-member upload path %s has no uploader attribution", (path, albumDirectory) => {
+  expect(galleryUploaderFromPath(path, albumDirectory)).toBeNull();
+});
+
+test("current user's own upload folder has no other-member attribution", () => {
+  expect(galleryUploaderFromPath("/home/Photos/1001/photo.jpg", "/home/Photos", "1001")).toBeNull();
 });

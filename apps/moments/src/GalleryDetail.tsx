@@ -1,7 +1,9 @@
 import {
+  createDirectory,
   FileSelectionDialog,
   FolderSelectionDialog,
   fileServicePath,
+  listDirectory,
 } from "@lite-nas/file-browser";
 import { UploadDialog } from "@lite-nas/file-upload";
 import { useLanguage } from "@lite-nas/language";
@@ -16,7 +18,7 @@ import { useEffect, useState } from "react";
 import { request } from "./api";
 import { Gallery } from "./Gallery";
 import { GalleryEditorDialog } from "./GalleryEditorDialog";
-import { galleryItemsFromPaths } from "./gallery-model";
+import { galleryItemsFromPaths, galleryUploaderFromPath } from "./gallery-model";
 import {
   addCollectionDirectory,
   changeCollectionFile,
@@ -28,6 +30,15 @@ import {
   scanUploadedMedia,
 } from "./moments-data";
 import { type GalleryRecord, galleryLocationNames } from "./schemas";
+
+/** Creates the member folder or confirms that an earlier upload already created it. */
+async function ensureUploadDirectory(path: string): Promise<void> {
+  try {
+    await createDirectory(path);
+  } catch {
+    await listDirectory(path, new AbortController().signal);
+  }
+}
 
 /** Loads authorized originals for an album or explicit collection membership. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: gallery source loading and collection actions form one detail screen.
@@ -114,18 +125,29 @@ export function GalleryDetail({
       setCollections((current) => [...current, created]);
     },
   };
-  const items = galleryItemsFromPaths(paths.map((path) => fileServicePath("/f", path)));
   const owned = gallery.ownerId === userId;
   const ownedCollection = gallery.type === "COLLECTION" && owned;
-  const albumDirectory = gallery.type === "ALBUM" && owned ? gallery.uploadDirectory : null;
+  const albumDirectory = gallery.type === "ALBUM" ? gallery.uploadDirectory : null;
+  const userUploadDirectory = albumDirectory
+    ? `${albumDirectory.replace(/\/$/, "")}/${userId}`
+    : null;
+  const items = galleryItemsFromPaths(paths.map((path) => fileServicePath("/f", path))).map(
+    (item, index) => {
+      const uploaderId = albumDirectory
+        ? galleryUploaderFromPath(paths[index], albumDirectory, userId)
+        : null;
+      return uploaderId ? { ...item, uploaderId } : item;
+    },
+  );
   const locations = galleryLocationNames(gallery);
   const locationLabel = locations.join(" · ");
   /** Scans only the uploaded path and refreshes the album listing. */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: upload, metadata scan, and refresh have distinct failure messages.
   const onUploaded = async (file: File): Promise<void> => {
-    if (!albumDirectory) return;
+    if (!albumDirectory || !userUploadDirectory) return;
+    const uploadedPath = `${userUploadDirectory}/${file.name}`;
     try {
-      await scanUploadedMedia(gallery.id, `${albumDirectory.replace(/\/$/, "")}/${file.name}`);
+      if (owned) await scanUploadedMedia(gallery.id, uploadedPath);
     } catch {
       setUploadError(getLabel("moments.gallery.uploadScanFailed").replace("{filename}", file.name));
       return;
@@ -141,6 +163,18 @@ export function GalleryDetail({
     } catch {
       setUploadError(getLabel("moments.gallery.uploadRefreshFailed"));
     }
+  };
+  /** Creates or verifies the caller's album subdirectory before opening the upload queue. */
+  const openUploadDialog = async (): Promise<void> => {
+    if (!userUploadDirectory) return;
+    try {
+      await ensureUploadDirectory(userUploadDirectory);
+    } catch {
+      setUploadError(getLabel("moments.gallery.uploadDirectoryFailed"));
+      return;
+    }
+    setUploadError(null);
+    setUploadOpen(true);
   };
   /** Adds a selected source and refreshes this collection's resolved media. */
   const addSource = async (kind: "file" | "directory", path: string): Promise<void> => {
@@ -193,8 +227,8 @@ export function GalleryDetail({
               {getLabel("moments.gallery.addFolder")}
             </Button>
           )}
-          {albumDirectory && (
-            <Button onClick={() => setUploadOpen(true)}>
+          {userUploadDirectory && (
+            <Button onClick={() => void openUploadDialog()}>
               {getLabel("moments.gallery.upload")}
             </Button>
           )}
@@ -246,10 +280,10 @@ export function GalleryDetail({
           />
         </>
       )}
-      {albumDirectory && (
+      {userUploadDirectory && (
         <UploadDialog
           open={uploadOpen}
-          directory={albumDirectory}
+          directory={userUploadDirectory}
           onClose={() => setUploadOpen(false)}
           onUploaded={onUploaded}
         />

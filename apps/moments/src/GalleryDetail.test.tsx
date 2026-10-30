@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { createDirectory, listDirectory } from "@lite-nas/file-browser";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { GalleryDetail } from "./GalleryDetail";
@@ -18,6 +19,8 @@ import { renderWithLanguage as render } from "./test-utils/language";
 
 vi.mock("@lite-nas/file-browser", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@lite-nas/file-browser")>()),
+  createDirectory: vi.fn(),
+  listDirectory: vi.fn(),
   fileServicePath: (_route: string, path: string) => `/f${path}`,
   FileSelectionDialog: ({
     open,
@@ -59,11 +62,22 @@ vi.mock("@lite-nas/file-browser", async (importOriginal) => ({
     ),
 }));
 vi.mock("@lite-nas/file-upload", () => ({
-  UploadDialog: ({ open, onUploaded }: { open: boolean; onUploaded: (file: File) => void }) =>
+  UploadDialog: ({
+    open,
+    directory,
+    onUploaded,
+  }: {
+    open: boolean;
+    directory: string;
+    onUploaded: (file: File) => void;
+  }) =>
     open && (
-      <button type="button" onClick={() => onUploaded(new File(["photo"], "new.jpg"))}>
-        Complete upload
-      </button>
+      <div>
+        <span>Destination: {directory}</span>
+        <button type="button" onClick={() => onUploaded(new File(["photo"], "new.jpg"))}>
+          Complete upload
+        </button>
+      </div>
     ),
 }));
 vi.mock("./moments-data", () => ({
@@ -207,6 +221,7 @@ test("collection file picker adds its selected file", async () => {
 });
 
 test("a completed album upload scans only the new file", async () => {
+  vi.mocked(createDirectory).mockResolvedValue(undefined);
   vi.mocked(scanUploadedMedia).mockResolvedValue(undefined);
   renderCollection(undefined, [], {
     ...collection,
@@ -214,10 +229,48 @@ test("a completed album upload scans only the new file", async () => {
     uploadDirectory: "/home/Photos",
   });
   fireEvent.click(await screen.findByRole("button", { name: "Upload media" }));
+  expect(await screen.findByText("Destination: /home/Photos/1001")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Complete upload" }));
   await waitFor(() =>
-    expect(scanUploadedMedia).toHaveBeenCalledWith(collection.id, "/home/Photos/new.jpg"),
+    expect(scanUploadedMedia).toHaveBeenCalledWith(collection.id, "/home/Photos/1001/new.jpg"),
   );
+});
+
+test("a shared album member uploads into their own folder", async () => {
+  vi.mocked(createDirectory).mockResolvedValue(undefined);
+  renderCollection(undefined, [], {
+    ...collection,
+    type: "ALBUM",
+    ownerId: "owner",
+    uploadDirectory: "/home/Photos",
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Upload media" }));
+  expect(await screen.findByText("Destination: /home/Photos/1001")).toBeTruthy();
+});
+
+test("a shared album member upload does not call the owner-only media scan", async () => {
+  vi.mocked(createDirectory).mockResolvedValue(undefined);
+  renderCollection(undefined, [], {
+    ...collection,
+    type: "ALBUM",
+    ownerId: "owner",
+    uploadDirectory: "/home/Photos",
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Upload media" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Complete upload" }));
+  await waitFor(() => expect(scanUploadedMedia).not.toHaveBeenCalled());
+});
+
+test("an existing member upload folder is verified before opening uploads", async () => {
+  vi.mocked(createDirectory).mockRejectedValue(new Error("already exists"));
+  vi.mocked(listDirectory).mockResolvedValue([]);
+  renderCollection(undefined, [], {
+    ...collection,
+    type: "ALBUM",
+    uploadDirectory: "/home/Photos",
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Upload media" }));
+  expect(await screen.findByText("Destination: /home/Photos/1001")).toBeTruthy();
 });
 
 test("a scanned city is shown in human-readable form", async () => {
