@@ -69,6 +69,7 @@ type patchUserTagInput struct {
 
 // mountUserTagRoutes registers gallery-level tag CRUD in the OpenAPI document.
 func mountUserTagRoutes(api huma.API, c galleryController) {
+	api = taggedAPI(api, "user-tags")
 	huma.Get(api, "/api/galleries/{galleryId}/user-tags", c.listUserTags)
 	huma.Post(api, "/api/galleries/{galleryId}/user-tags", c.createUserTag)
 	huma.Get(api, "/api/galleries/{galleryId}/user-tags/{tagId}", c.getUserTag)

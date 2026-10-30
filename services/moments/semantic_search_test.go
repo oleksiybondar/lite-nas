@@ -1,10 +1,60 @@
 package main
 
 import (
+	"context"
 	"math"
 	"reflect"
 	"testing"
 )
+
+// TestSemanticPathsRequiresConfiguredModel preserves lexical search fallback.
+func TestSemanticPathsRequiresConfiguredModel(t *testing.T) {
+	_, err := (galleryController{}).semanticPaths(t.Context(), "alice", &listGalleryInput{Q: "blue sky"})
+	if err == nil {
+		t.Fatal("semantic search accepted an unconfigured model")
+	}
+}
+
+// TestSemanticPathsRejectsMissingScript checks its local executable boundary.
+func TestSemanticPathsRejectsMissingScript(t *testing.T) {
+	controller := galleryController{scans: &scanManager{places: &cityIndex{embeddingScript: "/nonexistent/lite-nas-embedding.py"}}}
+	_, err := controller.semanticPaths(t.Context(), "alice", &listGalleryInput{Q: "blue sky"})
+	if err == nil {
+		t.Fatal("semantic search accepted a missing model script")
+	}
+}
+
+// TestEmbeddingWorkerRejectsMissingScript checks command failure propagation.
+func TestEmbeddingWorkerRejectsMissingScript(t *testing.T) {
+	_, err := runEmbeddingModel(context.Background(), "/nonexistent/lite-nas-embedding.py", []string{"query: sky"})
+	if err == nil {
+		t.Fatal("missing embedding script succeeded")
+	}
+}
+
+// TestSemanticCandidatesApplyGalleryFilters keeps ranking inside the requested scope.
+func TestSemanticCandidatesApplyGalleryFilters(t *testing.T) {
+	store, router := mustSearchFixture(t)
+	id := mustNamedGallery(t, router, "COLLECTION", "Trip", "")
+	mustSearchRows(t, store,
+		`INSERT INTO media_files(path,media_type) VALUES('/home/alice/photo.jpg','IMAGE')`,
+		`INSERT INTO gallery_media(gallery_id,path,media_type) VALUES('`+id+`','/home/alice/photo.jpg','IMAGE')`,
+	)
+	for _, test := range []struct {
+		name  string
+		input listGalleryInput
+	}{
+		{"gallery type", listGalleryInput{Type: []string{"ALBUM"}}},
+		{"location", listGalleryInput{Location: []string{"Paris"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidates, err := (galleryController{store: store}).semanticCandidates(t.Context(), "alice", &test.input)
+			if err != nil || len(candidates) != 0 {
+				t.Fatalf("filtered candidates = %+v, error = %v", candidates, err)
+			}
+		})
+	}
+}
 
 // TestSemanticQuerySelection covers sentence and non-Latin routing.
 func TestSemanticQuerySelection(t *testing.T) {

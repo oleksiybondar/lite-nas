@@ -29,6 +29,7 @@ type thumbnailInput struct {
 
 // mountThumbnailRoutes documents and serves the optional uploaded cover image.
 func mountThumbnailRoutes(api huma.API, c galleryController) {
+	api = taggedAPI(api, "thumbnails")
 	binary := &huma.MediaType{Schema: &huma.Schema{Type: "string", Format: "binary"}}
 	huma.Register(api, huma.Operation{
 		OperationID: "putGalleryThumbnail", Method: http.MethodPut,

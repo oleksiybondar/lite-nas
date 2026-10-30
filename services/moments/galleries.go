@@ -134,23 +134,31 @@ type noContent struct{ Status int }
 
 // mountGalleryRoutes registers the reviewed core gallery metadata contract.
 func mountGalleryRoutes(api huma.API, controller galleryController) {
-	huma.Register(api, huma.Operation{
+	galleryRoutes := taggedAPI(api, "galleries")
+	huma.Register(galleryRoutes, huma.Operation{
 		OperationID: "createGallery", Method: http.MethodPost,
 		Path: "/api/galleries", MaxBodyBytes: 17 << 20,
 	}, controller.create)
-	huma.Get(api, "/api/galleries", controller.list)
-	huma.Get(api, "/api/galleries/{galleryId}", controller.get)
-	huma.Register(api, huma.Operation{
+	huma.Get(galleryRoutes, "/api/galleries", controller.list)
+	huma.Get(galleryRoutes, "/api/galleries/{galleryId}", controller.get)
+	huma.Register(galleryRoutes, huma.Operation{
 		OperationID: "patchGallery", Method: http.MethodPatch,
 		Path: "/api/galleries/{galleryId}", MaxBodyBytes: 17 << 20,
 	}, controller.patch)
-	huma.Delete(api, "/api/galleries/{galleryId}", controller.delete)
+	huma.Delete(galleryRoutes, "/api/galleries/{galleryId}", controller.delete)
 	mountReferenceRoutes(api, controller)
 	mountScanRoutes(api, controller)
 	mountThumbnailRoutes(api, controller)
 	mountResultRoutes(api, controller)
 	mountUserTagRoutes(api, controller)
 	mountFriendRoutes(api, controller)
+}
+
+// taggedAPI assigns a domain tag to operations without changing their routes.
+func taggedAPI(api huma.API, tag string) huma.API {
+	group := huma.NewGroup(api)
+	group.UseSimpleModifier(func(op *huma.Operation) { op.Tags = []string{tag} })
+	return group
 }
 
 // userID verifies the current LiteNAS session without accepting a caller-supplied owner.

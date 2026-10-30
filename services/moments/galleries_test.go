@@ -498,3 +498,58 @@ func TestCreateAlbumPersistsMetadata(t *testing.T) {
 		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
 	}
 }
+
+// TestGalleryPatchUpdatesEditableMetadata covers a combined owner edit.
+func TestGalleryPatchUpdatesEditableMetadata(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustCreateCollection(t, router)
+	body := mustGalleryRequest(t, router, http.MethodPatch, "/api/galleries/"+id,
+		`{"name":"Renamed","description":"Trip photos","visibility":"PRIVATE","wallRenderStrategy":"masonry","thumbnailGeneration":{"image":"data:image/png;base64,AAAA"}}`, http.StatusOK)
+	updated := mustGalleryJSON[struct {
+		Name string `json:"name"`
+	}](t, body)
+	if updated.Name != "Renamed" {
+		t.Fatalf("patched name = %q", updated.Name)
+	}
+}
+
+// TestCollectionPatchRejectsUploadDirectory protects gallery type boundaries.
+func TestCollectionPatchRejectsUploadDirectory(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustCreateCollection(t, router)
+	mustGalleryRequest(t, router, http.MethodPatch, "/api/galleries/"+id,
+		`{"uploadDirectory":"/home/alice/photos"}`, http.StatusUnprocessableEntity)
+}
+
+// TestGalleryPatchRejectsBlankName checks trimmed names after HTTP validation.
+func TestGalleryPatchRejectsBlankName(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustCreateCollection(t, router)
+	mustGalleryRequest(t, router, http.MethodPatch, "/api/galleries/"+id,
+		`{"name":"   "}`, http.StatusUnprocessableEntity)
+}
+
+// TestThumbnailGenerationRejectsMalformedAndDeepJSON guards opaque input bounds.
+func TestThumbnailGenerationRejectsMalformedAndDeepJSON(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		data string
+	}{
+		{"malformed", "{invalid"},
+		{"too deep", strings.Repeat("[", 65) + "0" + strings.Repeat("]", 65)},
+		{"too large", strings.Repeat("x", 16<<20+1)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validateThumbnailGeneration(json.RawMessage(test.data)); err == nil {
+				t.Fatal("invalid thumbnail generation was accepted")
+			}
+		})
+	}
+}
+
+// TestThumbnailGenerationAllowsEscapedJSON keeps string content opaque.
+func TestThumbnailGenerationAllowsEscapedJSON(t *testing.T) {
+	if err := validateThumbnailGeneration(json.RawMessage(`{"text":"a quote: \" and bracket ["}`)); err != nil {
+		t.Fatalf("escaped generation error = %v", err)
+	}
+}

@@ -101,6 +101,7 @@ func newScanManager(store *galleryStore, auth browserauth.AuthService, files fil
 
 // mountScanRoutes registers start, status, history, and cancellation.
 func mountScanRoutes(api huma.API, c galleryController) {
+	api = taggedAPI(api, "scans")
 	huma.Post(api, "/api/galleries/{galleryId}/scans", c.startScan)
 	huma.Post(api, "/api/galleries/{galleryId}/caption-scans", c.startCaptionScan)
 	huma.Get(api, "/api/galleries/{galleryId}/scans", c.listScans)

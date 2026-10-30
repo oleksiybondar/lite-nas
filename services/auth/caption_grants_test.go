@@ -113,3 +113,25 @@ func TestCaptionGrantRPCIssuesForVerifiedUser(t *testing.T) {
 		t.Fatalf("verified grant user = %q", got)
 	}
 }
+
+// TestCaptionGrantValidateRPCChecksAuthorizedPath covers the service RPC boundary.
+func TestCaptionGrantValidateRPCChecksAuthorizedPath(t *testing.T) {
+	deps := authRuntimeFixture(t, pamauth.Result{})
+	deps.CaptionGrants = mustCaptionGrantStore(t, nil)
+	grant := mustIssueCaptionGrant(t, deps.CaptionGrants)
+	response, err := handleCaptionGrantValidateRPC(deps, rpcEnvelope(t, authcontract.CaptionGrantValidateRequest{Grant: grant, Path: "/photos/lizard.jpg"}))
+	if err != nil || !response.Valid || response.Username != "alice" {
+		t.Fatalf("validation response = %+v, error = %v", response, err)
+	}
+}
+
+// TestCaptionGrantRevokeRPCInvalidatesGrant covers terminal cleanup.
+func TestCaptionGrantRevokeRPCInvalidatesGrant(t *testing.T) {
+	deps := authRuntimeFixture(t, pamauth.Result{})
+	deps.CaptionGrants = mustCaptionGrantStore(t, nil)
+	grant := mustIssueCaptionGrant(t, deps.CaptionGrants)
+	response, err := handleCaptionGrantRevokeRPC(deps, rpcEnvelope(t, authcontract.CaptionGrantRevokeRequest{Grant: grant}))
+	if err != nil || !response.Revoked {
+		t.Fatalf("revoke response = %+v, error = %v", response, err)
+	}
+}

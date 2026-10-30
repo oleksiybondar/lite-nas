@@ -45,10 +45,12 @@ type tagsOutput struct {
 
 // mountResultRoutes provides paged scan metadata and aggregate filter options.
 func mountResultRoutes(api huma.API, c galleryController) {
-	huma.Get(api, "/api/galleries/{galleryId}/media-metadata", c.mediaResults)
-	huma.Post(api, "/api/galleries/{galleryId}/media-metadata", c.scanUploadedMedia)
-	huma.Get(api, "/api/galleries/{galleryId}/tags", c.tags)
-	huma.Post(api, "/api/galleries/{galleryId}/media-person-tags", c.createPersonTag)
+	media := taggedAPI(api, "media-metadata")
+	huma.Get(media, "/api/galleries/{galleryId}/media-metadata", c.mediaResults)
+	huma.Post(media, "/api/galleries/{galleryId}/media-metadata", c.scanUploadedMedia)
+	tags := taggedAPI(api, "tags")
+	huma.Get(tags, "/api/galleries/{galleryId}/tags", c.tags)
+	huma.Post(tags, "/api/galleries/{galleryId}/media-person-tags", c.createPersonTag)
 }
 
 // mediaResults returns only published scan rows under the gallery visibility policy.

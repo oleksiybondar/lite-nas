@@ -521,6 +521,47 @@ func TestRegisterRPCHandlersReturnsRegistrationError(t *testing.T) {
 	}
 }
 
+// TestRegisterRPCHandlersStopsAtEachFailedSubject checks startup error propagation.
+func TestRegisterRPCHandlersStopsAtEachFailedSubject(t *testing.T) {
+	for _, subject := range []string{
+		authcontract.PasswordChangeStartRPCSubject,
+		authcontract.PasswordChangeReplyRPCSubject,
+		authcontract.RefreshRPCSubject,
+		authcontract.LogoutRPCSubject,
+		authcontract.ValidateAccessTokenRPCSubject,
+		authcontract.CaptionGrantIssueRPCSubject,
+		authcontract.CaptionGrantValidateRPCSubject,
+		authcontract.CaptionGrantRevokeRPCSubject,
+		authcontract.ServiceTokenLoginRPCSubject,
+		authcontract.ServiceTokenRefreshRPCSubject,
+		authcontract.SetLockdownRPCSubject,
+	} {
+		t.Run(subject, func(t *testing.T) {
+			failure := errors.New("registration failed")
+			server := &runtimeRecordingServer{errs: map[string]error{subject: failure}}
+			if err := registerRPCHandlers(server, authRuntimeFixture(t, pamauth.Result{})); !errors.Is(err, failure) {
+				t.Fatalf("registration error = %v, want %v", err, failure)
+			}
+		})
+	}
+}
+
+// TestRegisteredRPCHandlersRejectMalformedPayloads checks every NATS adapter boundary.
+func TestRegisteredRPCHandlersRejectMalformedPayloads(t *testing.T) {
+	server := &runtimeRecordingServer{}
+	if err := registerRPCHandlers(server, authRuntimeFixture(t, pamauth.Result{})); err != nil {
+		t.Fatalf("register handlers: %v", err)
+	}
+	for subject, handler := range server.handlers {
+		t.Run(subject, func(t *testing.T) {
+			_, err := handler(t.Context(), messaging.Envelope{Payload: []byte("{")})
+			if (err != nil) != (subject == authcontract.SetLockdownRPCSubject) {
+				t.Fatalf("malformed payload error = %v for %s", err, subject)
+			}
+		})
+	}
+}
+
 func TestResolvePrincipalRolesReturnsFallbackOnRPCFailure(t *testing.T) {
 	t.Parallel()
 

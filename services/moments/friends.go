@@ -61,6 +61,7 @@ type friendListInput struct {
 
 // mountFriendRoutes registers owner-scoped saved contacts without account discovery.
 func mountFriendRoutes(api huma.API, controller galleryController) {
+	api = taggedAPI(api, "friends")
 	huma.Get(api, "/api/friends", controller.friends)
 	huma.Put(api, "/api/friends/{username}", controller.saveFriend)
 	huma.Delete(api, "/api/friends/{username}", controller.deleteFriend)

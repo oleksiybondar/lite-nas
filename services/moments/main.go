@@ -241,13 +241,14 @@ func newRouterWithScanManager(auth browserauth.AuthService, cookieDomain string,
 	api := humachi.New(router, config)
 	router.Get("/api/docs", apireference.Handler("LiteNAS Moments API", "/api/openapi.json"))
 	controller := authController{service: auth, cookieDomain: cookieDomain}
-	huma.Post(api, "/api/auth/login", controller.login)
-	huma.Post(api, "/api/auth/password/start", controller.startPasswordChange)
-	huma.Post(api, "/api/auth/password/reply", controller.replyPasswordChange)
-	huma.Post(api, "/api/auth/refresh", controller.refresh)
-	huma.Post(api, "/api/auth/logout", controller.logout)
-	huma.Get(api, "/api/auth/me", controller.me)
-	huma.Get(api, "/api/config", controller.config(workingDir))
+	authRoutes := taggedAPI(api, "auth")
+	huma.Post(authRoutes, "/api/auth/login", controller.login)
+	huma.Post(authRoutes, "/api/auth/password/start", controller.startPasswordChange)
+	huma.Post(authRoutes, "/api/auth/password/reply", controller.replyPasswordChange)
+	huma.Post(authRoutes, "/api/auth/refresh", controller.refresh)
+	huma.Post(authRoutes, "/api/auth/logout", controller.logout)
+	huma.Get(authRoutes, "/api/auth/me", controller.me)
+	huma.Get(taggedAPI(api, "config"), "/api/config", controller.config(workingDir))
 	if store != nil {
 		mountGalleryRoutes(api, galleryController{auth: auth, store: store, files: files, scans: scans, thumbnailDir: thumbnailDir, users: users})
 	}

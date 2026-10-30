@@ -71,15 +71,17 @@ type sharesOutput struct {
 
 // mountReferenceRoutes registers collection membership and read-only sharing.
 func mountReferenceRoutes(api huma.API, c galleryController) {
-	huma.Get(api, "/api/collections/{galleryId}/references", c.references)
-	huma.Post(api, "/api/collections/{galleryId}/files", c.addFile)
-	huma.Delete(api, "/api/collections/{galleryId}/files", c.removeFile)
-	huma.Post(api, "/api/collections/{galleryId}/directories", c.addDirectory)
-	huma.Delete(api, "/api/collections/{galleryId}/directories", c.removeDirectory)
-	huma.Get(api, "/api/galleries/{galleryId}/shares", c.shares)
-	huma.Post(api, "/api/galleries/{galleryId}/shares", c.addShareByUsername)
-	huma.Put(api, "/api/galleries/{galleryId}/shares/{userId}", c.addShare)
-	huma.Delete(api, "/api/galleries/{galleryId}/shares/{userId}", c.removeShare)
+	collections := taggedAPI(api, "collections")
+	huma.Get(collections, "/api/collections/{galleryId}/references", c.references)
+	huma.Post(collections, "/api/collections/{galleryId}/files", c.addFile)
+	huma.Delete(collections, "/api/collections/{galleryId}/files", c.removeFile)
+	huma.Post(collections, "/api/collections/{galleryId}/directories", c.addDirectory)
+	huma.Delete(collections, "/api/collections/{galleryId}/directories", c.removeDirectory)
+	shares := taggedAPI(api, "shares")
+	huma.Get(shares, "/api/galleries/{galleryId}/shares", c.shares)
+	huma.Post(shares, "/api/galleries/{galleryId}/shares", c.addShareByUsername)
+	huma.Put(shares, "/api/galleries/{galleryId}/shares/{userId}", c.addShare)
+	huma.Delete(shares, "/api/galleries/{galleryId}/shares/{userId}", c.removeShare)
 }
 
 // addShareByUsername resolves a host login to the same stable UID used by sessions.

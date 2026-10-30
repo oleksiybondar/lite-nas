@@ -95,6 +95,29 @@ func TestDocsPageReferencesMomentsSchema(t *testing.T) {
 	}
 }
 
+// TestOpenAPIOperationsHaveDomainTags covers moments-backend/IR-002 navigation metadata.
+func TestOpenAPIOperationsHaveDomainTags(t *testing.T) {
+	response := httptest.NewRecorder()
+	mustGalleryRouter(t, "alice").ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/openapi.json", nil))
+	var document struct {
+		Paths map[string]map[string]struct {
+			Tags []string `json:"tags"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &document); err != nil {
+		t.Fatalf("decode OpenAPI: %v", err)
+	}
+	for path, methods := range document.Paths {
+		for method, operation := range methods {
+			t.Run(method+" "+path, func(t *testing.T) {
+				if len(operation.Tags) != 1 {
+					t.Fatalf("tags = %v, want one domain tag", operation.Tags)
+				}
+			})
+		}
+	}
+}
+
 // Requirements: moments/FR-002
 func TestAuthMutationRejectsForeignOrigin(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)

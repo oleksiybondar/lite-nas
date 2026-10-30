@@ -125,6 +125,44 @@ func TestUserTagDelete(t *testing.T) {
 	}
 }
 
+// TestUserTagListReturnsSavedTag covers the nonempty read path.
+func TestUserTagListReturnsSavedTag(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustNamedGallery(t, router, "COLLECTION", "Saved", "")
+	tag := mustUserTag(t, router, id, "Family")
+	body := mustGalleryRequest(t, router, http.MethodGet, "/api/galleries/"+id+"/user-tags", "", http.StatusOK)
+	listed := mustGalleryJSON[struct {
+		Items []userTagBody `json:"items"`
+	}](t, body)
+	if len(listed.Items) != 1 || listed.Items[0].ID != tag.ID {
+		t.Fatalf("listed user tags = %+v", listed.Items)
+	}
+}
+
+// TestUserTagReadRejectsMissingTag checks gallery-scoped lookup.
+func TestUserTagReadRejectsMissingTag(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustNamedGallery(t, router, "COLLECTION", "Saved", "")
+	mustGalleryRequest(t, router, http.MethodGet, "/api/galleries/"+id+"/user-tags/00000000-0000-4000-8000-000000000001", "", http.StatusNotFound)
+}
+
+// TestUserTagDeleteRejectsMissingTag checks idempotency policy.
+func TestUserTagDeleteRejectsMissingTag(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustNamedGallery(t, router, "COLLECTION", "Saved", "")
+	mustGalleryRequest(t, router, http.MethodDelete, "/api/galleries/"+id+"/user-tags/00000000-0000-4000-8000-000000000001", "", http.StatusNotFound)
+}
+
+// TestUserTagRenameRejectsDuplicate prevents two names with one normalized key.
+func TestUserTagRenameRejectsDuplicate(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustNamedGallery(t, router, "COLLECTION", "Saved", "")
+	mustUserTag(t, router, id, "Family")
+	other := mustUserTag(t, router, id, "Travel")
+	mustGalleryRequest(t, router, http.MethodPatch, "/api/galleries/"+id+"/user-tags/"+other.ID,
+		`{"value":" family "}`, http.StatusConflict)
+}
+
 // TestUserTagDuplicateIsRejected covers moments-backend/FR-007.
 func TestUserTagDuplicateIsRejected(t *testing.T) {
 	router := mustGalleryRouter(t, "alice")
