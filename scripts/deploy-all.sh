@@ -673,6 +673,13 @@ else
 	log.info "Skipping shared LiteNAS bootstrap."
 fi
 
+deploy.liteNAS.installPasswordRotator
+
+log.pushTask "Preparing missing local system-test users"
+"$ENTRYPOINT_DIR/ci/prepare-system-test-users.sh" --missing-only
+"$ENTRYPOINT_DIR/ci/prepare-system-test-sudo-user.sh" --missing-only
+log.popTask
+
 log.pushTask "Deploying auth-service"
 deploy.authService.deploy "$auth_service_binary" "$should_start"
 log.popTask

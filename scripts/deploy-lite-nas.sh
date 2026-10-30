@@ -28,3 +28,4 @@ done
 sudo.guard.requireRoot "scripts/deploy-lite-nas.sh"
 deploy.liteNAS.requireTools
 deploy.liteNAS.bootstrap "$manage_nats_config"
+deploy.liteNAS.installPasswordRotator

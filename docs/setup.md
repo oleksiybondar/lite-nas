@@ -477,6 +477,28 @@ The script stores `token-signing.key` and `token-signing.crt` under
 the certificate is readable by the shared LiteNAS group so gateway services can
 verify access tokens.
 
+## Rotate a user password
+
+Install `libpwquality-tools` if running from the checkout without the LiteNAS
+package, then run:
+
+```bash
+sudo ./scripts/rotate-user-password.sh alice
+```
+
+The script generates a temporary password with `pwmake` using the host's
+`/etc/security/pwquality.conf` settings, sets it through `chpasswd`, expires
+it for the next login, and prints the username and password to the console.
+Run it in a private terminal and give the password only to the intended user.
+The installed package includes the script at
+`/usr/libexec/lite-nas/scripts/rotate-user-password.sh`. After installing the
+package or running `sudo ./scripts/deploy-lite-nas.sh` or
+`sudo ./scripts/deploy-all.sh`, use the command from any directory:
+
+```bash
+sudo lite-nas-rotate-password test_user
+```
+
 ## Git hooks
 
 Install hooks manually when needed:

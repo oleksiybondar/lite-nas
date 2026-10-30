@@ -899,6 +899,7 @@ jobs:
           id testsecurity
           id testsudouser
           id testadmin
+          id testpasswduser
 
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}

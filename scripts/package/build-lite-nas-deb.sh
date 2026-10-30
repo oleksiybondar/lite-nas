@@ -628,6 +628,8 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-user-password.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-user-password.sh"
 install -D -m 0755 "$auth_service_binary_path" \
 	"$package_root/usr/libexec/lite-nas/auth-service"
 install -D -m 0755 "$rbac_service_binary_path" \
@@ -681,6 +683,8 @@ ln -sfn /usr/libexec/lite-nas/zfs-metrics-cli \
 	"$package_root/usr/bin/zfs-metrics-cli"
 ln -sfn /usr/libexec/lite-nas/lite-nas-file-writer \
 	"$package_root/usr/bin/lite-nas-file-writer"
+ln -sfn /usr/libexec/lite-nas/scripts/rotate-user-password.sh \
+	"$package_root/usr/bin/lite-nas-rotate-password"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
 install -D -m 0755 "$moments_binary_path" \
@@ -759,7 +763,8 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-user-password.sh"
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
 package.writeMd5sums "$package_root"

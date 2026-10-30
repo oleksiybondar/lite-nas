@@ -265,6 +265,7 @@ runs:
         id testsecurity
         id testsudouser
         id testadmin
+        id testpasswduser
 
     - name: "Test: installed LiteNAS package"
       if: ${{ inputs.run_installed_package_tests == 'true' }}

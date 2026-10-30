@@ -35,6 +35,8 @@ deploy.liteNAS.requireTools() {
 		getent
 		groupadd
 		install
+		ln
+		usermod
 	)
 
 	for tool in "${tools[@]}"; do
@@ -55,8 +57,36 @@ deploy.liteNAS.ensureRoleGroups() {
 	deploy.ensureSystemGroup "$LITE_NAS_ZFS_ADMIN_GROUP" "ZFS admin group"
 }
 
+# Give every regular account operator access. UID_MIN follows the host's
+# account policy; Debian's standard fallback is 1000 when login.defs omits it.
+deploy.liteNAS.addRegularUsersToOperatorGroup() {
+	local uid_min
+	local login _ uid _rest
+
+	uid_min="$(awk '$1 == "UID_MIN" { print $2; exit }' /etc/login.defs 2>/dev/null || true)"
+	if [[ ! "$uid_min" =~ ^[0-9]+$ ]]; then
+		uid_min=1000
+	fi
+
+	while IFS=: read -r login _ uid _rest; do
+		if [[ "$uid" =~ ^[0-9]+$ ]] && ((uid >= uid_min)); then
+			usermod --append --groups "$LITE_NAS_OPERATOR_GROUP" "$login"
+		fi
+	done < <(getent passwd)
+}
+
 deploy.liteNAS.ensureLogDir() {
 	install -d -m 0751 -o root -g "$LITE_NAS_BOOTSTRAP_GROUP" "$LITE_NAS_BOOTSTRAP_LOG_DIR"
+}
+
+# Install the root-owned password rotator behind its public command name.
+deploy.liteNAS.installPasswordRotator() {
+	local script_target=/usr/libexec/lite-nas/scripts/rotate-user-password.sh
+	local command_target=/usr/bin/lite-nas-rotate-password
+
+	install -D -m 0755 -o root -g root \
+		"$LITE_NAS_REPO_ROOT/scripts/rotate-user-password.sh" "$script_target"
+	ln -sfn "$script_target" "$command_target"
 }
 
 deploy.liteNAS.bootstrap() {

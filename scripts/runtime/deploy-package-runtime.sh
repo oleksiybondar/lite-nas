@@ -193,6 +193,7 @@ fi
 
 log.pushTask "Bootstrapping LiteNAS runtime prerequisites"
 deploy.liteNAS.bootstrap "$manage_nats_config"
+deploy.liteNAS.addRegularUsersToOperatorGroup
 log.popTask
 
 export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$PACKAGE_ROOT/admin-panel-assets"

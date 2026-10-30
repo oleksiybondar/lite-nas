@@ -8,6 +8,16 @@ source "$SCRIPT_DIR/../helpers/logger.sh"
 testsudo_login="${LITENAS_TESTSUDO_LOGIN:-testsudouser}"
 default_password="${LITENAS_TEST_PASSWORD:-testpassword}"
 testsudo_password="${LITENAS_TESTSUDO_PASSWORD:-$default_password}"
+create_missing_only=0
+
+if [ "${1:-}" = "--missing-only" ]; then
+	create_missing_only=1
+	shift
+fi
+if [ "$#" -gt 0 ]; then
+	log.error "Unknown option: $1"
+	exit 2
+fi
 sudoers_file="${LITENAS_TESTSUDO_SUDOERS_FILE:-/etc/sudoers.d/lite-nas-tests-aa-status}"
 
 aa_status_path="${LITENAS_TESTSUDO_AA_STATUS_PATH:-/usr/sbin/aa-status}"
@@ -60,16 +70,20 @@ run.asRoot() {
 ensure_user() {
 	local login="$1"
 	local password="$2"
+	local created=0
 
 	if id "$login" >/dev/null 2>&1; then
 		log.info "System-test sudo user already exists: $login"
 	else
 		run.asRoot useradd --create-home --shell /bin/bash "$login"
+		created=1
 		log.info "Created system-test sudo user: $login"
 	fi
 
-	printf '%s:%s\n' "$login" "$password" | run.asRoot chpasswd
-	log.info "Configured password for system-test sudo user: $login"
+	if [ "$created" -eq 1 ] || [ "$create_missing_only" -eq 0 ]; then
+		printf '%s:%s\n' "$login" "$password" | run.asRoot chpasswd
+		log.info "Configured password for system-test sudo user: $login"
+	fi
 }
 
 install_sudoers_rule() {
@@ -85,6 +99,7 @@ EOF
 	visudo --check --file "$tmp_file"
 	run.asRoot install -m 0440 -o root -g root "$tmp_file" "$sudoers_file"
 	rm -f "$tmp_file"
+	visudo --check
 	log.info "Installed sudoers rule: $sudoers_file"
 }
 

@@ -117,9 +117,15 @@ sudo ./scripts/ci/prepare-system-test-sudo-user.sh
 ```
 
 The default accounts are `testuser`, `testoperator`, `testsecurityuser`,
-`testadmin`, and `testsudouser`, with password `testpassword`. The scripts and
+`testadmin`, `testpasswduser`, and `testsudouser`, with password `testpassword`.
+The password account is created only by the test-host setup script. Its initial
+hash is installed directly, and the script gives the test runner passwordless
+sudo access only to `passwd testpasswduser` and `passwd -e testpasswduser`.
+The password-change API cases reset that account before each case. The scripts and
 fixtures share the `LITENAS_*` overrides in `constants.py`; use the same values
 for preparation and execution. CI uses `testsecurity` explicitly in both steps.
+To run only the PAM API cases on a prepared, running test host, use
+`cd tests && ../.venv/bin/pytest -c pytest.ini api/web_gateway/test_password_change.py`.
 
 The SSH authentication test requires a running local SSH server accepting
 password attempts. On a dedicated test host, prepare it with:

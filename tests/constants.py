@@ -67,6 +67,7 @@ TEST_SUDO_PASSWORD: str = os.environ.get(
     "LITENAS_TESTSUDO_PASSWORD",
     os.environ.get("LITENAS_TEST_PASSWORD", "testpassword"),
 )
+PASSWORD_TEST_LOGIN: str = os.environ.get("LITENAS_PASSWORD_TEST_LOGIN", "testpasswduser")
 
 SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",
