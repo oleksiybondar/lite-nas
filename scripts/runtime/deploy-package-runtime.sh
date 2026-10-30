@@ -61,6 +61,8 @@ source "$PACKAGE_ROOT/scripts/deploy/litenas-integrity.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/security-monitor.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/host-manager.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/restart-affected-services.sh"
 
 # Package maintainer execution should not inherit pipefail from sourced helpers.
@@ -111,6 +113,8 @@ deploy_runtime_files_without_start() {
 	deploy.securityMonitor.deploy "antivirus" "$PACKAGE_ROOT/antivirus" 0
 	deploy.securityMonitor.deploy "system-service-monitor" "$PACKAGE_ROOT/system-service-monitor" 0
 	deploy.securityMonitor.deploy "service-watchdog" "$PACKAGE_ROOT/service-watchdog" 0
+	deploy.hostManager.deploy "services-manager" "$PACKAGE_ROOT/services-manager" 0
+	deploy.hostManager.deploy "session-manager" "$PACKAGE_ROOT/session-manager" 0
 	deploy.securityMonitor.deploy "log-analysis" "$PACKAGE_ROOT/log-analysis" 0
 }
 
@@ -234,6 +238,8 @@ deploy.enableAndRefreshService "lite-nas-mount-monitor.service"
 deploy.enableAndRefreshService "lite-nas-antivirus.service"
 deploy.enableAndRefreshService "lite-nas-system-service-monitor.service"
 deploy.enableAndRefreshService "lite-nas-service-watchdog.service"
+deploy.enableAndRefreshService "lite-nas-services-manager.service"
+deploy.enableAndRefreshService "lite-nas-session-manager.service"
 deploy.securityMonitor.refreshLogAnalysis
 log.popTask
 

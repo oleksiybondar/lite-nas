@@ -115,6 +115,10 @@ jobs:
             dir: ./services/system-service-monitor
           - name: Service watchdog
             dir: ./services/service-watchdog
+          - name: Services manager
+            dir: ./services/services-manager
+          - name: Session manager
+            dir: ./services/session-manager
           - name: Log analysis service
             dir: ./services/log-analysis
           - name: Network metrics service
@@ -413,6 +417,24 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Services Manager
+              artifact_name: services-manager-linux
+              build_script: scripts/build-services-manager-binary.sh
+              output_path: .build/services-manager/linux-amd64/services-manager
+              test_script: scripts/ci/go-test-module.sh ./services/services-manager
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Session Manager
+              artifact_name: session-manager-linux
+              build_script: scripts/build-session-manager-binary.sh
+              output_path: .build/session-manager/linux-amd64/session-manager
+              test_script: scripts/ci/go-test-module.sh ./services/session-manager
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Log Analysis
               artifact_name: log-analysis-linux
               build_script: scripts/build-log-analysis-binary.sh
@@ -607,6 +629,24 @@ jobs:
               build_script: scripts/build-service-watchdog-binary.sh
               output_path: .build/service-watchdog/linux-arm64/service-watchdog
               test_script: scripts/ci/go-test-module.sh ./services/service-watchdog
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Services Manager
+              artifact_name: services-manager-linux
+              build_script: scripts/build-services-manager-binary.sh
+              output_path: .build/services-manager/linux-arm64/services-manager
+              test_script: scripts/ci/go-test-module.sh ./services/services-manager
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Session Manager
+              artifact_name: session-manager-linux
+              build_script: scripts/build-session-manager-binary.sh
+              output_path: .build/session-manager/linux-arm64/session-manager
+              test_script: scripts/ci/go-test-module.sh ./services/session-manager
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -962,6 +1002,18 @@ jobs:
           name: service-watchdog-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/service-watchdog
 
+      - name: Download services-manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: services-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/services-manager
+
+      - name: Download session-manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: session-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/session-manager
+
       - name: Download log-analysis build artifact
         uses: actions/download-artifact@v4
         with:
@@ -1193,12 +1245,16 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-log-analysis
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-log-analysis
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login
           curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9090/api/auth/login
+
+      - name: Verify host manager confinement
+        if: ${{ matrix.arch == 'amd64' }}
+        run: sudo scripts/ci/verify-host-manager-installation.sh
 
       - name: Test installed LiteNAS package
         if: ${{ matrix.arch == 'amd64' }}

@@ -10,6 +10,8 @@ import (
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
+	servicesmanagercontract "lite-nas/shared/contracts/servicesmanager"
+	sessionmanagercontract "lite-nas/shared/contracts/sessionmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 )
@@ -34,6 +36,20 @@ type loggingManagerRPCSubjects struct {
 
 // RPCByService defines known RPC endpoints per service identity.
 var RPCByService = map[string]map[string]RPCContract{
+	ServiceServicesManager: {
+		"list":    {Subject: servicesmanagercontract.ListSubject, Request: servicesmanagercontract.ListRequest{}, Response: servicesmanagercontract.ListResponse{}},
+		"start":   {Subject: servicesmanagercontract.StartSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"stop":    {Subject: servicesmanagercontract.StopSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"restart": {Subject: servicesmanagercontract.RestartSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"enable":  {Subject: servicesmanagercontract.EnableSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"disable": {Subject: servicesmanagercontract.DisableSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+	},
+	ServiceSessionManager: {
+		"list":      {Subject: sessionmanagercontract.ListSubject, Request: sessionmanagercontract.ListRequest{}, Response: sessionmanagercontract.ListResponse{}},
+		"terminate": {Subject: sessionmanagercontract.TerminateSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+		"lock":      {Subject: sessionmanagercontract.LockSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+		"unlock":    {Subject: sessionmanagercontract.UnlockSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+	},
 	ServiceDiskMetrics: {
 		"get_snapshot": {
 			Subject:  diskmetricscontract.SnapshotRPCSubject,

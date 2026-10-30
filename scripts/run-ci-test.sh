@@ -22,6 +22,8 @@ scripts/test-file-writer.sh --with-coverage
 scripts/test-file-service.sh --with-coverage
 scripts/test-stream-service.sh --with-coverage
 scripts/test-shared.sh --with-coverage
+scripts/ci/go-test-module.sh ./services/services-manager --with-coverage
+scripts/ci/go-test-module.sh ./services/session-manager --with-coverage
 scripts/test-web-gateway.sh
 scripts/ci/go-test-module.sh ./services/moments --with-coverage
 scripts/test-admin-panel.sh --with-coverage

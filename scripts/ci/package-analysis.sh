@@ -68,10 +68,12 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-antivirus.service "$systemd_root/etc/systemd/system/lite-nas-antivirus.service"
 	cp configs/etc/systemd/system/lite-nas-system-service-monitor.service "$systemd_root/etc/systemd/system/lite-nas-system-service-monitor.service"
 	cp configs/etc/systemd/system/lite-nas-service-watchdog.service "$systemd_root/etc/systemd/system/lite-nas-service-watchdog.service"
+	cp configs/etc/systemd/system/lite-nas-services-manager.service "$systemd_root/etc/systemd/system/lite-nas-services-manager.service"
+	cp configs/etc/systemd/system/lite-nas-session-manager.service "$systemd_root/etc/systemd/system/lite-nas-session-manager.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.service "$systemd_root/etc/systemd/system/lite-nas-log-analysis.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.socket "$systemd_root/etc/systemd/system/lite-nas-log-analysis.socket"
 
-	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog log-analysis; do
+	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager log-analysis; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -91,6 +93,19 @@ create_systemd_validation_root() {
 log.pushTask "Running shellcheck for Debian maintainer scripts"
 log.requireCommand "shellcheck" "Run ./scripts/install-dev-dependencies.sh or scripts/ci/install-shell-dependencies.sh."
 shellcheck -s sh "${maintainer_scripts[@]}"
+log.popTask
+
+log.pushTask "Validating host-manager AppArmor profiles"
+log.requireCommand "apparmor_parser" "Install AppArmor and retry."
+(
+	profile_cache="$(mktemp -d)"
+	trap 'rm -rf "$profile_cache"' EXIT
+	for manager in services-manager session-manager; do
+		apparmor_parser -Q -W -L "$profile_cache" \
+			-I configs/etc/apparmor.d -I /etc/apparmor.d \
+			"configs/etc/apparmor.d/usr.libexec.lite-nas.$manager"
+	done
+)
 log.popTask
 
 log.pushTask "Validating Watchdog recovery and shutdown policy"
@@ -169,6 +184,8 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-antivirus.service \
 		lite-nas-system-service-monitor.service \
 		lite-nas-service-watchdog.service \
+		lite-nas-services-manager.service \
+		lite-nas-session-manager.service \
 		lite-nas-log-analysis.service \
 		lite-nas-log-analysis.socket \
 		lite-nas-web-gateway.service \

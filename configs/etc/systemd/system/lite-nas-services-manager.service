@@ -1,0 +1,45 @@
+[Unit]
+Description=LiteNAS system services manager
+AssertSecurity=apparmor
+After=network-online.target nats-server.service
+Requires=nats-server.service
+
+[Service]
+Type=simple
+User=lite-nas-services-manager
+Group=lite-nas-services-manager
+ExecStart=/usr/libexec/lite-nas/services-manager
+AppArmorProfile=/usr/libexec/lite-nas/services-manager
+Restart=on-failure
+RestartSec=5s
+# sudo needs its setuid transition; the capability set remains limited below.
+NoNewPrivileges=no
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectSystem=strict
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectProc=invisible
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+UMask=0027
+ReadWritePaths=/var/log/lite-nas/services-manager.log -/run/sudo -/var/lib/sudo -/var/db/sudo
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

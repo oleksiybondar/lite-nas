@@ -24,6 +24,8 @@ const (
 	ServiceWatchdog               = "service-watchdog"
 	ServiceLogAnalysis            = "log-analysis"
 	ServiceBackupRestore          = "backup-restore"
+	ServiceServicesManager        = "services-manager"
+	ServiceSessionManager         = "session-manager"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"
 	AppNetworkMetricsCLI       = "network-metrics-cli"

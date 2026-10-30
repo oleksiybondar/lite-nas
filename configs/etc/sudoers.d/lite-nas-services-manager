@@ -1,0 +1,1 @@
+lite-nas-services-manager ALL=(root) NOPASSWD: /usr/bin/systemctl --system start -- *, /usr/bin/systemctl --system stop -- *, /usr/bin/systemctl --system restart -- *, /usr/bin/systemctl --system enable -- *, /usr/bin/systemctl --system disable -- *

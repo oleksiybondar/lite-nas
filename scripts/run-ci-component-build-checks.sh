@@ -20,6 +20,8 @@ scripts/build-mount-monitor.sh
 scripts/build-antivirus.sh
 scripts/build-system-service-monitor.sh
 scripts/build-service-watchdog.sh
+scripts/build-services-manager.sh
+scripts/build-session-manager.sh
 scripts/build-log-analysis.sh
 scripts/build-network-metrics.sh
 scripts/build-process-metrics.sh

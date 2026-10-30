@@ -95,5 +95,11 @@ readonly LITE_NAS_SYSTEM_SERVICE_MONITOR_MODULE
 export LITE_NAS_SERVICE_WATCHDOG_MODULE="./services/service-watchdog"
 readonly LITE_NAS_SERVICE_WATCHDOG_MODULE
 
+export LITE_NAS_SERVICES_MANAGER_MODULE="./services/services-manager"
+readonly LITE_NAS_SERVICES_MANAGER_MODULE
+
+export LITE_NAS_SESSION_MANAGER_MODULE="./services/session-manager"
+readonly LITE_NAS_SESSION_MANAGER_MODULE
+
 export LITE_NAS_LOG_ANALYSIS_MODULE="./services/log-analysis"
 readonly LITE_NAS_LOG_ANALYSIS_MODULE

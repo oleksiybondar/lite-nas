@@ -152,6 +152,16 @@ assert_cmd "mount-monitor binary packaged" assert_executable usr/libexec/lite-na
 assert_cmd "antivirus binary packaged" assert_executable usr/libexec/lite-nas/antivirus
 assert_cmd "system-service-monitor binary packaged" assert_executable usr/libexec/lite-nas/system-service-monitor
 assert_cmd "service-watchdog binary packaged" assert_executable usr/libexec/lite-nas/service-watchdog
+for manager in services-manager session-manager; do
+	assert_cmd "$manager binary packaged" assert_executable "usr/libexec/lite-nas/$manager"
+	assert_cmd "$manager config packaged" assert_file "$packaged_config_root/lite-nas/$manager.conf"
+	assert_cmd "$manager unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-$manager.service"
+	assert_cmd "$manager sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-$manager"
+	assert_cmd "$manager AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.$manager"
+	assert_cmd "$manager unit requires AppArmor" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-$manager.service" 'AssertSecurity=apparmor'
+	assert_cmd "$manager unit selects its profile" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-$manager.service" "AppArmorProfile=/usr/libexec/lite-nas/$manager"
+done
+assert_cmd "host manager deploy loads AppArmor profiles" assert_file_contains usr/libexec/lite-nas/scripts/deploy/host-manager.sh 'apparmor_parser -r'
 assert_cmd "log-analysis binary packaged" assert_executable usr/libexec/lite-nas/log-analysis
 assert_cmd "system-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/system-logging-manager-cli
 assert_cmd "security-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/security-logging-manager-cli

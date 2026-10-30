@@ -56,6 +56,8 @@ source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
 source "$ENTRYPOINT_DIR/deploy/litenas-integrity.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-monitor.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/host-manager.sh"
 
 auth_service_binary=""
 rbac_service_binary=""
@@ -88,6 +90,8 @@ mount_monitor_binary=""
 antivirus_binary=""
 system_service_monitor_binary=""
 service_watchdog_binary=""
+services_manager_binary=""
+session_manager_binary=""
 log_analysis_binary=""
 should_bootstrap=1
 manage_nats_config=1
@@ -137,6 +141,8 @@ Options:
   --antivirus-binary PATH Install an existing antivirus binary.
   --system-service-monitor-binary PATH Install an existing system-service-monitor binary.
   --service-watchdog-binary PATH Install an existing service-watchdog binary.
+  --services-manager-binary PATH Install an existing services-manager binary.
+  --session-manager-binary PATH Install an existing session-manager binary.
   --log-analysis-binary PATH Install an existing log-analysis binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
@@ -423,6 +429,22 @@ while [ "$#" -gt 0 ]; do
 		service_watchdog_binary="$2"
 		shift 2
 		;;
+	--services-manager-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --services-manager-binary"
+			exit 2
+		fi
+		services_manager_binary="$2"
+		shift 2
+		;;
+	--session-manager-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --session-manager-binary"
+			exit 2
+		fi
+		session_manager_binary="$2"
+		shift 2
+		;;
 	--log-analysis-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --log-analysis-binary"
@@ -480,6 +502,7 @@ deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
 deploy.securityMonitor.requireTools
+deploy.hostManager.requireTools
 
 tmp_dir=""
 if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
@@ -660,6 +683,14 @@ if [ -z "$service_watchdog_binary" ]; then
 	"$ENTRYPOINT_DIR/build-service-watchdog-binary.sh" "--output=$tmp_dir/service-watchdog"
 	service_watchdog_binary="$tmp_dir/service-watchdog"
 fi
+if [ -z "$services_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-services-manager-binary.sh" "--output=$tmp_dir/services-manager"
+	services_manager_binary="$tmp_dir/services-manager"
+fi
+if [ -z "$session_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-session-manager-binary.sh" "--output=$tmp_dir/session-manager"
+	session_manager_binary="$tmp_dir/session-manager"
+fi
 if [ -z "$log_analysis_binary" ]; then
 	"$ENTRYPOINT_DIR/build-log-analysis-binary.sh" "--output=$tmp_dir/log-analysis"
 	log_analysis_binary="$tmp_dir/log-analysis"
@@ -795,6 +826,14 @@ log.popTask
 
 log.pushTask "Deploying service-watchdog service"
 deploy.securityMonitor.deploy "service-watchdog" "$service_watchdog_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying services-manager service"
+deploy.hostManager.deploy "services-manager" "$services_manager_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying session-manager service"
+deploy.hostManager.deploy "session-manager" "$session_manager_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying log-analysis service"
