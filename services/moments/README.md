@@ -8,13 +8,14 @@ and active caption job grants, but not original media bytes or browser access
 tokens. See the [local model guide](../../docs/moments-models.md) for model
 setup and limits.
 
-## API and Swagger UI
+## API documentation
 
-On the standalone Moments host, open `/api/docs` for the bundled Swagger UI or
-`/api/openapi.json` for Huma's generated contract. File Service provides
+On the standalone Moments host, open `/api/docs` for the Scalar API reference
+or `/api/openapi.json` for Huma's generated contract. The reference loads a
+pinned Scalar bundle from the CDN. File Service provides
 `/f/docs` and `/f/openapi.json` when `api_docs.enabled=true`; Stream Service
-provides `/s/docs` and `/s/openapi.json`. All three UIs use local assets and a
-same-origin schema. File Service docs require an authenticated user.
+provides `/s/docs` and `/s/openapi.json`. All three load their schemas from the
+same origin. File Service docs require an authenticated user.
 
 | Route | Purpose |
 | --- | --- |

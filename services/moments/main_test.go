@@ -70,8 +70,8 @@ func TestMeRequiresAuthentication(t *testing.T) {
 	}
 }
 
-// TestSwaggerUIUsesGeneratedMomentsSchema covers moments-backend/IR-002.
-func TestSwaggerUIUsesGeneratedMomentsSchema(t *testing.T) {
+// TestAPIReferenceUsesGeneratedMomentsSchema covers moments-backend/IR-002.
+func TestAPIReferenceUsesGeneratedMomentsSchema(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/openapi.json", nil)
 	response := httptest.NewRecorder()
 	store, err := openGalleryStore(filepath.Join(t.TempDir(), "moments.db"))
@@ -82,6 +82,16 @@ func TestSwaggerUIUsesGeneratedMomentsSchema(t *testing.T) {
 	newRouterWithStore(authStub{}, "", store).ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "/api/galleries") {
 		t.Fatalf("OpenAPI response = %d %q", response.Code, response.Body.String())
+	}
+}
+
+// TestDocsPageReferencesMomentsSchema covers moments-backend/IR-002.
+func TestDocsPageReferencesMomentsSchema(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/docs", nil)
+	response := httptest.NewRecorder()
+	newRouter(authStub{}, "").ServeHTTP(response, request)
+	if !strings.Contains(response.Body.String(), `url: "/api/openapi.json"`) {
+		t.Fatalf("docs page does not reference Moments schema: %s", response.Body.String())
 	}
 }
 

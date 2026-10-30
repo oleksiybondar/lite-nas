@@ -63,4 +63,6 @@ existing browser-session requirements remain in
   SQLite state directory, configured loopback File Service origin, and narrow
   systemd/AppArmor write permissions. Restart marks interrupted scans failed.
 - **moments-backend/IR-002:** Moments, File Service, and Stream Service expose
-  same-origin Swagger UI and OpenAPI documents using local assets.
+  same-origin OpenAPI documents and browser API references. Moments uses the
+  same Scalar reference as web-gateway; File Service and Stream
+  Service continue to bundle Swagger UI assets.

@@ -590,7 +590,7 @@ func TestRouterDocsPageReferencesMountedOpenAPIPath(t *testing.T) {
 	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/docs", nil))
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 
-	if !strings.Contains(recorder.Body.String(), `apiDescriptionUrl="/api/openapi.yaml"`) {
+	if !strings.Contains(recorder.Body.String(), `url: "/api/openapi.yaml"`) {
 		t.Fatalf("docs html = %q, want mounted OpenAPI path", recorder.Body.String())
 	}
 }

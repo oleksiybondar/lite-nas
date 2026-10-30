@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"lite-nas/shared/apireference"
 	"lite-nas/shared/authtoken"
 	"lite-nas/shared/browserauth"
 	sharedconfig "lite-nas/shared/config"
 	"lite-nas/shared/fileaccess"
 	"lite-nas/shared/fileio"
 	"lite-nas/shared/modules"
-	"lite-nas/shared/swaggerui"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -239,12 +239,7 @@ func newRouterWithScanManager(auth browserauth.AuthService, cookieDomain string,
 	config.OpenAPIPath = "/api/openapi"
 	config.DocsPath = ""
 	api := humachi.New(router, config)
-	router.Get("/api/docs", func(writer http.ResponseWriter, request *http.Request) {
-		swaggerui.Serve(writer, request, "/api", "LiteNAS Moments API", "/api/openapi.json")
-	})
-	router.Get("/api/docs/*", func(writer http.ResponseWriter, request *http.Request) {
-		swaggerui.Serve(writer, request, "/api", "LiteNAS Moments API", "/api/openapi.json")
-	})
+	router.Get("/api/docs", apireference.Handler("LiteNAS Moments API", "/api/openapi.json"))
 	controller := authController{service: auth, cookieDomain: cookieDomain}
 	huma.Post(api, "/api/auth/login", controller.login)
 	huma.Post(api, "/api/auth/password/start", controller.startPasswordChange)
