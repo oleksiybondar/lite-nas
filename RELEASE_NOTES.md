@@ -5,6 +5,14 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.4.1 - 2026-10-30
+
+### RL-0.4.1 Summary
+
+- Expanded File Service AppArmor access for mounted storage trees, including
+  ZFS mount points and `/mnt` and `/media`, while denying writes to protected
+  system paths.
+
 ## 0.4.0 - 2026-10-28
 
 ### RL-0.4.0 Summary

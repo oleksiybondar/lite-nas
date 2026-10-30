@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	golang.org/x/sys v0.42.0
 	gopkg.in/ini.v1 v1.67.1
-	lite-nas/shared v0.4.0
+	lite-nas/shared v0.4.1
 )
 
 require (

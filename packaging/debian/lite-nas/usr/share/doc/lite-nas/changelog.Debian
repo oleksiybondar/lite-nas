@@ -1,4 +1,4 @@
-lite-nas (0.4.0) unstable; urgency=medium
+lite-nas (0.4.1) unstable; urgency=medium
 
   * Add Moments gallery metadata, scanning, and browser media workflows.
   * Add security monitoring, integrity, watchdog, and readable alert IDs.

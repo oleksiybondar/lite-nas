@@ -30,6 +30,15 @@ profile /usr/libexec/lite-nas/file-service flags=(attach_disconnected,mediate_de
   /sys/ r,
   /home/ r,
   /home/** r,
+  # Removable and operator-mounted storage is available for listing and reads.
+  /mnt/ r,
+  /mnt/** r,
+  /media/ r,
+  /media/** r,
+  # AppArmor cannot match a filesystem type. Permit reads under root-level
+  # mount trees; File Service checks configured roots and mounted ZFS roots.
+  /*/ r,
+  /*/** r,
   # These fixed commands may resolve to the installed alternative targets.
   /usr/bin/sudo ix,
   /usr/lib/cargo/bin/sudo ix,
@@ -65,7 +74,40 @@ profile /usr/libexec/lite-nas/file-service flags=(attach_disconnected,mediate_de
     /usr/lib/cargo/bin/coreutils/rmdir mr,
     /home/ r,
     /home/** rw,
-    # Deployment may grant configured storage roots in this local profile.
+    /mnt/ rw,
+    /mnt/** rwk,
+    /media/ rw,
+    /media/** rwk,
+    # AppArmor cannot match a filesystem type. Permit file operations under
+    # root-level mount trees; File Service restricts targets to write_roots.
+    /*/ rw,
+    /*/** rwk,
+    deny /boot/ w,
+    deny /boot/** w,
+    deny /bin/ w,
+    deny /bin/** w,
+    deny /dev/ w,
+    deny /dev/** w,
+    deny /etc/ w,
+    deny /etc/** w,
+    deny /lib/ w,
+    deny /lib/** w,
+    deny /lib64/ w,
+    deny /lib64/** w,
+    deny /proc/ w,
+    deny /proc/** w,
+    deny /root/ w,
+    deny /root/** w,
+    deny /run/ w,
+    deny /run/** w,
+    deny /sbin/ w,
+    deny /sbin/** w,
+    deny /sys/ w,
+    deny /sys/** w,
+    deny /usr/ w,
+    deny /usr/** w,
+    deny /var/lib/ w,
+    deny /var/lib/** w,
     include if exists <local/usr.libexec.lite-nas.file-operations>
   }
 

@@ -5,7 +5,7 @@ settings, and installed applications. File Service and File Explorer provide
 authenticated browser file workflows, backed by the user-scoped file writer.
 The release entries below remain historical snapshots of when the platform
 slices landed. Current release changes are recorded in
-[RELEASE_NOTES.md](../RELEASE_NOTES.md). The current baseline is 0.4.0.
+[RELEASE_NOTES.md](../RELEASE_NOTES.md). The current baseline is 0.4.1.
 
 ## 0.2.1 - 2026-05-31
 
