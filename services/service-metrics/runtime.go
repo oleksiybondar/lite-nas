@@ -10,6 +10,7 @@ import (
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 const (
@@ -51,7 +52,11 @@ func run(ctx context.Context) error {
 	startWorkers(ctx, workerModule)
 
 	infra.Logger.Info("service metrics service started", "config", packagedConfigPath)
-	return serveSnapshots(ctx, channels.ServiceSnapshots, channels.PollErrors, store, infra.Client, infra.Logger)
+	publisherDone := make(chan error, 1)
+	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
+		publisherDone <- serveSnapshots(workerCtx, channels.ServiceSnapshots, channels.PollErrors, store, infra.Client, infra.Logger)
+	}).Start(ctx)
+	return <-publisherDone
 }
 
 // registerRPCHandlers registers snapshot read RPC handlers on the messaging server.

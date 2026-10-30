@@ -136,19 +136,57 @@ func runWithDependencies(
 	}
 
 	infra.AuthRefreshTimer.Start(ctx)
+	sharedworkers.NewBaseWorker(func(workerCtx context.Context) { runAuthRefreshLoop(workerCtx, infra) }).Start(ctx)
+	// The poller alone produces and closes checks; the reporter drains results
+	// before the runtime closes its messaging client.
+	checks := make(chan checkResult, defaultTimerBufSize)
+	reporterDone := make(chan struct{})
+	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
+		pollIntegrityChecks(workerCtx, checkTicks, checks, service, infra.Logger)
+	}).Start(ctx)
+	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
+		defer close(reporterDone)
+		reportIntegrityChecks(workerCtx, checks, service)
+	}).Start(ctx)
 	checkTimer.Start(ctx)
-	go runAuthRefreshLoop(ctx, infra)
 
 	infra.Logger.Info("litenas integrity service started", "config", configPath)
 
+	<-ctx.Done()
+	<-reporterDone
+	infra.Logger.Info("litenas integrity service stopping")
+	return ctx.Err()
+}
+
+// pollIntegrityChecks owns the result channel and closes it after the last
+// scheduled command finishes or cancellation stops the producer.
+func pollIntegrityChecks(ctx context.Context, ticks <-chan struct{}, output chan<- checkResult,
+	service *integrityService, log sharedlogger.Logger,
+) {
+	defer close(output)
 	for {
 		select {
 		case <-ctx.Done():
-			infra.Logger.Info("litenas integrity service stopping")
-			return ctx.Err()
-		case <-checkTicks:
-			service.handleScheduledCheck(ctx)
+			return
+		case _, ok := <-ticks:
+			if !ok {
+				return
+			}
+			result := service.runIntegrityCheck(ctx)
+			select {
+			case output <- result:
+			case <-ctx.Done():
+				log.Warn("integrity check result pending at shutdown")
+				return
+			}
 		}
+	}
+}
+
+// reportIntegrityChecks drains checked outcomes and applies their alert effects.
+func reportIntegrityChecks(ctx context.Context, checks <-chan checkResult, service *integrityService) {
+	for result := range checks {
+		service.applyCheckResult(ctx, result)
 	}
 }
 
@@ -203,8 +241,11 @@ func handleAuthRefreshTick(ctx context.Context, infra servicemodules.Infra) {
 // handleScheduledCheck runs one AIDE check and applies alert lifecycle
 // behavior based on the interpreted result.
 func (service *integrityService) handleScheduledCheck(ctx context.Context) {
-	result := service.runIntegrityCheck(ctx)
+	service.applyCheckResult(ctx, service.runIntegrityCheck(ctx))
+}
 
+// applyCheckResult delivers one checked outcome after the polling worker sends it.
+func (service *integrityService) applyCheckResult(ctx context.Context, result checkResult) {
 	switch result.Status {
 	case checkStatusNormal:
 		if err := service.normalizeActiveIncident(ctx, aideNormalMessage); err != nil {

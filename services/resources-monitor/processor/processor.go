@@ -22,9 +22,37 @@ import (
 type Processor struct {
 	rules   []servicerules.Rule
 	manager *eventmanager.Manager
-	client  messaging.Client
+	sender  AlertSender
 	logger  sharedlogger.Logger
 	clock   func() time.Time
+}
+
+// AlertSender delivers one alert effect and reports its result before local
+// lifecycle state advances.
+type AlertSender interface {
+	Create(context.Context, loggingmanagercontract.AlertPayload) error
+	Occurrence(context.Context, loggingmanagercontract.AlertOccurrencePayload) error
+	Normalize(context.Context, loggingmanagercontract.UpdateAlertStateInput) (bool, error)
+}
+
+// messagingAlertSender preserves direct delivery for callers using New.
+type messagingAlertSender struct{ client messaging.Client }
+
+// Create publishes one alert through the injected messaging client.
+func (s messagingAlertSender) Create(ctx context.Context, payload loggingmanagercontract.AlertPayload) error {
+	return s.client.Publish(ctx, systemloggingmanagercontract.AlertSubject, payload)
+}
+
+// Occurrence publishes one occurrence through the injected messaging client.
+func (s messagingAlertSender) Occurrence(ctx context.Context, payload loggingmanagercontract.AlertOccurrencePayload) error {
+	return s.client.Publish(ctx, systemloggingmanagercontract.AlertOccurrenceSubject, payload)
+}
+
+// Normalize requests one state update through the injected messaging client.
+func (s messagingAlertSender) Normalize(ctx context.Context, request loggingmanagercontract.UpdateAlertStateInput) (bool, error) {
+	var response loggingmanagercontract.OKResponse
+	err := s.client.Request(ctx, systemloggingmanagercontract.UpdateAlertStateRPCSubject, request, &response)
+	return response.OK, err
 }
 
 // lifecycleState is derived from the event manager after each successful
@@ -93,10 +121,20 @@ func New(
 	client messaging.Client,
 	log sharedlogger.Logger,
 ) *Processor {
+	return NewWithSender(rules, manager, messagingAlertSender{client: client}, log)
+}
+
+// NewWithSender injects the alert delivery boundary used by the runtime worker.
+func NewWithSender(
+	rules []servicerules.Rule,
+	manager *eventmanager.Manager,
+	sender AlertSender,
+	log sharedlogger.Logger,
+) *Processor {
 	return &Processor{
 		rules:   rules,
 		manager: manager,
-		client:  client,
+		sender:  sender,
 		logger:  log,
 		clock:   time.Now,
 	}
@@ -108,16 +146,19 @@ func (p *Processor) HandleEnvelope(ctx context.Context, envelope messaging.Envel
 	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
 		return err
 	}
+	p.ProcessSnapshot(ctx, envelope.Subject, payload)
+	return nil
+}
 
+// ProcessSnapshot evaluates one validated metrics event from the local input worker.
+func (p *Processor) ProcessSnapshot(ctx context.Context, subject string, payload map[string]any) {
 	for _, rule := range p.rules {
-		if rule.Event != envelope.Subject {
+		if rule.Event != subject {
 			continue
 		}
 
 		p.processRule(ctx, rule, payload)
 	}
-
-	return nil
 }
 
 // processRule executes lifecycle transitions for one rule and one payload.
@@ -241,7 +282,7 @@ func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rul
 	eventID := p.nextEventID(rule.EventPrefix)
 	createInput := p.buildAlertCreateInput(rule, eventID, extractedValue)
 
-	if err := p.client.Publish(ctx, systemloggingmanagercontract.AlertSubject, createInput); err != nil {
+	if err := p.sender.Create(ctx, createInput); err != nil {
 		p.logger.Warn("failed to publish alert create", "subject", systemloggingmanagercontract.AlertSubject, "error", err)
 		return
 	}
@@ -319,7 +360,7 @@ func (p *Processor) handleActiveToActive(ctx context.Context, activeEvent Active
 
 	assignOccurrenceValue(&occurrence, extractedValue)
 
-	if err := p.client.Publish(ctx, systemloggingmanagercontract.AlertOccurrenceSubject, occurrence); err != nil {
+	if err := p.sender.Occurrence(ctx, occurrence); err != nil {
 		p.logger.Warn("failed to publish alert occurrence", "subject", systemloggingmanagercontract.AlertOccurrenceSubject, "event_id", activeEvent.EventID, "error", err)
 		return
 	}
@@ -358,13 +399,13 @@ func (p *Processor) handleActiveToNormal(ctx context.Context, activeEvent Active
 		Message: message,
 	}
 
-	var response loggingmanagercontract.OKResponse
-	if err := p.client.Request(ctx, systemloggingmanagercontract.UpdateAlertStateRPCSubject, request, &response); err != nil {
+	ok, err := p.sender.Normalize(ctx, request)
+	if err != nil {
 		p.logger.Warn("failed to normalize alert state", "subject", systemloggingmanagercontract.UpdateAlertStateRPCSubject, "event_id", activeEvent.EventID, "error", err)
 		return
 	}
 
-	if !response.OK {
+	if !ok {
 		p.logger.Warn("logging manager rejected normalize request", "event_id", activeEvent.EventID)
 		return
 	}

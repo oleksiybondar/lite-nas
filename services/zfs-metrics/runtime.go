@@ -10,6 +10,7 @@ import (
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 const (
@@ -19,7 +20,13 @@ const (
 
 // run boots infra, starts workers, and serves snapshot publication/RPC.
 func run(ctx context.Context) error {
-	infra, err := modules.NewInfraModule(packagedConfigPath, serviceName)
+	return runWithDependencies(ctx, modules.NewInfraModule)
+}
+
+// runWithDependencies assembles the same runtime with an injected infra
+// constructor so worker lifecycle can be verified without host services.
+func runWithDependencies(ctx context.Context, infraFactory func(string, string) (modules.Infra, error)) error {
+	infra, err := infraFactory(packagedConfigPath, serviceName)
 	if err != nil {
 		return err
 	}
@@ -37,7 +44,11 @@ func run(ctx context.Context) error {
 	startWorkers(ctx, workerModule)
 
 	infra.Logger.Info("zfs metrics service started", "config", packagedConfigPath)
-	return serveSnapshots(ctx, channels.ZFSSnapshots, channels.PollErrors, store, infra.Client, infra.Logger)
+	publisherDone := make(chan error, 1)
+	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
+		publisherDone <- serveSnapshots(workerCtx, channels.ZFSSnapshots, channels.PollErrors, store, infra.Client, infra.Logger)
+	}).Start(ctx)
+	return <-publisherDone
 }
 
 // registerRPCHandlers registers snapshot read RPC handlers on messaging server.

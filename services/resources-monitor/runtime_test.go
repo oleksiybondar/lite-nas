@@ -9,7 +9,6 @@ import (
 
 	serviceconfig "lite-nas/services/resources-monitor/config"
 	servicemodules "lite-nas/services/resources-monitor/modules"
-	"lite-nas/services/resources-monitor/processor"
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedconfig "lite-nas/shared/config"
 	authcontract "lite-nas/shared/contracts/auth"
@@ -39,7 +38,7 @@ func TestRegisterSubscriptionsReturnsServerError(t *testing.T) {
 	wantErr := errors.New("subscribe failed")
 	server := &stubServer{subscribeErr: wantErr}
 
-	err := registerSubscriptions(server, &processor.Processor{})
+	err := registerSubscriptions(server, make(chan snapshotInput, 1), t.Context())
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("registerSubscriptions() error = %v, want %v", err, wantErr)
 	}
@@ -50,7 +49,7 @@ func TestRegisterSubscriptionsSubscribesToNetworkSystemDiskAndZFSSnapshots(t *te
 
 	server := &stubServer{}
 
-	if err := registerSubscriptions(server, &processor.Processor{}); err != nil {
+	if err := registerSubscriptions(server, make(chan snapshotInput, 1), t.Context()); err != nil {
 		t.Fatalf("registerSubscriptions() error = %v", err)
 	}
 
@@ -224,10 +223,15 @@ func TestHandleAuthRefreshTickFallsBackToLoginOnRefreshError(t *testing.T) {
 type stubServer struct {
 	subscribeErr       error
 	subscribedSubjects []string
+	handlers           map[string]messaging.MessageHandler
 }
 
-func (server *stubServer) Subscribe(subject string, _ messaging.MessageHandler) error {
+func (server *stubServer) Subscribe(subject string, handler messaging.MessageHandler) error {
 	server.subscribedSubjects = append(server.subscribedSubjects, subject)
+	if server.handlers == nil {
+		server.handlers = make(map[string]messaging.MessageHandler)
+	}
+	server.handlers[subject] = handler
 	return server.subscribeErr
 }
 
