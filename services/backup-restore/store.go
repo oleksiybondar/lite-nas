@@ -43,6 +43,11 @@ func (store Store) BackedUpApplications() ([]string, error) {
 
 // Backup writes a complete archive to a temporary file before publishing its version.
 func (store Store) Backup(spec Spec) (string, error) {
+	return store.BackupWithMetadata(spec, "", "", "")
+}
+
+// BackupWithMetadata creates a snapshot attributed to a verified caller.
+func (store Store) BackupWithMetadata(spec Spec, name, description, createdBy string) (string, error) {
 	if !validApplication(spec.Application) {
 		return "", fmt.Errorf("invalid application ID")
 	}
@@ -53,37 +58,44 @@ func (store Store) Backup(spec Spec) (string, error) {
 	if err := os.Chmod(directory, 0o700); err != nil {
 		return "", err
 	}
-	temporary, err := os.CreateTemp(directory, ".snapshot-*")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(temporary.Name())
-	defer temporary.Close()
-	if err := temporary.Chmod(0o600); err != nil {
-		return "", err
-	}
-	if err := WriteArchive(temporary, spec); err != nil {
-		return "", err
-	}
-	if err := temporary.Sync(); err != nil {
-		return "", err
-	}
-	if err := temporary.Close(); err != nil {
-		return "", err
-	}
-	version := time.Now().UTC().Format("20060102T150405.000000000Z")
+	created := time.Now().UTC()
+	version := created.Format("20060102T150405.000000000Z")
 	for suffix := 0; suffix < 100; suffix++ {
 		candidate := version
 		if suffix != 0 {
 			candidate = fmt.Sprintf("%s-%d", version, suffix)
 		}
 		destination := filepath.Join(directory, candidate+".tar.gz")
+		if _, err := os.Stat(destination); err == nil {
+			continue
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+		temporary, err := os.CreateTemp(directory, ".snapshot-*")
+		if err != nil {
+			return "", err
+		}
+		metadata := Metadata{Application: spec.Application, Version: candidate, Name: name, Description: description, CreatedAt: created.Format(time.RFC3339Nano), CreatedBy: createdBy}
+		writeErr := writeArchive(temporary, spec, &metadata)
+		if writeErr == nil {
+			writeErr = temporary.Sync()
+		}
+		closeErr := temporary.Close()
+		if writeErr == nil {
+			writeErr = closeErr
+		}
+		if writeErr != nil {
+			_ = os.Remove(temporary.Name())
+			return "", writeErr
+		}
 		if err := os.Link(temporary.Name(), destination); err != nil {
+			_ = os.Remove(temporary.Name())
 			if os.IsExist(err) {
 				continue
 			}
 			return "", err
 		}
+		_ = os.Remove(temporary.Name())
 		return candidate, nil
 	}
 	return "", fmt.Errorf("could not allocate backup version")

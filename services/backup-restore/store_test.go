@@ -1,10 +1,52 @@
 package backuprestore
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+// Requirements: backup-restore/FR-001.
+func TestBackupMetadataUsesAllocatedVersionAndCaller(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(source, []byte("enabled=yes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	version, err := store.BackupWithMetadata(Spec{Application: "example", Selections: []Selection{{Path: source}}}, "named", "description", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive, err := store.OpenVersion("example", version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	compressed, err := gzip.NewReader(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer compressed.Close()
+	reader := tar.NewReader(compressed)
+	header, err := reader.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if header.Name != "metadata.json" {
+		t.Fatalf("first member = %q", header.Name)
+	}
+	var metadata Metadata
+	if err := json.NewDecoder(reader).Decode(&metadata); err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Application != "example" || metadata.Version != version || metadata.Name != "named" || metadata.Description != "description" || metadata.CreatedBy != "admin" || metadata.CreatedAt == "" {
+		t.Fatalf("metadata = %+v", metadata)
+	}
+}
 
 // Requirements: backup-restore/FR-001, backup-restore/FR-002.
 func TestStoreBackupCreatesListedVersion(t *testing.T) {

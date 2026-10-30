@@ -3,6 +3,7 @@ package backuprestore
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -12,13 +13,40 @@ import (
 	"syscall"
 )
 
+// Metadata identifies the snapshot and the authenticated caller that created it.
+type Metadata struct {
+	Application string `json:"application"`
+	Version     string `json:"version"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	CreatedAt   string `json:"created_at"`
+	CreatedBy   string `json:"created_by"`
+}
+
 // WriteArchive captures selected files, full directory trees, and file symlink targets.
 // Entries use absolute host paths without the leading slash.
 func WriteArchive(writer io.Writer, spec Spec) error {
+	return writeArchive(writer, spec, nil)
+}
+
+// writeArchive includes metadata when creating a stored version.
+func writeArchive(writer io.Writer, spec Spec, metadata *Metadata) error {
 	gzipWriter := gzip.NewWriter(writer)
 	tarWriter := tar.NewWriter(gzipWriter)
 	seen := make(map[string]bool)
 	var totalSize int64
+	if metadata != nil {
+		content, err := json.Marshal(metadata)
+		if err != nil {
+			return err
+		}
+		if err := tarWriter.WriteHeader(&tar.Header{Name: "metadata.json", Mode: 0o600, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
+			return err
+		}
+		if _, err := tarWriter.Write(content); err != nil {
+			return err
+		}
+	}
 	for _, selection := range spec.Selections {
 		if err := archivePath(tarWriter, selection.Path, selection.Directory, seen, &totalSize); err != nil {
 			_ = tarWriter.Close()
@@ -42,6 +70,9 @@ func WriteArchive(writer io.Writer, spec Spec) error {
 
 // archivePath captures a configured path without following directory symlinks.
 func archivePath(writer *tar.Writer, path string, recursive bool, seen map[string]bool, totalSize *int64) error {
+	if path == "/metadata.json" {
+		return fmt.Errorf("reserved archive path: %s", path)
+	}
 	if seen[path] {
 		return nil
 	}

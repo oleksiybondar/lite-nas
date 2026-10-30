@@ -3,6 +3,7 @@ package backuprestore
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -115,6 +116,19 @@ func stageArchive(source io.Reader, stage string) ([]stagedEntry, error) {
 			return nil, fmt.Errorf("archive size limit exceeded")
 		}
 		totalSize += header.Size
+		if header.Name == "metadata.json" {
+			if header.Typeflag != tar.TypeReg || header.Size > 4096 {
+				return nil, fmt.Errorf("invalid archive metadata")
+			}
+			var metadata Metadata
+			if err := json.NewDecoder(tarReader).Decode(&metadata); err != nil {
+				return nil, err
+			}
+			if metadata.Application == "" || metadata.Version == "" || metadata.CreatedAt == "" {
+				return nil, fmt.Errorf("incomplete archive metadata")
+			}
+			continue
+		}
 		staged := stagedEntry{header: header, path: path}
 		if header.Typeflag == tar.TypeReg {
 			file, err := os.CreateTemp(stage, "file-*")

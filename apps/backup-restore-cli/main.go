@@ -36,7 +36,7 @@ func run(ctx context.Context, arguments []string) error {
 		return fmt.Errorf("root or host administrator required")
 	}
 	if len(arguments) == 0 {
-		return fmt.Errorf("usage: backup-restore-cli applications|backed-up|versions APP|backup APP|backup all|diff APP VERSION|restore APP VERSION [replace|merge]")
+		return fmt.Errorf("usage: backup-restore-cli applications|backed-up|versions APP|backup APP|backup all|diff APP VERSION|restore APP VERSION [replace|merge]; backup accepts --name TEXT and --description TEXT")
 	}
 	reader, err := fileio.NewFileReader(configPath)
 	if err != nil {
@@ -79,12 +79,19 @@ func run(ctx context.Context, arguments []string) error {
 			fmt.Fprintln(os.Stdout, application)
 		}
 	case "versions", "backup":
-		if len(arguments) != 2 || !validApplication(arguments[1]) {
+		if len(arguments) < 2 || !validApplication(arguments[1]) || arguments[0] == "versions" && len(arguments) != 2 {
 			return fmt.Errorf("expected one valid application ID")
+		}
+		name, description := "", ""
+		if arguments[0] == "backup" {
+			name, description, err = backupLabels(arguments[2:])
+			if err != nil {
+				return err
+			}
 		}
 		if arguments[0] == "backup" && arguments[1] == "all" {
 			var response contract.BackupAllResponse
-			if err := infra.Client.Request(ctx, contract.BackupAllSubject, contract.ApplicationsRequest{AccessToken: token}, &response); err != nil {
+			if err := infra.Client.Request(ctx, contract.BackupAllSubject, contract.BackupAllRequest{AccessToken: token, Name: name, Description: description}, &response); err != nil {
 				return err
 			}
 			failed := false
@@ -108,7 +115,7 @@ func run(ctx context.Context, arguments []string) error {
 			}
 		} else {
 			var response contract.BackupResponse
-			if err := infra.Client.Request(ctx, contract.BackupSubject, request, &response); err != nil {
+			if err := infra.Client.Request(ctx, contract.BackupSubject, contract.BackupRequest{AccessToken: token, Application: request.Application, Name: name, Description: description}, &response); err != nil {
 				return err
 			}
 			fmt.Fprintln(os.Stdout, response.Version)
@@ -149,6 +156,38 @@ func run(ctx context.Context, arguments []string) error {
 		return fmt.Errorf("unknown command %q", arguments[0])
 	}
 	return nil
+}
+
+// backupLabels validates optional human labels before sending a backup request.
+func backupLabels(arguments []string) (string, string, error) {
+	name, description := "", ""
+	seen := map[string]bool{}
+	for len(arguments) > 0 {
+		if len(arguments) < 2 || seen[arguments[0]] {
+			return "", "", fmt.Errorf("invalid backup label arguments")
+		}
+		flag, value := arguments[0], arguments[1]
+		if value == "" || value[0] == '-' {
+			return "", "", fmt.Errorf("invalid backup label value")
+		}
+		switch flag {
+		case "--name":
+			if len(value) > 128 {
+				return "", "", fmt.Errorf("backup name too long")
+			}
+			name = value
+		case "--description":
+			if len(value) > 1024 {
+				return "", "", fmt.Errorf("backup description too long")
+			}
+			description = value
+		default:
+			return "", "", fmt.Errorf("unknown backup option %q", flag)
+		}
+		seen[flag] = true
+		arguments = arguments[2:]
+	}
+	return name, description, nil
 }
 
 // localAdministrator accepts root or membership in an existing host admin group.

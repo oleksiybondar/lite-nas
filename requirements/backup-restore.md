@@ -1,9 +1,10 @@
-# Backup and Restore — Feature Definition (Draft)
+# Backup and Restore — Handoff and Feature Definition
 
-This draft records the agreed feature direction and repository constraints. It is
-not a complete implementation contract yet: the decisions in **Open design
-questions** must be resolved before the affected service, NATS, CLI, or HTTP
-interfaces are implemented.
+This document records the implemented first slice and the remaining feature
+direction. The service, NATS, and CLI contracts for first-slice backup, diff,
+and restore are implemented. Browser integration, archive transfer, and
+application-specific runtime operations remain future work. Open questions
+below apply to those later slices unless stated otherwise.
 Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
 
 ## First slice: confirmed direction
@@ -42,6 +43,19 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   snapshot, so listing, diff, and restore can identify the same file. Include
   the application's drop-in spec in the snapshot so a restore can roll back
   the spec and the files it describes together.
+- Include a root-level `metadata.json` manifest in each archive. The manifest
+  is JSON, matching Go's standard library support, and contains `application`,
+  `version`, optional user-provided `name` and `description`, service-generated
+  UTC `created_at` timestamp, and `created_by` from the verified caller's
+  authenticated login claim. Do not accept `created_by` from the request.
+  Reserve `metadata.json` as an archive member so a selected host path cannot
+  collide with it. The CLI may omit name and description. For `backup all`,
+  each application's archive receives the same supplied name and description,
+  but its own application ID, version, and creation timestamp.
+  Human attribution depends on the token login representing the human caller;
+  if the shared CLI identity is used, the metadata identifies that service
+  identity instead. The caller identity contract must be addressed before
+  claiming per-user attribution.
 - Store each version as a `tar.gz` archive with entries reflecting the host
   path tree: `/etc/path/to/file.conf` appears as `etc/path/to/file.conf` inside
   the archive. This permits manual inspection and extraction on another host.
@@ -78,30 +92,73 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   inventory of applications with stored backups, and versions for a selected
   application. Keep supported targets distinct from targets with history;
   removing a drop-in does not erase stored versions.
-- Support comparison of a selected stored version against current settings.
-  The exact diff representation and handling of non-text or sensitive content
-  are still open.
+- The implemented diff compares a selected stored version with current settings
+  and returns changed paths and statuses without file contents. A later diff
+  operation should also compare two stored versions using the same path/status
+  result shape.
 - A replace restore makes a whole-directory target match its stored snapshot:
   live entries beneath that target which are absent from the snapshot are
   removed. For selected-file targets, replace changes only the listed paths;
   unlisted neighbors remain. A merge restore keeps extra live entries in both
   cases.
-- For a file present in both the snapshot and the live application, an
-  automatic content merge should preserve current-only keys when a supported
-  key-aware format permits that safely. A key present on both sides with
-  different values is a conflict and must be surfaced for user resolution
-  rather than silently overwritten. The CLI should let an authorized user
-  resolve conflicts with a merge tool and submit the result through the
-  service. INI is the first format selected for key-aware merging. Key names
-  are matched case-sensitively within their sections. The merge retains live
-  comments and order, appends snapshot-only keys, and sends duplicate keys or
-  malformed INI to manual resolution. The exact CLI tool workflow remains
-  to be defined.
+- Text or key-aware content merging is not included in the first slice. The
+  implemented `merge` mode preserves additional live directory entries while
+  restoring archived paths. INI content merging and conflict resolution can be
+  specified as a later feature.
 
-The first slice excludes browser and admin-panel integration until its service
-contract is settled. The agreed inventory and diff operations should remain
-available to a later Web Gateway adapter without making the CLI own backup
-logic.
+## Proposed shared merge-session contract
+
+Text merge is a later slice, but its service contract is intended to serve
+both the CLI and the Web Gateway/admin panel. The service remains the sole
+owner of privileged reads and writes. The CLI and browser are clients of the
+same merge session operations; the Web Gateway adapts authenticated HTTP
+requests to NATS and does not read host files or perform the merge itself.
+
+- The service allows one active merge session globally. A second start request
+  is rejected while a session is active. The session is held in service memory
+  and contains the selected merge inputs and staged merged file contents.
+- Starting a session selects an application and backup version inputs. The
+  service reads the required archived and current files, returns a session ID
+  and per-file comparison/status information, and makes the input contents
+  available to the client for a local merge tool or browser merge editor.
+- The client may submit resolved file contents to the session. The service
+  validates each path against the selected application spec and stages those
+  bytes in memory. The client cannot supply arbitrary destination paths.
+- A session has one explicit terminal action: `apply` writes staged content to
+  the live selected paths; `save` creates a new application snapshot from the
+  selected snapshot with staged content substituted at resolved paths, without
+  applying it live; `discard` drops staged content without applying or saving.
+  An explicit discard is not required for cleanup after expiry or shutdown.
+- Applying checks that the live files have not changed since session start.
+  Changed inputs invalidate the session for apply and require a fresh session.
+- Session contents are lost on process restart. The service expires abandoned
+  sessions and cleans their staged data. Session lifetime, memory and file-size
+  limits, and partial-failure behavior for apply must be bounded and specified.
+- File contents are transferred as bounded chunks, not as a base64 copy of the
+  whole archive. NATS is the service boundary for both clients; the CLI consumes
+  the transfer directly, while the Web Gateway exposes an authenticated HTTP
+  transfer to the frontend and bridges it to NATS. The archive itself remains
+  in the service-owned store. This merge transfer is distinct from archive
+  import/export, which is not part of the contract.
+- The saved snapshot includes the merged application files and the applicable
+  spec. It receives normal snapshot metadata: a new service-generated version
+  and timestamp, user-provided name/description if supplied, and creator from
+  the verified authenticated login claim. Creator identity must reflect the
+  human caller if per-user attribution is required.
+
+The exact NATS operation names, chunk framing, checksums, session authorization,
+and HTTP request/response shapes remain to be specified before implementation.
+The contract also needs to decide which stored version is the common base for
+three-way merge; the other inputs are the current live file and the selected
+snapshot to merge in. A transport can carry those three inputs, but cannot
+choose the merge base semantics.
+
+The first slice excludes browser and admin-panel integration. Its implemented
+NATS contract is available for a later Web Gateway adapter without making the
+CLI own backup logic. Archive bytes stay in the service-owned store; there is
+currently no API to import or export an archive as a byte stream or base64
+payload. A future UI transfer contract must define transport, size limits,
+authorization, and temporary storage.
 
 The backup and restore service is the single owner of source-file reads,
 metadata collection, stored-version reads and writes, comparisons with live
@@ -111,7 +168,7 @@ privileged source files, compare them independently, or write restored files.
 Web Gateway is a later adapter to the same service operations and does not
 duplicate file or backup logic.
 
-## First slice: proposed service and CLI skeleton
+## Implemented first-slice service and CLI
 
 The service startup loads and validates its application spec drop-ins, resolves
 each plugin name against a fixed compiled registry, constructs one configured
@@ -155,33 +212,27 @@ files. The service must validate that stored spec against the compiled plugin
 registry and current restore path policy before using it; an archived spec is
 not an authorization bypass.
 
-Proposed command families are `applications` (supported and backed-up
-inventory), `versions <application>`, `backup <application>`,
-`diff <application> <version>`, and `restore <application> <version>`.
-These are review candidates, not established command names, NATS subjects, or
-DTO contracts. Concrete interfaces depend on the remaining first-slice
-decisions below.
+The CLI provides `applications`, `backed-up`, `versions <application>`,
+`backup <application>`, `backup all`, `diff <application> <version>`, and
+`restore <application> <version> <replace|merge>`. NATS subjects and DTOs are
+defined in `shared/go/contracts/backuprestore`. Requests select configured
+applications and versions; they do not accept arbitrary host paths.
 
-The proposed restore request has a replace or merge mode. In replace mode,
+The restore request has a replace or merge mode. In replace mode,
 deletion is confined to directory trees explicitly marked as fully covered in
 the stored spec; for selected-file coverage, unrelated files remain in place.
-Merge mode preserves live entries absent from the snapshot. Where a file exists
-on both sides, the service can perform automatic merging only for formats with an
-explicitly defined parser and conflict policy. For unresolved files, the CLI
-can invoke a local merge tool with the material the service makes available,
-then send the resolved content back through the service boundary. The service
-still validates authorization, selected version, target path, and the
-submitted content before applying it. The merge tool is not a privileged
-restore executor.
+Merge mode preserves live entries absent from the snapshot while restoring
+archived content at selected paths. Text content merging and submitting
+resolved content are not implemented in this slice.
 
-Confirmed first INI merge rules: identify a key by its
+Future INI merge rules, if that feature is selected: identify a key by its
 section and key names with case-sensitive matching; retain the live file's
 comments and order; add keys or sections that exist only in the snapshot; keep
 keys or sections that exist only in the live file; keep an identical value
 without conflict; and report different values for the same key as a conflict.
 Duplicate keys, malformed INI, or constructs whose meaning cannot be preserved
-without rewriting the file require manual resolution. The resolved
-content becomes a new stored version as required by FR-006.
+without rewriting the file require manual resolution. Resolved content should
+become a new stored version.
 
 Existing CLIs authenticate with a service identity whose token carries roles.
 For this CLI, deployment must also restrict execution and access to its
@@ -190,18 +241,17 @@ NATS role checks alone would authorize the CLI identity rather than identify
 the human who launched it. The service stays running and handles requests only
 when they arrive; it does not schedule backups in the first slice.
 
-## Goal and scope
+## Later feature direction
 
-Provide versioned, per-application backups and controlled restoration of LiteNAS
-application configuration and state. A user can also merge a backed-up text file
-with its current version, apply the merged result, and keep that result as a new
-backup version. The initial target inventory below is a starting scope; exact
-files, commands, and restore effects remain to be specified per target.
+Extend versioned, per-application backups and controlled restoration of LiteNAS
+configuration and state. Future work may add application CLI plugins, live
+state handling, text merge, archive transfer, and browser integration. The
+initial target inventory below guides packaged file specs; it does not mean all
+runtime state is handled by this slice.
 
-The feature has a Go backup and restore service, a CLI, browser-facing Web
-Gateway integration, and a graphical workflow in the admin panel. The service
-communicates with other services over NATS. Neither the CLI nor the gateway
-should perform privileged restore work themselves.
+The implemented feature has a Go backup and restore service and a CLI. A future
+Web Gateway adapter and admin-panel workflow should call the same service over
+NATS; neither adapter should perform privileged file operations itself.
 
 ## Confirmed functional requirements
 
@@ -231,13 +281,15 @@ should perform privileged restore work themselves.
   live entries absent from it. Individual file selections MUST leave unlisted
   neighboring files intact. Deletion MUST remain within explicitly selected
   directory roots.
-- **backup-restore/FR-005 — Text merge:** A user MUST be able to compare and
-  merge a backed-up text file with the current version through a graphical
-  workflow, then submit the merged text for application through the backup and
-  restore service.
-- **backup-restore/FR-006 — Version merged content:** A completed merge MUST
-  create a new backup version from the merged content held by the service,
-  rather than treating the live `/etc` file as the source of that version.
+- **backup-restore/FR-005 — Future text merge:** A later slice MAY allow a user
+  to compare and merge backed-up text with current files through a service-owned
+  merge session shared by the CLI and Web Gateway/admin panel. The service
+  stages resolved contents and owns apply, save-as-new-snapshot, and discard
+  actions. This is not part of the implemented first slice.
+- **backup-restore/FR-006 — Future merged-content versioning:** The merge
+  session's `save` action MUST create a new backup version using the staged
+  merged content, rather than reading the live file as the source for those
+  merged paths. `apply` and `save` are separate terminal actions.
 - **backup-restore/FR-007 — Initial target inventory:** The design MUST account
   for LiteNAS configuration, firewall, USBGuard, AIDE, AppArmor, systemd,
   Postfix mail configuration, logrotate, rsyslog, IP routes, host network
@@ -253,17 +305,16 @@ should perform privileged restore work themselves.
   to list configured applications supported for backup and separately list
   applications for which at least one stored backup version exists.
 - **backup-restore/FR-010 — Version comparison:** A caller MUST be able to
-  request the differences between a selected stored version and the current
-  settings for that application. The output format and eligible file types
-  must be fixed before this operation is implemented.
-- **backup-restore/FR-011 — Merge restore:** A user MUST be able to request a
-  merge restore that preserves live entries absent from selected snapshot
-  paths, including wholly covered directories. INI MUST be the first supported
-  key-aware text format; its automatic merge MUST retain keys found only in the
-  current file. A key present in both files with different values MUST be
-  reported as a conflict
-  for user resolution; the CLI MUST support resolving conflicting files with
-  a merge tool and submitting the resolved result to the service.
+  request differences between a selected stored version and current settings;
+  the first slice returns changed paths and statuses without file contents.
+  A later extension SHOULD compare two stored versions with the same result
+  shape.
+- **backup-restore/FR-011 — Directory merge restore:** A user MUST be able to
+  request a merge restore that preserves live entries absent from selected
+  snapshot paths, including wholly covered directories. In the first slice,
+  this means preserving extra filesystem entries while restoring archived
+  entries; it does not merge file contents. Key-aware INI merge and conflict
+  resolution are future work and need a separate requirement/API contract.
 
 ## Initial target inventory
 
@@ -297,16 +348,17 @@ should perform privileged restore work themselves.
   MUST NOT load code or construct plugin instances.
 - **backup-restore/IR-002 — NATS service boundary:** The backup and restore
   service MUST use the repository's shared messaging layer for communication
-  with other services. NATS subjects, request and response DTOs, and ownership
-  remain to be designed from actual consumers and existing contracts.
-- **backup-restore/IR-003 — CLI:** A CLI application MUST expose the supported
-  backup, version selection, restore, and merge-related workflows through the
-  service boundary. Interactive merge editing in the CLI has not been agreed.
+  with other services. First-slice subjects and DTOs are defined in
+  `shared/go/contracts/backuprestore`; merge-session subjects, chunk framing,
+  and DTOs remain to be designed from actual consumers and existing contracts.
+- **backup-restore/IR-003 — CLI:** The CLI MUST expose backup, version
+  selection, restore, and future merge-session operations through the service
+  boundary. Merge inputs and resolved contents travel through the service; the
+  CLI does not read privileged files or apply restored content itself.
 - **backup-restore/IR-004 — Browser integration:** Web Gateway MUST adapt
   authenticated browser requests to the service's NATS interface. The admin
-  panel MUST provide the graphical version and text-merge workflow. Existing
-  gateway layering is `routes -> controllers -> services`; the browser app is
-  `apps/admin-panel`, whose assets Web Gateway serves.
+  panel MUST use the same merge-session lifecycle as the CLI. Gateway layering
+  is `routes -> controllers -> services`; the browser app is `apps/admin-panel`.
 
 ## Confirmed security and operations requirements
 
@@ -411,12 +463,13 @@ evidence that the current code already enforces them.
    administrators? Should security officers gain access in a later slice?
    Which service identities may make requests, and what policy applies to
    future merge submissions?
-6. For text merge, what is the comparison base, how are concurrent live-file
-   changes detected, and does the new version become durable before or after
-   successful rollout? What happens if rollout fails?
-7. How will merged content and archive data cross the browser, gateway, CLI,
-   and NATS boundaries? Existing NATS and HTTP contracts should be inspected
-   before choosing DTOs, size limits, streaming, or temporary storage.
+6. For text merge, which snapshot is the common three-way base? What are the
+   chunk size, session lifetime, memory/file limits, checksum, and authorization
+   rules? What atomicity and partial-failure behavior apply when staged files
+   are applied to live paths?
+7. If browser archive import/export is added, how will archive bytes cross the
+   browser, gateway, CLI, and NATS boundaries? Inspect existing NATS and HTTP
+   contracts before choosing DTOs, size limits, streaming, or temporary storage.
 8. What restore guarantees are required: preview/dry run, confirmation,
    atomic replacement, service reload or restart, rollback, and partial-failure
    reporting? Which formats support key-aware merging, how are duplicate keys
@@ -435,6 +488,7 @@ evidence that the current code already enforces them.
     require an explicit exposure policy even though the first-slice service
     runs as root.
 
-No API subjects, DTO fields, archive format, directory hierarchy, or privilege
-allowlist is specified here until the relevant contracts and decisions are
-confirmed.
+The first-slice API subjects, DTOs, tar.gz archive format, per-application
+directory hierarchy, and privilege checks are implemented and described above.
+The metadata manifest and backup name/description inputs are a proposed
+extension; they have not yet been added to the service or CLI contracts.

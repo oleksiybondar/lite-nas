@@ -24,6 +24,21 @@ type ApplicationRequest struct {
 	Application string `json:"application" validate:"required,max=64"`
 }
 
+// BackupRequest supplies optional labels for a new application snapshot.
+type BackupRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Application string `json:"application" validate:"required,max=64"`
+	Name        string `json:"name,omitempty" validate:"max=128"`
+	Description string `json:"description,omitempty" validate:"max=1024"`
+}
+
+// BackupAllRequest applies the same optional labels to each application snapshot.
+type BackupAllRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Name        string `json:"name,omitempty" validate:"max=128"`
+	Description string `json:"description,omitempty" validate:"max=1024"`
+}
+
 // RestoreRequest selects a stored version and its directory reconciliation mode.
 type RestoreRequest struct {
 	AccessToken string `json:"access_token" validate:"required,max=8192"`

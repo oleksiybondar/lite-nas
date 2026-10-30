@@ -138,6 +138,10 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 		token = value.AccessToken
 	case contract.ApplicationRequest:
 		token = value.AccessToken
+	case contract.BackupRequest:
+		token = value.AccessToken
+	case contract.BackupAllRequest:
+		token = value.AccessToken
 	case contract.RestoreRequest:
 		token = value.AccessToken
 	case contract.VersionRequest:
@@ -230,7 +234,7 @@ func (runtime *Runtime) versions(_ context.Context, envelope messaging.Envelope)
 
 // backup serializes snapshot creation with restore operations.
 func (runtime *Runtime) backup(_ context.Context, envelope messaging.Envelope) (any, error) {
-	request, err := decodeRequest[contract.ApplicationRequest](runtime, envelope)
+	request, err := decodeRequest[contract.BackupRequest](runtime, envelope)
 	if err != nil {
 		return nil, err
 	}
@@ -240,13 +244,22 @@ func (runtime *Runtime) backup(_ context.Context, envelope messaging.Envelope) (
 	}
 	runtime.mutex.Lock()
 	defer runtime.mutex.Unlock()
-	version, err := runtime.store.Backup(spec)
+	claims, err := runtime.verifier.Verify(request.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	version, err := runtime.store.BackupWithMetadata(spec, request.Name, request.Description, claims.Login)
 	return contract.BackupResponse{Version: version}, err
 }
 
 // backupAll visits configured applications one by one and reports every outcome.
 func (runtime *Runtime) backupAll(_ context.Context, envelope messaging.Envelope) (any, error) {
-	if _, err := decodeRequest[contract.ApplicationsRequest](runtime, envelope); err != nil {
+	request, err := decodeRequest[contract.BackupAllRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	claims, err := runtime.verifier.Verify(request.AccessToken)
+	if err != nil {
 		return nil, err
 	}
 	runtime.mutex.Lock()
@@ -277,7 +290,7 @@ func (runtime *Runtime) backupAll(_ context.Context, envelope messaging.Envelope
 			response.Results = append(response.Results, result)
 			continue
 		}
-		version, err := runtime.store.Backup(spec)
+		version, err := runtime.store.BackupWithMetadata(spec, request.Name, request.Description, claims.Login)
 		if err != nil {
 			result.Status = "failed"
 			result.Error = err.Error()
