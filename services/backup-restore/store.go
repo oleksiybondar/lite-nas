@@ -75,7 +75,7 @@ func (store Store) BackupWithMetadata(spec Spec, name, description, createdBy st
 		if err != nil {
 			return "", err
 		}
-		metadata := Metadata{Application: spec.Application, Version: candidate, Name: name, Description: description, CreatedAt: created.Format(time.RFC3339Nano), CreatedBy: createdBy}
+		metadata := Metadata{Application: spec.Application, Version: candidate, RestartUnits: spec.RestartUnits, Name: name, Description: description, CreatedAt: created.Format(time.RFC3339Nano), CreatedBy: createdBy}
 		writeErr := writeArchive(temporary, spec, &metadata)
 		if writeErr == nil {
 			writeErr = temporary.Sync()

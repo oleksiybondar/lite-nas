@@ -36,6 +36,39 @@ func TestStoreRestoreReplacesSelectedFile(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-002, backup-restore/FR-004.
+func TestRestoreWritesArchivedDropInSpec(t *testing.T) {
+	root := t.TempDir()
+	selected := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(selected, []byte("enabled=yes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(root, "example.conf")
+	original := []byte("[backup]\nplugin=file\n[file.main]\npath=" + selected + "\n")
+	if err := os.WriteFile(source, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{Application: "example", SourcePath: source, Selections: []Selection{{Path: selected}}}
+	store := Store{Root: filepath.Join(root, "backups")}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("changed spec\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("restored spec = %q", got)
+	}
+}
+
 // Requirements: backup-restore/FR-004, backup-restore/SR-003.
 func TestRestoreRejectsWrongDirectoryArchiveTypeBeforeDeleting(t *testing.T) {
 	root := t.TempDir()

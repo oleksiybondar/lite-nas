@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"os/user"
-	"strconv"
 	"syscall"
-	"time"
 
 	"lite-nas/shared/config"
-	sharedcontracts "lite-nas/shared/contracts"
 	contract "lite-nas/shared/contracts/backuprestore"
 	"lite-nas/shared/fileio"
+	"lite-nas/shared/messaging"
 	"lite-nas/shared/modules"
 )
 
@@ -30,13 +27,10 @@ func main() {
 	}
 }
 
-// run validates local authorization before reading the CLI identity credentials.
+// run uses the current user's short-lived access token for every request.
 func run(ctx context.Context, arguments []string) error {
-	if !localAdministrator() {
-		return fmt.Errorf("root or host administrator required")
-	}
 	if len(arguments) == 0 {
-		return fmt.Errorf("usage: backup-restore-cli applications|backed-up|versions APP|backup APP|backup all|diff APP VERSION|restore APP VERSION [replace|merge]; backup accepts --name TEXT and --description TEXT")
+		return fmt.Errorf("usage: backup-restore-cli applications|backed-up|versions APP|backup APP|backup all|diff APP VERSION|restore APP VERSION [replace|merge]|merge APP VERSION|merge resume ID|merge discard ID; backup accepts --name TEXT and --description TEXT")
 	}
 	reader, err := fileio.NewFileReader(configPath)
 	if err != nil {
@@ -46,22 +40,32 @@ func run(ctx context.Context, arguments []string) error {
 	if err != nil {
 		return err
 	}
-	settings, err := config.LoadSharedConfig(iniFile)
+	messagingConfig, err := config.LoadMessagingConfig(iniFile)
 	if err != nil {
 		return err
 	}
-	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.AppBackupRestoreCLI, settings.Logging, settings.Messaging, settings.Auth, 24*time.Hour)
+	loggingConfig, err := config.LoadLoggingConfig(iniFile)
+	if err != nil {
+		return err
+	}
+	infra, err := modules.NewCoreClientInfra("backup-restore-cli", loggingConfig, messagingConfig)
 	if err != nil {
 		return err
 	}
 	defer infra.Close()
-	if err := infra.AuthTokenManager.Login(ctx); err != nil {
-		return err
-	}
-	token, _, err := infra.AuthTokenManager.Token()
+	token, err := accessToken(ctx, infra.Client)
 	if err != nil {
 		return err
 	}
+	return executeCommand(ctx, infra.Client, token, arguments)
+}
+
+// executeCommand validates and dispatches one authenticated CLI command.
+func executeCommand(ctx context.Context, client messaging.Client, token string, arguments []string) error {
+	if len(arguments) == 0 {
+		return fmt.Errorf("missing command")
+	}
+	var err error
 	switch arguments[0] {
 	case "applications", "backed-up":
 		if len(arguments) != 1 {
@@ -72,7 +76,7 @@ func run(ctx context.Context, arguments []string) error {
 		if arguments[0] == "backed-up" {
 			subject = contract.BackedUpSubject
 		}
-		if err := infra.Client.Request(ctx, subject, contract.ApplicationsRequest{AccessToken: token}, &response); err != nil {
+		if err := client.Request(ctx, subject, contract.ApplicationsRequest{AccessToken: token}, &response); err != nil {
 			return err
 		}
 		for _, application := range response.Applications {
@@ -91,7 +95,7 @@ func run(ctx context.Context, arguments []string) error {
 		}
 		if arguments[0] == "backup" && arguments[1] == "all" {
 			var response contract.BackupAllResponse
-			if err := infra.Client.Request(ctx, contract.BackupAllSubject, contract.BackupAllRequest{AccessToken: token, Name: name, Description: description}, &response); err != nil {
+			if err := client.Request(ctx, contract.BackupAllSubject, contract.BackupAllRequest{AccessToken: token, Name: name, Description: description}, &response); err != nil {
 				return err
 			}
 			failed := false
@@ -107,7 +111,7 @@ func run(ctx context.Context, arguments []string) error {
 		request := contract.ApplicationRequest{AccessToken: token, Application: arguments[1]}
 		if arguments[0] == "versions" {
 			var response contract.VersionsResponse
-			if err := infra.Client.Request(ctx, contract.VersionsSubject, request, &response); err != nil {
+			if err := client.Request(ctx, contract.VersionsSubject, request, &response); err != nil {
 				return err
 			}
 			for _, version := range response.Versions {
@@ -115,7 +119,7 @@ func run(ctx context.Context, arguments []string) error {
 			}
 		} else {
 			var response contract.BackupResponse
-			if err := infra.Client.Request(ctx, contract.BackupSubject, contract.BackupRequest{AccessToken: token, Application: request.Application, Name: name, Description: description}, &response); err != nil {
+			if err := client.Request(ctx, contract.BackupSubject, contract.BackupRequest{AccessToken: token, Application: request.Application, Name: name, Description: description}, &response); err != nil {
 				return err
 			}
 			fmt.Fprintln(os.Stdout, response.Version)
@@ -126,7 +130,7 @@ func run(ctx context.Context, arguments []string) error {
 		}
 		var response contract.DiffResponse
 		request := contract.VersionRequest{AccessToken: token, Application: arguments[1], Version: arguments[2]}
-		if err := infra.Client.Request(ctx, contract.DiffSubject, request, &response); err != nil {
+		if err := client.Request(ctx, contract.DiffSubject, request, &response); err != nil {
 			return err
 		}
 		for _, difference := range response.Differences {
@@ -145,13 +149,18 @@ func run(ctx context.Context, arguments []string) error {
 		}
 		var response contract.RestoreResponse
 		request := contract.RestoreRequest{AccessToken: token, Application: arguments[1], Version: arguments[2], Mode: mode}
-		if err := infra.Client.Request(ctx, contract.RestoreSubject, request, &response); err != nil {
+		if err := client.Request(ctx, contract.RestoreSubject, request, &response); err != nil {
 			return err
 		}
 		if !response.Restored {
 			return fmt.Errorf("restore was not confirmed")
 		}
+		if len(response.Warnings) > 0 {
+			return fmt.Errorf("files restored, but service restart failed: %v", response.Warnings)
+		}
 		fmt.Fprintln(os.Stdout, "restored", arguments[1], arguments[2])
+	case "merge":
+		return runMerge(ctx, client, token, arguments[1:])
 	default:
 		return fmt.Errorf("unknown command %q", arguments[0])
 	}
@@ -188,33 +197,6 @@ func backupLabels(arguments []string) (string, string, error) {
 		arguments = arguments[2:]
 	}
 	return name, description, nil
-}
-
-// localAdministrator accepts root or membership in an existing host admin group.
-func localAdministrator() bool {
-	if os.Geteuid() == 0 {
-		return true
-	}
-	groups, err := os.Getgroups()
-	if err != nil {
-		return false
-	}
-	for _, name := range []string{"admin", "sudo"} {
-		group, err := user.LookupGroup(name)
-		if err != nil {
-			continue
-		}
-		id, err := strconv.Atoi(group.Gid)
-		if err != nil {
-			continue
-		}
-		for _, member := range groups {
-			if member == id {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // validApplication rejects option-shaped and malformed application arguments.

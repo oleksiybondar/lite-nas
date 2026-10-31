@@ -50,6 +50,33 @@ func TestLoadSpecAcceptsFileAndDirectory(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-004, backup-restore/SR-003.
+func TestLoadSpecValidatesRestartUnits(t *testing.T) {
+	cases := []struct {
+		name, units string
+		valid       bool
+	}{
+		{"service", "lite-nas-auth.service", true},
+		{"empty", "", true},
+		{"option", "--host=evil.service", false},
+		{"path", "../evil.service", false},
+		{"duplicate", "lite-nas-auth.service,lite-nas-auth.service", false},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "app.conf")
+			content := "[backup]\nplugin=file\nrestart_units=" + testCase.units + "\n[file.main]\npath=/etc/example.conf\n"
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := LoadSpec(path, "app")
+			if (err == nil) != testCase.valid {
+				t.Fatalf("restart units %q: %v", testCase.units, err)
+			}
+		})
+	}
+}
+
 // Requirements: backup-restore/FR-002.
 func TestWriteArchiveIncludesSymlinkChain(t *testing.T) {
 	root := t.TempDir()

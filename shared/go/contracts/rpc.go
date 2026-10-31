@@ -2,6 +2,7 @@ package contracts
 
 import (
 	authcontract "lite-nas/shared/contracts/auth"
+	backupcontract "lite-nas/shared/contracts/backuprestore"
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	litenasintegritycontract "lite-nas/shared/contracts/litenasintegrity"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
@@ -36,6 +37,22 @@ type loggingManagerRPCSubjects struct {
 
 // RPCByService defines known RPC endpoints per service identity.
 var RPCByService = map[string]map[string]RPCContract{
+	ServiceBackupRestore: {
+		"applications":  {Subject: backupcontract.ApplicationsSubject, Request: backupcontract.ApplicationsRequest{}, Response: backupcontract.ApplicationsResponse{}},
+		"backed_up":     {Subject: backupcontract.BackedUpSubject, Request: backupcontract.ApplicationsRequest{}, Response: backupcontract.ApplicationsResponse{}},
+		"versions":      {Subject: backupcontract.VersionsSubject, Request: backupcontract.ApplicationRequest{}, Response: backupcontract.VersionsResponse{}},
+		"backup":        {Subject: backupcontract.BackupSubject, Request: backupcontract.BackupRequest{}, Response: backupcontract.BackupResponse{}},
+		"backup_all":    {Subject: backupcontract.BackupAllSubject, Request: backupcontract.BackupAllRequest{}, Response: backupcontract.BackupAllResponse{}},
+		"diff":          {Subject: backupcontract.DiffSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DiffResponse{}},
+		"restore":       {Subject: backupcontract.RestoreSubject, Request: backupcontract.RestoreRequest{}, Response: backupcontract.RestoreResponse{}},
+		"merge_start":   {Subject: backupcontract.MergeStartSubject, Request: backupcontract.MergeStartRequest{}, Response: backupcontract.MergeStartResponse{}},
+		"merge_status":  {Subject: backupcontract.MergeStatusSubject, Request: backupcontract.MergeActionRequest{}, Response: backupcontract.MergeStartResponse{}},
+		"merge_read":    {Subject: backupcontract.MergeReadSubject, Request: backupcontract.MergeReadRequest{}, Response: backupcontract.MergeReadResponse{}},
+		"merge_write":   {Subject: backupcontract.MergeWriteSubject, Request: backupcontract.MergeWriteRequest{}, Response: backupcontract.MergeWriteResponse{}},
+		"merge_apply":   {Subject: backupcontract.MergeApplySubject, Request: backupcontract.MergeActionRequest{}, Response: backupcontract.MergeActionResponse{}},
+		"merge_save":    {Subject: backupcontract.MergeSaveSubject, Request: backupcontract.MergeSaveRequest{}, Response: backupcontract.BackupResponse{}},
+		"merge_discard": {Subject: backupcontract.MergeDiscardSubject, Request: backupcontract.MergeActionRequest{}, Response: backupcontract.MergeActionResponse{}},
+	},
 	ServiceServicesManager: {
 		"list":    {Subject: servicesmanagercontract.ListSubject, Request: servicesmanagercontract.ListRequest{}, Response: servicesmanagercontract.ListResponse{}},
 		"start":   {Subject: servicesmanagercontract.StartSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},

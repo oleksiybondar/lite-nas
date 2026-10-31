@@ -52,10 +52,8 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   collide with it. The CLI may omit name and description. For `backup all`,
   each application's archive receives the same supplied name and description,
   but its own application ID, version, and creation timestamp.
-  Human attribution depends on the token login representing the human caller;
-  if the shared CLI identity is used, the metadata identifies that service
-  identity instead. The caller identity contract must be addressed before
-  claiming per-user attribution.
+  The CLI now uses a user access token, so its snapshots identify the
+  authenticated user.
 - Store each version as a `tar.gz` archive with entries reflecting the host
   path tree: `/etc/path/to/file.conf` appears as `etc/path/to/file.conf` inside
   the archive. This permits manual inspection and extraction on another host.
@@ -80,10 +78,7 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   produce a consistent snapshot.
 - Use NATS through `shared/go/messaging` between the CLI and the backup and
   restore service. The CLI does not read or write privileged host files.
-- In the first slice, restrict local CLI use to root or host administrators
-  (`admin` or `sudo`) and require an administrator-equivalent NATS role or the
-  dedicated backup CLI identity for every operation. The CLI identity has
-  root-only credentials and no administrator host group membership. Apply the
+- Require an administrator-equivalent NATS role for every operation. Apply the
   same rule to inventory, version, and diff reads
   because those operations can disclose configuration and backup history.
   Security-officer access can be reconsidered when browser integration is
@@ -106,9 +101,9 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   restoring archived paths. INI content merging and conflict resolution can be
   specified as a later feature.
 
-## Proposed shared merge-session contract
+## Implemented shared merge-session contract
 
-Text merge is a later slice, but its service contract is intended to serve
+Text merge now uses a service contract intended to serve
 both the CLI and the Web Gateway/admin panel. The service remains the sole
 owner of privileged reads and writes. The CLI and browser are clients of the
 same merge session operations; the Web Gateway adapts authenticated HTTP
@@ -117,9 +112,9 @@ requests to NATS and does not read host files or perform the merge itself.
 - The service allows one active merge session globally. A second start request
   is rejected while a session is active. The session is held in service memory
   and contains the selected merge inputs and staged merged file contents.
-- Starting a session selects an application and backup version inputs. The
-  service reads the required archived and current files, returns a session ID
-  and per-file comparison/status information, and makes the input contents
+- Starting a session selects an application and backup version. The
+  service reads archived and current text files, returns a session ID
+  and per-file paths, sizes, and comparison status, and makes the input contents
   available to the client for a local merge tool or browser merge editor.
 - The client may submit resolved file contents to the session. The service
   validates each path against the selected application spec and stages those
@@ -128,12 +123,13 @@ requests to NATS and does not read host files or perform the merge itself.
   the live selected paths; `save` creates a new application snapshot from the
   selected snapshot with staged content substituted at resolved paths, without
   applying it live; `discard` drops staged content without applying or saving.
-  An explicit discard is not required for cleanup after expiry or shutdown.
+  An explicit discard is not required on shutdown.
 - Applying checks that the live files have not changed since session start.
   Changed inputs invalidate the session for apply and require a fresh session.
-- Session contents are lost on process restart. The service expires abandoned
-  sessions and cleans their staged data. Session lifetime, memory and file-size
-  limits, and partial-failure behavior for apply must be bounded and specified.
+- Session contents are lost on process restart. No timer expires a session.
+  The service limits each file to 1 MiB, a session to 32 files and 32 MiB of inputs, and
+  each NATS transfer chunk to 64 KiB. A partial apply error keeps the session
+  for `save` or `discard` and prevents another apply.
 - File contents are transferred as bounded chunks, not as a base64 copy of the
   whole archive. NATS is the service boundary for both clients; the CLI consumes
   the transfer directly, while the Web Gateway exposes an authenticated HTTP
@@ -146,12 +142,11 @@ requests to NATS and does not read host files or perform the merge itself.
   the verified authenticated login claim. Creator identity must reflect the
   human caller if per-user attribution is required.
 
-The exact NATS operation names, chunk framing, checksums, session authorization,
-and HTTP request/response shapes remain to be specified before implementation.
-The contract also needs to decide which stored version is the common base for
-three-way merge; the other inputs are the current live file and the selected
-snapshot to merge in. A transport can carry those three inputs, but cannot
-choose the merge base semantics.
+NATS subjects and DTOs are in `shared/go/contracts/backuprestore`. Chunks carry
+base64 bytes with a full-content SHA-256 checksum; the service ties a session
+to the verified token subject. The merge has two inputs: selected snapshot and
+current file, with the result initialized from current content. HTTP shapes
+remain for the later Web Gateway adapter.
 
 The first slice excludes browser and admin-panel integration. Its implemented
 NATS contract is available for a later Web Gateway adapter without making the
@@ -225,6 +220,19 @@ Merge mode preserves live entries absent from the snapshot while restoring
 archived content at selected paths. Text content merging and submitting
 resolved content are not implemented in this slice.
 
+Each installed application spec declares an explicit `restart_units` list.
+New archive metadata records that list for inspection. After restoring files,
+the service requests each listed service restart through the Services Manager
+NATS RPC using the caller's token. The installed spec, rather
+than archive content, authorizes the restart targets. A failed restart is
+reported as a warning because the file restore has already completed. Targets
+without a defined restart action declare an empty list.
+The CLI authenticates a user through Auth Service, caches only the access token
+in that user's `/run/user/<uid>` directory, and does not refresh it. The backup
+service and Services Manager both require an administrator role for restore and
+restart. A failed restart remains a warning in the service response and causes
+the CLI to exit with failure after stating that files were restored.
+
 Future INI merge rules, if that feature is selected: identify a key by its
 section and key names with case-sensitive matching; retain the live file's
 comments and order; add keys or sections that exist only in the snapshot; keep
@@ -234,11 +242,8 @@ Duplicate keys, malformed INI, or constructs whose meaning cannot be preserved
 without rewriting the file require manual resolution. Resolved content should
 become a new stored version.
 
-Existing CLIs authenticate with a service identity whose token carries roles.
-For this CLI, deployment must also restrict execution and access to its
-identity certificate and private key to root and authorized administrators;
-NATS role checks alone would authorize the CLI identity rather than identify
-the human who launched it. The service stays running and handles requests only
+This CLI authenticates the user and caches only a short-lived access token in
+the user's runtime directory. The service stays running and handles requests only
 when they arrive; it does not schedule backups in the first slice.
 
 ## Later feature direction
@@ -281,12 +286,12 @@ NATS; neither adapter should perform privileged file operations itself.
   live entries absent from it. Individual file selections MUST leave unlisted
   neighboring files intact. Deletion MUST remain within explicitly selected
   directory roots.
-- **backup-restore/FR-005 — Future text merge:** A later slice MAY allow a user
+- **backup-restore/FR-005 — Text merge:** A user MUST be able
   to compare and merge backed-up text with current files through a service-owned
   merge session shared by the CLI and Web Gateway/admin panel. The service
   stages resolved contents and owns apply, save-as-new-snapshot, and discard
-  actions. This is not part of the implemented first slice.
-- **backup-restore/FR-006 — Future merged-content versioning:** The merge
+  actions.
+- **backup-restore/FR-006 — Merged-content versioning:** The merge
   session's `save` action MUST create a new backup version using the staged
   merged content, rather than reading the live file as the source for those
   merged paths. `apply` and `save` are separate terminal actions.
@@ -349,10 +354,10 @@ NATS; neither adapter should perform privileged file operations itself.
 - **backup-restore/IR-002 — NATS service boundary:** The backup and restore
   service MUST use the repository's shared messaging layer for communication
   with other services. First-slice subjects and DTOs are defined in
-  `shared/go/contracts/backuprestore`; merge-session subjects, chunk framing,
-  and DTOs remain to be designed from actual consumers and existing contracts.
+  `shared/go/contracts/backuprestore`, including merge-session subjects and
+  chunk DTOs.
 - **backup-restore/IR-003 — CLI:** The CLI MUST expose backup, version
-  selection, restore, and future merge-session operations through the service
+  selection, restore, and merge-session operations through the service
   boundary. Merge inputs and resolved contents travel through the service; the
   CLI does not read privileged files or apply restored content itself.
 - **backup-restore/IR-004 — Browser integration:** Web Gateway MUST adapt
@@ -377,9 +382,9 @@ NATS; neither adapter should perform privileged file operations itself.
   Backup reads, version reads, merge submissions, and restores MUST be
   authorized before exposing data or changing host state. Inventory, version,
   and diff reads, backup creation, and direct restore require the administrator
-  (`admin` or `sudo`) role or the dedicated backup CLI identity in the first
-  slice. The CLI identity credentials MUST remain root-only. Any future
-  merge-specific policy remains open.
+  (`admin` or `sudo`) role. The CLI caches only a user access token in an
+  owner-only runtime file and does not refresh it. Merge RPCs also require
+  the administrator role and the same verified subject that started the session.
 - **backup-restore/OR-001 — Service storage:** Use
   `/var/lib/lite-nas/backup` as the intended service-owned data root, alongside
   existing roots such as `/var/lib/lite-nas/moments`. The exact internal layout
@@ -412,7 +417,7 @@ slice is operational.
 
 | Risk | First-slice control | Residual risk |
 | --- | --- | --- |
-| An unauthorized caller uses root file operations through NATS. | Authenticate requests, require the `admin` or `sudo` role or the dedicated backup CLI identity on every subject, limit NATS permissions to intended identities, and keep CLI credentials root-only. | A compromised authorized identity can still request privileged operations. |
+| An unauthorized caller uses root file operations through NATS. | Authenticate requests, require the `admin` or `sudo` role on every subject, limit NATS permissions to intended identities, and keep user access tokens owner-only. | A compromised authorized identity can still request privileged operations. |
 | A malicious or mistaken spec or archive writes outside the intended application. | Load specs at startup; accept application IDs and versions rather than caller-supplied paths; validate absolute paths, archive members, symlink targets, and restored spec before use. Confine write paths with systemd and AppArmor. | Root and policy mistakes can still affect host files; arbitrary custom paths require deliberate policy updates. |
 | Replace restore removes unrelated configuration. | File selections affect only named paths. Directory selections cover the whole tree; require an explicit replace request and reconcile only the selected directory root. | An overly broad directory spec can still delete unrelated files; preview remains an open design question. |
 | Backups disclose credentials or signing keys. | Keep archive storage root-owned and private, authorize metadata and diff reads, and avoid sending archive bytes or secret file contents over NATS in the first slice. | Root and authorized administrators can read stored secrets; encryption at rest is not planned. |
@@ -463,10 +468,8 @@ evidence that the current code already enforces them.
    administrators? Should security officers gain access in a later slice?
    Which service identities may make requests, and what policy applies to
    future merge submissions?
-6. For text merge, which snapshot is the common three-way base? What are the
-   chunk size, session lifetime, memory/file limits, checksum, and authorization
-   rules? What atomicity and partial-failure behavior apply when staged files
-   are applied to live paths?
+6. For future automatic key-aware merge, what conflict and parser rules should
+   be added beyond the current two-input manual text workflow?
 7. If browser archive import/export is added, how will archive bytes cross the
    browser, gateway, CLI, and NATS boundaries? Inspect existing NATS and HTTP
    contracts before choosing DTOs, size limits, streaming, or temporary storage.

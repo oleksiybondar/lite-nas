@@ -19,6 +19,7 @@ import (
 	"lite-nas/shared/config"
 	sharedcontracts "lite-nas/shared/contracts"
 	contract "lite-nas/shared/contracts/backuprestore"
+	managercontract "lite-nas/shared/contracts/servicesmanager"
 	"lite-nas/shared/fileio"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/modules"
@@ -31,7 +32,9 @@ type Runtime struct {
 	store    Store
 	verifier authtoken.Verifier
 	validate *validator.Validate
+	client   messaging.Client
 	mutex    sync.Mutex
+	session  *mergeSession
 }
 
 // Serve starts the on-demand NATS service and blocks until shutdown.
@@ -95,7 +98,7 @@ func Serve(ctx context.Context, configPath string) error {
 		return err
 	}
 	defer infra.Close()
-	runtime := &Runtime{specs: specs, store: Store{Root: storeRoot}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: specs, store: Store{Root: storeRoot}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: infra.Client}
 	if err := runtime.register(infra.Server); err != nil {
 		return err
 	}
@@ -118,7 +121,11 @@ func runtimePaths(configuration *ini.File) (string, string, error) {
 // decodeRequest enforces the complete JSON request shape and administrator token.
 func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, error) {
 	var request T
-	if len(envelope.Payload) > 16*1024 {
+	limit := 16 * 1024
+	if _, ok := any(request).(contract.MergeWriteRequest); ok {
+		limit = 128 * 1024
+	}
+	if len(envelope.Payload) > limit {
 		return request, fmt.Errorf("request too large")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(envelope.Payload))
@@ -146,9 +153,19 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 		token = value.AccessToken
 	case contract.VersionRequest:
 		token = value.AccessToken
+	case contract.MergeStartRequest:
+		token = value.AccessToken
+	case contract.MergeReadRequest:
+		token = value.AccessToken
+	case contract.MergeWriteRequest:
+		token = value.AccessToken
+	case contract.MergeActionRequest:
+		token = value.AccessToken
+	case contract.MergeSaveRequest:
+		token = value.AccessToken
 	}
 	claims, err := runtime.verifier.Verify(token)
-	if err != nil || !(roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementAdministrator) || claims.Login == "lite-nas-backup-restore-cli") {
+	if err != nil || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementAdministrator) {
 		return request, fmt.Errorf("administrator authorization required")
 	}
 	return request, nil
@@ -156,6 +173,22 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 
 // register binds validated RPC operations to the shared messaging server.
 func (runtime *Runtime) register(server messaging.Server) error {
+	for _, operation := range []struct {
+		subject string
+		handler messaging.RPCHandler
+	}{
+		{contract.MergeStartSubject, runtime.mergeStart},
+		{contract.MergeReadSubject, runtime.mergeRead},
+		{contract.MergeStatusSubject, runtime.mergeStatus},
+		{contract.MergeWriteSubject, runtime.mergeWrite},
+		{contract.MergeApplySubject, runtime.mergeApply},
+		{contract.MergeSaveSubject, runtime.mergeSave},
+		{contract.MergeDiscardSubject, runtime.mergeDiscard},
+	} {
+		if err := server.RegisterRPC(operation.subject, operation.handler); err != nil {
+			return err
+		}
+	}
 	if err := server.RegisterRPC(contract.ApplicationsSubject, runtime.applications); err != nil {
 		return err
 	}
@@ -304,7 +337,7 @@ func (runtime *Runtime) backupAll(_ context.Context, envelope messaging.Envelope
 }
 
 // restore serializes privileged writes with backup creation.
-func (runtime *Runtime) restore(_ context.Context, envelope messaging.Envelope) (any, error) {
+func (runtime *Runtime) restore(ctx context.Context, envelope messaging.Envelope) (any, error) {
 	request, err := decodeRequest[contract.RestoreRequest](runtime, envelope)
 	if err != nil {
 		return nil, err
@@ -322,5 +355,16 @@ func (runtime *Runtime) restore(_ context.Context, envelope messaging.Envelope) 
 	if err := runtime.store.Restore(spec, request.Version, mode); err != nil {
 		return nil, err
 	}
-	return contract.RestoreResponse{Restored: true}, nil
+	response := contract.RestoreResponse{Restored: true}
+	for _, unit := range spec.RestartUnits {
+		var result managercontract.ActionResponse
+		err := runtime.client.Request(ctx, managercontract.RestartSubject, managercontract.ActionRequest{AccessToken: request.AccessToken, Unit: unit}, &result)
+		if err != nil || !result.Completed {
+			if err == nil {
+				err = fmt.Errorf("restart was not confirmed")
+			}
+			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", unit, err))
+		}
+	}
+	return response, nil
 }

@@ -2,7 +2,10 @@ module lite-nas/apps/backup-restore-cli
 
 go 1.25.0
 
-require lite-nas/shared v0.4.1
+require (
+	golang.org/x/term v0.41.0
+	lite-nas/shared v0.4.1
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

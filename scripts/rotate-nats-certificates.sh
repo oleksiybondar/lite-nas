@@ -300,8 +300,9 @@ normalize_certificate_permissions() {
 	done
 	if [ -d "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" ]; then
 		chown -R root:root "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli"
-		chmod 0700 "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli"
-		find "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" -type f -name '*.key' -exec chmod 0600 {} +
+		chmod 0755 "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli"
+		find "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" -type f -name '*.key' -exec chmod 0644 {} +
+		find "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" -type f -name '*.crt' -exec chmod 0644 {} +
 	fi
 
 	if [ -d "$litenas_transport_certificates_dir/$cli_certificate_user" ]; then

@@ -2,6 +2,14 @@
 package backuprestore
 
 const (
+	// Merge subjects manage the one process-local text merge session.
+	MergeStartSubject   = "backup-restore.merge.start"
+	MergeReadSubject    = "backup-restore.merge.read"
+	MergeStatusSubject  = "backup-restore.merge.status"
+	MergeWriteSubject   = "backup-restore.merge.write"
+	MergeApplySubject   = "backup-restore.merge.apply"
+	MergeSaveSubject    = "backup-restore.merge.save"
+	MergeDiscardSubject = "backup-restore.merge.discard"
 	// ApplicationsSubject lists configured application IDs.
 	ApplicationsSubject = "backup-restore.applications"
 	// BackedUpSubject lists applications with stored history.
@@ -17,6 +25,81 @@ const (
 	// RestoreSubject restores a selected version.
 	RestoreSubject = "backup-restore.restore"
 )
+
+// MergeStartRequest selects a snapshot to compare against current files.
+type MergeStartRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Application string `json:"application" validate:"required,max=64"`
+	Version     string `json:"version" validate:"required,max=64"`
+}
+
+// MergeFile describes one editable regular file.
+type MergeFile struct {
+	Path         string `json:"path"`
+	SnapshotSize int    `json:"snapshot_size"`
+	CurrentSize  int    `json:"current_size"`
+	Status       string `json:"status"`
+}
+
+// MergeStartResponse returns the session ID and editable files.
+type MergeStartResponse struct {
+	SessionID      string      `json:"session_id"`
+	Files          []MergeFile `json:"files"`
+	ApplyAvailable bool        `json:"apply_available"`
+}
+
+// MergeReadRequest selects one chunk of a session input or result.
+type MergeReadRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	SessionID   string `json:"session_id" validate:"required,len=32,hexadecimal"`
+	Path        string `json:"path" validate:"required,max=4096"`
+	Side        string `json:"side" validate:"oneof=snapshot current result"`
+	Offset      int    `json:"offset" validate:"min=0"`
+}
+
+// MergeReadResponse carries a base64 chunk and full-content SHA-256 checksum.
+type MergeReadResponse struct {
+	Data       string `json:"data"`
+	NextOffset int    `json:"next_offset"`
+	Done       bool   `json:"done"`
+	SHA256     string `json:"sha256"`
+}
+
+// MergeWriteRequest uploads one sequential chunk of resolved content.
+type MergeWriteRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	SessionID   string `json:"session_id" validate:"required,len=32,hexadecimal"`
+	Path        string `json:"path" validate:"required,max=4096"`
+	Offset      int    `json:"offset" validate:"min=0"`
+	Data        string `json:"data" validate:"max=87384"`
+	Final       bool   `json:"final"`
+	SHA256      string `json:"sha256,omitempty" validate:"omitempty,len=64,hexadecimal"`
+}
+
+// MergeActionRequest selects a session for apply or discard.
+type MergeActionRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	SessionID   string `json:"session_id" validate:"required,len=32,hexadecimal"`
+}
+
+// MergeSaveRequest supplies labels for a new snapshot made from staged content.
+type MergeSaveRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	SessionID   string `json:"session_id" validate:"required,len=32,hexadecimal"`
+	Name        string `json:"name,omitempty" validate:"max=128"`
+	Description string `json:"description,omitempty" validate:"max=1024"`
+}
+
+// MergeWriteResponse confirms one accepted chunk.
+type MergeWriteResponse struct {
+	NextOffset int `json:"next_offset"`
+}
+
+// MergeActionResponse confirms a completed apply or discard.
+type MergeActionResponse struct {
+	Completed bool     `json:"completed"`
+	Warnings  []string `json:"warnings,omitempty"`
+}
 
 // ApplicationRequest selects a configured application without supplying host paths.
 type ApplicationRequest struct {
@@ -100,5 +183,6 @@ type BackupAllResponse struct {
 
 // RestoreResponse confirms a completed restore.
 type RestoreResponse struct {
-	Restored bool `json:"restored"`
+	Restored bool     `json:"restored"`
+	Warnings []string `json:"warnings,omitempty"`
 }

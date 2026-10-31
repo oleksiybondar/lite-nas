@@ -15,12 +15,13 @@ import (
 
 // Metadata identifies the snapshot and the authenticated caller that created it.
 type Metadata struct {
-	Application string `json:"application"`
-	Version     string `json:"version"`
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	CreatedBy   string `json:"created_by"`
+	Application  string   `json:"application"`
+	Version      string   `json:"version"`
+	RestartUnits []string `json:"restart_units,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	CreatedAt    string   `json:"created_at"`
+	CreatedBy    string   `json:"created_by"`
 }
 
 // WriteArchive captures selected files, full directory trees, and file symlink targets.

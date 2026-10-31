@@ -21,6 +21,7 @@ type Services struct {
 	DiskMetrics        services.DiskMetricsService
 	NetworkMetrics     services.NetworkMetricsService
 	ZFSMetrics         services.ZFSMetricsService
+	BackupRestore      services.BackupRestoreService
 }
 
 // NewServicesModule assembles the service-layer dependencies used by the
@@ -42,5 +43,6 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 		DiskMetrics:        services.NewDiskMetricsService(client),
 		NetworkMetrics:     services.NewNetworkMetricsService(client),
 		ZFSMetrics:         services.NewZFSMetricsService(client),
+		BackupRestore:      services.NewBackupRestoreService(client),
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"gopkg.in/ini.v1"
+
+	"lite-nas/shared/systemd"
 )
 
 // Selection identifies a host path and whether the complete directory tree is owned.
@@ -17,9 +19,10 @@ type Selection struct {
 
 // Spec is a validated file-plugin configuration for one application.
 type Spec struct {
-	Application string
-	SourcePath  string
-	Selections  []Selection
+	Application  string
+	SourcePath   string
+	Selections   []Selection
+	RestartUnits []string
 }
 
 // LoadSpecs reads application drop-ins once at startup. RPC callers cannot add paths.
@@ -61,10 +64,24 @@ func LoadSpec(path, application string) (Spec, error) {
 		return Spec{}, err
 	}
 	backup, err := configuration.GetSection("backup")
-	if err != nil || backup.Key("plugin").String() != "file" || len(backup.Keys()) != 1 {
+	if err != nil || backup.Key("plugin").String() != "file" || len(backup.Keys()) != 1 && !(len(backup.Keys()) == 2 && backup.HasKey("restart_units")) {
 		return Spec{}, fmt.Errorf("unsupported backup plugin or settings")
 	}
 	spec := Spec{Application: application, SourcePath: path}
+	if backup.HasKey("restart_units") {
+		seenUnits := make(map[string]bool)
+		for _, raw := range strings.Split(backup.Key("restart_units").String(), ",") {
+			unit := strings.TrimSpace(raw)
+			if unit == "" && strings.TrimSpace(backup.Key("restart_units").String()) == "" {
+				break
+			}
+			if !systemd.ValidUnitName(unit) || seenUnits[unit] {
+				return Spec{}, fmt.Errorf("invalid or repeated restart unit %q", unit)
+			}
+			seenUnits[unit] = true
+			spec.RestartUnits = append(spec.RestartUnits, unit)
+		}
+	}
 	seen := make(map[string]bool)
 	for _, section := range configuration.Sections() {
 		if section.Name() == ini.DefaultSection || section.Name() == "backup" {

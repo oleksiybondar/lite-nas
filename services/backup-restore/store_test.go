@@ -17,7 +17,7 @@ func TestBackupMetadataUsesAllocatedVersionAndCaller(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := Store{Root: filepath.Join(root, "backups")}
-	version, err := store.BackupWithMetadata(Spec{Application: "example", Selections: []Selection{{Path: source}}}, "named", "description", "admin")
+	version, err := store.BackupWithMetadata(Spec{Application: "example", Selections: []Selection{{Path: source}}, RestartUnits: []string{"example.service"}}, "named", "description", "admin")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestBackupMetadataUsesAllocatedVersionAndCaller(t *testing.T) {
 	if err := json.NewDecoder(reader).Decode(&metadata); err != nil {
 		t.Fatal(err)
 	}
-	if metadata.Application != "example" || metadata.Version != version || metadata.Name != "named" || metadata.Description != "description" || metadata.CreatedBy != "admin" || metadata.CreatedAt == "" {
+	if metadata.Application != "example" || metadata.Version != version || metadata.Name != "named" || metadata.Description != "description" || metadata.CreatedBy != "admin" || metadata.CreatedAt == "" || len(metadata.RestartUnits) != 1 || metadata.RestartUnits[0] != "example.service" {
 		t.Fatalf("metadata = %+v", metadata)
 	}
 }

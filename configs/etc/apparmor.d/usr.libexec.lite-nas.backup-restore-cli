@@ -5,11 +5,19 @@ include <tunables/global>
 profile /usr/libexec/lite-nas/backup-restore-cli flags=(attach_disconnected,mediate_deleted) {
   include <abstractions/lite-nas-go-base>
   include <abstractions/lite-nas-nats-client>
-  include <abstractions/lite-nas-auth-client>
 
   /usr/libexec/lite-nas/backup-restore-cli mr,
   /etc/lite-nas/backup-restore-cli.conf r,
-  /var/log/lite-nas/backup-restore-cli.log rw,
+  /dev/tty rw,
+  owner /run/user/[0-9]*/ r,
+  owner /run/user/[0-9]*/lite-nas/ rw,
+  owner /run/user/[0-9]*/lite-nas/** rw,
+  owner /tmp/backup-restore-merge-*/ rw,
+  owner /tmp/backup-restore-merge-*/** rw,
+  /usr/bin/vi ux,
+  /usr/bin/vim ux,
+  /usr/bin/nvim ux,
+  /usr/bin/nano ux,
 
   include if exists <local/usr.libexec.lite-nas.backup-restore-cli>
 }
