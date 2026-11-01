@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	contract "lite-nas/shared/contracts/backuprestore"
 	"lite-nas/shared/messaging"
@@ -12,6 +14,8 @@ type BackupRestoreService interface {
 	Applications(context.Context, string) ([]string, error)
 	BackedUp(context.Context, string) ([]string, error)
 	Versions(context.Context, string, string) ([]string, error)
+	Metadata(context.Context, string, string, string) (contract.BackupMetadataResponse, error)
+	Delete(context.Context, string, string, string) error
 	Backup(context.Context, string, string, string, string) (string, error)
 	BackupAll(context.Context, string, string, string) ([]contract.BackupAllResult, error)
 	Diff(context.Context, string, string, string) ([]contract.Difference, error)
@@ -26,6 +30,9 @@ type BackupRestoreService interface {
 }
 
 type backupRestoreService struct{ client messaging.Client }
+
+// Restore can stage a complete archive and restart its configured services.
+const restoreRPCTimeout = 5 * time.Minute
 
 // NewBackupRestoreService binds backup operations to the shared NATS client.
 func NewBackupRestoreService(client messaging.Client) BackupRestoreService {
@@ -54,6 +61,23 @@ func (s backupRestoreService) Versions(ctx context.Context, token, app string) (
 	return out.Versions, err
 }
 
+// Metadata reads archive labels and attribution without exposing archived files.
+func (s backupRestoreService) Metadata(ctx context.Context, token, app, version string) (contract.BackupMetadataResponse, error) {
+	var out contract.BackupMetadataResponse
+	err := s.request(ctx, contract.MetadataSubject, contract.VersionRequest{AccessToken: token, Application: app, Version: version}, &out)
+	return out, err
+}
+
+// Delete removes one stored archive selected by its validated application and version.
+func (s backupRestoreService) Delete(ctx context.Context, token, app, version string) error {
+	var out contract.DeleteResponse
+	err := s.request(ctx, contract.DeleteSubject, contract.VersionRequest{AccessToken: token, Application: app, Version: version}, &out)
+	if err == nil && !out.Deleted {
+		return fmt.Errorf("backup deletion was not confirmed")
+	}
+	return err
+}
+
 func (s backupRestoreService) Backup(ctx context.Context, token, app, name, description string) (string, error) {
 	var out contract.BackupResponse
 	err := s.request(ctx, contract.BackupSubject, contract.BackupRequest{AccessToken: token, Application: app, Name: name, Description: description}, &out)
@@ -74,6 +98,8 @@ func (s backupRestoreService) Diff(ctx context.Context, token, app, version stri
 
 func (s backupRestoreService) Restore(ctx context.Context, token, app, version, mode string) (contract.RestoreResponse, error) {
 	var out contract.RestoreResponse
+	ctx, cancel := context.WithTimeout(ctx, restoreRPCTimeout)
+	defer cancel()
 	err := s.request(ctx, contract.RestoreSubject, contract.RestoreRequest{AccessToken: token, Application: app, Version: version, Mode: mode}, &out)
 	return out, err
 }
@@ -104,6 +130,8 @@ func (s backupRestoreService) MergeWrite(ctx context.Context, input contract.Mer
 
 func (s backupRestoreService) MergeApply(ctx context.Context, input contract.MergeActionRequest) (contract.MergeActionResponse, error) {
 	var out contract.MergeActionResponse
+	ctx, cancel := context.WithTimeout(ctx, restoreRPCTimeout)
+	defer cancel()
 	err := s.request(ctx, contract.MergeApplySubject, input, &out)
 	return out, err
 }

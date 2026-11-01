@@ -45,6 +45,7 @@ system_service_monitor_binary_path=""
 service_watchdog_binary_path=""
 services_manager_binary_path=""
 session_manager_binary_path=""
+usb_manager_binary_path=""
 log_analysis_binary_path=""
 admin_panel_assets_path=""
 file_explorer_assets_path=""
@@ -95,7 +96,9 @@ Options:
   --service-watchdog-binary=PATH  Use an existing service-watchdog binary.
   --services-manager-binary=PATH  Use an existing services-manager binary.
   --session-manager-binary=PATH  Use an existing session-manager binary.
+  --usb-manager-binary=PATH  Use an existing usb-manager binary.
   --log-analysis-binary=PATH  Use an existing log-analysis binary.
+  --network-security-binary=PATH  Use an existing network-security binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
   --file-explorer-assets=PATH        Include File Explorer Vite assets in this package.
   --output-dir=PATH                  Directory where the package and build root will be written.
@@ -104,8 +107,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary log-analysis-binary admin-panel-assets file-explorer-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary log-analysis-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets file-explorer-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -261,8 +264,16 @@ if args.has session-manager-binary && ! session_manager_binary_path="$(args.requ
 	log.error "Missing value for --session-manager-binary"
 	exit 64
 fi
+if args.has usb-manager-binary && ! usb_manager_binary_path="$(args.require_arg usb-manager-binary)"; then
+	log.error "Missing value for --usb-manager-binary"
+	exit 64
+fi
 if args.has log-analysis-binary && ! log_analysis_binary_path="$(args.require_arg log-analysis-binary)"; then
 	log.error "Missing value for --log-analysis-binary"
+	exit 64
+fi
+if args.has network-security-binary && ! network_security_binary_path="$(args.require_arg network-security-binary)"; then
+	log.error "Missing value for --network-security-binary"
 	exit 64
 fi
 if args.has litenas-integrity-binary && ! litenas_integrity_binary_path="$(args.require_arg litenas-integrity-binary)"; then
@@ -452,9 +463,17 @@ if [ -z "$session_manager_binary_path" ]; then
 	session_manager_binary_path="$output_dir/${package_name}-${package_arch}/session-manager"
 	"$LITE_NAS_REPO_ROOT/scripts/build-session-manager-binary.sh" "--output=$session_manager_binary_path"
 fi
+if [ -z "${usb_manager_binary_path:-}" ]; then
+	usb_manager_binary_path="$output_dir/${package_name}-${package_arch}/usb-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-usb-manager-binary.sh" "--output=$usb_manager_binary_path"
+fi
 if [ -z "$log_analysis_binary_path" ]; then
 	log_analysis_binary_path="$output_dir/${package_name}-${package_arch}/log-analysis"
 	"$LITE_NAS_REPO_ROOT/scripts/build-log-analysis-binary.sh" "--output=$log_analysis_binary_path"
+fi
+if [ -z "${network_security_binary_path:-}" ]; then
+	network_security_binary_path="$output_dir/${package_name}-${package_arch}/network-security"
+	"$LITE_NAS_REPO_ROOT/scripts/build-network-security-binary.sh" "--output=$network_security_binary_path"
 fi
 if [ -z "$litenas_integrity_binary_path" ]; then
 	litenas_integrity_binary_path="$output_dir/${package_name}-${package_arch}/litenas-integrity"
@@ -606,6 +625,10 @@ if [ ! -f "$log_analysis_binary_path" ]; then
 	log.error "Missing log-analysis binary: $log_analysis_binary_path"
 	exit 1
 fi
+if [ ! -f "$network_security_binary_path" ]; then
+	log.error "Missing network-security binary: $network_security_binary_path"
+	exit 1
+fi
 if [ ! -f "$litenas_integrity_binary_path" ]; then
 	log.error "Missing litenas-integrity binary: $litenas_integrity_binary_path"
 	exit 1
@@ -735,7 +758,9 @@ install -D -m 0755 "$system_service_monitor_binary_path" "$package_root/usr/libe
 install -D -m 0755 "$service_watchdog_binary_path" "$package_root/usr/libexec/lite-nas/service-watchdog"
 install -D -m 0755 "$services_manager_binary_path" "$package_root/usr/libexec/lite-nas/services-manager"
 install -D -m 0755 "$session_manager_binary_path" "$package_root/usr/libexec/lite-nas/session-manager"
+install -D -m 0755 "$usb_manager_binary_path" "$package_root/usr/libexec/lite-nas/usb-manager"
 install -D -m 0755 "$log_analysis_binary_path" "$package_root/usr/libexec/lite-nas/log-analysis"
+install -D -m 0755 "$network_security_binary_path" "$package_root/usr/libexec/lite-nas/network-security"
 install -D -m 0755 "$litenas_integrity_binary_path" \
 	"$package_root/usr/libexec/lite-nas/litenas-integrity"
 package.copyTree "$admin_panel_assets_path" \
@@ -775,7 +800,9 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/service-watchdog" \
 	"$package_root/usr/libexec/lite-nas/services-manager" \
 	"$package_root/usr/libexec/lite-nas/session-manager" \
+	"$package_root/usr/libexec/lite-nas/usb-manager" \
 	"$package_root/usr/libexec/lite-nas/log-analysis" \
+	"$package_root/usr/libexec/lite-nas/network-security" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \

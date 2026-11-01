@@ -1,4 +1,4 @@
-// Package management defines browser-facing service and session management schemas.
+// Package management defines browser-facing host and device management schemas.
 package management
 
 import (
@@ -7,6 +7,7 @@ import (
 	"lite-nas/services/web-gateway/dto"
 	servicecontract "lite-nas/shared/contracts/servicesmanager"
 	sessioncontract "lite-nas/shared/contracts/sessionmanager"
+	usbcontract "lite-nas/shared/contracts/usbmanager"
 )
 
 // ListInput carries no parameters; authentication comes from gateway middleware.
@@ -22,6 +23,12 @@ type SessionActionInput struct {
 	Session string `path:"session" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$" doc:"Login session ID returned by the session inventory."`
 }
 
+// USBDeviceActionInput identifies a USBGuard device and optional persistent policy change.
+type USBDeviceActionInput struct {
+	DeviceID  string `path:"device_id" minLength:"1" maxLength:"10" pattern:"^[0-9]{1,10}$" doc:"Numeric USBGuard device ID returned by the inventory."`
+	Permanent bool   `json:"permanent,omitempty" doc:"Persist this authorization decision in USBGuard policy."`
+}
+
 // Service describes one systemd system unit in the browser API.
 type Service struct {
 	Name         string `json:"name" doc:"Systemd unit name ending in .service."`
@@ -35,9 +42,19 @@ type Service struct {
 
 // Session describes one loginctl session in the browser API.
 type Session struct {
-	ID   string `json:"id" doc:"Logind session identifier used by management commands."`
-	UID  string `json:"uid" doc:"Numeric user ID owning the session."`
-	User string `json:"user" doc:"User name owning the session."`
+	ID         string `json:"id" doc:"Logind session identifier used by management commands."`
+	UID        string `json:"uid" doc:"Numeric user ID owning the session."`
+	User       string `json:"user" doc:"User name owning the session."`
+	Seat       string `json:"seat" doc:"Seat associated with the session, when present."`
+	Leader     string `json:"leader" doc:"Process ID of the session leader."`
+	Class      string `json:"class" doc:"Logind session class."`
+	TTY        string `json:"tty" doc:"Terminal associated with the session, when present."`
+	Type       string `json:"type" doc:"Logind session type, such as wayland, x11, or tty."`
+	Service    string `json:"service" doc:"PAM service that opened the session."`
+	Remote     bool   `json:"remote" doc:"Whether logind marks the session as remote."`
+	RemoteHost string `json:"remote_host" doc:"Remote host reported by logind, when present."`
+	Display    string `json:"display" doc:"Display associated with the session, when present."`
+	Desktop    string `json:"desktop" doc:"Desktop environment associated with the session, when present."`
 }
 
 // ServicesOutput returns the current systemd inventory.
@@ -56,6 +73,15 @@ type SessionsOutput struct{ Body SessionsBody }
 type SessionsBody struct {
 	dto.ResponseMeta
 	Data []Session `json:"data" doc:"Current host login sessions."`
+}
+
+// USBDevicesOutput returns USBGuard's current device inventory.
+type USBDevicesOutput struct{ Body USBDevicesBody }
+
+// USBDevicesBody contains the device inventory and common response metadata.
+type USBDevicesBody struct {
+	dto.ResponseMeta
+	Data string `json:"data" doc:"Current USBGuard device inventory as returned by usbguard list-devices."`
 }
 
 // ManagementActionOutput confirms completion of a management command.
@@ -77,6 +103,11 @@ func NewSessionsBody(items []sessioncontract.Session) SessionsBody {
 	return SessionsBody{ResponseMeta: dto.ResponseMeta{Success: true, Timestamp: time.Now()}, Data: mapSessions(items)}
 }
 
+// NewUSBDevicesBody wraps USBGuard's inventory with success metadata.
+func NewUSBDevicesBody(items usbcontract.ListResponse) USBDevicesBody {
+	return USBDevicesBody{ResponseMeta: dto.ResponseMeta{Success: true, Timestamp: time.Now()}, Data: items.Devices}
+}
+
 // NewManagementActionBody confirms a completed backend command.
 func NewManagementActionBody() ManagementActionBody {
 	return ManagementActionBody{ResponseMeta: dto.ResponseMeta{Success: true, Timestamp: time.Now()}, Completed: true}
@@ -93,7 +124,7 @@ func mapServices(items []servicecontract.Service) []Service {
 func mapSessions(items []sessioncontract.Session) []Session {
 	result := make([]Session, 0, len(items))
 	for _, item := range items {
-		result = append(result, Session{ID: item.ID, UID: item.UID, User: item.User})
+		result = append(result, Session{ID: item.ID, UID: item.UID, User: item.User, Seat: item.Seat, Leader: item.Leader, Class: item.Class, TTY: item.TTY, Type: item.Type, Service: item.Service, Remote: item.Remote, RemoteHost: item.RemoteHost, Display: item.Display, Desktop: item.Desktop})
 	}
 	return result
 }

@@ -100,7 +100,7 @@ func mustAuthRefreshInfra(t *testing.T, client integrityClient) (servicemodules.
 
 // aideResult supplies one expected AIDE operation to the scripted runner.
 func aideResult(option string, output string, err error) integrityRunnerResult {
-	return integrityRunnerResult{name: sudoBinary, args: []string{aideBinary, option}, output: output, err: err}
+	return integrityRunnerResult{name: sudoBinary, args: []string{aideBinary, "--config=" + aideConfigPath, option}, output: output, err: err}
 }
 
 // moveResult supplies one expected database promotion to the scripted runner.
@@ -225,7 +225,7 @@ func TestNormalizeActiveIncidentRequiresAcknowledgment(t *testing.T) {
 			return nil
 		}}
 		service := newTestIntegrityService(&integrityRunner{}, client)
-		service.active = &activeIncident{EventID: "integrity00000001"}
+		service.active = &activeIncident{EventID: "integrity_00000001"}
 		_ = service.normalizeActiveIncident(t.Context(), "normal")
 		if (service.active == nil) != accepted {
 			t.Fatalf("normalizeActiveIncident() active = %+v", service.active)
@@ -344,7 +344,7 @@ func TestScheduledCheckAppliesEachCommandOutcome(t *testing.T) {
 	}{
 		{name: "normal"},
 		{name: "drift", err: &exec.ExitError{}, active: true},
-		{name: "execution error", err: errors.New("offline")},
+		{name: "execution error", err: errors.New("offline"), active: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &integrityRunner{results: []integrityRunnerResult{aideResult("--check", "change", test.err)}}
@@ -378,7 +378,7 @@ func authorizedIntegrityClient() integrityClient {
 // TestNextEventIDWrapsCounter covers stable alert identifiers.
 func TestNextEventIDWrapsCounter(t *testing.T) {
 	service := &integrityService{counter: maxEventCounter}
-	if id := service.nextEventIDLocked(); id != "integrity00000001" {
+	if id := service.nextEventIDLocked(); id != "integrity_00000001" {
 		t.Fatalf("nextEventIDLocked() = %q", id)
 	}
 }

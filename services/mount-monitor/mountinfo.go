@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"sort"
+	"strings"
 
 	"lite-nas/shared/mountinfo"
 )
@@ -20,13 +21,22 @@ func parseMountInfo(reader io.Reader) (map[uint64]mountRecord, error) {
 func changedMounts(before, after map[uint64]mountRecord) []mountChange {
 	changes := make([]mountChange, 0)
 	for id, previous := range before {
+		if isIgnoredMount(previous) {
+			continue
+		}
 		if current, exists := after[id]; !exists {
 			changes = append(changes, mountChange{action: "unmounted", mount: previous})
 		} else if current != previous {
+			if isIgnoredMount(current) {
+				continue
+			}
 			changes = append(changes, mountChange{action: "changed", mount: current})
 		}
 	}
 	for id, current := range after {
+		if isIgnoredMount(current) {
+			continue
+		}
 		if _, exists := before[id]; !exists {
 			changes = append(changes, mountChange{action: "mounted", mount: current})
 		}
@@ -38,6 +48,13 @@ func changedMounts(before, after map[uint64]mountRecord) []mountChange {
 		return changes[i].mount.ID < changes[j].mount.ID
 	})
 	return changes
+}
+
+// isIgnoredMount identifies session mounts and LiteNAS's temporary port-scan
+// namespace, which do not represent host storage lifecycle changes.
+func isIgnoredMount(mount mountRecord) bool {
+	return mount.Point == "/run/user" || strings.HasPrefix(mount.Point, "/run/user/") ||
+		mount.Point == "/run/netns/litenas-scan-test" && mount.FSType == "nsfs"
 }
 
 // mountChange is one state difference queued for lifecycle publication.

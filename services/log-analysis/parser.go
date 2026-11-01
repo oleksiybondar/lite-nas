@@ -57,6 +57,8 @@ type rsyslogRecord struct {
 // Passwords and full raw records never enter detection effects.
 type logRecord struct {
 	SourceID      string
+	Format        string
+	KernelTrusted bool
 	Message       string
 	At            time.Time
 	Account       string
@@ -102,7 +104,7 @@ func decodeRsyslogRecord(data []byte, validate *validator.Validate) (rsyslogReco
 // source format decides which bounded correlation fields are extracted;
 // missing metadata stays empty rather than being grouped into a shared key.
 func newLogRecord(source sourceSpec, record rsyslogRecord, at time.Time) (logRecord, error) {
-	normalized := logRecord{SourceID: source.ID, Message: record.Message, At: at}
+	normalized := logRecord{SourceID: source.ID, Format: source.Format, KernelTrusted: record.Input == "imklog", Message: record.Message, At: at}
 	switch source.Format {
 	case formatAuth:
 		extractAuthFields(&normalized)

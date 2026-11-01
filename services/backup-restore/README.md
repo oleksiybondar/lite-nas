@@ -12,9 +12,11 @@ missing transport certificates, loads AppArmor policy, and
 starts the service. It has not been run on a live LiteNAS host in this change.
 
 Packaged specs cover the LiteNAS service and CLI configuration files plus
-repository-managed UFW, Postfix, rsyslog, systemd, AppArmor, and logrotate
-files. They select files individually unless an application-owned asset
-directory is included. The service validates 36 packaged specs at startup.
+repository-managed NATS configuration and server certificates, LiteNAS transport,
+auth and identity certificates, UFW, Postfix, rsyslog, systemd, AppArmor, and
+logrotate files. AIDE has its own spec for its configuration and database.
+Selections are individual files unless an application-owned asset directory is
+included. The service validates packaged specs at startup.
 Add one `<application>.conf` per additional host application:
 
 ```ini
@@ -79,7 +81,7 @@ restarts; `save` creates a new snapshot without changing live files. A session
 remains available until one of those actions succeeds or the service restarts.
 Use `merge resume SESSION_ID` after an interrupted editor, or `merge discard
 SESSION_ID` to release it. Only one session can exist at a time. The service
-limits text files to 1 MiB each, a session to 32 files and 32 MiB of inputs, and each NATS
+limits text files to 1 MiB each, a session to 512 files and 32 MiB of inputs, and each NATS
 transfer chunk to 64 KiB.
 The CLI forwards the user's administrator access token to the backup service;
 the service uses the same token for Services Manager restart requests.

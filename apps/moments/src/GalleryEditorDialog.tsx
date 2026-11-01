@@ -1,15 +1,9 @@
+import { StandardDialog } from "@lite-nas/dialogs";
 import { FileSelectionDialog, FolderSelectionDialog } from "@lite-nas/file-browser";
 import { useLanguage } from "@lite-nas/language";
-import CloseIcon from "@mui/icons-material/Close";
 import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
-import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -213,178 +207,170 @@ export function GalleryEditorDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth keepMounted>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box sx={{ flex: 1 }}>
-            {gallery
-              ? getLabel("moments.editor.editTitle")
-              : getLabel("moments.editor.createTitle")}
-          </Box>
-          <IconButton
-            aria-label={
-              gallery
-                ? getLabel("moments.editor.closeEditor")
-                : getLabel("moments.editor.closeCreator")
-            }
-            disabled={busy}
-            onClick={onClose}
-            edge="end"
-            size="small"
+      <StandardDialog
+        open={open}
+        onClose={() => !busy && onClose()}
+        closeDisabled={busy}
+        fullWidth
+        keepMounted
+        title={
+          gallery ? getLabel("moments.editor.editTitle") : getLabel("moments.editor.createTitle")
+        }
+        closeLabel={
+          gallery ? getLabel("moments.editor.closeEditor") : getLabel("moments.editor.closeCreator")
+        }
+        actions={
+          <>
+            <Button disabled={busy} onClick={onClose}>
+              {getLabel("moments.editor.cancel")}
+            </Button>
+            <Button disabled={busy || !tagsReady || !name.trim()} onClick={() => void submit()}>
+              {gallery ? getLabel("moments.editor.save") : getLabel("moments.editor.create")}
+            </Button>
+          </>
+        }
+      >
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {!gallery && (
+            <TextField
+              select
+              label={getLabel("moments.editor.type")}
+              value={kind}
+              onChange={(event) => setKind(event.target.value as "ALBUM" | "COLLECTION")}
+            >
+              <MenuItem value="ALBUM">{getLabel("moments.editor.album")}</MenuItem>
+              <MenuItem value="COLLECTION">{getLabel("moments.editor.collection")}</MenuItem>
+            </TextField>
+          )}
+          <TextField
+            label={getLabel("moments.editor.name")}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <TextField
+            label={getLabel("moments.editor.description")}
+            multiline
+            minRows={3}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+          <TextField
+            select
+            label={getLabel("moments.editor.visibility")}
+            value={visibility}
+            onChange={(event) => setVisibility(event.target.value as "PRIVATE" | "PUBLIC")}
           >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            {!gallery && (
-              <TextField
-                select
-                label={getLabel("moments.editor.type")}
-                value={kind}
-                onChange={(event) => setKind(event.target.value as "ALBUM" | "COLLECTION")}
-              >
-                <MenuItem value="ALBUM">{getLabel("moments.editor.album")}</MenuItem>
-                <MenuItem value="COLLECTION">{getLabel("moments.editor.collection")}</MenuItem>
-              </TextField>
-            )}
-            <TextField
-              label={getLabel("moments.editor.name")}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            <TextField
-              label={getLabel("moments.editor.description")}
-              multiline
-              minRows={3}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-            <TextField
-              select
-              label={getLabel("moments.editor.visibility")}
-              value={visibility}
-              onChange={(event) => setVisibility(event.target.value as "PRIVATE" | "PUBLIC")}
-            >
-              <MenuItem value="PRIVATE">{getLabel("moments.feed.private")}</MenuItem>
-              <MenuItem value="PUBLIC">{getLabel("moments.feed.public")}</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label={getLabel("moments.editor.layout")}
-              value={layout}
-              onChange={(event) => {
-                const parsed = galleryLayoutModeSchema.safeParse(event.target.value);
-                if (parsed.success) setLayout(parsed.data);
-              }}
-            >
-              <MenuItem value="mosaic">{getLabel("moments.editor.layoutMosaic")}</MenuItem>
-              <MenuItem value="justified">{getLabel("moments.editor.layoutJustified")}</MenuItem>
-              <MenuItem value="masonry">{getLabel("moments.editor.layoutMasonry")}</MenuItem>
-              <MenuItem value="grid">{getLabel("moments.editor.layoutGrid")}</MenuItem>
-            </TextField>
-            <TextField
-              label={getLabel("moments.editor.tags")}
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-            />
-            {visibility === "PRIVATE" && (
-              <>
-                <Stack direction="row" spacing={1}>
-                  <TextField
-                    select
-                    label={getLabel("moments.editor.shareWith")}
-                    value={username}
-                    onChange={(event) => setUsername(event.target.value)}
-                    fullWidth
-                  >
-                    {friends.map((friend) => (
-                      <MenuItem key={friend.username} value={friend.username}>
-                        {friend.nickname ||
-                          [friend.firstName, friend.lastName].filter(Boolean).join(" ") ||
-                          friend.username}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <Button
-                    disabled={!username}
-                    onClick={() => {
-                      const login = username.trim();
-                      setSharing((current) => [...new Set([...current, login])]);
-                      setUsername("");
-                    }}
-                  >
-                    {getLabel("moments.editor.add")}
-                  </Button>
-                </Stack>
-                {sharing.length > 0 && (
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {sharing.map((login) => (
-                      <Chip
-                        key={login}
-                        label={login}
-                        onDelete={() =>
-                          setSharing((current) => current.filter((item) => item !== login))
-                        }
-                      />
-                    ))}
-                  </Stack>
-                )}
-              </>
-            )}
-            {kind === "ALBUM" && !gallery && (
-              <Button onClick={() => setPickerOpen(true)}>
-                {getLabel("moments.editor.sourceFolder").replace("{directory}", directory)}
-              </Button>
-            )}
-            {gallery && (
-              <Stack spacing={1}>
-                <Typography variant="body2" color="text.secondary">
-                  {coverLabel}
-                </Typography>
-                <Button onClick={() => setCoverPickerOpen(true)} disabled={busy}>
-                  {getLabel("moments.editor.chooseCover")}
-                </Button>
-                <Button component="label" disabled={busy}>
-                  {getLabel("moments.editor.uploadCover")}
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void uploadCover(file).catch(() => undefined);
-                      event.target.value = "";
-                    }}
-                  />
-                </Button>
-                <Button onClick={() => setGeneratorOpen(true)} disabled={busy}>
-                  {getLabel("moments.editor.generateCover")}
+            <MenuItem value="PRIVATE">{getLabel("moments.feed.private")}</MenuItem>
+            <MenuItem value="PUBLIC">{getLabel("moments.feed.public")}</MenuItem>
+          </TextField>
+          <TextField
+            select
+            label={getLabel("moments.editor.layout")}
+            value={layout}
+            onChange={(event) => {
+              const parsed = galleryLayoutModeSchema.safeParse(event.target.value);
+              if (parsed.success) setLayout(parsed.data);
+            }}
+          >
+            <MenuItem value="mosaic">{getLabel("moments.editor.layoutMosaic")}</MenuItem>
+            <MenuItem value="justified">{getLabel("moments.editor.layoutJustified")}</MenuItem>
+            <MenuItem value="masonry">{getLabel("moments.editor.layoutMasonry")}</MenuItem>
+            <MenuItem value="grid">{getLabel("moments.editor.layoutGrid")}</MenuItem>
+          </TextField>
+          <TextField
+            label={getLabel("moments.editor.tags")}
+            value={tags}
+            onChange={(event) => setTags(event.target.value)}
+          />
+          {visibility === "PRIVATE" && (
+            <>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  select
+                  label={getLabel("moments.editor.shareWith")}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  fullWidth
+                >
+                  {friends.map((friend) => (
+                    <MenuItem key={friend.username} value={friend.username}>
+                      {friend.nickname ||
+                        [friend.firstName, friend.lastName].filter(Boolean).join(" ") ||
+                        friend.username}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <Button
+                  disabled={!username}
+                  onClick={() => {
+                    const login = username.trim();
+                    setSharing((current) => [...new Set([...current, login])]);
+                    setUsername("");
+                  }}
+                >
+                  {getLabel("moments.editor.add")}
                 </Button>
               </Stack>
-            )}
-            {gallery && (
-              <GalleryScanControls key={`${gallery.id}-media`} galleryId={gallery.id} open={open} />
-            )}
-            {gallery && (
-              <GalleryScanControls
-                key={`${gallery.id}-caption`}
-                galleryId={gallery.id}
-                open={open}
-                kind="CAPTION"
-              />
-            )}
-            {error && <Alert severity="error">{error}</Alert>}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button disabled={busy} onClick={onClose}>
-            {getLabel("moments.editor.cancel")}
-          </Button>
-          <Button disabled={busy || !tagsReady || !name.trim()} onClick={() => void submit()}>
-            {gallery ? getLabel("moments.editor.save") : getLabel("moments.editor.create")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+              {sharing.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {sharing.map((login) => (
+                    <Chip
+                      key={login}
+                      label={login}
+                      onDelete={() =>
+                        setSharing((current) => current.filter((item) => item !== login))
+                      }
+                    />
+                  ))}
+                </Stack>
+              )}
+            </>
+          )}
+          {kind === "ALBUM" && !gallery && (
+            <Button onClick={() => setPickerOpen(true)}>
+              {getLabel("moments.editor.sourceFolder").replace("{directory}", directory)}
+            </Button>
+          )}
+          {gallery && (
+            <Stack spacing={1}>
+              <Typography variant="body2" color="text.secondary">
+                {coverLabel}
+              </Typography>
+              <Button onClick={() => setCoverPickerOpen(true)} disabled={busy}>
+                {getLabel("moments.editor.chooseCover")}
+              </Button>
+              <Button component="label" disabled={busy}>
+                {getLabel("moments.editor.uploadCover")}
+                <input
+                  hidden
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadCover(file).catch(() => undefined);
+                    event.target.value = "";
+                  }}
+                />
+              </Button>
+              <Button onClick={() => setGeneratorOpen(true)} disabled={busy}>
+                {getLabel("moments.editor.generateCover")}
+              </Button>
+            </Stack>
+          )}
+          {gallery && (
+            <GalleryScanControls key={`${gallery.id}-media`} galleryId={gallery.id} open={open} />
+          )}
+          {gallery && (
+            <GalleryScanControls
+              key={`${gallery.id}-caption`}
+              galleryId={gallery.id}
+              open={open}
+              kind="CAPTION"
+            />
+          )}
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </StandardDialog>
       <FolderSelectionDialog
         open={pickerOpen}
         initialDirectory={directory}
@@ -407,27 +393,16 @@ export function GalleryEditorDialog({
             }}
             request={request}
           />
-          <Dialog
+          <StandardDialog
             open={generatorOpen}
             onClose={() => setGeneratorOpen(false)}
             fullWidth
             maxWidth="xl"
+            title={getLabel("moments.editor.generateCover")}
+            closeLabel={getLabel("moments.editor.closeGenerator")}
           >
-            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box sx={{ flex: 1 }}>{getLabel("moments.editor.generateCover")}</Box>
-              <IconButton
-                aria-label={getLabel("moments.editor.closeGenerator")}
-                onClick={() => setGeneratorOpen(false)}
-                edge="end"
-                size="small"
-              >
-                <CloseIcon />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent>
-              {generatorOpen && <ThumbnailMaker items={items} onSave={uploadCover} />}
-            </DialogContent>
-          </Dialog>
+            {generatorOpen && <ThumbnailMaker items={items} onSave={uploadCover} />}
+          </StandardDialog>
         </>
       )}
     </>

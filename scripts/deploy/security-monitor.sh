@@ -33,7 +33,7 @@ deploy.securityMonitor.deploy() {
 	local rules_target=/etc/lite-nas/log-analysis/rules.json
 
 	case "$name" in
-	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis) ;;
+	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis | network-security) ;;
 	*)
 		log.error "Unknown security monitor: $name"
 		return 2
@@ -55,7 +55,7 @@ deploy.securityMonitor.deploy() {
 		deploy.securityMonitor.ensureGroup lite-nas-security
 		extra_groups="$extra_groups,lite-nas-operator,lite-nas-security"
 		;;
-	service-watchdog | log-analysis)
+	service-watchdog | log-analysis | network-security)
 		deploy.securityMonitor.ensureGroup lite-nas-security
 		extra_groups="$extra_groups,lite-nas-security"
 		;;
@@ -92,11 +92,18 @@ deploy.securityMonitor.deploy() {
 		install -m 0640 -o "$user" -g "$user" /dev/null "$log_target"
 	fi
 	install -D -m 0644 "$unit_source" "/etc/systemd/system/$user.service"
+	if [ "$name" = "antivirus" ]; then
+		install -D -m 0644 "$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-antivirus-updater.service" \
+			/etc/systemd/system/lite-nas-antivirus-updater.service
+	fi
 	if [ "$name" = "log-analysis" ]; then
 		install -D -m 0644 "$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/$user.socket" "/etc/systemd/system/$user.socket"
 	fi
 	if [ "$name" = "service-watchdog" ]; then
 		deploy.installSudoersTemplate "$LITE_NAS_REPO_ROOT/configs/etc/sudoers.d/lite-nas-service-watchdog" /etc/sudoers.d/lite-nas-service-watchdog
+	fi
+	if [ "$name" = "antivirus" ]; then
+		deploy.installSudoersTemplate "$LITE_NAS_REPO_ROOT/configs/etc/sudoers.d/lite-nas-antivirus" /etc/sudoers.d/lite-nas-antivirus
 	fi
 	if [ "$should_start" = "1" ]; then
 		if [ "$name" = "log-analysis" ]; then

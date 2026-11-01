@@ -18,8 +18,8 @@ func TestCreateDoesNotResolveSecurityAlert(t *testing.T) {
 	alertSent := false
 	effect := pluginsDetectionForDeliveryTest()
 
-	if err := deliverDetection(context.Background(), effect, &alertSent, client, client); err == nil {
-		t.Fatal("create failed")
+	if err := deliverDetection(context.Background(), effect, &alertSent, client, client); err != nil {
+		t.Fatalf("create failed: %v", err)
 	}
 	if client.publishCount != 1 || client.stateCount != 0 {
 		t.Fatalf("publish/state counts = %d/%d, want 1/0", client.publishCount, client.stateCount)

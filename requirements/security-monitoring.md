@@ -31,11 +31,19 @@ implementation task is not a source of outstanding work.
   sudo policy denials and privileged group membership (`secpriv`), new accounts
   with a login shell and root password changes (`secacct`), and repeated SSH
   pre-authentication failures from one source address (`secssh`).
+- **security-monitoring/FR-008 — On-demand antivirus:** Accept an authorized
+  administrator scan request for any existing folder on a currently mounted
+  filesystem, expose task status and retry, and report completed results
+  through the same security-alert path as scheduled mount scans. Scheduled
+  scans remain limited to configured eligible mounts.
 - **security-monitoring/IR-001 — Detection state machines:** Use the shared
   table-driven FSM implementation for configured detection lifecycles.
 - **security-monitoring/IR-002 — Lifecycle integration:** Producers retain an
   allocated alert ID through retries, occurrences, and resolution within the
   active process. Volatile state does not guarantee cross-restart correlation.
+- **security-monitoring/IR-003 — On-demand scan API:** Expose authenticated
+  start, status, and retry gateway endpoints backed by antivirus-specific
+  request/reply subjects and the shared background-task contracts.
 
 The producer-owned event ID format is `<domain>_<eight decimal digits>`;
 `CONTRIBUTING.md` defines the repository-wide rule. These requirements describe

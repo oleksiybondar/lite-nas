@@ -16,6 +16,10 @@ const (
 	BackedUpSubject = "backup-restore.backed-up"
 	// VersionsSubject lists completed versions for one application.
 	VersionsSubject = "backup-restore.versions"
+	// MetadataSubject reads labels and attribution stored inside one archive.
+	MetadataSubject = "backup-restore.metadata"
+	// DeleteSubject permanently removes one stored archive.
+	DeleteSubject = "backup-restore.delete"
 	// BackupSubject creates one application snapshot.
 	BackupSubject = "backup-restore.backup"
 	// BackupAllSubject visits each configured application once.
@@ -127,7 +131,7 @@ type RestoreRequest struct {
 	AccessToken string `json:"access_token" validate:"required,max=8192"`
 	Application string `json:"application" validate:"required,max=64"`
 	Version     string `json:"version" validate:"required,max=64"`
-	Mode        string `json:"mode" validate:"oneof=replace merge"`
+	Mode        string `json:"mode" validate:"required,oneof=replace merge"`
 }
 
 // VersionRequest selects one stored version for read-only comparison.
@@ -166,6 +170,22 @@ type VersionsResponse struct {
 // BackupResponse identifies the newly created version.
 type BackupResponse struct {
 	Version string `json:"version"`
+}
+
+// BackupMetadataResponse returns descriptive data embedded in an archive.
+type BackupMetadataResponse struct {
+	Application  string   `json:"application"`
+	Version      string   `json:"version"`
+	RestartUnits []string `json:"restart_units,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	CreatedAt    string   `json:"created_at"`
+	CreatedBy    string   `json:"created_by"`
+}
+
+// DeleteResponse confirms removal of one stored archive.
+type DeleteResponse struct {
+	Deleted bool `json:"deleted"`
 }
 
 // BackupAllResult reports one completed, skipped, or failed application.

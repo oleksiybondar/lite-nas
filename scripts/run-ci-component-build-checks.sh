@@ -22,7 +22,9 @@ scripts/build-system-service-monitor.sh
 scripts/build-service-watchdog.sh
 scripts/build-services-manager.sh
 scripts/build-session-manager.sh
+scripts/build-usb-manager.sh
 scripts/build-log-analysis.sh
+scripts/build-network-security.sh
 scripts/build-network-metrics.sh
 scripts/build-process-metrics.sh
 scripts/build-disk-metrics.sh

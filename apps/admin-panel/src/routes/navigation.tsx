@@ -1,5 +1,6 @@
 import type { RbacContextValue } from "@dto/rbac/rbac";
 import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
+import BackupRoundedIcon from "@mui/icons-material/BackupRounded";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
@@ -19,9 +20,11 @@ import SecurityIcon from "@mui/icons-material/Security";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
+import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import TableRowsIcon from "@mui/icons-material/TableRows";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
+import UsbIcon from "@mui/icons-material/Usb";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import type { ReactNode } from "react";
 
@@ -55,7 +58,8 @@ export type AppNavigationItem = AppNavigationPageItem;
 /**
  * RBAC guards used when building role-aware dashboard navigation.
  */
-export type AppNavigationRbac = Pick<RbacContextValue, "requireOperator" | "requireSecurity">;
+export type AppNavigationRbac = Pick<RbacContextValue, "requireOperator" | "requireSecurity"> &
+  Partial<Pick<RbacContextValue, "requireAdmin">>;
 
 /**
  * RBAC fallback used by static navigation tests and anonymous states.
@@ -73,14 +77,33 @@ const denyAllNavigationRbac: AppNavigationRbac = {
  * changing route ownership.
  */
 export const buildAppNavigationItems = (
-  { requireOperator, requireSecurity }: AppNavigationRbac,
+  rbac: AppNavigationRbac,
   momentsAvailable = false,
 ): AppNavigationItem[] => {
+  const { requireOperator, requireSecurity, requireAdmin } = rbac;
   return [
     buildDashboardNavigationItem(),
     buildApplicationsNavigationItem(momentsAvailable),
     ...buildAlertsNavigationItems({ requireOperator, requireSecurity }),
     buildSystemNavigationItem(),
+    ...(requireSecurity() || requireAdmin?.()
+      ? [
+          {
+            children: [
+              { icon: <SupervisorAccountIcon />, path: "/security/sessions", title: "Sessions" },
+              { icon: <UsbIcon />, path: "/security/usb-devices", title: "USBDevices" },
+              { icon: <SecurityIcon />, path: "/security/integrity", title: "Integrity" },
+              { icon: <SecurityIcon />, path: "/security/antivirus", title: "Antivirus" },
+            ],
+            icon: <SecurityIcon />,
+            path: "/security",
+            title: "Security",
+          },
+        ]
+      : []),
+    ...(requireAdmin?.()
+      ? [{ icon: <BackupRoundedIcon />, path: "/backup-restore", title: "Backup and restore" }]
+      : []),
   ];
 };
 
@@ -359,7 +382,12 @@ export const resolveNavigationItems = (
     return preferencesNavigationItems;
   }
 
-  if (!momentsAvailable && !rbac.requireOperator() && !rbac.requireSecurity()) {
+  if (
+    !momentsAvailable &&
+    !rbac.requireOperator() &&
+    !rbac.requireSecurity() &&
+    !rbac.requireAdmin?.()
+  ) {
     return appNavigationItems;
   }
 

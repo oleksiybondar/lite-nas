@@ -1,0 +1,15 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/network-security flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+  include <abstractions/lite-nas-auth-client>
+
+  /usr/libexec/lite-nas/network-security mr,
+  /etc/lite-nas/network-security.conf r,
+  /var/log/lite-nas/network-security.log rw,
+
+  include if exists <local/usr.libexec.lite-nas.network-security>
+}

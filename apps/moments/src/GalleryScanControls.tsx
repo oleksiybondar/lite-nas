@@ -1,15 +1,17 @@
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: scan history, polling, and user actions belong to one status control.
-// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: the scan control keeps its lifecycle and feedback together.
+import {
+  BackgroundTaskActions,
+  BackgroundTaskProgress,
+  BackgroundTaskProvider,
+  useBackgroundTask,
+} from "@lite-nas/background-task";
 import { useLanguage } from "@lite-nas/language";
 import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   cancelGalleryScan,
   getGalleryScan,
@@ -34,92 +36,60 @@ export const GalleryScanControls = ({
   kind?: GalleryScan["kind"];
 }): ReactElement => {
   const { getLabel } = useLanguage();
-  const [scan, setScan] = useState<GalleryScan | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [actionBusy, setActionBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [force, setForce] = useState(false);
   const label = getLabel(kind === "CAPTION" ? "moments.scan.captions" : "moments.scan.media");
-  const loadedGallery = useRef<string | null>(null);
-  const historyLoaded = useRef(false);
+  const adapter = useMemo(
+    () => ({
+      loadLatest: () => latestGalleryScan(galleryId, kind),
+      poll: getGalleryScan,
+      getId: (scan: GalleryScan) => scan.id,
+      isActive: scanIsActive,
+    }),
+    [galleryId, kind],
+  );
 
-  useEffect(() => {
-    // Closing the editor leaves the active poll running; opening it refreshes history.
-    if (!open && loadedGallery.current === galleryId && historyLoaded.current) return;
-    loadedGallery.current = galleryId;
-    historyLoaded.current = false;
-    let active = true;
-    setLoading(true);
-    setError(null);
-    void latestGalleryScan(galleryId, kind)
-      .then((job) => {
-        if (active) setScan(job);
-      })
-      .catch(() => {
-        if (active) setError(getLabel("moments.scan.loadingStatus").replace("{kind}", label));
-      })
-      .finally(() => {
-        if (active) {
-          historyLoaded.current = true;
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [galleryId, open, kind, label, getLabel]);
+  return (
+    <BackgroundTaskProvider
+      key={`${galleryId}-${kind}`}
+      taskKey={`${galleryId}-${kind}`}
+      adapter={adapter}
+      enabled={open}
+      loadFailedMessage={getLabel("moments.scan.loadingStatus").replace("{kind}", label)}
+      refreshFailedMessage={getLabel("moments.scan.refreshFailed").replace("{kind}", label)}
+    >
+      <GalleryScanControlsContent galleryId={galleryId} kind={kind} label={label} />
+    </BackgroundTaskProvider>
+  );
+};
 
-  useEffect(() => {
-    if (!scanIsActive(scan) || !scan) return;
-    let active = true;
-    let timer: number;
-    const poll = async (): Promise<void> => {
-      try {
-        const current = await getGalleryScan(scan.id);
-        if (active) {
-          setScan(current);
-          setError(null);
-        }
-      } catch {
-        if (active) setError(getLabel("moments.scan.refreshFailed").replace("{kind}", label));
-      } finally {
-        if (active) timer = window.setTimeout(() => void poll(), 3000);
-      }
-    };
-    timer = window.setTimeout(() => void poll(), 3000);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [scan, label, getLabel]);
+/** Renders gallery-specific actions and counters using the shared task lifecycle. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Domain-specific start, cancellation, and scan counters belong in this control.
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The control keeps the scan summary beside its actions.
+function GalleryScanControlsContent({
+  galleryId,
+  kind,
+  label,
+}: {
+  galleryId: string;
+  kind: GalleryScan["kind"];
+  label: string;
+}): ReactElement {
+  const { getLabel } = useLanguage();
+  const { task: scan, loading, error, execute } = useBackgroundTask<GalleryScan>();
+  const [force, setForce] = useState(false);
 
   const start = async (): Promise<void> => {
-    setActionBusy(true);
-    setError(null);
-    try {
-      setScan(
-        await (kind === "CAPTION"
-          ? startCaptionScan(galleryId, force)
-          : startGalleryScan(galleryId)),
-      );
-    } catch {
-      setError(getLabel("moments.scan.startFailed").replace("{kind}", label));
-    } finally {
-      setActionBusy(false);
-    }
+    await execute(
+      () => (kind === "CAPTION" ? startCaptionScan(galleryId, force) : startGalleryScan(galleryId)),
+      getLabel("moments.scan.startFailed").replace("{kind}", label),
+    );
   };
 
   const cancel = async (): Promise<void> => {
     if (!scan) return;
-    setActionBusy(true);
-    setError(null);
-    try {
-      setScan(await cancelGalleryScan(scan.id));
-    } catch {
-      setError(getLabel("moments.scan.cancelFailed").replace("{kind}", label));
-    } finally {
-      setActionBusy(false);
-    }
+    await execute(
+      () => cancelGalleryScan(scan.id),
+      getLabel("moments.scan.cancelFailed").replace("{kind}", label),
+    );
   };
 
   const active = scanIsActive(scan);
@@ -147,35 +117,29 @@ export const GalleryScanControls = ({
           label={getLabel("moments.scan.regenerate")}
         />
       )}
-      <Stack direction="row" spacing={1}>
-        <Button disabled={loading || actionBusy || active} onClick={() => void start()}>
-          {getLabel(
-            kind === "CAPTION" ? "moments.scan.generateCaptions" : "moments.scan.scanMedia",
-          )}
-        </Button>
-        {active && (
-          <Button disabled={actionBusy} onClick={() => void cancel()}>
-            {getLabel("moments.scan.cancel")}
-          </Button>
+      <BackgroundTaskActions
+        active={active}
+        disabled={loading}
+        startLabel={getLabel(
+          kind === "CAPTION" ? "moments.scan.generateCaptions" : "moments.scan.scanMedia",
         )}
-      </Stack>
-      {scan && (
-        <Typography role="status" variant="body2">
-          {getLabel(`moments.scan.status.${scan.status.toLowerCase()}`)} · {scan.processedItems}
-          {scan.totalItems === null ? "" : ` / ${scan.totalItems}`}{" "}
-          {getLabel("moments.scan.processed")} · {scan.successfulItems}{" "}
-          {getLabel("moments.scan.successful")} · {scan.failedItems}{" "}
-          {getLabel("moments.scan.failed")}
-        </Typography>
-      )}
-      {active && (
-        <LinearProgress
-          variant={progress === null ? "indeterminate" : "determinate"}
-          value={progress ?? undefined}
-        />
-      )}
+        cancelLabel={getLabel("moments.scan.cancel")}
+        onStart={() => void start()}
+        onCancel={() => void cancel()}
+      />
+      <BackgroundTaskProgress active={active} label={label} value={progress}>
+        {scan && (
+          <Typography role="status" variant="body2">
+            {getLabel(`moments.scan.status.${scan.status.toLowerCase()}`)} · {scan.processedItems}
+            {scan.totalItems === null ? "" : ` / ${scan.totalItems}`}{" "}
+            {getLabel("moments.scan.processed")} · {scan.successfulItems}{" "}
+            {getLabel("moments.scan.successful")} · {scan.failedItems}{" "}
+            {getLabel("moments.scan.failed")}
+          </Typography>
+        )}
+      </BackgroundTaskProgress>
       {scan?.errorSummary && <Alert severity="warning">{scan.errorSummary}</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
     </Stack>
   );
-};
+}

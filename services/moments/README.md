@@ -110,9 +110,9 @@ rate-limited lookups fall back to the packaged GeoNames `cities1000` extract,
 which resolves a nearby city such as `Málaga, Spain`. Alternate place names
 and Latin accents are included in the search key. Locations farther than 50 km
 from an offline city remain unlabelled when an online result is unavailable.
-GeoNames data is attributed in `data/README.md`; the app footer attributes
-OpenStreetMap contributors. Set `geocoder_url=` in the storage configuration
-to disable online lookups or point it to another Nominatim-compatible HTTPS endpoint.
+GeoNames data attribution is documented in `data/README.md`. Set
+`geocoder_url=` in the storage configuration to disable online lookups or point
+it to another Nominatim-compatible HTTPS endpoint.
 The extractor returns an empty tag array when textual fields are absent.
 Format classification is derived from the file
 extension; callers must still handle malformed or unsupported source content.

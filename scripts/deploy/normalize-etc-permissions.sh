@@ -278,6 +278,19 @@ deploy.normalizeAppArmor() {
 	log.popTask
 }
 
+deploy.normalizeAIDE() {
+	local aide_config_dir="$target_dir/aide"
+	local aide_dropin_dir="$aide_config_dir/aide.conf.d"
+	local aide_dropin
+
+	[ -d "$aide_dropin_dir" ] || return 0
+	deploy.normalizePath 0755 "$aide_config_dir" "$owner"
+	deploy.normalizePath 0755 "$aide_dropin_dir" "$owner"
+	while IFS= read -r -d '' aide_dropin; do
+		deploy.normalizePath 0644 "$aide_dropin" "$owner"
+	done < <(find "$aide_dropin_dir" -maxdepth 1 -type f -name '*_litenas_*' -print0)
+}
+
 deploy.normalizeSystemd() {
 	log.pushTask "Normalizing systemd unit permissions"
 	deploy.normalizePath 0755 "$systemd_dir" "$owner"
@@ -426,6 +439,7 @@ deploy.normalizeEtcPermissions() {
 	deploy.normalizeNginx
 	deploy.normalizePostfix
 	deploy.normalizeAppArmor
+	deploy.normalizeAIDE
 	deploy.normalizeSystemd
 	deploy.normalizeRsyslog
 	deploy.normalizeSudoers

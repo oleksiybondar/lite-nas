@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lite-nas.local/contracts/backgroundtasks/retry-request.schema.json",
+  "title": "Background task retry request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id"],
+  "properties": {
+    "task_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+  }
+}

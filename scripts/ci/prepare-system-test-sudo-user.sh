@@ -23,6 +23,7 @@ sudoers_file="${LITENAS_TESTSUDO_SUDOERS_FILE:-/etc/sudoers.d/lite-nas-tests-aa-
 aa_status_path="${LITENAS_TESTSUDO_AA_STATUS_PATH:-/usr/sbin/aa-status}"
 system_logging_manager_cli_path="${LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY:-/usr/bin/system-logging-manager-cli}"
 security_logging_manager_cli_path="${LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY:-/usr/bin/security-logging-manager-cli}"
+port_scan_helper_path=/usr/local/libexec/lite-nas-test-port-scan
 mkdir_path="$(command -v mkdir)"
 mount_path="$(command -v mount)"
 rmdir_path="$(command -v rmdir)"
@@ -93,7 +94,8 @@ install_sudoers_rule() {
 	cat >"$tmp_file" <<EOF
 # Managed by scripts/ci/prepare-system-test-sudo-user.sh for system tests.
 ${testsudo_login} ALL=(root) NOPASSWD: ${aa_status_path}, ${system_logging_manager_cli_path}, ${security_logging_manager_cli_path}, \
-  ${mkdir_path}, ${mount_path}, ${rmdir_path}, ${umount_path}
+  ${mkdir_path}, ${mount_path}, ${rmdir_path}, ${umount_path}, \
+  ${port_scan_helper_path} --ports, ${port_scan_helper_path} --horizontal, ${port_scan_helper_path} --repeated
 EOF
 
 	visudo --check --file "$tmp_file"
@@ -109,6 +111,7 @@ log.requireCommand "chpasswd"
 log.requireCommand "install"
 log.requireCommand "mktemp"
 log.requireCommand "visudo"
+log.requireCommand "ip"
 
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
 	log.requireCommand "sudo"
@@ -119,5 +122,6 @@ require_safe_password "$testsudo_password" "LITENAS_TESTSUDO_PASSWORD/LITENAS_TE
 
 log.pushTask "Preparing restricted sudo system-test user"
 ensure_user "$testsudo_login" "$testsudo_password"
+run.asRoot install -D -m 0755 -o root -g root "$SCRIPT_DIR/test-port-scan.py" "$port_scan_helper_path"
 install_sudoers_rule
 log.popTask

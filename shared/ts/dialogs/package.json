@@ -1,0 +1,17 @@
+{
+  "name": "@lite-nas/dialogs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@lite-nas/language": "file:../language"
+  },
+  "peerDependencies": {
+    "@mui/icons-material": "^7.3.9",
+    "@mui/material": "^7.3.9",
+    "react": "^18.3.1"
+  }
+}

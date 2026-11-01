@@ -112,7 +112,7 @@ func TestFanoutReachesTwoPluginInstancesOnOneSource(t *testing.T) {
 	input := make(chan logRecord, 1)
 	input <- logRecord{SourceID: "auth", Message: "authentication failure", Account: "alice", SourceAddress: "192.0.2.4"}
 	close(input)
-	dispatcher := newDispatchWorker(input, routes, instances, sharedlogger.NewNop())
+	dispatcher := newDispatchWorker(input, nil, routes, instances, sharedlogger.NewNop())
 	dispatcher.run(nil)
 	if len(instances["account"].Input()) != 1 || len(instances["source"].Input()) != 1 {
 		t.Fatal("fanout missed a plugin instance")

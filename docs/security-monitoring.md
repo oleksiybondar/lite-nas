@@ -1,6 +1,6 @@
 # Security monitoring services
 
-The five services run as separate unprivileged Go processes. Within each process, polling, NATS input, scanning
+The security services run as separate unprivileged Go processes. Within each process, polling, NATS input, scanning
 or evaluation, and reporting run as bounded workers. `shared/go/fsm` supplies typed transition tables and a
 bounded keyed memory store; Resources Monitor and LiteNAS Integrity use it for their existing incident
 lifecycles. Snapshot collection in metrics services is stateless and was not migrated.
@@ -8,6 +8,7 @@ lifecycles. Snapshot collection in metrics services is stateless and was not mig
 | Service | Input and output | Default |
 | --- | --- | --- |
 | Log Analysis | Receives rsyslog records on a socket-activated Unix datagram socket; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; one critical, emailed alert per newly connected USB device; source probing and lockdown disabled |
+| Network Security | Subscribes to Log Analysis UFW blocked TCP attempt events and Network Metrics snapshots; reports port scans, horizontal scans, and repeated blocked attempts | Each detector defaults to 12 attempts in 2 minutes with a 30 minute cooldown |
 | Mount Monitor | Reads `/proc/self/mountinfo`; publishes `mount.events.lifecycle` and system alerts | 5 second poll; first snapshot is a baseline |
 | Antivirus | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; reports clean scans as normal info events, incomplete scans as warnings, and malware as error events in Security Logging Manager; cancels scans when mounts disappear | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout |
 | System Service Monitor | Probes configured systemd units; publishes `service.monitor.events.state` and system alert lifecycle | 10 second poll; units in `system-service-monitor.conf` |
@@ -15,7 +16,8 @@ lifecycles. Snapshot collection in metrics services is stateless and was not mig
 
 The Watchdog's protected list is independent of the Service Monitor list. It includes
 `systemd-journald.service`, AppArmor, USBGuard, UFW, and the LiteNAS security and monitoring units in
-`service-watchdog.conf`. It attempts recovery after systemd has left the unit inactive, including a manual stop.
+`service-watchdog.conf`, including Network Security. It attempts recovery after systemd has left the unit
+inactive, including a manual stop.
 It reports unexpected enablement changes. Its systemd unit is ordered after every protected unit, so systemd
 stops Watchdog first during normal shutdown and reboot. Watchdog never changes enablement. Sudo allows only
 `systemctl start` of the exact configured default units; changing the config alone cannot widen the privilege
@@ -73,6 +75,15 @@ boot, so a later unsigned module would not be reported.
 To process more records, extend the selection condition in the rsyslog drop-in, add a matching source and rules
 to the active `rules.json`, then restart rsyslog and Log Analysis. Records that no source selects are ignored.
 
+Network Security receives the separate, validated `network.security.events.firewall_attempt` event
+for each UFW blocked TCP probe selected from trusted `imklog` records. Three
+instances of the shared FSM count distinct ports per source and destination,
+distinct destinations per source and port, and repeated attempts per source,
+destination, and port. Each defaults to 12 observations in 2 minutes with a
+30 minute cooldown. Network snapshots supply a timestamp for
+alert context; snapshots alone cannot identify a scan. UFW logging and rsyslog forwarding
+must be active, and allowed or rate limited probes do not contribute to the count.
+
 The `usb_device_connected` rule matches kernel `New USB device found` records, excludes Linux root hubs
 (`idVendor=1d6b`), and uses the `usb_device_event` instance with its own `secusb` event ID prefix. The alert text
 contains only the USB port and hexadecimal vendor/product IDs; device-reported names and serials are not copied
@@ -91,6 +102,9 @@ the record queue, and the runtime closes it after the receiver stops. The dispat
 to every matching plugin. Producers stop before their channel is closed, and NATS subscriptions drain before
 input closure. Cancellation prevents blocked sends during shutdown. Reporting retries while running, then logs
 any pending effect that cannot be delivered at stop.
+Network Security constructs its port scan plugin at startup and owns a 128 entry firewall attempt
+queue, an 8 entry snapshot queue, and a 64 entry alert queue. NATS callbacks validate inbound
+events before sending them to the coordinator; one outbound worker sends security alerts.
 
 Both new lifecycle subjects use versioned JSON and have explicit NATS publisher and subscriber ACLs. Antivirus
 treats mount messages as hints and verifies the live mount identity before scanning; it also scans eligible
@@ -123,7 +137,8 @@ example also sends email if enabled. Publishers that omit the alert contract's o
 notifier's previous behavior. Transport or SMTP failure must be checked in the corresponding service logs.
 Monitor event IDs follow the resources monitor's readable prefix and eight-digit counter format:
 `sysmnt_00000001` for mounts, `syssvc_00000001` for service availability,
-`secauth_00000001` for authentication, `secusb_00000001` for USB devices, and `secav_00000001` for antivirus.
+`secauth_00000001` for authentication, `secusb_00000001` for USB devices, `secav_00000001` for antivirus,
+and `secnet_00000001` for network scans.
 Log Analysis uses the configurable `event_id_prefix` in `rules.json` (shipped as `secauth`); an instance may
 override it with its own `event_id_prefix` (shipped as `secusb` for USB devices). One counter is shared across
 detector instances. Counters use the existing startup-time seed
@@ -145,7 +160,12 @@ copies the packaged default into `/etc`; on later deployments, it leaves the act
 new packaged default against local rules, compare those two files before deciding whether to merge changes.
 No embedded passwords or keys are in sample configs. Mount
 Monitor and System Service Monitor have the operator group needed for system alerts; Antivirus has operator and
-security groups; Watchdog and Log Analysis have the security group. Log Analysis no longer reads log files and
+security groups; Watchdog, Log Analysis, and Network Security have the security group. Network Security runs
+as `lite-nas-network-security` without Linux capabilities and with its AppArmor profile selected by systemd.
+Its NATS account subscribes only to firewall attempts and network snapshots and publishes only the subjects
+needed for Auth and security alert delivery. The backup specifications include its configuration, systemd
+unit, AppArmor profile, NATS authorization, and transport and identity certificates. Log Analysis no longer reads
+log files and
 is not added to `adm`; deployments made before the socket ingress keep that existing membership until it is
 removed manually. The Antivirus scanner runs without root and never follows symlinks or crosses
 filesystems.

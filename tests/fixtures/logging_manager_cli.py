@@ -123,8 +123,9 @@ def wait_for_logging_manager_event(  # noqa: PLR0913 - explicit event match fiel
     text: str,
     status: str,
     timeout: float = 90.0,
+    after_rec_id: int = 0,
 ) -> dict[str, object] | None:
-    """Poll the authenticated manager CLI for one event matching a mounted path."""
+    """Poll the authenticated manager CLI for one matching event after a row ID."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         payload = execute_logging_manager_json(
@@ -136,6 +137,7 @@ def wait_for_logging_manager_event(  # noqa: PLR0913 - explicit event match fiel
                 and event.get("Source") == source
                 and text in str(event.get("Message", ""))
                 and event.get("Status") == status
+                and int(str(event.get("RecID", 0))) > after_rec_id
             ):
                 return event
         time.sleep(1.0)

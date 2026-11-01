@@ -78,6 +78,10 @@ test("the new collection dialog closes from its header", async () => {
 test("an explicit collection member can be removed", async () => {
   const actions = renderMenu();
   fireEvent.click(screen.getByRole("menuitem", { name: "Remove from collection" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Type yes to confirm" }), {
+    target: { value: "yes" },
+  });
+  fireEvent.click(screen.getByTestId("confirm-action-submit"));
   await waitFor(() => expect(actions.remove).toHaveBeenCalledWith("/home/Photos/photo.jpg"));
 });
 

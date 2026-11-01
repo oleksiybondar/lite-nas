@@ -42,7 +42,7 @@ deploy.hostManager.deploy() {
 	local profile_source="$LITE_NAS_REPO_ROOT/configs/etc/apparmor.d/usr.libexec.lite-nas.$name"
 
 	case "$name" in
-	services-manager | session-manager) ;;
+	services-manager | session-manager | usb-manager) ;;
 	*)
 		log.error "Unknown host manager: $name"
 		return 2

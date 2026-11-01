@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { FriendsPage } from "./FriendsPage";
-import { listFriendsPage, loadFriendAvatar, saveFriend } from "./moments-data";
+import { listFriendsPage, loadFriendAvatar, removeFriend, saveFriend } from "./moments-data";
 import { renderWithLanguage } from "./test-utils/language";
 
 const friendFixture = {
@@ -24,6 +24,23 @@ vi.mock("./moments-data", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+// Requirements: moments-backend/FR-010. Removing a contact requires typed confirmation.
+test("removing a friend waits for typed yes", async () => {
+  vi.mocked(listFriendsPage).mockResolvedValue({
+    items: [friendFixture],
+    metadata: { page: 1, size: 12, total_count: 1, total_pages: 1 },
+  });
+  vi.mocked(removeFriend).mockResolvedValue(undefined);
+  vi.mocked(loadFriendAvatar).mockResolvedValue(null);
+  renderWithLanguage(<FriendsPage />);
+  fireEvent.click(await screen.findByTestId("moments-friend-remove-ari-example"));
+  fireEvent.change(screen.getByRole("textbox", { name: "Type yes to confirm" }), {
+    target: { value: "yes" },
+  });
+  fireEvent.click(screen.getByTestId("confirm-action-submit"));
+  await waitFor(() => expect(removeFriend).toHaveBeenCalledWith("ari-example"));
 });
 
 // Requirements: moments-backend/FR-010. The modal saves user-entered login labels.

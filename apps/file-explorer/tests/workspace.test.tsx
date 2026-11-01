@@ -1,3 +1,4 @@
+import { ConfirmActionDialog } from "@lite-nas/dialogs";
 import { UploadDialog } from "@lite-nas/file-upload";
 import { LanguageProvider } from "@lite-nas/language";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
@@ -13,7 +14,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "../src/App";
-import { ConfirmActionDialog } from "../src/ConfirmActionDialog";
 import { ExplorerActionBar } from "../src/ExplorerActionBar";
 import { FileEntryIcon } from "../src/FileEntryIcon";
 import { FileEntryItem } from "../src/FileEntryItem";

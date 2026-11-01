@@ -1,22 +1,10 @@
+import { ConfirmActionDialog, StandardDialog } from "@lite-nas/dialogs";
 import { UploadDialog } from "@lite-nas/file-upload";
 import { useLanguage } from "@lite-nas/language";
-import CloseIcon from "@mui/icons-material/Close";
-import {
-  Alert,
-  Box,
-  CircularProgress,
-  Container,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, CircularProgress, Container, Stack, Typography } from "@mui/material";
 import MarkdownIt from "markdown-it";
 import type { Dispatch, ReactElement, SetStateAction } from "react";
 import { useEffect, useRef, useState } from "react";
-import { ConfirmActionDialog } from "./ConfirmActionDialog";
 import { ExplorerActionBar } from "./ExplorerActionBar";
 import { ExplorerActionQueue } from "./ExplorerActionQueue";
 import { ExplorerPanel } from "./ExplorerPanel";
@@ -248,24 +236,19 @@ function PreviewDialog({
   const extension = path?.slice(path.lastIndexOf(".") + 1).toLowerCase() ?? "";
   const PreviewContent = kind === null ? null : previewContentByKind[kind];
   return (
-    <Dialog open={path !== null} onClose={onClose} fullWidth maxWidth="lg">
-      <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        {path === null ? getLabel("explorer.preview") : displayName(path)}
-        <IconButton
-          aria-label={getLabel("explorer.closePreview")}
-          onClick={onClose}
-          edge="end"
-          size="small"
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent sx={{ minHeight: 160 }}>
-        {path !== null && PreviewContent !== null && (
-          <PreviewContent path={path} extension={extension} />
-        )}
-      </DialogContent>
-    </Dialog>
+    <StandardDialog
+      open={path !== null}
+      onClose={onClose}
+      fullWidth
+      maxWidth="lg"
+      title={path === null ? getLabel("explorer.preview") : displayName(path)}
+      closeLabel={getLabel("explorer.closePreview")}
+      contentProps={{ sx: { minHeight: 160 } }}
+    >
+      {path !== null && PreviewContent !== null && (
+        <PreviewContent path={path} extension={extension} />
+      )}
+    </StandardDialog>
   );
 }
 

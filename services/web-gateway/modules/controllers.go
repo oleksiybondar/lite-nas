@@ -12,6 +12,7 @@ import (
 type Controllers struct {
 	ServicesManagement controllers.ServicesManagementController
 	SessionsManagement controllers.SessionsManagementController
+	USBManager         controllers.USBManagerController
 	Auth               controllers.AuthController
 	Static             controllers.StaticController
 	SystemAlerts       controllers.AlertsController
@@ -23,6 +24,7 @@ type Controllers struct {
 	NetworkMetrics     controllers.NetworkMetricsController
 	ZFSMetrics         controllers.ZFSMetricsController
 	BackupRestore      controllers.BackupRestoreController
+	SecurityTasks      controllers.SecurityTasksController
 }
 
 // NewControllersModule assembles the HTTP controllers used by the route layer.
@@ -44,6 +46,7 @@ func NewControllersModule(
 	return Controllers{
 		ServicesManagement: controllers.NewServicesManagementController(services.ServicesManagement),
 		SessionsManagement: controllers.NewSessionsManagementController(services.SessionsManagement),
+		USBManager:         controllers.NewUSBManagerController(services.USBManager),
 		Auth:               controllers.NewAuthController(services.Auth, domain),
 		Static:             controllers.NewStaticController(staticFiles, log),
 		SystemAlerts:       controllers.NewSystemAlertsController(services.SystemAlerts),
@@ -55,5 +58,6 @@ func NewControllersModule(
 		NetworkMetrics:     controllers.NewNetworkMetricsController(services.NetworkMetrics),
 		ZFSMetrics:         controllers.NewZFSMetricsController(services.ZFSMetrics),
 		BackupRestore:      controllers.NewBackupRestoreController(services.BackupRestore),
+		SecurityTasks:      controllers.NewSecurityTasksController(services.SecurityTasks),
 	}
 }

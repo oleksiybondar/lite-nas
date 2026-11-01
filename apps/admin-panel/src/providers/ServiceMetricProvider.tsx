@@ -10,11 +10,14 @@ import type {
   ServiceMetricStateAction,
   ServiceMetricUnitDTO,
 } from "@dto/monitoring/service-metric";
+import { useApi } from "@hooks/useApi";
 import { useFilteredRecords } from "@hooks/useFilteredRecords";
 import { useMonitoringPollingSettings } from "@hooks/useMonitoringPollingSettings";
 import { usePollingResource } from "@hooks/usePollingResource";
 import { PollingResourceProvider } from "@providers/PollingResourceProvider";
+import { managementActionResponseSchema } from "@schemas/management/management-action";
 import { parseServiceMetricSnapshotResponse } from "@schemas/monitoring/service-metric";
+import { useQueryClient } from "@tanstack/react-query";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useMemo } from "react";
 
@@ -30,25 +33,43 @@ const defaultServicesPageSize = 50;
  * Snapshot polling provider configured for gateway-backed service inspection.
  */
 export const ServiceMetricProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const { post } = useApi();
+  const queryClient = useQueryClient();
   const { snapshotIntervalMs } = useMonitoringPollingSettings();
   const actions = useMemo<ServiceMetricActionMethods>(() => {
+    const executeAction = async (
+      serviceName: string,
+      action: ServiceMetricStartupBehaviour | ServiceMetricStateAction | "restart",
+    ): Promise<void> => {
+      const response = await post(
+        `/api/services/${encodeURIComponent(serviceName)}/${action}`,
+      ).execute();
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} service ${serviceName}.`);
+      }
+
+      managementActionResponseSchema.parse(await response.json());
+      await queryClient.invalidateQueries({
+        queryKey: ["polling-resource", "service-metrics", "snapshot"],
+      });
+    };
+
     return {
       restart: async (serviceName: string): Promise<void> => {
-        void serviceName;
+        await executeAction(serviceName, "restart");
       },
       toggleStartupBehaviour: async (
         serviceName: string,
         behaviour: ServiceMetricStartupBehaviour,
       ): Promise<void> => {
-        void serviceName;
-        void behaviour;
+        await executeAction(serviceName, behaviour);
       },
       toggleState: async (serviceName: string, action: ServiceMetricStateAction): Promise<void> => {
-        void serviceName;
-        void action;
+        await executeAction(serviceName, action);
       },
     };
-  }, []);
+  }, [post, queryClient]);
 
   return (
     <PollingResourceProvider

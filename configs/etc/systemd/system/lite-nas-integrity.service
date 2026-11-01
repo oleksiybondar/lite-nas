@@ -1,7 +1,7 @@
 [Unit]
 Description=LiteNAS integrity service
-After=network-online.target nats-server.service lite-nas-security-logging-manager.service
-Wants=network-online.target
+After=network-online.target nats-server.service lite-nas-auth.service lite-nas-rbac.service lite-nas-security-logging-manager.service
+Wants=network-online.target lite-nas-auth.service lite-nas-rbac.service lite-nas-security-logging-manager.service
 Requires=nats-server.service
 
 [Service]
@@ -17,7 +17,7 @@ PrivateDevices=yes
 PrivateTmp=yes
 ProtectClock=yes
 ProtectControlGroups=yes
-ProtectHome=yes
+ProtectHome=read-only
 ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
@@ -33,11 +33,11 @@ IPAddressAllow=::1
 RestrictNamespaces=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
-CapabilityBoundingSet=
-AmbientCapabilities=
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_DAC_READ_SEARCH
 UMask=0027
 ReadOnlyPaths=/etc/lite-nas/litenas-integrity.conf /etc/lite-nas/certificates/transport /etc/lite-nas/certificates/identities
-ReadWritePaths=/var/log/lite-nas/lite-nas-integrity.log
+ReadWritePaths=/var/log/lite-nas/lite-nas-integrity.log /var/lib/aide
 StandardOutput=null
 StandardError=journal
 

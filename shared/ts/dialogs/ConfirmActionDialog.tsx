@@ -1,17 +1,8 @@
 import { useLanguage } from "@lite-nas/language";
-import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
 import type { ReactElement } from "react";
 import { useState } from "react";
+import { StandardDialog } from "./StandardDialog";
 
 /** Runs a confirmed action and returns its displayable error when it fails. */
 async function runConfirmedAction(
@@ -22,11 +13,12 @@ async function runConfirmedAction(
     await onConfirm();
     return null;
   } catch (caught) {
-    return caught instanceof Error ? caught.message : getLabel("explorer.queueErrorFallback");
+    return caught instanceof Error ? caught.message : getLabel("dialogs.actionFailed");
   }
 }
 
 /** Generic typed-confirmation dialog for consequential actions. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The dialog keeps confirmation state and action feedback together.
 export function ConfirmActionDialog({
   open,
   title,
@@ -34,6 +26,8 @@ export function ConfirmActionDialog({
   confirmLabel,
   onClose,
   onConfirm,
+  requireYes = true,
+  confirmColor = "error",
 }: {
   open: boolean;
   title: string;
@@ -41,6 +35,10 @@ export function ConfirmActionDialog({
   confirmLabel: string;
   onClose: () => void;
   onConfirm: () => Promise<void>;
+  /** Requires typing `yes` for destructive actions; otherwise a button confirms. */
+  requireYes?: boolean;
+  /** Semantic color for the confirmation button. */
+  confirmColor?: "error" | "primary" | "warning";
 }): ReactElement {
   const { getLabel } = useLanguage();
   const [typed, setTyped] = useState("");
@@ -48,8 +46,9 @@ export function ConfirmActionDialog({
   const [error, setError] = useState("");
 
   /** Requires the exact confirmation word before starting the action. */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The dialog keeps confirmation state and action feedback together.
   const confirm = async (): Promise<void> => {
-    if (typed !== "yes" || busy) {
+    if ((requireYes && typed !== "yes") || busy) {
       return;
     }
     setBusy(true);
@@ -75,13 +74,37 @@ export function ConfirmActionDialog({
   };
 
   return (
-    <Dialog open={open} onClose={close} fullWidth maxWidth="sm" data-testid="confirm-action-dialog">
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <Typography>{description}</Typography>
+    <StandardDialog
+      open={open}
+      onClose={close}
+      closeLabel={getLabel("dialogs.close")}
+      closeDisabled={busy}
+      title={title}
+      fullWidth
+      maxWidth="sm"
+      data-testid="confirm-action-dialog"
+      actions={
+        <>
+          <Button onClick={close} disabled={busy}>
+            {getLabel("common.cancel")}
+          </Button>
+          <Button
+            onClick={() => void confirm()}
+            disabled={(requireYes && typed !== "yes") || busy}
+            color={confirmColor}
+            variant="contained"
+            data-testid="confirm-action-submit"
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <Stack spacing={2} sx={{ pt: 1 }}>
+        <Typography>{description}</Typography>
+        {requireYes && (
           <TextField
-            label={getLabel("explorer.confirmYes")}
+            label={getLabel("dialogs.confirmYes")}
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             onKeyDown={(event) => {
@@ -92,23 +115,9 @@ export function ConfirmActionDialog({
             autoComplete="off"
             data-testid="confirm-action-input"
           />
-          {error && <Alert severity="error">{error}</Alert>}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={close} disabled={busy}>
-          {getLabel("common.cancel")}
-        </Button>
-        <Button
-          onClick={() => void confirm()}
-          disabled={typed !== "yes" || busy}
-          color="error"
-          variant="contained"
-          data-testid="confirm-action-submit"
-        >
-          {confirmLabel}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        )}
+        {error && <Alert severity="error">{error}</Alert>}
+      </Stack>
+    </StandardDialog>
   );
 }

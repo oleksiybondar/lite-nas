@@ -198,6 +198,12 @@ func (runtime *Runtime) register(server messaging.Server) error {
 	if err := server.RegisterRPC(contract.VersionsSubject, runtime.versions); err != nil {
 		return err
 	}
+	if err := server.RegisterRPC(contract.MetadataSubject, runtime.metadata); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(contract.DeleteSubject, runtime.deleteBackup); err != nil {
+		return err
+	}
 	if err := server.RegisterRPC(contract.BackupSubject, runtime.backup); err != nil {
 		return err
 	}
@@ -263,6 +269,39 @@ func (runtime *Runtime) versions(_ context.Context, envelope messaging.Envelope)
 	}
 	versions, err := runtime.store.Versions(request.Application)
 	return contract.VersionsResponse{Versions: versions}, err
+}
+
+// metadata reads details for one configured application's stored version.
+func (runtime *Runtime) metadata(_ context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.VersionRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := runtime.specs[request.Application]; !ok {
+		return nil, fmt.Errorf("unknown application")
+	}
+	metadata, err := runtime.store.Metadata(request.Application, request.Version)
+	if err != nil {
+		return nil, err
+	}
+	return contract.BackupMetadataResponse(metadata), nil
+}
+
+// deleteBackup serializes removal with backup, restore, and merge mutations.
+func (runtime *Runtime) deleteBackup(_ context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.VersionRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := runtime.specs[request.Application]; !ok {
+		return nil, fmt.Errorf("unknown application")
+	}
+	runtime.mutex.Lock()
+	defer runtime.mutex.Unlock()
+	if err := runtime.store.Delete(request.Application, request.Version); err != nil {
+		return nil, err
+	}
+	return contract.DeleteResponse{Deleted: true}, nil
 }
 
 // backup serializes snapshot creation with restore operations.
@@ -347,9 +386,6 @@ func (runtime *Runtime) restore(ctx context.Context, envelope messaging.Envelope
 		return nil, fmt.Errorf("unknown application")
 	}
 	mode := RestoreMode(request.Mode)
-	if mode == "" {
-		mode = ReplaceMode
-	}
 	runtime.mutex.Lock()
 	defer runtime.mutex.Unlock()
 	if err := runtime.store.Restore(spec, request.Version, mode); err != nil {

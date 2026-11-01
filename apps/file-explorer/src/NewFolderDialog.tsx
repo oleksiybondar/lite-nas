@@ -1,12 +1,9 @@
+import { StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
 import {
   Alert,
   Button,
   Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   Stack,
   TextField,
@@ -87,6 +84,7 @@ function FolderNameInput({
 }
 
 /** Requests a validated name for one directory in the active panel. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The dialog keeps folder validation and submission with its fields.
 export function NewFolderDialog({
   open,
   directory,
@@ -123,41 +121,43 @@ export function NewFolderDialog({
   };
 
   return (
-    <Dialog
+    <StandardDialog
       open={open}
-      onClose={busy ? undefined : onClose}
+      onClose={() => !busy && onClose()}
       fullWidth
       maxWidth="xs"
       data-testid="file-explorer-new-folder-dialog"
+      title={getLabel("common.newFolder")}
+      closeLabel={getLabel("dialogs.close")}
+      closeDisabled={busy}
+      actions={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {getLabel("common.cancel")}
+          </Button>
+          <Button
+            onClick={() => void submit()}
+            disabled={busy || name.length === 0}
+            variant="contained"
+            data-testid="file-explorer-new-folder-submit"
+          >
+            {getLabel("explorer.create")}
+          </Button>
+        </>
+      }
     >
-      <DialogTitle>{getLabel("common.newFolder")}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            {getLabel("explorer.createIn")} {directory}
-          </Typography>
-          <FolderNameInput name={name} onChange={setName} onSubmit={() => void submit()} />
-          <FolderVisibilityControl
-            privateDirectory={privateDirectory}
-            busy={busy}
-            onChange={setPrivateDirectory}
-          />
-          {error && <Alert severity="error">{error}</Alert>}
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          {getLabel("common.cancel")}
-        </Button>
-        <Button
-          onClick={() => void submit()}
-          disabled={busy || name.length === 0}
-          variant="contained"
-          data-testid="file-explorer-new-folder-submit"
-        >
-          {getLabel("explorer.create")}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      <Stack spacing={2} sx={{ pt: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          {getLabel("explorer.createIn")} {directory}
+        </Typography>
+        <FolderNameInput name={name} onChange={setName} onSubmit={() => void submit()} />
+        <FolderVisibilityControl
+          privateDirectory={privateDirectory}
+          busy={busy}
+          onChange={setPrivateDirectory}
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+      </Stack>
+    </StandardDialog>
   );
 }

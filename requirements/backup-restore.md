@@ -127,7 +127,7 @@ requests to NATS and does not read host files or perform the merge itself.
 - Applying checks that the live files have not changed since session start.
   Changed inputs invalidate the session for apply and require a fresh session.
 - Session contents are lost on process restart. No timer expires a session.
-  The service limits each file to 1 MiB, a session to 32 files and 32 MiB of inputs, and
+  The service limits each file to 1 MiB, a session to 512 files and 32 MiB of inputs, and
   each NATS transfer chunk to 64 KiB. A partial apply error keeps the session
   for `save` or `discard` and prevents another apply.
 - File contents are transferred as bounded chunks, not as a base64 copy of the
@@ -327,7 +327,7 @@ NATS; neither adapter should perform privileged file operations itself.
 | --- | --- | --- |
 | LiteNAS configuration | `configs/etc/lite-nas/` contains service configs, rules, templates, and certificate paths. | Which live files are included; how private keys and other credentials are handled. |
 | Firewall | Deployment manages `/etc/default/ufw`, `/etc/ufw/ufw.conf`, and UFW commands that change rules. | Both file and live-rule state; safe export and restore sequence. |
-| USBGuard | Installed dependency and service-watchdog protection are documented. | Policy files, generated state, and any required CLI operations. |
+| USBGuard | Installed dependency and service-watchdog protection are documented. `usb-manager/BR-001` scopes this target to USBGuard policy files. | Exact policy file selection and safe policy reload behavior. Runtime device authorization state is excluded. |
 | AIDE | `litenas-integrity` invokes AIDE and maintains its baseline under `/var/lib/aide`. | Configuration versus baseline database, and whether baseline restore is appropriate. |
 | AppArmor | Deployment manages profiles under `/etc/apparmor.d` and reloads them. | Profile selection, validation, and reload behavior. |
 | systemd | LiteNAS unit files are shipped under `configs/etc/systemd/system/`. | Which unit files, drop-ins, enablement state, and reload/restart effects are included. |

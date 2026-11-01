@@ -33,6 +33,16 @@ system and LiteNAS-managed paths. LiteNAS should define a baseline config that
 fits the appliance profile without pretending that all deployments share the
 same acceptable file-change patterns.
 
+LiteNAS adds separate rules under `/etc/aide/aide.conf.d` while retaining Debian's
+main AIDE configuration. Its baseline covers `/etc`, `/usr/local/etc`, `/boot`,
+standard executable and library paths, and service binaries under `libexec`.
+Non-recursive exclusions prevent traversal of home directories, virtual and
+removable filesystems, Snap mounts, source and header trees, shared package
+data, and `/var` state. `/var/lib/lite-nas/moments` is runtime data and is not
+part of the integrity baseline. Regenerate the baseline after changing these
+rules or installing software. AIDE configuration validation is distinct from
+an OpenSCAP assessment against a selected profile.
+
 ### `clamav`
 
 `clamav` is intended to provide a malware scanning capability within the

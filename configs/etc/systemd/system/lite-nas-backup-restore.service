@@ -34,7 +34,7 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_CHOWN CAP_FOWNER
 AmbientCapabilities=
 UMask=0077
-ReadWritePaths=/var/lib/lite-nas/backup /etc/lite-nas /etc/logrotate.d /etc/ufw /etc/postfix /etc/rsyslog.d /etc/systemd/system /etc/apparmor.d
+ReadWritePaths=/var/log/lite-nas/backup-restore.log /var/lib/lite-nas/backup /var/lib/aide /etc/lite-nas /etc/aide /etc/nats-server.conf /etc/nats-server /etc/logrotate.d /etc/ufw /etc/postfix /etc/rsyslog.d /etc/systemd/system /etc/apparmor.d
 StandardOutput=null
 StandardError=journal
 

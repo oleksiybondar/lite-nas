@@ -146,7 +146,7 @@ function mergeOperationJob(entry: ExplorerQueuedAction, job: OperationJob): Expl
     ...entry,
     status: job.state,
     progress: job.percent,
-    error: job.error_code ? job.error_code.replaceAll("_", " ") : undefined,
+    ...(job.error_code ? { error: job.error_code.replaceAll("_", " ") } : {}),
   };
 }
 
@@ -239,7 +239,7 @@ function backPanel(
       return current;
     }
     return {
-      directory: current.history[current.history.length - 1],
+      directory: current.history[current.history.length - 1] ?? current.directory,
       history: current.history.slice(0, -1),
       selected: [],
     };

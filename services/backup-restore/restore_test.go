@@ -9,6 +9,13 @@ import (
 )
 
 // Requirements: backup-restore/FR-004.
+func TestStoreRestoreRejectsInvalidMode(t *testing.T) {
+	if err := (Store{Root: t.TempDir()}).Restore(Spec{Application: "example"}, "1", "invalid"); err == nil {
+		t.Fatal("invalid restore mode was accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-004.
 func TestStoreRestoreReplacesSelectedFile(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "settings.conf")

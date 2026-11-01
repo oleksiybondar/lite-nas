@@ -1,5 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: album membership loading, mutation feedback, and menu state remain together.
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: this menu owns its loaded choices and action states.
+
+import { ConfirmActionDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Alert from "@mui/material/Alert";
@@ -48,6 +50,7 @@ export const GalleryAlbumMenu = ({
   const loadVersion = useRef(0);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [choices, setChoices] = useState<CollectionChoice[]>([]);
+  const [removeChoice, setRemoveChoice] = useState<CollectionChoice | null>(null);
   const [loading, setLoading] = useState(false);
   const [changingId, setChangingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,8 +103,9 @@ export const GalleryAlbumMenu = ({
             : item,
         ),
       );
-    } catch {
+    } catch (caught) {
       setError(getLabel("moments.albumMenu.updateFailed"));
+      if (choice.included) throw caught;
     } finally {
       setChangingId(null);
     }
@@ -142,7 +146,12 @@ export const GalleryAlbumMenu = ({
           <MenuItem
             key={choice.collection.id}
             disabled={changingId !== null}
-            onClick={() => void change(choice)}
+            onClick={() => {
+              if (choice.included) {
+                close();
+                setRemoveChoice(choice);
+              } else void change(choice);
+            }}
           >
             {choice.included
               ? getLabel("moments.albumMenu.removeFrom")
@@ -156,6 +165,19 @@ export const GalleryAlbumMenu = ({
           </Alert>
         )}
       </Menu>
+      <ConfirmActionDialog
+        open={removeChoice !== null}
+        title={getLabel("moments.albumMenu.removeFrom")}
+        description={getLabel("moments.albumMenu.confirmRemove").replace(
+          "{collection}",
+          removeChoice?.collection.name ?? "",
+        )}
+        confirmLabel={getLabel("moments.albumMenu.removeFrom")}
+        onClose={() => setRemoveChoice(null)}
+        onConfirm={async () => {
+          if (removeChoice) await change(removeChoice);
+        }}
+      />
     </>
   );
 };

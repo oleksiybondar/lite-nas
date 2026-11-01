@@ -23,7 +23,8 @@ const (
 	apiVersion          = "0.1.0"
 	httpReadTimeout     = 10 * time.Second
 	httpReadHeaderLimit = 5 * time.Second
-	httpWriteTimeout    = 15 * time.Second
+	// Restore RPCs can take five minutes; leave time to send their HTTP response.
+	httpWriteTimeout    = 305 * time.Second
 	httpIdleTimeout     = 30 * time.Second
 	httpShutdownTimeout = 10 * time.Second
 )

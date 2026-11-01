@@ -47,6 +47,48 @@ func TestChangedMountsEmitsUnmount(t *testing.T) {
 }
 
 // Requirements: security-monitoring/FR-002.
+// TestChangedMountsIgnoresUserRuntimeMounts verifies session mounts produce no lifecycle events.
+func TestChangedMountsIgnoresUserRuntimeMounts(t *testing.T) {
+	t.Parallel()
+	for _, point := range []string{"/run/user", "/run/user/1001", "/run/user/1001/gvfs"} {
+		t.Run(point, func(t *testing.T) {
+			before := map[uint64]mountRecord{}
+			after := map[uint64]mountRecord{42: {ID: 42, Point: point}}
+			if got := changedMounts(before, after); len(got) != 0 {
+				t.Fatalf("changes for %q = %v", point, got)
+			}
+		})
+	}
+}
+
+// Requirements: security-monitoring/FR-002.
+// TestChangedMountsIgnoresPortScanNamespace verifies the test helper's nsfs mount is silent.
+func TestChangedMountsIgnoresPortScanNamespace(t *testing.T) {
+	t.Parallel()
+	namespace := mountRecord{ID: 42, Point: "/run/netns/litenas-scan-test", FSType: "nsfs"}
+	for name, snapshots := range map[string][2]map[uint64]mountRecord{
+		"mounted":   {{}, {42: namespace}},
+		"unmounted": {{42: namespace}, {}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := changedMounts(snapshots[0], snapshots[1]); len(got) != 0 {
+				t.Fatalf("changes = %v", got)
+			}
+		})
+	}
+}
+
+// Requirements: security-monitoring/FR-002.
+// TestChangedMountsReportsOtherNamespaceMounts keeps unrelated nsfs events observable.
+func TestChangedMountsReportsOtherNamespaceMounts(t *testing.T) {
+	t.Parallel()
+	after := map[uint64]mountRecord{42: {ID: 42, Point: "/run/netns/other", FSType: "nsfs"}}
+	if got := changedMounts(map[uint64]mountRecord{}, after); len(got) != 1 {
+		t.Fatalf("changes = %v", got)
+	}
+}
+
+// Requirements: security-monitoring/FR-002.
 func TestDiffMountsUsesFirstSnapshotAsBaseline(t *testing.T) {
 	t.Parallel()
 	mounts, err := parseMountInfo(strings.NewReader(mountInfoFixture))

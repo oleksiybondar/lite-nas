@@ -1,9 +1,6 @@
+import { StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
@@ -21,27 +18,30 @@ export const AlertOccurrencesDialogLayout = ({
 }: AlertOccurrencesDialogLayoutProps): ReactElement => {
   const { getLabel } = useLanguage();
   return (
-    <Dialog
+    <StandardDialog
       data-testid="alert-occurrences-dialog"
       fullWidth
       maxWidth="lg"
-      onClose={onClose}
-      open={open}
-    >
-      <DialogTitle data-testid="alert-occurrences-dialog-title">
+      title={
         <Stack spacing={0.75}>
           <Typography variant="h3">{title}</Typography>
           <Typography color="text.secondary" variant="body2">
             {summary}
           </Typography>
         </Stack>
-      </DialogTitle>
-      <DialogContent dividers>{children}</DialogContent>
-      <DialogActions>
+      }
+      titleProps={{ "data-testid": "alert-occurrences-dialog-title" }}
+      closeLabel={getLabel("dialogs.close")}
+      onClose={onClose}
+      open={open}
+      contentProps={{ dividers: true }}
+      actions={
         <Button data-testid="alert-occurrences-dialog-close-button" onClick={onClose}>
           {getLabel("admin.alerts.close")}
         </Button>
-      </DialogActions>
-    </Dialog>
+      }
+    >
+      {children}
+    </StandardDialog>
   );
 };

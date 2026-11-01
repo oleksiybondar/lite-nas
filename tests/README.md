@@ -155,6 +155,14 @@ The EICAR tests also require `ext4` in the installed Antivirus `scan.fs_types`
 setting. Keep installed monitor binaries and configuration aligned with the
 checked-out source; the deployment scripts preserve existing configuration.
 
+The local port-scan test uses the root-owned helper installed by
+`prepare-system-test-sudo-user.sh`. It creates a temporary network namespace and
+veth pair, sends blocked TCP probes through UFW, and removes both resources.
+Run it only on a dedicated test host with `iproute2`, UFW logging, Log Analysis,
+Network Security, and Security Logging Manager active. The helper spaces the
+last probes to accommodate UFW log rate limiting; the test can take about a
+minute before alert polling starts.
+
 ## UI Page Objects
 
 UI system tests use HyperionTF page objects for browser automation. Store those

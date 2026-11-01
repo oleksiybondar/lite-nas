@@ -9,6 +9,7 @@ import (
 
 	serviceconfig "lite-nas/services/litenas-integrity/config"
 	servicemodules "lite-nas/services/litenas-integrity/modules"
+	backgroundtasks "lite-nas/shared/backgroundtasks"
 	sharedlogger "lite-nas/shared/logger"
 	sharedmodules "lite-nas/shared/modules"
 	"lite-nas/shared/testutil/messagingtest"
@@ -55,9 +56,63 @@ func TestReportIntegrityChecksAppliesResult(t *testing.T) {
 	service := newTestIntegrityService(&integrityRunner{}, integrityClient{
 		publish: func(string, any) error { return nil },
 	})
-	reportIntegrityChecks(t.Context(), results, service)
+	reportIntegrityChecks(t.Context(), results, nil, service)
 	if service.active == nil {
 		t.Fatal("failed check did not open an incident")
+	}
+}
+
+// Requirements: litenas-integrity/FR-008.
+// TestOnDemandIntegrityTaskWritesToTheResultChannel verifies manager snapshots enter the reporter result pipe.
+func TestOnDemandIntegrityTaskWritesToTheResultChannel(t *testing.T) {
+	results := make(chan checkResult, 1)
+	snapshots := make(chan backgroundtasks.Snapshot, 1)
+	exitCode := 0
+	snapshots <- backgroundtasks.Snapshot{State: backgroundtasks.StateSucceeded, ExitCode: &exitCode, Output: "clean"}
+	close(snapshots)
+	forwardIntegrityTaskResults(snapshots, results)
+	if got := (<-results).Status; got != checkStatusNormal {
+		t.Fatalf("on-demand result status = %v, want normal", got)
+	}
+}
+
+// Requirements: litenas-integrity/FR-008.
+// TestOnDemandIntegrityFindingWritesToTheResultChannel verifies AIDE findings enter the reporter pipeline.
+func TestOnDemandIntegrityFindingWritesToTheResultChannel(t *testing.T) {
+	results := make(chan checkResult, 1)
+	snapshots := make(chan backgroundtasks.Snapshot, 1)
+	exitCode := 1
+	snapshots <- backgroundtasks.Snapshot{State: backgroundtasks.StateFailed, ExitCode: &exitCode, Output: "drift"}
+	close(snapshots)
+	forwardIntegrityTaskResults(snapshots, results)
+	if got := (<-results).Status; got != checkStatusFailure {
+		t.Fatalf("on-demand result status = %v, want failure", got)
+	}
+}
+
+// Requirements: litenas-integrity/FR-008.
+// TestCancelledOnDemandIntegrityTaskWritesToTheResultChannel verifies cancellation remains observable to the reporter.
+func TestCancelledOnDemandIntegrityTaskWritesToTheResultChannel(t *testing.T) {
+	results := make(chan checkResult, 1)
+	snapshots := make(chan backgroundtasks.Snapshot, 1)
+	snapshots <- backgroundtasks.Snapshot{State: backgroundtasks.StateCancelled}
+	close(snapshots)
+	forwardIntegrityTaskResults(snapshots, results)
+	if got := (<-results).Status; got != checkStatusCancelled {
+		t.Fatalf("on-demand result status = %v, want cancelled", got)
+	}
+}
+
+// TestOnDemandAIDEExecutionFailureRaisesAnIncident verifies invocation failures use the alert reporter.
+// Requirements: litenas-integrity/FR-006, litenas-integrity/FR-008
+func TestOnDemandAIDEExecutionFailureRaisesAnIncident(t *testing.T) {
+	service := newTestIntegrityService(&integrityRunner{}, integrityClient{
+		publish: func(string, any) error { return nil },
+	})
+	result := integrityTaskResult(backgroundtasks.Snapshot{State: backgroundtasks.StateFailed, Error: "permission denied"})
+	service.applyCheckResult(t.Context(), result)
+	if service.active == nil {
+		t.Fatal("failed on-demand AIDE invocation did not open an incident")
 	}
 }
 
@@ -80,6 +135,7 @@ func TestRunWithDependenciesClosesWorkersOnCancellation(t *testing.T) {
 // newPipelineTestInfra assembles runtime-owned dependencies without a NATS connection.
 func newPipelineTestInfra(t *testing.T) servicemodules.Infra {
 	t.Helper()
+	_, tokenManager := mustAuthRefreshInfra(t, integrityClient{})
 	authTimer, authTicks, err := sharedworkers.NewPollingTimerWorker(time.Hour, 1)
 	if err != nil {
 		t.Fatalf("NewPollingTimerWorker() error = %v", err)
@@ -89,6 +145,7 @@ func newPipelineTestInfra(t *testing.T) servicemodules.Infra {
 			CoreInfra: sharedmodules.CoreInfra{
 				Logger: sharedlogger.NewNop(), Client: integrityClient{}, Server: &messagingtest.RecordingServer{},
 			},
+			AuthTokenManager: tokenManager,
 			AuthRefreshTimer: authTimer,
 			AuthRefreshTicks: authTicks,
 		},

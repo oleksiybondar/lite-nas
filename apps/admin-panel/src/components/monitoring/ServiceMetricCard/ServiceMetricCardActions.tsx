@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import StopIcon from "@mui/icons-material/Stop";
@@ -24,6 +25,7 @@ type ServiceMetricCardActionsProps = {
    * Startup toggle contract for the service.
    */
   startupAction: ServiceMetricStartupAction;
+  busy: boolean;
 };
 
 /**
@@ -34,37 +36,46 @@ export const ServiceMetricCardActions = ({
   primaryAction,
   serviceName,
   startupAction,
+  busy,
 }: ServiceMetricCardActionsProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const ActionIcon = primaryAction.label === "Stop" ? StopIcon : PlayArrowIcon;
 
   return (
     <Stack direction="row" flexWrap="wrap" gap={1} useFlexGap>
       <Button
         color={primaryAction.color}
+        disabled={busy}
         data-testid={`service-metric-toggle-state-${serviceName}`}
         onClick={primaryAction.onClick}
         size="small"
         startIcon={<ActionIcon fontSize="small" />}
         variant="contained"
       >
-        {primaryAction.label}
+        {getLabel(`admin.system.service.${primaryAction.label.toLowerCase()}`)}
       </Button>
       <Button
         color="warning"
+        disabled={busy}
         data-testid={`service-metric-restart-${serviceName}`}
         onClick={onRestart}
         size="small"
         startIcon={<RestartAltIcon fontSize="small" />}
         variant="contained"
       >
-        Restart
+        {getLabel("admin.system.service.restart")}
       </Button>
-      <ServiceMetricStartupToggle serviceName={serviceName} startupAction={startupAction} />
+      <ServiceMetricStartupToggle
+        busy={busy}
+        serviceName={serviceName}
+        startupAction={startupAction}
+      />
     </Stack>
   );
 };
 
 type ServiceMetricStartupToggleProps = {
+  busy: boolean;
   serviceName: string;
   startupAction: ServiceMetricStartupAction;
 };
@@ -73,6 +84,7 @@ type ServiceMetricStartupToggleProps = {
  * Startup toggle with a neutral switch and color-coded action label.
  */
 const ServiceMetricStartupToggle = ({
+  busy,
   serviceName,
   startupAction,
 }: ServiceMetricStartupToggleProps): ReactElement => {
@@ -85,6 +97,7 @@ const ServiceMetricStartupToggle = ({
     >
       <Switch
         checked={startupAction.isEnabled}
+        disabled={busy}
         inputProps={{
           "aria-label": `${startupAction.label} startup for ${serviceName}`,
         }}

@@ -12,6 +12,7 @@ import (
 type Services struct {
 	ServicesManagement services.ServicesManagementService
 	SessionsManagement services.SessionsManagementService
+	USBManager         services.USBManagementService
 	Auth               services.AuthService
 	SystemAlerts       services.AlertsService
 	SecurityAlerts     services.AlertsService
@@ -22,6 +23,7 @@ type Services struct {
 	NetworkMetrics     services.NetworkMetricsService
 	ZFSMetrics         services.ZFSMetricsService
 	BackupRestore      services.BackupRestoreService
+	SecurityTasks      services.SecurityTasksService
 }
 
 // NewServicesModule assembles the service-layer dependencies used by the
@@ -34,6 +36,7 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 	return Services{
 		ServicesManagement: services.NewServicesManagementService(client),
 		SessionsManagement: services.NewSessionsManagementService(client),
+		USBManager:         services.NewUSBManagementService(client),
 		Auth:               services.NewAuthService(client, authVerifier),
 		SystemAlerts:       services.NewSystemAlertsService(client),
 		SecurityAlerts:     services.NewSecurityAlertsService(client),
@@ -44,5 +47,6 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 		NetworkMetrics:     services.NewNetworkMetricsService(client),
 		ZFSMetrics:         services.NewZFSMetricsService(client),
 		BackupRestore:      services.NewBackupRestoreService(client),
+		SecurityTasks:      services.NewSecurityTasksService(client),
 	}
 }

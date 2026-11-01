@@ -21,6 +21,8 @@ source "$ENTRYPOINT_DIR/deploy/network-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/process-metrics.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/backup-restore.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/disk-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/service-metrics.sh"
@@ -67,6 +69,7 @@ system_email_notifier_binary=""
 security_email_notifier_binary=""
 network_metrics_binary=""
 process_metrics_binary=""
+backup_restore_binary=""
 disk_metrics_binary=""
 service_metrics_binary=""
 system_metrics_binary=""
@@ -92,6 +95,7 @@ system_service_monitor_binary=""
 service_watchdog_binary=""
 services_manager_binary=""
 session_manager_binary=""
+usb_manager_binary=""
 log_analysis_binary=""
 should_bootstrap=1
 manage_nats_config=1
@@ -114,6 +118,7 @@ Options:
                                   Install an existing security-email-notifier binary.
   --network-metrics-binary PATH   Install an existing network-metrics binary.
   --process-metrics-binary PATH   Install an existing process-metrics binary.
+  --backup-restore-binary PATH    Install an existing backup-restore binary.
   --disk-metrics-binary PATH      Install an existing disk-metrics binary.
   --service-metrics-binary PATH   Install an existing service-metrics binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
@@ -143,7 +148,9 @@ Options:
   --service-watchdog-binary PATH Install an existing service-watchdog binary.
   --services-manager-binary PATH Install an existing services-manager binary.
   --session-manager-binary PATH Install an existing session-manager binary.
+  --usb-manager-binary PATH Install an existing usb-manager binary.
   --log-analysis-binary PATH Install an existing log-analysis binary.
+  --network-security-binary PATH Install an existing network-security binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
   --no-nats-config                Keep the current NATS configuration unchanged during bootstrap.
@@ -196,6 +203,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		process_metrics_binary="$2"
+		shift 2
+		;;
+	--backup-restore-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --backup-restore-binary"
+			usage >&2
+			exit 2
+		fi
+		backup_restore_binary="$2"
 		shift 2
 		;;
 	--disk-metrics-binary)
@@ -445,6 +461,14 @@ while [ "$#" -gt 0 ]; do
 		session_manager_binary="$2"
 		shift 2
 		;;
+	--usb-manager-binary)
+		if [ "$#" -lt 2 ]; then
+			log.error "Missing value for --usb-manager-binary"
+			exit 64
+		fi
+		usb_manager_binary="$2"
+		shift 2
+		;;
 	--log-analysis-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --log-analysis-binary"
@@ -452,6 +476,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		log_analysis_binary="$2"
+		shift 2
+		;;
+	--network-security-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --network-security-binary"
+			usage >&2
+			exit 2
+		fi
+		network_security_binary="$2"
 		shift 2
 		;;
 	--no-start)
@@ -505,7 +538,7 @@ deploy.securityMonitor.requireTools
 deploy.hostManager.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ] || [ -z "$backup_restore_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -554,6 +587,10 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		build_args=("--output=$tmp_dir/process-metrics")
 		"$ENTRYPOINT_DIR/build-process-metrics-binary.sh" "${build_args[@]}"
 		process_metrics_binary="$tmp_dir/process-metrics"
+	fi
+	if [ -z "$backup_restore_binary" ]; then
+		"$ENTRYPOINT_DIR/build-backup-restore-binary.sh" --output="$tmp_dir/backup-restore"
+		backup_restore_binary="$tmp_dir/backup-restore"
 	fi
 
 	if [ -z "$disk_metrics_binary" ]; then
@@ -691,9 +728,17 @@ if [ -z "$session_manager_binary" ]; then
 	"$ENTRYPOINT_DIR/build-session-manager-binary.sh" "--output=$tmp_dir/session-manager"
 	session_manager_binary="$tmp_dir/session-manager"
 fi
+if [ -z "$usb_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-usb-manager-binary.sh" "--output=$tmp_dir/usb-manager"
+	usb_manager_binary="$tmp_dir/usb-manager"
+fi
 if [ -z "$log_analysis_binary" ]; then
 	"$ENTRYPOINT_DIR/build-log-analysis-binary.sh" "--output=$tmp_dir/log-analysis"
 	log_analysis_binary="$tmp_dir/log-analysis"
+fi
+if [ -z "${network_security_binary:-}" ]; then
+	"$ENTRYPOINT_DIR/build-network-security-binary.sh" "--output=$tmp_dir/network-security"
+	network_security_binary="$tmp_dir/network-security"
 fi
 
 if [ "$should_bootstrap" -eq 1 ]; then
@@ -741,6 +786,10 @@ log.popTask
 
 log.pushTask "Deploying process-metrics service"
 deploy.processMetrics.deploy "$process_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying backup-restore service"
+deploy.backupRestore.deploy "$backup_restore_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying disk-metrics service"
@@ -824,10 +873,6 @@ log.pushTask "Deploying system-service-monitor service"
 deploy.securityMonitor.deploy "system-service-monitor" "$system_service_monitor_binary" "$should_start"
 log.popTask
 
-log.pushTask "Deploying service-watchdog service"
-deploy.securityMonitor.deploy "service-watchdog" "$service_watchdog_binary" "$should_start"
-log.popTask
-
 log.pushTask "Deploying services-manager service"
 deploy.hostManager.deploy "services-manager" "$services_manager_binary" "$should_start"
 log.popTask
@@ -836,8 +881,20 @@ log.pushTask "Deploying session-manager service"
 deploy.hostManager.deploy "session-manager" "$session_manager_binary" "$should_start"
 log.popTask
 
+log.pushTask "Deploying usb-manager service"
+deploy.hostManager.deploy "usb-manager" "$usb_manager_binary" "$should_start"
+log.popTask
+
 log.pushTask "Deploying log-analysis service"
 deploy.securityMonitor.deploy "log-analysis" "$log_analysis_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying network-security service"
+deploy.securityMonitor.deploy "network-security" "$network_security_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying service-watchdog service"
+deploy.securityMonitor.deploy "service-watchdog" "$service_watchdog_binary" "$should_start"
 log.popTask
 
 log.pushTask "Normalizing deployed LiteNAS permissions"

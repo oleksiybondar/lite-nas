@@ -1,0 +1,2 @@
+# Home directories contain user-managed content and are intentionally mutable.
+-/home

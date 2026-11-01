@@ -1,4 +1,2 @@
-lite-nas-integrity ALL=(root) NOPASSWD: /usr/bin/aide --check
-lite-nas-integrity ALL=(root) NOPASSWD: /usr/bin/aide --init
-lite-nas-integrity ALL=(root) NOPASSWD: /bin/mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
-lite-nas-integrity ALL=(root) NOPASSWD: /bin/mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz
+# The service constructs the AIDE and database-promotion arguments itself.
+lite-nas-integrity ALL=(root) NOPASSWD: /usr/bin/aide, /bin/mv

@@ -6,9 +6,11 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 
+	backgroundtasks "lite-nas/shared/backgroundtasks"
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	mountcontract "lite-nas/shared/contracts/mountmonitor"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"
@@ -60,6 +62,18 @@ func mustPublishScanResult(t *testing.T, status scanStatus) *recordingAlertPubli
 	return client
 }
 
+// mustReceiveScanResult receives one expected reporter result.
+func mustReceiveScanResult(t *testing.T, effects <-chan scanResult) scanResult {
+	t.Helper()
+	select {
+	case result := <-effects:
+		return result
+	case <-time.After(time.Second):
+		t.Fatal("scan result was not queued")
+		return scanResult{}
+	}
+}
+
 // Requirements: security-monitoring/FR-003.
 func TestCleanScanPublishesNormalInformationalEvent(t *testing.T) {
 	t.Parallel()
@@ -93,6 +107,29 @@ func TestIncompleteScanUsesWarningSeverity(t *testing.T) {
 	client := mustPublishScanResult(t, scanIncomplete)
 	if client.severity != enum.SeverityWarning {
 		t.Fatalf("incomplete scan severity = %q", client.severity)
+	}
+}
+
+// Requirements: security-monitoring/FR-008.
+// TestOnDemandInfectedScanQueuesAReporterResult verifies task completion enters the existing result pipeline.
+func TestOnDemandInfectedScanQueuesAReporterResult(t *testing.T) {
+	effects := make(chan scanResult, 1)
+	exitCode := 1
+	queueScanResult(effects, mountinfo.Record{ID: 704, Point: "/mnt/usb"}, "/mnt/usb/photos",
+		backgroundtasks.Snapshot{State: backgroundtasks.StateFailed, ExitCode: &exitCode, Output: "FOUND"})
+	if got := mustReceiveScanResult(t, effects).status; got != scanInfected {
+		t.Fatalf("queued scan status = %q, want %q", got, scanInfected)
+	}
+}
+
+// Requirements: security-monitoring/FR-008.
+// TestCancelledOnDemandScanQueuesItsCancellation verifies cancellation is accounted for by the reporter.
+func TestCancelledOnDemandScanQueuesItsCancellation(t *testing.T) {
+	effects := make(chan scanResult, 1)
+	queueScanResult(effects, mountinfo.Record{ID: 704, Point: "/mnt/usb"}, "/mnt/usb/photos",
+		backgroundtasks.Snapshot{State: backgroundtasks.StateCancelled})
+	if got := mustReceiveScanResult(t, effects).status; got != scanCancelled {
+		t.Fatalf("queued scan status = %q, want %q", got, scanCancelled)
 	}
 }
 

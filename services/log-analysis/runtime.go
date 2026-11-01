@@ -10,6 +10,7 @@ import (
 	sharedcontracts "lite-nas/shared/contracts"
 	authcontract "lite-nas/shared/contracts/auth"
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
+	networksecuritycontract "lite-nas/shared/contracts/networksecurity"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"
 	"lite-nas/shared/fileio"
 	sharedlogger "lite-nas/shared/logger"
@@ -75,7 +76,13 @@ func run(ctx context.Context) error {
 		_ = conn.Close()
 		return err
 	}
-	dispatcher := newDispatchWorker(records, routes, instances, infra.Logger)
+	firewallAttempts := make(chan networksecuritycontract.FirewallAttempt, 64)
+	dispatcher := newDispatchWorker(records, firewallAttempts, routes, instances, infra.Logger)
+	firewallDone := make(chan struct{})
+	workers.NewBaseWorker(func(workerCtx context.Context) {
+		publishFirewallAttempts(workerCtx, firewallAttempts, infra.Client, infra.Logger)
+		close(firewallDone)
+	}).Start(ctx)
 	reporterDone := make(chan struct{})
 	operatorClient := loggingmanagerauth.NewClient(infra.Client, infra.AuthTokenManager, loggingmanagerauth.InjectAlertAccessToken)
 	workers.NewBaseWorker(func(workerCtx context.Context) {
@@ -89,14 +96,47 @@ func run(ctx context.Context) error {
 	receiver.Start(ctx)
 	<-ctx.Done()
 	<-receiver.Done()
-	close(records)      // The receiver producer has stopped.
-	<-dispatcher.Done() // Dispatcher has closed each plugin input.
+	close(records)          // The receiver producer has stopped.
+	<-dispatcher.Done()     // Dispatcher has closed each plugin input.
+	close(firewallAttempts) // Dispatcher was the only producer.
 	for _, plugin := range instances {
 		<-plugin.Done()
 	}
 	close(effects) // All plugin producers have stopped.
 	<-reporterDone
+	<-firewallDone
 	return ctx.Err()
+}
+
+// publishFirewallAttempts retries each validated observation in order. A
+// persistent transport fault blocks the bounded queue and is logged; shutdown
+// explicitly accounts for any attempt that cannot be delivered.
+func publishFirewallAttempts(ctx context.Context, attempts <-chan networksecuritycontract.FirewallAttempt, client messaging.Client, log sharedlogger.Logger) {
+	for attempt := range attempts {
+		for {
+			publishCtx := ctx
+			var cancel context.CancelFunc
+			if ctx.Err() != nil {
+				publishCtx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+			}
+			err := client.Publish(publishCtx, networksecuritycontract.FirewallAttemptSubject, attempt)
+			if cancel != nil {
+				cancel()
+			}
+			if err == nil {
+				break
+			}
+			if ctx.Err() != nil {
+				log.Error("firewall attempt undelivered at shutdown", "source", attempt.SourceIP, "port", attempt.DestinationPort, "error", err)
+				break
+			}
+			log.Error("firewall attempt publication failed; retrying", "error", err)
+			select {
+			case <-ctx.Done():
+			case <-time.After(2 * time.Second):
+			}
+		}
+	}
 }
 
 // constructInstances uses the static registry once at the composition root.

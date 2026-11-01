@@ -41,6 +41,8 @@ var RPCByService = map[string]map[string]RPCContract{
 		"applications":  {Subject: backupcontract.ApplicationsSubject, Request: backupcontract.ApplicationsRequest{}, Response: backupcontract.ApplicationsResponse{}},
 		"backed_up":     {Subject: backupcontract.BackedUpSubject, Request: backupcontract.ApplicationsRequest{}, Response: backupcontract.ApplicationsResponse{}},
 		"versions":      {Subject: backupcontract.VersionsSubject, Request: backupcontract.ApplicationRequest{}, Response: backupcontract.VersionsResponse{}},
+		"metadata":      {Subject: backupcontract.MetadataSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.BackupMetadataResponse{}},
+		"delete":        {Subject: backupcontract.DeleteSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DeleteResponse{}},
 		"backup":        {Subject: backupcontract.BackupSubject, Request: backupcontract.BackupRequest{}, Response: backupcontract.BackupResponse{}},
 		"backup_all":    {Subject: backupcontract.BackupAllSubject, Request: backupcontract.BackupAllRequest{}, Response: backupcontract.BackupAllResponse{}},
 		"diff":          {Subject: backupcontract.DiffSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DiffResponse{}},
@@ -209,6 +211,11 @@ var RPCByService = map[string]map[string]RPCContract{
 			Subject:  litenasintegritycontract.RegenerateBaselineRPCSubject,
 			Request:  litenasintegritycontract.RegenerateBaselineRequest{},
 			Response: litenasintegritycontract.RegenerateBaselineResponse{},
+		},
+		"start_baseline_task": {
+			Subject:  litenasintegritycontract.StartBaselineTaskSubject,
+			Request:  litenasintegritycontract.StartBaselineRequest{},
+			Response: litenasintegritycontract.StartBaselineResponse{},
 		},
 	},
 	ServiceRBAC: {

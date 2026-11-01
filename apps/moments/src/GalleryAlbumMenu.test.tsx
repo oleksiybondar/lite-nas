@@ -102,6 +102,10 @@ test("album menu removes a directory already referenced by a collection", async 
   ]);
   await openMenu();
   fireEvent.click(await screen.findByRole("menuitem", { name: "Remove from Trips" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Type yes to confirm" }), {
+    target: { value: "yes" },
+  });
+  fireEvent.click(screen.getByTestId("confirm-action-submit"));
   await waitFor(() =>
     expect(removeCollectionDirectory).toHaveBeenCalledWith(collection.id, "/NASPool/Photos"),
   );

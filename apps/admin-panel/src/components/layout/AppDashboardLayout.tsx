@@ -29,11 +29,11 @@ import { Outlet, useLocation } from "react-router-dom";
  */
 export const AppDashboardLayout = (): ReactElement => {
   const { pathname } = useLocation();
-  const { requireOperator, requireSecurity } = useRbac();
+  const { requireAdmin, requireOperator, requireSecurity } = useRbac();
   const momentsAvailable = useMomentsAvailability();
   const navigationItems = resolveNavigationItems(
     pathname,
-    { requireOperator, requireSecurity },
+    { requireAdmin, requireOperator, requireSecurity },
     momentsAvailable,
   );
   const selectedPath = resolveSelectedNavigationPath(pathname, navigationItems);

@@ -138,7 +138,7 @@ assert_cmd "system-metrics binary packaged" assert_executable usr/libexec/lite-n
 assert_cmd "zfs-metrics binary packaged" assert_executable usr/libexec/lite-nas/zfs-metrics
 assert_cmd "resources-monitor binary packaged" assert_executable usr/libexec/lite-nas/resources-monitor
 assert_cmd "litenas-integrity binary packaged" assert_executable usr/libexec/lite-nas/litenas-integrity
-for security_service in mount-monitor antivirus system-service-monitor service-watchdog log-analysis; do
+for security_service in mount-monitor antivirus system-service-monitor service-watchdog log-analysis network-security; do
 	assert_cmd "$security_service config packaged" assert_file "$packaged_config_root/lite-nas/$security_service.conf"
 	assert_cmd "$security_service unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-$security_service.service"
 	assert_cmd "$security_service AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.$security_service"
@@ -152,7 +152,7 @@ assert_cmd "mount-monitor binary packaged" assert_executable usr/libexec/lite-na
 assert_cmd "antivirus binary packaged" assert_executable usr/libexec/lite-nas/antivirus
 assert_cmd "system-service-monitor binary packaged" assert_executable usr/libexec/lite-nas/system-service-monitor
 assert_cmd "service-watchdog binary packaged" assert_executable usr/libexec/lite-nas/service-watchdog
-for manager in services-manager session-manager; do
+for manager in services-manager session-manager usb-manager; do
 	assert_cmd "$manager binary packaged" assert_executable "usr/libexec/lite-nas/$manager"
 	assert_cmd "$manager config packaged" assert_file "$packaged_config_root/lite-nas/$manager.conf"
 	assert_cmd "$manager unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-$manager.service"
@@ -163,6 +163,10 @@ for manager in services-manager session-manager; do
 done
 assert_cmd "host manager deploy loads AppArmor profiles" assert_file_contains usr/libexec/lite-nas/scripts/deploy/host-manager.sh 'apparmor_parser -r'
 assert_cmd "log-analysis binary packaged" assert_executable usr/libexec/lite-nas/log-analysis
+assert_cmd "network-security binary packaged" assert_executable usr/libexec/lite-nas/network-security
+assert_cmd "network-security backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/network-security.conf"
+assert_cmd "network-security unit requires AppArmor" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-network-security.service" 'AssertSecurity=apparmor'
+assert_cmd "network-security unit selects its profile" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-network-security.service" 'AppArmorProfile=/usr/libexec/lite-nas/network-security'
 assert_cmd "system-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/system-logging-manager-cli
 assert_cmd "security-logging-manager-cli binary packaged" assert_executable usr/libexec/lite-nas/security-logging-manager-cli
 assert_cmd "system-metrics-cli binary packaged" assert_executable usr/libexec/lite-nas/system-metrics-cli
@@ -230,6 +234,20 @@ assert_cmd "service-metrics.conf packaged" assert_file "$packaged_config_root/li
 assert_cmd "network-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/network-metrics-cli.conf"
 assert_cmd "resources-monitor.conf packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor.conf"
 assert_cmd "litenas-integrity.conf packaged" assert_file "$packaged_config_root/lite-nas/litenas-integrity.conf"
+assert_cmd "AIDE backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/aide.conf"
+assert_cmd "AIDE LiteNAS rule groups packaged" assert_file "$packaged_config_root/aide/aide.conf.d/00_litenas_integrity_groups"
+assert_cmd "AIDE home exclusion packaged" assert_file "$packaged_config_root/aide/aide.conf.d/01_litenas_exclude_home"
+assert_cmd "AIDE log exclusion packaged" assert_file "$packaged_config_root/aide/aide.conf.d/02_litenas_exclude_logs"
+assert_cmd "AIDE ZFS mount exclusion packaged" assert_file "$packaged_config_root/aide/aide.conf.d/03_litenas_exclude_zfs_tank"
+assert_cmd "AIDE temporary directory exclusions packaged" assert_file "$packaged_config_root/aide/aide.conf.d/04_litenas_exclude_temporary"
+assert_cmd "AIDE virtual filesystem exclusions packaged" assert_file "$packaged_config_root/aide/aide.conf.d/05_litenas_exclude_virtual"
+assert_cmd "AIDE mutable state exclusions packaged" assert_file "$packaged_config_root/aide/aide.conf.d/06_litenas_exclude_mutable_state"
+assert_cmd "AIDE etc rules packaged" assert_file "$packaged_config_root/aide/aide.conf.d/80_litenas_etc"
+assert_cmd "AIDE executable rules packaged" assert_file "$packaged_config_root/aide/aide.conf.d/81_litenas_bin"
+assert_cmd "AIDE library rules packaged" assert_file "$packaged_config_root/aide/aide.conf.d/82_litenas_lib"
+assert_cmd "AIDE libexec rules packaged" assert_file "$packaged_config_root/aide/aide.conf.d/83_litenas_litenas_binaries"
+assert_cmd "AIDE boot rules packaged" assert_file "$packaged_config_root/aide/aide.conf.d/85_litenas_boot"
+assert_cmd "AIDE LiteNAS state exclusion packaged" assert_file "$packaged_config_root/aide/aide.conf.d/84_litenas_var_lib"
 assert_cmd "zfs-metrics-cli.conf packaged" assert_file "$packaged_config_root/lite-nas/zfs-metrics-cli.conf"
 assert_cmd "system metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/system-metrics.json"
 assert_cmd "network metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/network-metrics.json"

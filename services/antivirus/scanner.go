@@ -111,9 +111,11 @@ func scanMount(ctx context.Context, mount mountinfo.Record, timeout time.Duratio
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	command := exec.CommandContext(commandCtx, clamscanBinary,
+	// ClamAV checks access(R_OK) before opening each file. That check ignores
+	// CAP_DAC_READ_SEARCH for a non-root UID, so only the scanner runs as root.
+	command := exec.CommandContext(commandCtx, sudoBinary, "-n", clamscanBinary,
 		"--recursive=yes", "--cross-fs=no", "--follow-dir-symlinks=0", "--follow-file-symlinks=0",
-		"--infected", "--no-summary", "--", mount.Point)
+		"--suppress-ok-results", "--", mount.Point)
 	command.Env = []string{"PATH=/usr/bin:/bin", "LANG=C"}
 	var output boundedOutput
 	command.Stdout = &output

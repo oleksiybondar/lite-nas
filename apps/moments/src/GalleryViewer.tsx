@@ -2,6 +2,7 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: this component composes the existing viewer regions and their controls.
 // biome-ignore-all lint/style/noNestedTernary: media kind selection is localized to the preview renderer.
 
+import { StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -15,7 +16,6 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import VideoFileOutlinedIcon from "@mui/icons-material/VideoFileOutlined";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
-import Dialog from "@mui/material/Dialog";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
@@ -150,11 +150,15 @@ export const GalleryViewer = (): ReactElement => {
     }
   };
   return (
-    <Dialog
+    <StandardDialog
       fullScreen
       open={selected !== null}
       onClose={closeViewer}
       onKeyDown={onKeyDown}
+      title={current?.filename ?? getLabel("moments.viewer.close")}
+      closeLabel={getLabel("moments.viewer.close")}
+      showTitleBar={false}
+      aria-label={current?.filename ?? getLabel("moments.viewer.close")}
       slotProps={{ paper: { sx: { bgcolor: "#101014", color: "white" } } }}
     >
       {current && (
@@ -470,6 +474,6 @@ export const GalleryViewer = (): ReactElement => {
           )}
         </Stack>
       )}
-    </Dialog>
+    </StandardDialog>
   );
 };

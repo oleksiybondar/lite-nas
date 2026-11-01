@@ -564,6 +564,29 @@ func TestRouterExposesOpenAPIDocs(t *testing.T) {
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 }
 
+// Requirements: web-gateway/FR-005, web-gateway/IR-004.
+// TestRouterDocumentsSecurityTaskOperations verifies all on-demand task endpoints appear in OpenAPI.
+func TestRouterDocumentsSecurityTaskOperations(t *testing.T) {
+	t.Parallel()
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/openapi.json", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+	var spec map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &spec); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	for _, operation := range []struct{ path, method string }{
+		{path: "/security/tasks/antivirus/scans", method: "post"},
+		{path: "/security/tasks/antivirus/tasks/{task_id}", method: "get"},
+		{path: "/security/tasks/antivirus/tasks/{task_id}/retry", method: "post"},
+		{path: "/security/tasks/integrity/checks", method: "post"},
+		{path: "/security/tasks/integrity/tasks/{task_id}", method: "get"},
+		{path: "/security/tasks/integrity/tasks/{task_id}/retry", method: "post"},
+	} {
+		mustOpenAPIOperation(t, spec, operation.path, operation.method)
+	}
+}
+
 // Requirements: web-gateway/IR-001
 func TestRouterDocumentsAlertFiltersQueryParameter(t *testing.T) {
 	t.Parallel()

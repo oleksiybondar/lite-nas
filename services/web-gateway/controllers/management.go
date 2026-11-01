@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -20,6 +21,11 @@ type SessionsManagementController struct {
 	service services.SessionsManagementService
 }
 
+// USBManagerController adapts authenticated HTTP requests to USBGuard commands.
+type USBManagerController struct {
+	service services.USBManagementService
+}
+
 // NewServicesManagementController constructs the system service controller.
 func NewServicesManagementController(service services.ServicesManagementService) ServicesManagementController {
 	return ServicesManagementController{service}
@@ -28,6 +34,11 @@ func NewServicesManagementController(service services.ServicesManagementService)
 // NewSessionsManagementController constructs the host session controller.
 func NewSessionsManagementController(service services.SessionsManagementService) SessionsManagementController {
 	return SessionsManagementController{service}
+}
+
+// NewUSBManagerController constructs the USBGuard management controller.
+func NewUSBManagerController(service services.USBManagementService) USBManagerController {
+	return USBManagerController{service}
 }
 
 func managementToken(ctx context.Context) (string, error) {
@@ -86,6 +97,33 @@ func (c SessionsManagementController) action(ctx context.Context, input *managem
 	return &management.ManagementActionOutput{Body: management.NewManagementActionBody()}, nil
 }
 
+// List returns the current USBGuard device inventory.
+func (c USBManagerController) List(ctx context.Context, _ *management.ListInput) (*management.USBDevicesOutput, error) {
+	token, err := managementToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items, err := c.service.List(ctx, token)
+	if err != nil {
+		slog.Error("USBGuard inventory RPC failed", "error", err)
+		return nil, huma.Error502BadGateway("failed to list USBGuard devices")
+	}
+	return &management.USBDevicesOutput{Body: management.NewUSBDevicesBody(items)}, nil
+}
+
+// action authorizes the caller and forwards one validated USBGuard decision.
+func (c USBManagerController) action(ctx context.Context, input *management.USBDeviceActionInput, action string) (*management.ManagementActionOutput, error) {
+	token, err := managementToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.service.Action(ctx, token, input.DeviceID, action, input.Permanent); err != nil {
+		slog.Error("USBGuard device action RPC failed", "action", action, "device_id", input.DeviceID, "permanent", input.Permanent, "error", err)
+		return nil, huma.Error502BadGateway("failed to " + action + " USBGuard device")
+	}
+	return &management.ManagementActionOutput{Body: management.NewManagementActionBody()}, nil
+}
+
 // Start starts one system service unit.
 func (c ServicesManagementController) Start(ctx context.Context, input *management.ServiceActionInput) (*management.ManagementActionOutput, error) {
 	return c.action(ctx, input, "start")
@@ -124,4 +162,14 @@ func (c SessionsManagementController) Lock(ctx context.Context, input *managemen
 // Unlock unlocks one host login session.
 func (c SessionsManagementController) Unlock(ctx context.Context, input *management.SessionActionInput) (*management.ManagementActionOutput, error) {
 	return c.action(ctx, input, "unlock")
+}
+
+// Allow authorizes one USBGuard device, optionally persisting the decision.
+func (c USBManagerController) Allow(ctx context.Context, input *management.USBDeviceActionInput) (*management.ManagementActionOutput, error) {
+	return c.action(ctx, input, "allow")
+}
+
+// Block deauthorizes one USBGuard device, optionally persisting the decision.
+func (c USBManagerController) Block(ctx context.Context, input *management.USBDeviceActionInput) (*management.ManagementActionOutput, error) {
+	return c.action(ctx, input, "block")
 }

@@ -153,12 +153,12 @@ function FileSelectionControls({
           panel={0}
           refresh={0}
           showHidden={showHidden}
-          extensionFilter={extensionFilter}
+          {...(extensionFilter ? { extensionFilter } : {})}
           selectableKind={kind}
           singleSelection
           showFiles={kind === "file"}
           onOpenFile={(entry) => explorer.select(0, entry, false)}
-          request={request}
+          {...(request ? { request } : {})}
         />
       </Box>
       <Paper variant="outlined" sx={{ flex: "0 0 auto", p: 1 }}>

@@ -1,14 +1,10 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: this one item menu combines target collections and owner-only removal.
+
+import { ConfirmActionDialog, StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
-import CloseIcon from "@mui/icons-material/Close";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -31,6 +27,7 @@ export const GalleryItemMenu = ({
   const { getLabel } = useLanguage();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { collectionActions } = useGallery();
@@ -95,57 +92,70 @@ export const GalleryItemMenu = ({
           {getLabel("moments.itemMenu.addToNew")}
         </MenuItem>
         {collectionActions?.canRemove(path) && (
-          <MenuItem onClick={() => void run(() => collectionActions.remove(path))}>
+          <MenuItem
+            onClick={() => {
+              setAnchor(null);
+              setRemoveOpen(true);
+            }}
+          >
             {getLabel("moments.itemMenu.removeFrom")}
           </MenuItem>
         )}
       </Menu>
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)}>
-        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box sx={{ flex: 1 }}>{getLabel("moments.itemMenu.newTitle")}</Box>
-          <IconButton
-            aria-label={getLabel("moments.itemMenu.close")}
-            onClick={() => setCreateOpen(false)}
-            edge="end"
-            size="small"
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            label={getLabel("moments.itemMenu.name")}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            inputProps={{ maxLength: 160 }}
-            sx={{ mt: 1 }}
-          />
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>
-            {getLabel("moments.itemMenu.cancel")}
-          </Button>
-          <Button
-            disabled={!name.trim()}
-            onClick={() => {
-              if (!collectionActions) return;
-              void run(() => collectionActions.createAndAdd(name, path)).then((success) => {
-                if (success) {
-                  setCreateOpen(false);
-                  setName("");
-                }
-              });
-            }}
-          >
-            {getLabel("moments.itemMenu.createAndAdd")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmActionDialog
+        open={removeOpen}
+        title={getLabel("moments.itemMenu.removeFrom")}
+        description={getLabel("moments.itemMenu.confirmRemove").replace(
+          "{filename}",
+          item.filename,
+        )}
+        confirmLabel={getLabel("moments.itemMenu.removeFrom")}
+        onClose={() => setRemoveOpen(false)}
+        onConfirm={async () => {
+          if (!collectionActions || !(await run(() => collectionActions.remove(path))))
+            throw new Error(getLabel("moments.itemMenu.updateFailed"));
+        }}
+      />
+      <StandardDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title={getLabel("moments.itemMenu.newTitle")}
+        closeLabel={getLabel("moments.itemMenu.close")}
+        actions={
+          <>
+            <Button onClick={() => setCreateOpen(false)}>
+              {getLabel("moments.itemMenu.cancel")}
+            </Button>
+            <Button
+              disabled={!name.trim()}
+              onClick={() => {
+                if (!collectionActions) return;
+                void run(() => collectionActions.createAndAdd(name, path)).then((success) => {
+                  if (success) {
+                    setCreateOpen(false);
+                    setName("");
+                  }
+                });
+              }}
+            >
+              {getLabel("moments.itemMenu.createAndAdd")}
+            </Button>
+          </>
+        }
+      >
+        <TextField
+          label={getLabel("moments.itemMenu.name")}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          inputProps={{ maxLength: 160 }}
+          sx={{ mt: 1 }}
+        />
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+      </StandardDialog>
       {error && !createOpen && <span role="alert">{error}</span>}
     </>
   );

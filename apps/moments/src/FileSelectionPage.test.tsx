@@ -79,6 +79,25 @@ test("moments/FR-004 picker listings use the supplied renewing request", async (
   expect(request.mock.calls[0][0]).toBe("/ls/home/oleksiybondar");
 });
 
+test("moments/FR-004 can navigate above an unavailable starting folder", async () => {
+  const request = vi.fn(async (path: string) =>
+    path === "/ls/home/oleksiybondar"
+      ? new Response(null, { status: 403 })
+      : new Response(JSON.stringify([]), { status: 200 }),
+  );
+  render(
+    <FileSelectionPage
+      kind="directory"
+      initialDirectory="/home/oleksiybondar"
+      onSelect={vi.fn()}
+      request={request}
+    />,
+  );
+  await screen.findByTestId("file-explorer-error");
+  fireEvent.click(screen.getByText(".."));
+  expect(request).toHaveBeenCalledWith("/ls/home", expect.anything());
+});
+
 test("moments/FR-004 hides dot-prefixed files and folders by default", async () => {
   stubListing();
   render(

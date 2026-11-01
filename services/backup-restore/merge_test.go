@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +68,36 @@ func TestMergeStartRejectsSecondGlobalSession(t *testing.T) {
 	_, err := runtime.mergeStart(context.Background(), messagingtest.MustEnvelope(t, contract.MergeStartRequest{AccessToken: token, Application: "example", Version: version}))
 	if err == nil {
 		t.Fatal("second session accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-005.
+func TestMergeStartAcceptsMoreThanThirtyTwoSmallFiles(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "settings.d")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for index := range 40 {
+		path := filepath.Join(directory, fmt.Sprintf("%02d.conf", index))
+		if err := os.WriteFile(path, []byte("enabled=yes\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: directory, Directory: true}}}
+	store := Store{Root: filepath.Join(root, "backups")}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
+	runtime := &Runtime{specs: map[string]Spec{"example": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	result, err := runtime.mergeStart(context.Background(), messagingtest.MustEnvelope(t, contract.MergeStartRequest{AccessToken: token, Application: "example", Version: version}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(result.(contract.MergeStartResponse).Files); got != 40 {
+		t.Fatalf("editable file count = %d, want 40", got)
 	}
 }
 

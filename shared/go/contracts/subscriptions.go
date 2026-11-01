@@ -6,6 +6,7 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	mountmonitorcontract "lite-nas/shared/contracts/mountmonitor"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	networksecuritycontract "lite-nas/shared/contracts/networksecurity"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
 	servicemonitorcontract "lite-nas/shared/contracts/servicemonitor"
@@ -70,6 +71,10 @@ var SubscriptionsByService = map[string]map[string]SubscriptionContract{
 			Subject: securityloggingmanagercontract.AlertOccurrenceSubject,
 			Payload: loggingmanagercontract.AlertOccurrencePayload{},
 		},
+	},
+	ServiceNetworkSecurity: {
+		"firewall_attempt":         {Subject: networksecuritycontract.FirewallAttemptSubject, Payload: networksecuritycontract.FirewallAttempt{}},
+		"network_metrics_snapshot": {Subject: networkmetricscontract.SnapshotEventSubject, Payload: networkmetricscontract.SnapshotUpdatedEvent{}},
 	},
 	ServiceAuth: {
 		"lockdown_changed": {

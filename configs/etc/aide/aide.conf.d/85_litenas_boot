@@ -1,0 +1,2 @@
+# The kernel and bootloader files change only during managed updates.
+/boot(/.*)?$ LiteNASIntegrity

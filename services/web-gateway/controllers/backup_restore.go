@@ -63,6 +63,31 @@ func (c BackupRestoreController) Versions(ctx context.Context, i *brdto.Applicat
 	return brdto.NewOutput(v), nil
 }
 
+// Metadata returns the descriptive fields embedded in one stored archive.
+func (c BackupRestoreController) Metadata(ctx context.Context, i *brdto.VersionInput) (*brdto.Output[contract.BackupMetadataResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.Metadata(ctx, t, i.Application, i.Version)
+	if e != nil {
+		return nil, huma.Error502BadGateway("failed to read backup metadata")
+	}
+	return brdto.NewOutput(v), nil
+}
+
+// Delete removes one stored archive after the backup service confirms its removal.
+func (c BackupRestoreController) Delete(ctx context.Context, i *brdto.VersionInput) (*brdto.Output[contract.DeleteResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	if e := c.service.Delete(ctx, t, i.Application, i.Version); e != nil {
+		return nil, huma.Error502BadGateway("failed to delete backup")
+	}
+	return brdto.NewOutput(contract.DeleteResponse{Deleted: true}), nil
+}
+
 func (c BackupRestoreController) Backup(ctx context.Context, i *brdto.BackupInput) (*brdto.Output[map[string]string], error) {
 	t, e := c.token(ctx)
 	if e != nil {

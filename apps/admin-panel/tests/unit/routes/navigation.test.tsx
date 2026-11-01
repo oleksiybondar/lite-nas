@@ -12,6 +12,11 @@ describe("resolveSelectedNavigationPath", () => {
     { pathname: "/system", selectedPath: "/system" },
     { pathname: "/system/performance", selectedPath: "/system/performance" },
     { pathname: "/system/processes", selectedPath: "/system/processes" },
+    {
+      pathname: "/security/sessions",
+      selectedPath: "/security/sessions",
+      items: buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }),
+    },
     { pathname: "/system/sensors", selectedPath: "/system/sensors" },
     { pathname: "/system/performance/network", selectedPath: "/system/performance/network" },
     { pathname: "/system/processes/processes", selectedPath: "/system/processes/processes" },
@@ -99,5 +104,45 @@ describe("buildAppNavigationItems", () => {
     expect(routePaths).toContain("/alerts/security/active");
     expect(routePaths).toContain("/alerts/system/all");
     expect(routePaths).toContain("/alerts/security/all");
+  });
+});
+
+describe("sessions navigation", () => {
+  test("shows sessions to security officers", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
+    );
+    expect(paths).toContain('"path":"/security/sessions"');
+  });
+
+  test("shows sessions to administrators", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems(
+        {
+          requireOperator: () => false,
+          requireSecurity: () => false,
+          requireAdmin: () => true,
+        },
+        false,
+      ),
+    );
+    expect(paths).toContain('"path":"/security/sessions"');
+  });
+
+  test("hides sessions from users without security access", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => true, requireSecurity: () => false }, false),
+    );
+    expect(paths).not.toContain("/security/sessions");
+  });
+
+  test("places sessions under the top-level Security section", () => {
+    const items = buildAppNavigationItems({
+      requireOperator: () => false,
+      requireSecurity: () => true,
+    });
+    expect(items.find((item) => item.path === "/security")?.children?.[0]?.path).toBe(
+      "/security/sessions",
+    );
   });
 });

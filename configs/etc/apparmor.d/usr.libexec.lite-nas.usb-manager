@@ -1,0 +1,43 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/usb-manager flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/authentication>
+
+  capability setuid,
+  capability setgid,
+  network inet stream,
+  network inet6 stream,
+  network unix stream,
+
+  /usr/libexec/lite-nas/usb-manager mr,
+  /etc/lite-nas/usb-manager.conf r,
+  /var/log/lite-nas/usb-manager.log rw,
+  /etc/lite-nas/certificates/transport/ r,
+  /etc/lite-nas/certificates/transport/root-ca.crt r,
+  /etc/lite-nas/certificates/transport/lite-nas-usb-manager/ r,
+  /etc/lite-nas/certificates/transport/lite-nas-usb-manager/client.{crt,key} r,
+  /etc/lite-nas/certificates/auth/ r,
+  /etc/lite-nas/certificates/auth/token-signing.crt r,
+
+  /usr/bin/usbguard ix,
+  /run/usbguard/ipc.sock rw,
+  /dev/shm/qb-*/ rw,
+  /dev/shm/qb-*/** rw,
+
+  /usr/bin/sudo ix,
+  /usr/lib/cargo/bin/sudo ix,
+  /usr/lib/sudo/** mr,
+  /usr/libexec/sudo/** mr,
+  /etc/sudo.conf r,
+  /etc/sudoers r,
+  /etc/sudoers.d/ r,
+  /etc/sudoers.d/** r,
+  /run/sudo/** rwk,
+  /var/db/sudo/** rwk,
+  /var/lib/sudo/** rwk,
+
+  include if exists <local/usr.libexec.lite-nas.usb-manager>
+}

@@ -76,7 +76,8 @@ state from integrity-failure state.
 
 - Normal integrity result
 - Active integrity-failure result
-- Structured execution failure result when the check itself cannot be completed
+- Structured execution failure result when the check itself cannot be completed;
+  execution failure also enters the active integrity-failure alert lifecycle
 
 #### FR-002 Acceptance Criteria
 
@@ -196,6 +197,7 @@ integrity incidents using critical severity.
 
 - First active integrity-failure transition from FR-003
 - Repeated active integrity-failure results from FR-003
+- AIDE check execution failures from scheduled or on-demand checks
 - Service-to-service access token held by the runtime
 
 #### FR-006 Output
@@ -208,6 +210,8 @@ integrity incidents using critical severity.
 - The first active integrity failure publishes one security alert creation
   payload
 - Repeated failed checks publish occurrences for the cached active alert
+- A check that cannot execute or complete creates an alert or publishes an
+  occurrence on the active alert, including bounded command-error evidence
 - Created integrity alerts use the highest configured severity level
 - Published alert payloads include a service-authenticated access token
   belonging to the integrity service runtime
@@ -241,6 +245,22 @@ check or after a successful baseline-regeneration flow.
 - After successful normalization, the cached event identity is removed from
   memory
 - A future integrity failure after normalization creates a new alert
+
+### FR-008 Run an authorized on-demand integrity check
+
+#### FR-008 Description
+
+The service MUST accept a security-authorized request to run `aide --check`
+outside the regular schedule and expose the attempt for polling and retry.
+
+#### FR-008 Acceptance Criteria
+
+- The service validates the caller token and current security role before
+  accepting the task
+- The task runs the fixed AIDE check command selected by the service
+- The task exposes its state, exit status, bounded output, and timestamps
+- Completed results enter the same alert-reporting flow as scheduled checks
+- A retry creates a new attempt while preserving the prior attempt's status
 
 ---
 
@@ -349,6 +369,22 @@ alert creation, occurrence recording, and normalization.
 - The service authenticates alert-publishing actions as its own service
   identity
 
+### IR-005 Expose on-demand AIDE task RPCs and gateway endpoints
+
+#### IR-005 Description
+
+The integrity service MUST expose service-qualified start, status, and retry
+RPC subjects using the shared background-task request and response contracts.
+The gateway MUST expose corresponding authenticated HTTP endpoints.
+
+#### IR-005 Acceptance Criteria
+
+- Start, status, and retry requests use distinct integrity-owned NATS subjects
+- The gateway routes each operation to the integrity service
+- Responses expose the task ID and shared pollable task snapshot fields
+- The NATS authorization policy grants the gateway publish access and grants
+  the integrity service subscription access only to its own task subjects
+
 ---
 
 ## Reliability Requirements
@@ -438,14 +474,38 @@ optional integration.
 
 ---
 
-### OR-004 Use a dedicated service identity in transport security and authorization
+### OR-004 Deploy integrity policy through Debian AIDE drop-ins
 
 #### OR-004 Description
+
+LiteNAS MUST extend Debian's `/etc/aide/aide.conf` through its supported
+`/etc/aide/aide.conf.d` include directory. The policy MUST use separate,
+reviewable rules for the protected filesystem domains and remain compatible
+with AIDE configuration checking used by Debian and OpenSCAP content.
+
+#### OR-004 Acceptance Criteria
+
+- LiteNAS does not replace Debian's main AIDE configuration
+- Home, virtual filesystems, removable mounts, Snap mounts, and mutable state
+  under `/var` (including `/var/lib/lite-nas/moments`) are not traversed
+- `/etc`, `/boot`, executable and library directories, and LiteNAS executables
+  are monitored without scanning source trees, headers, or shared package data
+- LiteNAS drop-ins are root-owned and not group- or world-writable so AIDE
+  accepts the include directory securely
+- The AIDE drop-ins are included in the Debian package, deployed with the
+  system configuration, and included in the integrity backup specification
+- The deployed AIDE configuration passes `aide --config-check`
+
+---
+
+### OR-005 Use a dedicated service identity in transport security and authorization
+
+#### OR-005 Description
 
 The service MUST have its own transport identity and messaging authorization
 entries for internal communication.
 
-#### OR-004 Acceptance Criteria
+#### OR-005 Acceptance Criteria
 
 - The service has its own client certificate material path in configuration
 - The messaging layer uses a dedicated service client name

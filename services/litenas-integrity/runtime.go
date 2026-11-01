@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -13,14 +14,17 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	servicemodules "lite-nas/services/litenas-integrity/modules"
+	backgroundtasks "lite-nas/shared/backgroundtasks"
 	sharedcontracts "lite-nas/shared/contracts"
 	authcontract "lite-nas/shared/contracts/auth"
+	backgroundtaskscontract "lite-nas/shared/contracts/backgroundtasks"
 	litenasintegritycontract "lite-nas/shared/contracts/litenasintegrity"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
 	sharedlogger "lite-nas/shared/logger"
 	sharedloggingenum "lite-nas/shared/loggingmanager/enum"
+	"lite-nas/shared/loggingmanagerauth"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/roleauth"
 	sharedworkers "lite-nas/shared/workers"
@@ -39,12 +43,14 @@ const (
 	maxTriggerValueLen  = 512
 	sudoBinary          = "/usr/bin/sudo"
 	aideBinary          = "/usr/bin/aide"
+	aideConfigPath      = "/etc/aide/aide.conf"
 	moveBinary          = "/bin/mv"
 	aideDatabaseNewPath = "/var/lib/aide/aide.db.new"
 	aideDatabasePath    = "/var/lib/aide/aide.db"
 	aideDatabaseNewGZ   = "/var/lib/aide/aide.db.new.gz"
 	aideDatabaseGZ      = "/var/lib/aide/aide.db.gz"
 	defaultTimerBufSize = 1
+	maxTaskResultQueue  = 16
 )
 
 var (
@@ -82,6 +88,7 @@ const (
 	checkStatusNormal checkStatus = iota
 	checkStatusFailure
 	checkStatusExecutionError
+	checkStatusCancelled
 )
 
 // checkResult stores one interpreted AIDE check execution.
@@ -98,6 +105,7 @@ type integrityService struct {
 	validator *validator.Validate
 	runner    commandRunner
 	clock     func() time.Time
+	tasks     *backgroundtasks.Manager
 
 	mu      sync.Mutex
 	active  *activeIncident
@@ -125,7 +133,24 @@ func runWithDependencies(
 	}
 	defer infra.Close()
 
-	service := newIntegrityService(infra.Client, infra.Logger)
+	alertClient := loggingmanagerauth.NewClient(
+		infra.Client,
+		infra.AuthTokenManager,
+		loggingmanagerauth.InjectAlertAccessToken,
+	)
+	service := newIntegrityService(alertClient, infra.Logger)
+	// The task-result dispatcher produces results; reportIntegrityChecks consumes them.
+	// Runtime closes this bounded queue after the dispatcher has drained manager results.
+	taskResults := make(chan checkResult, maxTaskResultQueue)
+	service.tasks = backgroundtasks.NewManager(ctx)
+	defer service.tasks.Close()
+	sharedworkers.NewBaseWorker(service.tasks.Run).Start(ctx)
+	<-service.tasks.Ready()
+	taskResultsDone := make(chan struct{})
+	sharedworkers.NewBaseWorker(func(context.Context) {
+		defer close(taskResultsDone)
+		forwardIntegrityTaskResults(service.tasks.Results(), taskResults)
+	}).Start(ctx)
 	if err := registerRPCHandlers(infra.Server, service); err != nil {
 		return err
 	}
@@ -137,8 +162,8 @@ func runWithDependencies(
 
 	infra.AuthRefreshTimer.Start(ctx)
 	sharedworkers.NewBaseWorker(func(workerCtx context.Context) { runAuthRefreshLoop(workerCtx, infra) }).Start(ctx)
-	// The poller alone produces and closes checks; the reporter drains results
-	// before the runtime closes its messaging client.
+	// pollIntegrityChecks produces checks and owns closure; reportIntegrityChecks
+	// consumes the bounded channel before runtime closes its messaging client.
 	checks := make(chan checkResult, defaultTimerBufSize)
 	reporterDone := make(chan struct{})
 	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
@@ -146,13 +171,17 @@ func runWithDependencies(
 	}).Start(ctx)
 	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
 		defer close(reporterDone)
-		reportIntegrityChecks(workerCtx, checks, service)
+		reportIntegrityChecks(workerCtx, checks, taskResults, service)
 	}).Start(ctx)
 	checkTimer.Start(ctx)
 
 	infra.Logger.Info("litenas integrity service started", "config", configPath)
 
 	<-ctx.Done()
+	service.tasks.Close()
+	service.tasks.Wait()
+	<-taskResultsDone
+	close(taskResults) // Runtime owns closure after the result dispatcher exits.
 	<-reporterDone
 	infra.Logger.Info("litenas integrity service stopping")
 	return ctx.Err()
@@ -183,11 +212,35 @@ func pollIntegrityChecks(ctx context.Context, ticks <-chan struct{}, output chan
 	}
 }
 
-// reportIntegrityChecks drains checked outcomes and applies their alert effects.
-func reportIntegrityChecks(ctx context.Context, checks <-chan checkResult, service *integrityService) {
-	for result := range checks {
-		service.applyCheckResult(ctx, result)
+// reportIntegrityChecks drains scheduled and on-demand outcomes through one alert consumer.
+func reportIntegrityChecks(ctx context.Context, checks, taskResults <-chan checkResult, service *integrityService) {
+	for checks != nil || taskResults != nil {
+		select {
+		case result, ok := <-checks:
+			if !ok {
+				checks = nil
+				continue
+			}
+			service.applyReportedCheckResult(ctx, result)
+		case result, ok := <-taskResults:
+			if !ok {
+				taskResults = nil
+				continue
+			}
+			service.applyReportedCheckResult(ctx, result)
+		}
 	}
+}
+
+// applyReportedCheckResult applies a channel-delivered check result and gives shutdown effects a bounded completion window.
+func (service *integrityService) applyReportedCheckResult(ctx context.Context, result checkResult) {
+	if ctx.Err() == nil {
+		service.applyCheckResult(ctx, result)
+		return
+	}
+	resultCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	service.applyCheckResult(resultCtx, result)
 }
 
 // newIntegrityService constructs the core runtime state for scheduled checks
@@ -203,10 +256,200 @@ func newIntegrityService(client messaging.Client, log sharedlogger.Logger) *inte
 	}
 }
 
-// registerRPCHandlers wires the baseline-regeneration RPC onto the messaging
-// server.
+// registerRPCHandlers wires baseline regeneration and on-demand task RPCs onto the server.
 func registerRPCHandlers(server messaging.Server, service *integrityService) error {
-	return server.RegisterRPC(litenasintegritycontract.RegenerateBaselineRPCSubject, service.handleRegenerateBaselineRPC)
+	for subject, handler := range map[string]messaging.RPCHandler{
+		litenasintegritycontract.RegenerateBaselineRPCSubject: service.handleRegenerateBaselineRPC,
+		litenasintegritycontract.StartCheckTaskSubject:        service.handleStartCheckTask,
+		litenasintegritycontract.RetryCheckTaskSubject:        service.handleRetryCheckTask,
+		litenasintegritycontract.CheckTaskStatusSubject:       service.handleCheckTaskStatus,
+		litenasintegritycontract.StartBaselineTaskSubject:     service.handleStartBaselineTask,
+		litenasintegritycontract.InfoSubject:                  service.handleInfo,
+	} {
+		if err := server.RegisterRPC(subject, handler); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// handleInfo returns active AIDE database metadata to an authorized caller.
+func (service *integrityService) handleInfo(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	var request litenasintegritycontract.InfoRequest
+	if !decodeRPCRequest(envelope, &request, service.validator) {
+		return nil, errors.New("invalid integrity info request")
+	}
+	if _, err := service.authorizeBaselineRequest(ctx, request.AccessToken); err != nil {
+		return litenasintegritycontract.InfoResponse{}, err
+	}
+	response := litenasintegritycontract.InfoResponse{BaselinePath: aideDatabasePath}
+	info, err := os.Stat(aideDatabasePath)
+	if errors.Is(err, os.ErrNotExist) {
+		info, err = os.Stat(aideDatabaseGZ)
+		if err == nil {
+			response.BaselinePath = aideDatabaseGZ
+		}
+	}
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			response.Details = err.Error()
+		}
+		return response, nil
+	}
+	response.BaselineAvailable = info.Mode().IsRegular()
+	updated := info.ModTime().UTC()
+	response.BaselineUpdatedAt = &updated
+	response.BaselineSize = info.Size()
+	return response, nil
+}
+
+// handleStartBaselineTask authorizes, queues baseline generation, and publishes
+// a warning alert naming the authenticated operator.
+func (service *integrityService) handleStartBaselineTask(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	var request litenasintegritycontract.StartBaselineRequest
+	if !decodeRPCRequest(envelope, &request, service.validator) {
+		return nil, errors.New("invalid integrity baseline request")
+	}
+	username, err := service.authorizeBaselineRequest(ctx, request.AccessToken)
+	if err != nil {
+		return litenasintegritycontract.StartBaselineResponse{}, err
+	}
+	if service.tasks == nil {
+		return litenasintegritycontract.StartBaselineResponse{}, errors.New("background task manager unavailable")
+	}
+	snapshot, err := service.tasks.Start(service.baselineGenerationSpec())
+	if err != nil {
+		return litenasintegritycontract.StartBaselineResponse{}, err
+	}
+	message := fmt.Sprintf("%s user has triggered a new integrity baseline check", username)
+	payload := loggingmanagercontract.AlertPayload{
+		EventID: service.nextEventID(), Category: eventCategory,
+		Severity: sharedloggingenum.SeverityWarning, Source: serviceName,
+		Message: message, TriggerValue: message, CreatedAt: service.clock().UTC().Format(time.RFC3339),
+	}
+	if err := service.client.Publish(ctx, securityloggingmanagercontract.AlertSubject, payload); err != nil {
+		service.logger.Error("failed to publish baseline generation warning", "username", username, "task_id", snapshot.ID, "error", err)
+	}
+	return litenasintegritycontract.StartBaselineResponse{TaskID: snapshot.ID, State: string(snapshot.State)}, nil
+}
+
+// baselineGenerationSpec runs AIDE initialization and promotes its generated
+// database before the task is reported as successful.
+func (service *integrityService) baselineGenerationSpec() backgroundtasks.CommandSpec {
+	return backgroundtasks.CommandSpec{
+		Name: sudoBinary, Args: []string{aideBinary, "--config=" + aideConfigPath, "--init"}, OutputLimit: 1 << 20,
+		AfterSuccess: func() error {
+			ctx := context.Background()
+			if err := service.replaceActiveDatabase(ctx); err != nil {
+				return err
+			}
+			return service.normalizeActiveIncident(ctx, aideBaselineMessage)
+		},
+	}
+}
+
+// nextEventID allocates an event identifier under the service state lock.
+func (service *integrityService) nextEventID() string {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	return service.nextEventIDLocked()
+}
+
+// handleStartCheckTask authorizes and queues one fixed `aide --check` task.
+func (service *integrityService) handleStartCheckTask(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	var request litenasintegritycontract.StartCheckRequest
+	if !decodeRPCRequest(envelope, &request, service.validator) {
+		return nil, errors.New("invalid integrity check request")
+	}
+	if _, err := service.authorizeBaselineRequest(ctx, request.AccessToken); err != nil {
+		return litenasintegritycontract.StartCheckResponse{}, err
+	}
+	if service.tasks == nil {
+		return litenasintegritycontract.StartCheckResponse{}, errors.New("background task manager unavailable")
+	}
+	snapshot, err := service.tasks.Start(service.integrityCheckSpec())
+	if err != nil {
+		return litenasintegritycontract.StartCheckResponse{}, err
+	}
+	return litenasintegritycontract.StartCheckResponse{TaskID: snapshot.ID, State: string(snapshot.State)}, nil
+}
+
+// handleRetryCheckTask authorizes a fresh attempt using the saved AIDE command.
+func (service *integrityService) handleRetryCheckTask(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	var request litenasintegritycontract.TaskRequest
+	if !decodeRPCRequest(envelope, &request, service.validator) {
+		return nil, errors.New("invalid integrity task request")
+	}
+	if _, err := service.authorizeBaselineRequest(ctx, request.AccessToken); err != nil {
+		return litenasintegritycontract.TaskRetryResponse{}, err
+	}
+	if service.tasks == nil {
+		return litenasintegritycontract.TaskRetryResponse{}, errors.New("background task manager unavailable")
+	}
+	snapshot, err := service.tasks.Retry(request.TaskID)
+	if err != nil {
+		return litenasintegritycontract.TaskRetryResponse{}, err
+	}
+	return litenasintegritycontract.TaskRetryResponse{PreviousTaskID: request.TaskID, TaskID: snapshot.ID, State: string(snapshot.State)}, nil
+}
+
+// handleCheckTaskStatus returns the latest authorized task snapshot.
+func (service *integrityService) handleCheckTaskStatus(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	var request litenasintegritycontract.TaskRequest
+	if !decodeRPCRequest(envelope, &request, service.validator) {
+		return nil, errors.New("invalid integrity task request")
+	}
+	if _, err := service.authorizeBaselineRequest(ctx, request.AccessToken); err != nil {
+		return litenasintegritycontract.TaskStatusResponse{}, err
+	}
+	if service.tasks == nil {
+		return litenasintegritycontract.TaskStatusResponse{}, errors.New("background task manager unavailable")
+	}
+	snapshot, err := service.tasks.Status(request.TaskID)
+	if err != nil {
+		return litenasintegritycontract.TaskStatusResponse{}, err
+	}
+	return taskStatusResponse(snapshot), nil
+}
+
+// integrityCheckSpec binds AIDE execution to existing integrity alert reporting.
+func (service *integrityService) integrityCheckSpec() backgroundtasks.CommandSpec {
+	return backgroundtasks.CommandSpec{Name: sudoBinary, Args: []string{aideBinary, "--config=" + aideConfigPath, "--check"}, OutputLimit: 1 << 20}
+}
+
+// forwardIntegrityTaskResults maps manager snapshots onto the reporter's bounded result channel.
+func forwardIntegrityTaskResults(snapshots <-chan backgroundtasks.Snapshot, results chan<- checkResult) {
+	for snapshot := range snapshots {
+		result := integrityTaskResult(snapshot)
+		results <- result
+	}
+}
+
+// integrityTaskResult maps one completed manager snapshot to an integrity outcome.
+func integrityTaskResult(snapshot backgroundtasks.Snapshot) checkResult {
+	result := checkResult{Output: sanitizeCommandOutput([]byte(snapshot.Output)), Status: checkStatusExecutionError}
+	if snapshot.State == backgroundtasks.StateCancelled {
+		result.Status = checkStatusCancelled
+	} else if snapshot.State == backgroundtasks.StateSucceeded && snapshot.ExitCode != nil && *snapshot.ExitCode == 0 {
+		result.Status = checkStatusNormal
+	} else if snapshot.State == backgroundtasks.StateFailed {
+		result.Status = checkStatusFailure
+	}
+	if result.Status == checkStatusExecutionError || result.Status == checkStatusFailure {
+		if result.Output == "" {
+			result.Output = executionFailureEvidence("", errors.New(snapshot.Error))
+		}
+	}
+	return result
+}
+
+// taskStatusResponse maps the runner snapshot to the shared transport contract.
+func taskStatusResponse(snapshot backgroundtasks.Snapshot) litenasintegritycontract.TaskStatusResponse {
+	var progress *backgroundtaskscontract.StatusCheckProgress
+	if snapshot.Progress != nil {
+		progress = &backgroundtaskscontract.StatusCheckProgress{Percent: snapshot.Progress.Percent, Message: snapshot.Progress.Message}
+	}
+	return litenasintegritycontract.TaskStatusResponse{TaskID: snapshot.ID, State: string(snapshot.State), StartedAt: snapshot.StartedAt, UpdatedAt: snapshot.UpdatedAt, FinishedAt: snapshot.FinishedAt, ExitCode: snapshot.ExitCode, Error: snapshot.Error, Output: snapshot.Output, OutputTruncated: snapshot.OutputTruncated, Progress: progress}
 }
 
 // runAuthRefreshLoop keeps the background service token fresh for alert
@@ -256,7 +499,11 @@ func (service *integrityService) applyCheckResult(ctx context.Context, result ch
 			service.logger.Warn("failed to record integrity failure", "error", err)
 		}
 	case checkStatusExecutionError:
-		service.logger.Warn("failed to execute AIDE integrity check", "output", result.Output)
+		if err := service.recordIntegrityFailure(ctx, result.Output); err != nil {
+			service.logger.Warn("failed to record AIDE execution failure", "error", err, "output", result.Output)
+		}
+	case checkStatusCancelled:
+		service.logger.Warn("on-demand AIDE integrity check cancelled")
 	}
 }
 
@@ -348,7 +595,15 @@ func (service *integrityService) runIntegrityCheck(ctx context.Context) checkRes
 		return checkResult{Status: checkStatusFailure, Output: text}
 	}
 
-	return checkResult{Status: checkStatusExecutionError, Output: text}
+	return checkResult{Status: checkStatusExecutionError, Output: executionFailureEvidence(text, err)}
+}
+
+// executionFailureEvidence keeps command output and the invocation error available to alert consumers.
+func executionFailureEvidence(output string, err error) string {
+	if output == "" {
+		return "AIDE integrity check could not complete: " + err.Error()
+	}
+	return trimText(output+"; AIDE command error: "+err.Error(), maxTriggerValueLen, output)
 }
 
 // runAIDECommand invokes AIDE through passwordless sudo under the service's
@@ -357,7 +612,7 @@ func (service *integrityService) runAIDECommand(ctx context.Context, subcommand 
 	if subcommand != "--check" && subcommand != "--init" {
 		return nil, errors.New("unsupported AIDE subcommand")
 	}
-	return service.runner.CombinedOutput(ctx, sudoBinary, aideBinary, subcommand)
+	return service.runner.CombinedOutput(ctx, sudoBinary, aideBinary, "--config="+aideConfigPath, subcommand)
 }
 
 // replaceActiveDatabase promotes the generated `.new` AIDE database into the
@@ -453,7 +708,7 @@ func (service *integrityService) nextEventIDLocked() string {
 		service.counter = 1
 	}
 
-	return fmt.Sprintf("%s%08d", eventIDPrefix, service.counter)
+	return fmt.Sprintf("%s_%08d", eventIDPrefix, service.counter)
 }
 
 // decodeRPCRequest unmarshals and validates one RPC request payload.

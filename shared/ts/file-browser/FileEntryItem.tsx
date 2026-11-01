@@ -29,12 +29,12 @@ function formatPermissions(permissions: string | null): string {
     (triplet) =>
       Number(triplet[0] === "r") * 4 +
       Number(triplet[1] === "w") * 2 +
-      Number("xs".includes(triplet[2])),
+      Number("xs".includes(triplet[2] ?? "")),
   );
   const special =
-    Number("sS".includes(permissions[2])) * 4 +
-    Number("sS".includes(permissions[5])) * 2 +
-    Number("tT".includes(permissions[8]));
+    Number("sS".includes(permissions[2] ?? "")) * 4 +
+    Number("sS".includes(permissions[5] ?? "")) * 2 +
+    Number("tT".includes(permissions[8] ?? ""));
   return `${special}${bits.join("")}`;
 }
 

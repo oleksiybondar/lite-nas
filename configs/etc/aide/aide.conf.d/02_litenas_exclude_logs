@@ -1,0 +1,2 @@
+# Logs are mutable runtime data and are outside the integrity baseline.
+-/var/log

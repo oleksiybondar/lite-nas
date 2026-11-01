@@ -1,0 +1,13 @@
+{
+  "name": "@lite-nas/background-task",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "peerDependencies": {
+    "@mui/material": "^7.3.9",
+    "react": "^18.3.1"
+  }
+}

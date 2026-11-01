@@ -1,6 +1,9 @@
 package backuprestore
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -121,6 +124,56 @@ func (store Store) Versions(application string) ([]string, error) {
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(versions)))
 	return versions, nil
+}
+
+// Metadata reads the validated metadata header embedded in a completed archive.
+func (store Store) Metadata(application, version string) (Metadata, error) {
+	archive, err := store.OpenVersion(application, version)
+	if err != nil {
+		return Metadata{}, err
+	}
+	defer archive.Close()
+	gzipReader, err := gzip.NewReader(archive)
+	if err != nil {
+		return Metadata{}, err
+	}
+	defer gzipReader.Close()
+	tarReader := tar.NewReader(gzipReader)
+	header, err := tarReader.Next()
+	if err != nil {
+		return Metadata{}, err
+	}
+	if header.Name != "metadata.json" || header.Size < 0 || header.Size > 16*1024 {
+		return Metadata{}, fmt.Errorf("invalid archive metadata entry")
+	}
+	var metadata Metadata
+	if err := json.NewDecoder(tarReader).Decode(&metadata); err != nil {
+		return Metadata{}, err
+	}
+	if metadata.Application != application || metadata.Version != version || metadata.CreatedAt == "" {
+		return Metadata{}, fmt.Errorf("archive metadata does not match its version")
+	}
+	return metadata, nil
+}
+
+// Delete removes one validated completed archive and leaves its application directory intact.
+func (store Store) Delete(application, version string) error {
+	path := filepath.Join(store.Root, application, version+".tar.gz")
+	archive, err := store.OpenVersion(application, version)
+	if err != nil {
+		return err
+	}
+	if err := archive.Close(); err != nil {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("backup version is not a regular archive")
+	}
+	return os.Remove(path)
 }
 
 // OpenVersion opens only a named archive beneath the application's store root.

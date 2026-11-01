@@ -13,6 +13,7 @@ type (
 		Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`
 	}
 )
+
 type VersionInput struct {
 	Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`
 	Version     string `path:"version" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_.-]*$"`
@@ -29,7 +30,7 @@ type BackupAllInput struct {
 type RestoreInput struct {
 	Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`
 	Version     string `path:"version" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_.-]*$"`
-	Mode        string `json:"mode" enum:"replace,merge"`
+	Mode        string `query:"mode" minLength:"1" enum:"replace,merge"`
 }
 type MergeStartInput struct {
 	Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`

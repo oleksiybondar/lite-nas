@@ -7,9 +7,37 @@ profile /usr/libexec/lite-nas/litenas-integrity flags=(attach_disconnected,media
   include <abstractions/lite-nas-nats-client>
   include <abstractions/lite-nas-auth-client>
 
+  capability setuid,
+  capability setgid,
+  capability dac_read_search,
+
   /usr/libexec/lite-nas/litenas-integrity mr,
   /etc/lite-nas/litenas-integrity.conf r,
   /var/log/lite-nas/lite-nas-integrity.log rw,
+
+  /etc/aide/ r,
+  /etc/aide/** rix,
+  /etc/** r,
+  /bin/** rix,
+  /sbin/** rix,
+  /lib/** r,
+  /lib64/** r,
+  /usr/bin/** rix,
+  /usr/sbin/** rix,
+  /usr/lib/** r,
+  /usr/lib64/** r,
+  /usr/libexec/lite-nas/** r,
+  # AIDE's packaged config scripts use the host's /usr/bin coreutils symlinks.
+  /usr/lib/cargo/bin/coreutils/ r,
+  /usr/lib/cargo/bin/coreutils/** rix,
+  /var/ r,
+  /var/lib/ r,
+  /var/lib/lite-nas/** r,
+  /var/lib/aide/ rw,
+  /var/lib/aide/** rwk,
+  # AIDE traverses protected paths as read-only input to its baseline.
+  / r,
+  /** r,
 
   /usr/bin/aide ix,
   /usr/bin/sudo ix,

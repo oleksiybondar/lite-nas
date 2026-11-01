@@ -174,6 +174,7 @@ function DirectoryRows({
 
 /** Independently browsable panel with navigation controls outside its error state. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: panel options and rendering are kept together for callers.
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The panel keeps navigation and render branches together.
 export function ExplorerPanel({
   panel,
   refresh,
@@ -245,15 +246,15 @@ export function ExplorerPanel({
           parent={parent}
           selected={visibleSelected}
           showHidden={showHidden}
-          extensionFilter={extensionFilter}
-          selectableKind={selectableKind}
-          singleSelection={singleSelection}
+          {...(extensionFilter ? { extensionFilter } : {})}
+          {...(selectableKind ? { selectableKind } : {})}
+          {...(singleSelection === undefined ? {} : { singleSelection })}
           showFiles={showFiles}
           navigate={navigate}
           select={select}
           clearSelection={clearSelection}
           open={open}
-          request={request}
+          {...(request ? { request } : {})}
         />
       </Stack>
     </Paper>
@@ -347,7 +348,7 @@ function PanelDirectory({
       }}
     >
       <DirectoryStatus loading={loading} error={error} />
-      {!loading && !error && (
+      {!loading && (
         <Box sx={{ minWidth: 1040 }}>
           <Box
             role="row"
@@ -374,16 +375,16 @@ function PanelDirectory({
             panel={panel}
             directory={directory}
             parent={parent}
-            entries={visibleEntries}
+            entries={error ? [] : visibleEntries}
             selected={selected}
             navigate={navigate}
             select={select}
             clearSelection={clearSelection}
             open={open}
-            selectableKind={selectableKind}
-            singleSelection={singleSelection}
+            {...(selectableKind ? { selectableKind } : {})}
+            {...(singleSelection === undefined ? {} : { singleSelection })}
           />
-          {visibleEntries.length === 0 && (
+          {!error && visibleEntries.length === 0 && (
             <Typography color="text.secondary">{getLabel("fileBrowser.empty")}</Typography>
           )}
         </Box>

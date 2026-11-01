@@ -6,6 +6,7 @@ import (
 
 	servicecontract "lite-nas/shared/contracts/servicesmanager"
 	sessioncontract "lite-nas/shared/contracts/sessionmanager"
+	usbcontract "lite-nas/shared/contracts/usbmanager"
 	"lite-nas/shared/messaging"
 )
 
@@ -24,9 +25,16 @@ type SessionsManagementService interface {
 	Action(context.Context, string, string, string) error
 }
 
+// USBManagementService provides authenticated USBGuard inventory and authorization commands.
+type USBManagementService interface {
+	List(context.Context, string) (usbcontract.ListResponse, error)
+	Action(context.Context, string, string, string, bool) error
+}
+
 type (
 	servicesManagementService struct{ client messaging.Client }
 	sessionsManagementService struct{ client messaging.Client }
+	usbManagementService      struct{ client messaging.Client }
 )
 
 // NewServicesManagementService binds service management to the shared messaging client.
@@ -37,6 +45,11 @@ func NewServicesManagementService(client messaging.Client) ServicesManagementSer
 // NewSessionsManagementService binds session management to the shared messaging client.
 func NewSessionsManagementService(client messaging.Client) SessionsManagementService {
 	return sessionsManagementService{client}
+}
+
+// NewUSBManagementService binds USBGuard management to the shared messaging client.
+func NewUSBManagementService(client messaging.Client) USBManagementService {
+	return usbManagementService{client}
 }
 
 // List requests the current systemd service inventory using the caller's token.
@@ -79,6 +92,30 @@ func (s sessionsManagementService) Action(ctx context.Context, token, session, a
 	}
 	var response sessioncontract.ActionResponse
 	if err := s.client.Request(ctx, subject, sessioncontract.ActionRequest{AccessToken: token, Session: session}, &response); err != nil {
+		return err
+	}
+	if !response.Completed {
+		return ErrManagementActionFailed
+	}
+	return nil
+}
+
+// List requests USBGuard's current device inventory using the caller's token.
+func (s usbManagementService) List(ctx context.Context, token string) (usbcontract.ListResponse, error) {
+	var response usbcontract.ListResponse
+	err := s.client.Request(ctx, usbcontract.ListSubject, usbcontract.ListRequest{AccessToken: token}, &response)
+	return response, err
+}
+
+// Action sends one supported USBGuard device decision and requires backend confirmation.
+func (s usbManagementService) Action(ctx context.Context, token, deviceID, action string, permanent bool) error {
+	subjects := map[string]string{"allow": usbcontract.AllowSubject, "block": usbcontract.BlockSubject}
+	subject, ok := subjects[action]
+	if !ok {
+		return ErrManagementActionFailed
+	}
+	var response usbcontract.ActionResponse
+	if err := s.client.Request(ctx, subject, usbcontract.DeviceRequest{AccessToken: token, DeviceID: deviceID, Permanent: permanent}, &response); err != nil {
 		return err
 	}
 	if !response.Completed {

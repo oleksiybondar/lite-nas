@@ -133,6 +133,12 @@ deploy.liteNASIntegrity.installLogTarget() {
 	chmod 0640 "$LITE_NAS_INTEGRITY_LOG_FILE"
 }
 
+# Grant the integrity service path traversal so it can stat root-owned AIDE
+# databases without being able to list the protected database directory.
+deploy.liteNASIntegrity.ensureAideMetadataAccess() {
+	install -d -m 0710 -o root -g "$LITE_NAS_INTEGRITY_RUNTIME_GROUP" /var/lib/aide
+}
+
 deploy.liteNASIntegrity.installUnitFile() {
 	if [ ! -f "$LITE_NAS_INTEGRITY_UNIT_TEMPLATE" ]; then
 		log.error "Missing litenas-integrity systemd unit template: $LITE_NAS_INTEGRITY_UNIT_TEMPLATE"
@@ -162,6 +168,7 @@ deploy.liteNASIntegrity.deploy() {
 	deploy.liteNASIntegrity.installConfig
 	deploy.liteNASIntegrity.installSudoers
 	deploy.liteNASIntegrity.installLogTarget
+	deploy.liteNASIntegrity.ensureAideMetadataAccess
 	deploy.liteNASIntegrity.installUnitFile
 
 	if [ "$should_start" = "1" ]; then

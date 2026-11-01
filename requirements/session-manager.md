@@ -1,6 +1,8 @@
 # Session Manager requirements
 
-- `session-manager/FR-001`: List all loginctl sessions by authenticated NATS RPC, returning session ID, UID, and user.
+- `session-manager/FR-001`: List all loginctl sessions by authenticated NATS RPC, returning identity,
+  seat, terminal, class, and the `show-session` properties used to distinguish graphical, SSH, local
+  terminal, system manager, and unknown sessions.
 - `session-manager/FR-002`: Expose terminate, lock, and unlock RPCs for any session ID, including sessions owned
   by other users.
 - `session-manager/SR-001`: Require a valid LiteNAS access token carrying `lite-nas-security`, `admin`, or `sudo`

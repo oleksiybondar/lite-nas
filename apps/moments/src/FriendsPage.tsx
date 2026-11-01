@@ -1,3 +1,4 @@
+import { ConfirmActionDialog, StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -9,10 +10,6 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CircularProgress from "@mui/material/CircularProgress";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import Pagination from "@mui/material/Pagination";
@@ -138,45 +135,50 @@ const AddFriendDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <Box component="form" onSubmit={(event) => void submit(event)}>
-        <DialogTitle>{getLabel("moments.friends.addTitle")}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            {failed && <Alert severity="error">{getLabel("moments.friends.saveFailed")}</Alert>}
-            {invalid && <Alert severity="error">{getLabel("moments.friends.invalidInput")}</Alert>}
-            <TextField
-              autoFocus
-              required
-              label={getLabel("moments.friends.username")}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-            <TextField
-              label={getLabel("moments.friends.firstName")}
-              value={firstName}
-              onChange={(event) => setFirstName(event.target.value)}
-            />
-            <TextField
-              label={getLabel("moments.friends.lastName")}
-              value={lastName}
-              onChange={(event) => setLastName(event.target.value)}
-            />
-            <TextField
-              label={getLabel("moments.friends.nickname")}
-              value={nickname}
-              onChange={(event) => setNickname(event.target.value)}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
+    <StandardDialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      title={getLabel("moments.friends.addTitle")}
+      closeLabel={getLabel("dialogs.close")}
+      onSubmit={(event) => void submit(event)}
+      actions={
+        <>
           <Button onClick={onClose}>{getLabel("moments.friends.cancel")}</Button>
           <Button type="submit" disabled={busy || !username.trim()} variant="contained">
             {getLabel("moments.friends.add")}
           </Button>
-        </DialogActions>
-      </Box>
-    </Dialog>
+        </>
+      }
+    >
+      <Stack spacing={2} sx={{ pt: 1 }}>
+        {failed && <Alert severity="error">{getLabel("moments.friends.saveFailed")}</Alert>}
+        {invalid && <Alert severity="error">{getLabel("moments.friends.invalidInput")}</Alert>}
+        <TextField
+          autoFocus
+          required
+          label={getLabel("moments.friends.username")}
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
+        />
+        <TextField
+          label={getLabel("moments.friends.firstName")}
+          value={firstName}
+          onChange={(event) => setFirstName(event.target.value)}
+        />
+        <TextField
+          label={getLabel("moments.friends.lastName")}
+          value={lastName}
+          onChange={(event) => setLastName(event.target.value)}
+        />
+        <TextField
+          label={getLabel("moments.friends.nickname")}
+          value={nickname}
+          onChange={(event) => setNickname(event.target.value)}
+        />
+      </Stack>
+    </StandardDialog>
   );
 };
 
@@ -191,6 +193,7 @@ export const FriendsPage = (): ReactElement => {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [removeFailed, setRemoveFailed] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const friends = pageData?.items ?? [];
   const metadata = pageData?.metadata;
 
@@ -219,8 +222,9 @@ export const FriendsPage = (): ReactElement => {
     try {
       const nextPage = await remove(username);
       setPage(nextPage);
-    } catch {
+    } catch (caught) {
       setRemoveFailed(true);
+      throw caught;
     }
   };
 
@@ -293,7 +297,7 @@ export const FriendsPage = (): ReactElement => {
               <FriendCard
                 key={friend.username}
                 friend={friend}
-                onRemove={() => void removeFriend(friend.username)}
+                onRemove={() => setPendingRemove(friend.username)}
               />
             ))}
           </Stack>
@@ -322,6 +326,19 @@ export const FriendsPage = (): ReactElement => {
         </>
       )}
       <AddFriendDialog open={addOpen} onClose={() => setAddOpen(false)} onSave={saveFriend} />
+      <ConfirmActionDialog
+        open={pendingRemove !== null}
+        title={getLabel("moments.friends.remove")}
+        description={getLabel("moments.friends.confirmRemove").replace(
+          "{username}",
+          pendingRemove ?? "",
+        )}
+        confirmLabel={getLabel("moments.friends.remove")}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={async () => {
+          if (pendingRemove) await removeFriend(pendingRemove);
+        }}
+      />
     </Stack>
   );
 };

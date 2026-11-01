@@ -19,11 +19,21 @@ type ActionRequest struct {
 	Session     string `json:"session" validate:"required,max=64"`
 }
 
-// Session identifies a login session and its owning user.
+// Session identifies a login session, its owner, and its logind seat and terminal metadata.
 type Session struct {
-	ID   string `json:"id"`
-	UID  string `json:"uid"`
-	User string `json:"user"`
+	ID         string `json:"id"`
+	UID        string `json:"uid"`
+	User       string `json:"user"`
+	Seat       string `json:"seat"`
+	Leader     string `json:"leader"`
+	Class      string `json:"class"`
+	TTY        string `json:"tty"`
+	Type       string `json:"type"`
+	Service    string `json:"service"`
+	Remote     bool   `json:"remote"`
+	RemoteHost string `json:"remote_host"`
+	Display    string `json:"display"`
+	Desktop    string `json:"desktop"`
 }
 
 // ListResponse contains the current loginctl session inventory.

@@ -173,9 +173,9 @@ func (m *manager) list(ctx context.Context, envelope messaging.Envelope) (any, e
 	if err != nil {
 		return nil, err
 	}
-	sessions, err := parseSessions(result)
-	if err != nil {
-		return nil, err
+	var sessions []contract.Session
+	if err := json.Unmarshal(result, &sessions); err != nil {
+		return nil, fmt.Errorf("decode enriched loginctl sessions: %w", err)
 	}
 	return contract.ListResponse{Sessions: sessions}, nil
 }
@@ -252,6 +252,9 @@ func (m *manager) execute(job commandJob) commandResult {
 	var err error
 	if job.action == "list" {
 		output, err = m.runner.Output(ctx, loginctlBinary, "list-sessions", "--no-legend", "--no-pager")
+		if err == nil {
+			output, err = m.enrichSessions(ctx, output)
+		}
 	} else {
 		output, err = m.runner.Output(ctx, "/usr/bin/sudo", "-n", loginctlBinary, job.action, "--", job.session)
 	}
@@ -264,7 +267,58 @@ func (m *manager) execute(job commandJob) commandResult {
 	return commandResult{output: output}
 }
 
-// parseSessions extracts session IDs and owners from loginctl list output.
+// enrichSessions retrieves the identifying logind properties for each listed session.
+func (m *manager) enrichSessions(ctx context.Context, inventory []byte) ([]byte, error) {
+	sessions, err := parseSessions(inventory)
+	if err != nil {
+		return nil, err
+	}
+	for index := range sessions {
+		id := sessions[index].ID
+		output, commandErr := m.runner.Output(ctx, loginctlBinary, "show-session", id,
+			"-p", "Type", "-p", "Class", "-p", "Service", "-p", "Remote", "-p", "RemoteHost", "-p", "TTY", "-p", "Display", "-p", "Desktop", "-p", "Leader")
+		if commandErr != nil {
+			return nil, fmt.Errorf("loginctl show-session failed: %w", commandErr)
+		}
+		if len(output) > 64*1024 {
+			return nil, fmt.Errorf("loginctl session properties too large")
+		}
+		if err := applySessionProperties(&sessions[index], output); err != nil {
+			return nil, err
+		}
+	}
+	return json.Marshal(sessions)
+}
+
+// applySessionProperties maps loginctl's key-value output into the session contract.
+func applySessionProperties(session *contract.Session, output []byte) error {
+	values := make(map[string]string)
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if line == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			return fmt.Errorf("invalid loginctl session property")
+		}
+		values[key] = value
+	}
+	if values["Remote"] != "yes" && values["Remote"] != "no" {
+		return fmt.Errorf("invalid loginctl Remote property")
+	}
+	session.Type = values["Type"]
+	session.Class = values["Class"]
+	session.Service = values["Service"]
+	session.Remote = values["Remote"] == "yes"
+	session.RemoteHost = values["RemoteHost"]
+	session.TTY = values["TTY"]
+	session.Display = values["Display"]
+	session.Desktop = values["Desktop"]
+	session.Leader = values["Leader"]
+	return nil
+}
+
+// parseSessions maps identity and terminal metadata from loginctl list output.
 func parseSessions(output []byte) ([]contract.Session, error) {
 	sessions := make([]contract.Session, 0)
 	for _, line := range strings.Split(string(output), "\n") {

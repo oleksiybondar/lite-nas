@@ -25,6 +25,14 @@ func (s backupRestoreStub) Versions(context.Context, string, string) ([]string, 
 	return []string{"v1"}, s.err
 }
 
+func (s backupRestoreStub) Metadata(context.Context, string, string, string) (contract.BackupMetadataResponse, error) {
+	return contract.BackupMetadataResponse{Application: "app", Version: "v1", CreatedAt: "2026-01-01T00:00:00Z"}, s.err
+}
+
+func (s backupRestoreStub) Delete(context.Context, string, string, string) error {
+	return s.err
+}
+
 func (s backupRestoreStub) Backup(context.Context, string, string, string, string) (string, error) {
 	return "v2", s.err
 }

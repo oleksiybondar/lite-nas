@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"lite-nas/services/log-analysis/plugins"
+	"lite-nas/shared/contracts/networksecurity"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/workers"
 )
@@ -42,6 +44,7 @@ func buildRoutes(spec rulesFile, instances map[string]*plugins.Plugin) (routeInd
 // independent plugin channels provide the required broadcast behavior.
 type dispatchWorker struct {
 	input     <-chan logRecord
+	firewall  chan<- networksecurity.FirewallAttempt
 	routes    routeIndex
 	instances map[string]*plugins.Plugin
 	worker    workers.BaseWorker
@@ -50,8 +53,8 @@ type dispatchWorker struct {
 }
 
 // newDispatchWorker receives the already constructed plugin collection.
-func newDispatchWorker(input <-chan logRecord, routes routeIndex, instances map[string]*plugins.Plugin, log sharedlogger.Logger) *dispatchWorker {
-	dispatcher := &dispatchWorker{input: input, routes: routes, instances: instances, done: make(chan struct{}), log: log}
+func newDispatchWorker(input <-chan logRecord, firewall chan<- networksecurity.FirewallAttempt, routes routeIndex, instances map[string]*plugins.Plugin, log sharedlogger.Logger) *dispatchWorker {
+	dispatcher := &dispatchWorker{input: input, firewall: firewall, routes: routes, instances: instances, done: make(chan struct{}), log: log}
 	dispatcher.worker = workers.NewBaseWorker(dispatcher.run)
 	return dispatcher
 }
@@ -70,6 +73,13 @@ func (d *dispatchWorker) run(_ context.Context) {
 		}
 	}()
 	for record := range d.input {
+		attempt, ok := parseFirewallAttempt(record)
+		if ok && d.firewall != nil {
+			d.firewall <- attempt
+		} else if !ok && record.Format == formatKernel && record.KernelTrusted &&
+			strings.HasPrefix(record.Message, "[UFW BLOCK] ") && strings.Contains(record.Message, "PROTO=TCP") {
+			d.log.Warn("ignored malformed blocked TCP firewall record")
+		}
 		for _, categoryRules := range d.routes[record.SourceID] {
 			for _, rule := range categoryRules {
 				kind := "failure"

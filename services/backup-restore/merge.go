@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	mergeFileLimit  = 1 << 20
-	mergeTotalLimit = 32 << 20
-	mergeChunkSize  = 64 << 10
+	mergeFileLimit      = 1 << 20
+	mergeFileCountLimit = 512
+	mergeTotalLimit     = 32 << 20
+	mergeChunkSize      = 64 << 10
 )
 
 // mergeFile retains bounded inputs and the client's staged result.
@@ -87,7 +88,7 @@ func (runtime *Runtime) mergeStart(_ context.Context, envelope messaging.Envelop
 		if entry.header.Typeflag != tar.TypeReg || entry.path == spec.SourcePath || !selectedPath(spec, entry.path) {
 			continue
 		}
-		if entry.header.Size > mergeFileLimit || len(files) >= 32 {
+		if entry.header.Size > mergeFileLimit || len(files) >= mergeFileCountLimit {
 			return nil, fmt.Errorf("merge file limit exceeded")
 		}
 		if err := rejectSymlinkParents(entry.path); err != nil {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"gopkg.in/ini.v1"
 
 	"lite-nas/shared/authtoken"
 	contract "lite-nas/shared/contracts/backuprestore"
@@ -25,6 +26,20 @@ import (
 type failingRestartClient struct {
 	messagingtest.RecordingClient
 	unit string
+}
+
+// failingRegistrationServer fails one selected subject while preserving other server behavior.
+type failingRegistrationServer struct {
+	messagingtest.RecordingServer
+	subject string
+}
+
+// RegisterRPC reports a controlled registration failure for the selected subject.
+func (server *failingRegistrationServer) RegisterRPC(subject string, handler messaging.RPCHandler) error {
+	if subject == server.subject {
+		return errors.New("registration failed")
+	}
+	return server.RecordingServer.RegisterRPC(subject, handler)
 }
 
 // Request records a restart request and returns an observable failure.
@@ -103,6 +118,48 @@ func TestVersionsRPCListsStoredSnapshot(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-001.
+func TestMetadataRPCReturnsStoredSnapshotDetails(t *testing.T) {
+	runtime, token, version, _ := mergeFixture(t)
+	result, err := runtime.metadata(context.Background(), messagingtest.MustEnvelope(t, contract.VersionRequest{AccessToken: token, Application: "example", Version: version}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(contract.BackupMetadataResponse).Version; got != version {
+		t.Fatalf("metadata version = %q, want %q", got, version)
+	}
+}
+
+// Requirements: backup-restore/FR-009.
+func TestDeleteBackupRPCRemovesStoredSnapshot(t *testing.T) {
+	runtime, token, version, _ := mergeFixture(t)
+	result, err := runtime.deleteBackup(context.Background(), messagingtest.MustEnvelope(t, contract.VersionRequest{AccessToken: token, Application: "example", Version: version}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.(contract.DeleteResponse).Deleted {
+		t.Fatal("delete response did not confirm deletion")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestMetadataRPCRejectsUnknownApplication(t *testing.T) {
+	runtime, token, version, _ := mergeFixture(t)
+	_, err := runtime.metadata(context.Background(), messagingtest.MustEnvelope(t, contract.VersionRequest{AccessToken: token, Application: "unknown", Version: version}))
+	if err == nil {
+		t.Fatal("metadata for an unknown application was returned")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestDeleteBackupRPCRejectsUnknownApplication(t *testing.T) {
+	runtime, token, version, _ := mergeFixture(t)
+	_, err := runtime.deleteBackup(context.Background(), messagingtest.MustEnvelope(t, contract.VersionRequest{AccessToken: token, Application: "unknown", Version: version}))
+	if err == nil {
+		t.Fatal("backup for an unknown application was deleted")
+	}
+}
+
 // Requirements: backup-restore/FR-010.
 func TestDiffRPCReportsChangedFile(t *testing.T) {
 	runtime, token, version, path := mergeFixture(t)
@@ -148,6 +205,66 @@ func TestBackupAllRPCReportsCompletedTarget(t *testing.T) {
 	}
 	if got := result.(contract.BackupAllResponse).Results; len(got) != 1 || got[0].Status != "completed" {
 		t.Fatalf("backup-all results = %v", got)
+	}
+}
+
+// Requirements: backup-restore/FR-001.
+func TestBackupAllRPCSkipsMissingTarget(t *testing.T) {
+	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
+	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "example", Selections: []Selection{{Path: filepath.Join(t.TempDir(), "missing.conf")}}}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	result, err := runtime.backupAll(context.Background(), messagingtest.MustEnvelope(t, contract.BackupAllRequest{AccessToken: token}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(contract.BackupAllResponse).Results[0].Status; got != "skipped" {
+		t.Fatalf("backup-all status = %q, want skipped", got)
+	}
+}
+
+// Requirements: backup-restore/FR-001.
+func TestBackupAllRPCReportsFailedTarget(t *testing.T) {
+	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
+	path := filepath.Join(t.TempDir(), "settings.conf")
+	if err := os.WriteFile(path, []byte("enabled=yes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "invalid_name", Selections: []Selection{{Path: path}}}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	result, err := runtime.backupAll(context.Background(), messagingtest.MustEnvelope(t, contract.BackupAllRequest{AccessToken: token}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(contract.BackupAllResponse).Results[0].Status; got != "failed" {
+		t.Fatalf("backup-all status = %q, want failed", got)
+	}
+}
+
+// Requirements: backup-restore/IR-002.
+func TestRegisterPropagatesRPCRegistrationFailures(t *testing.T) {
+	subjects := []string{
+		contract.MergeStartSubject,
+		contract.MergeReadSubject,
+		contract.MergeStatusSubject,
+		contract.MergeWriteSubject,
+		contract.MergeApplySubject,
+		contract.MergeSaveSubject,
+		contract.MergeDiscardSubject,
+		contract.ApplicationsSubject,
+		contract.BackedUpSubject,
+		contract.VersionsSubject,
+		contract.MetadataSubject,
+		contract.DeleteSubject,
+		contract.BackupSubject,
+		contract.BackupAllSubject,
+		contract.DiffSubject,
+		contract.RestoreSubject,
+	}
+	for _, subject := range subjects {
+		t.Run(subject, func(t *testing.T) {
+			server := &failingRegistrationServer{subject: subject}
+			if err := new(Runtime).register(server); err == nil {
+				t.Fatalf("registration failure for %s was ignored", subject)
+			}
+		})
 	}
 }
 
@@ -197,5 +314,41 @@ func TestDecodeRequestRequiresAdministratorRole(t *testing.T) {
 				t.Fatalf("authorization error = %v, allow = %v", err, testCase.allow)
 			}
 		})
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestRuntimePathsRejectsRelativeDirectory(t *testing.T) {
+	configuration, err := ini.Load([]byte("[backup]\nspec_dir=relative\nstore_root=/var/lib/lite-nas/backup\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runtimePaths(configuration); err == nil {
+		t.Fatal("relative spec directory was accepted")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestRuntimePathsReturnsConfiguredDirectories(t *testing.T) {
+	configuration, err := ini.Load([]byte("[backup]\nspec_dir=/etc/lite-nas/backup.d\nstore_root=/var/lib/lite-nas/backup\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	specDirectory, storeRoot, err := runtimePaths(configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if specDirectory != "/etc/lite-nas/backup.d" || storeRoot != "/var/lib/lite-nas/backup" {
+		t.Fatalf("runtime paths = %q, %q", specDirectory, storeRoot)
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestServeRejectsNonRootCaller(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root callers pass the service privilege check")
+	}
+	if err := Serve(context.Background(), filepath.Join(t.TempDir(), "missing.conf")); err == nil {
+		t.Fatal("service started for a non-root caller")
 	}
 }
