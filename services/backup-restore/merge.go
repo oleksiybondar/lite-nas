@@ -59,6 +59,9 @@ func (runtime *Runtime) mergeStart(_ context.Context, envelope messaging.Envelop
 	if !ok {
 		return nil, fmt.Errorf("unknown application")
 	}
+	if spec.Plugin == "cloudflared" || spec.Plugin == "tailscale" {
+		return nil, fmt.Errorf("merge is unavailable for %s backups", spec.Plugin)
+	}
 	runtime.mutex.Lock()
 	defer runtime.mutex.Unlock()
 	if runtime.session != nil {
@@ -98,7 +101,21 @@ func (runtime *Runtime) mergeStart(_ context.Context, envelope messaging.Envelop
 		if err != nil {
 			return nil, err
 		}
-		current, err := boundedLiveFile(entry.path)
+		if spec.Plugin == "ufw" {
+			state, err := decodeUFWState(snapshot)
+			if err != nil {
+				return nil, err
+			}
+			if err := runtime.store.UFW.validateState(state); err != nil {
+				return nil, err
+			}
+		}
+		var current []byte
+		if spec.Plugin == "ufw" {
+			current, err = runtime.store.UFW.Export()
+		} else {
+			current, err = boundedLiveFile(entry.path)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +123,9 @@ func (runtime *Runtime) mergeStart(_ context.Context, envelope messaging.Envelop
 			return nil, fmt.Errorf("merge requires UTF-8 text: %s", entry.path)
 		}
 		_, statErr := os.Lstat(entry.path)
-		if statErr != nil && !os.IsNotExist(statErr) {
+		if spec.Plugin == "ufw" {
+			statErr = nil
+		} else if statErr != nil && !os.IsNotExist(statErr) {
 			return nil, statErr
 		}
 		total += len(snapshot) + 2*len(current)
@@ -288,6 +307,15 @@ func (runtime *Runtime) mergeWrite(_ context.Context, envelope messaging.Envelop
 		if request.SHA256 == "" || request.SHA256 != hex.EncodeToString(checksum[:]) {
 			return nil, fmt.Errorf("merge checksum mismatch")
 		}
+		if session.spec.Plugin == "ufw" {
+			state, err := decodeUFWState(file.upload)
+			if err != nil {
+				return nil, err
+			}
+			if err := runtime.store.UFW.validateState(state); err != nil {
+				return nil, err
+			}
+		}
 		file.result = append([]byte(nil), file.upload...)
 		file.upload = nil
 		file.uploading = false
@@ -315,10 +343,22 @@ func (runtime *Runtime) mergeApply(ctx context.Context, envelope messaging.Envel
 		if file.uploading {
 			return nil, fmt.Errorf("unfinished merge upload")
 		}
-		current, err := boundedLiveFile(path)
+		var current []byte
+		if session.spec.Plugin == "ufw" {
+			current, err = runtime.store.UFW.Export()
+		} else {
+			current, err = boundedLiveFile(path)
+		}
 		if err != nil {
 			session.applyFailed = true
 			return nil, err
+		}
+		if session.spec.Plugin == "ufw" {
+			if sha256.Sum256(current) != sha256.Sum256(file.current) {
+				session.applyFailed = true
+				return nil, fmt.Errorf("live UFW rules changed since merge start")
+			}
+			continue
 		}
 		_, statErr := os.Lstat(path)
 		if statErr != nil && !os.IsNotExist(statErr) {
@@ -338,6 +378,13 @@ func (runtime *Runtime) mergeApply(ctx context.Context, envelope messaging.Envel
 	for _, path := range paths {
 		file := session.files[path]
 		if !file.dirty {
+			continue
+		}
+		if session.spec.Plugin == "ufw" {
+			if err := runtime.store.UFW.Apply(file.result); err != nil {
+				session.applyFailed = true
+				return nil, err
+			}
 			continue
 		}
 		stage, err := os.CreateTemp(runtime.store.Root, ".merge-apply-*")
@@ -402,6 +449,15 @@ func (runtime *Runtime) mergeSave(_ context.Context, envelope messaging.Envelope
 	for _, file := range session.files {
 		if file.uploading {
 			return nil, fmt.Errorf("unfinished merge upload")
+		}
+		if session.spec.Plugin == "ufw" {
+			state, err := decodeUFWState(file.result)
+			if err != nil {
+				return nil, err
+			}
+			if err := runtime.store.UFW.validateState(state); err != nil {
+				return nil, err
+			}
 		}
 	}
 	claims, err := runtime.verifier.Verify(request.AccessToken)

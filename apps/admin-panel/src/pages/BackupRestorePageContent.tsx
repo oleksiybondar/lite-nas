@@ -96,7 +96,7 @@ export const BackupRestorePageContent = (): ReactElement => {
         </Box>
       )}
       {error && (
-        <Typography role="alert" color="error">
+        <Typography role="alert" color="error" sx={{ whiteSpace: "pre-line" }}>
           {error}
         </Typography>
       )}

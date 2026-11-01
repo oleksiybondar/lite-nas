@@ -125,6 +125,14 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Journal Manager
+              artifact_name: journal-manager-linux
+              build_script: scripts/build-journal-manager-binary.sh
+              output_path: .build/journal-manager/linux-amd64/journal-manager
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Log Analysis
               artifact_name: log-analysis-linux
               build_script: scripts/build-log-analysis-binary.sh
@@ -313,6 +321,14 @@ jobs:
               artifact_name: session-manager-linux
               build_script: scripts/build-session-manager-binary.sh
               output_path: .build/session-manager/linux-arm64/session-manager
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Journal Manager
+              artifact_name: journal-manager-linux
+              build_script: scripts/build-journal-manager-binary.sh
+              output_path: .build/journal-manager/linux-arm64/journal-manager
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -717,6 +733,12 @@ jobs:
           name: session-manager-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/session-manager
 
+      - name: Download journal-manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: journal-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/journal-manager
+
       - name: Download log-analysis build artifact
         uses: actions/download-artifact@v4
         with:
@@ -948,8 +970,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-log-analysis
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-log-analysis
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

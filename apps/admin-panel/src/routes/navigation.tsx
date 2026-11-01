@@ -91,6 +91,7 @@ export const buildAppNavigationItems = (
           {
             children: [
               { icon: <SupervisorAccountIcon />, path: "/security/sessions", title: "Sessions" },
+              { icon: <TableRowsIcon />, path: "/security/journal", title: "Journal" },
               { icon: <UsbIcon />, path: "/security/usb-devices", title: "USBDevices" },
               { icon: <SecurityIcon />, path: "/security/integrity", title: "Integrity" },
               { icon: <SecurityIcon />, path: "/security/antivirus", title: "Antivirus" },

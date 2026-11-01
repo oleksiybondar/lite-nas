@@ -43,6 +43,45 @@ func TestStoreRestoreReplacesSelectedFile(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-004.
+func TestStoreRestorePreservesLiveOptionalDirectoryAbsentFromSnapshot(t *testing.T) {
+	root := t.TempDir()
+	required := filepath.Join(root, "main.conf")
+	optional := filepath.Join(root, "dropins")
+	if err := os.WriteFile(required, []byte("main"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: required}, {Path: optional, Directory: true, Optional: true}}}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(optional, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	live := filepath.Join(optional, "later.conf")
+	if err := os.WriteFile(live, []byte("later"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(live); err != nil {
+		t.Fatalf("live optional file was removed: %v", err)
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestRestoreRejectsOptionalDirectoryChildWithoutRoot(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "dropins")
+	entries := []stagedEntry{{path: filepath.Join(directory, "override.conf"), header: &tar.Header{Typeflag: tar.TypeReg}}}
+	spec := Spec{Selections: []Selection{{Path: directory, Directory: true, Optional: true}}}
+	if err := validateRestoreEntries(entries, spec); err == nil {
+		t.Fatal("optional directory child without root was accepted")
+	}
+}
+
 // Requirements: backup-restore/FR-002, backup-restore/FR-004.
 func TestRestoreWritesArchivedDropInSpec(t *testing.T) {
 	root := t.TempDir()

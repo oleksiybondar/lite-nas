@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Run after package installation to verify the privileged workers are actually
 # executing under the profiles and Unix accounts shipped by the package.
-for manager in services-manager session-manager usb-manager; do
+for manager in services-manager session-manager journal-manager usb-manager; do
 	user="lite-nas-$manager"
 	unit="$user.service"
 	profile="/usr/libexec/lite-nas/$manager"

@@ -35,6 +35,15 @@ func TestWriteArchiveIncludesSymlinkAndTarget(t *testing.T) {
 }
 
 // Requirements: backup-restore/FR-002.
+func TestWriteArchiveRejectsAllMissingOptionalSelections(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.conf")
+	var archive bytes.Buffer
+	if err := WriteArchive(&archive, Spec{Selections: []Selection{{Path: missing, Optional: true}}}); err == nil {
+		t.Fatal("empty optional snapshot was accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-002.
 func TestLoadSpecAcceptsFileAndDirectory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "app.conf")
 	content := "[backup]\nplugin=file\n[file.config]\npath=/etc/example.conf\n[directory.rules]\npath=/etc/example.d\n"

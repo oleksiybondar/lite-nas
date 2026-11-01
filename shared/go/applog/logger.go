@@ -77,6 +77,7 @@ func buildLogWriter(cfg sharedconfig.LoggingConfig) (io.Writer, func(), error) {
 	}
 }
 
+// validateLogFilePath confines file output to names covered by the LiteNAS logrotate rule.
 func validateLogFilePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("log file path is required")
@@ -94,6 +95,9 @@ func validateLogFilePath(path string) error {
 
 	if relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("log file path must be within %s", allowedLogDir)
+	}
+	if relPath == "." || strings.ContainsRune(relPath, filepath.Separator) || strings.HasPrefix(relPath, ".") || !strings.HasSuffix(relPath, ".log") {
+		return fmt.Errorf("log file path must be a direct .log file in %s", allowedLogDir)
 	}
 
 	return nil

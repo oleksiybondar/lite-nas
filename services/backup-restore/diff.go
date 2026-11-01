@@ -37,6 +37,33 @@ func (store Store) Diff(spec Spec, version string) ([]Difference, error) {
 	if err := validateRestoreEntries(entries, spec); err != nil {
 		return nil, err
 	}
+	if spec.Plugin == "ufw" || spec.Plugin == "tailscale" {
+		var current []byte
+		var err error
+		virtualPath := ufwArchivePath
+		if spec.Plugin == "ufw" {
+			current, err = store.UFW.Export()
+		} else {
+			virtualPath = tailscaleArchivePath
+			current, err = store.Tailscale.Export()
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if entry.path == virtualPath {
+				archived, err := os.ReadFile(entry.stage)
+				if err != nil {
+					return nil, err
+				}
+				if bytes.Equal(archived, current) {
+					return []Difference{}, nil
+				}
+				return []Difference{{Path: virtualPath, Status: "changed"}}, nil
+			}
+		}
+		return nil, fmt.Errorf("plugin JSON missing from snapshot")
+	}
 	present := make(map[string]bool, len(entries))
 	differences := make([]Difference, 0)
 	for _, entry := range entries {

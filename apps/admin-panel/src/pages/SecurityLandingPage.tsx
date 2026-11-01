@@ -3,6 +3,7 @@ import { useRbac } from "@hooks/useRbac";
 import { useLanguage } from "@lite-nas/language";
 import SecurityIcon from "@mui/icons-material/Security";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
+import TableRowsIcon from "@mui/icons-material/TableRows";
 import UsbIcon from "@mui/icons-material/Usb";
 import type { ReactElement } from "react";
 
@@ -27,6 +28,12 @@ export const SecurityLandingPage = (): ReactElement | null => {
           icon: <UsbIcon />,
           path: "/security/usb-devices",
           title: getLabel("navigation.USBDevices"),
+        },
+        {
+          description: getLabel("admin.landing.securityJournal"),
+          icon: <TableRowsIcon />,
+          path: "/security/journal",
+          title: getLabel("navigation.Journal"),
         },
         {
           description: getLabel("admin.securityTasks.integrityDescription"),

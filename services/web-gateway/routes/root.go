@@ -40,6 +40,7 @@ func NewRouter(
 	mountAuthRouter(api, controllerModule, authentication)
 	mountAlertsRouters(api, controllerModule, authentication)
 	mountManagementRouters(api, controllerModule, authentication)
+	mountJournalRouter(api, controllerModule, authentication)
 	mountUSBManagerRouter(api, controllerModule, authentication)
 	mountBackupRestoreRouter(api, controllerModule, authentication)
 	mountSecurityTasksRouter(api, controllerModule, authentication)

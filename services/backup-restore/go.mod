@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/go-playground/validator/v10 v10.30.2
 	gopkg.in/ini.v1 v1.67.1
+	gopkg.in/yaml.v3 v3.0.1
 	lite-nas/shared v0.4.1
 )
 

@@ -152,7 +152,7 @@ assert_cmd "mount-monitor binary packaged" assert_executable usr/libexec/lite-na
 assert_cmd "antivirus binary packaged" assert_executable usr/libexec/lite-nas/antivirus
 assert_cmd "system-service-monitor binary packaged" assert_executable usr/libexec/lite-nas/system-service-monitor
 assert_cmd "service-watchdog binary packaged" assert_executable usr/libexec/lite-nas/service-watchdog
-for manager in services-manager session-manager usb-manager; do
+for manager in services-manager session-manager journal-manager usb-manager; do
 	assert_cmd "$manager binary packaged" assert_executable "usr/libexec/lite-nas/$manager"
 	assert_cmd "$manager config packaged" assert_file "$packaged_config_root/lite-nas/$manager.conf"
 	assert_cmd "$manager unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-$manager.service"
@@ -161,6 +161,17 @@ for manager in services-manager session-manager usb-manager; do
 	assert_cmd "$manager unit requires AppArmor" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-$manager.service" 'AssertSecurity=apparmor'
 	assert_cmd "$manager unit selects its profile" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-$manager.service" "AppArmorProfile=/usr/libexec/lite-nas/$manager"
 done
+assert_cmd "journal-manager backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/journal-manager.conf"
+assert_cmd "journal-manager NATS authorization packaged" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" 'user: "lite-nas-journal-manager"'
+assert_cmd "journal-manager certificate rotation packaged" assert_file_contains usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh 'lite-nas-journal-manager}'
+# Match the packaged script's literal variable reference.
+# shellcheck disable=SC2016
+assert_cmd "journal-manager package deployment packaged" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.hostManager.deploy "journal-manager" "$PACKAGE_ROOT/journal-manager" 0'
+assert_cmd "journal-manager package start packaged" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.enableAndRefreshService "lite-nas-journal-manager.service"'
+# Match the host manager's literal user variable reference.
+# shellcheck disable=SC2016
+assert_cmd "host-manager creates its NATS identity" assert_file_contains usr/libexec/lite-nas/scripts/deploy/host-manager.sh 'rotate-nats-certificates.sh" --if-missing --user "$user"'
+assert_cmd "journal-manager journal access packaged" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-journal-manager.service" 'SupplementaryGroups=systemd-journal'
 assert_cmd "host manager deploy loads AppArmor profiles" assert_file_contains usr/libexec/lite-nas/scripts/deploy/host-manager.sh 'apparmor_parser -r'
 assert_cmd "log-analysis binary packaged" assert_executable usr/libexec/lite-nas/log-analysis
 assert_cmd "network-security binary packaged" assert_executable usr/libexec/lite-nas/network-security
@@ -217,6 +228,23 @@ assert_cmd "file-writer symlink packaged" assert_symlink_target usr/bin/lite-nas
 
 assert_cmd "packaged lite-nas config directory exists" assert_dir "$packaged_config_root/lite-nas"
 assert_cmd "lite-nas backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/lite-nas.conf"
+assert_cmd "logrotate backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/logrotate.conf"
+assert_cmd "PAM backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/pam.conf"
+assert_cmd "auditd backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/auditd.conf"
+assert_cmd "SSH backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/ssh.conf"
+assert_cmd "journald backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/journald.conf"
+assert_cmd "GRUB backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/grub.conf"
+assert_cmd "nginx backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/nginx.conf"
+assert_cmd "privilege policy backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/privilege-policy.conf"
+assert_cmd "kernel hardening backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/kernel-hardening.conf"
+assert_cmd "storage recovery backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/storage-recovery.conf"
+assert_cmd "time sync backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/time-sync.conf"
+assert_cmd "package trust backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/package-trust.conf"
+assert_cmd "Netplan backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/netplan.conf"
+assert_cmd "USBGuard backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/usbguard.conf"
+assert_cmd "UFW rule backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/ufw-rules.conf"
+assert_cmd "Cloudflare tunnel backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/cloudflared.conf"
+assert_cmd "Tailscale preference backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/tailscale.conf"
 assert_cmd "auth.conf packaged" assert_file "$packaged_config_root/lite-nas/auth.conf"
 assert_cmd "rbac-service.conf packaged" assert_file "$packaged_config_root/lite-nas/rbac-service.conf"
 assert_cmd "system-logging-manager.conf packaged" assert_file "$packaged_config_root/lite-nas/system-logging-manager.conf"

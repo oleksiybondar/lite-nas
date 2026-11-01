@@ -45,6 +45,7 @@ system_service_monitor_binary_path=""
 service_watchdog_binary_path=""
 services_manager_binary_path=""
 session_manager_binary_path=""
+journal_manager_binary_path=""
 usb_manager_binary_path=""
 log_analysis_binary_path=""
 admin_panel_assets_path=""
@@ -96,6 +97,7 @@ Options:
   --service-watchdog-binary=PATH  Use an existing service-watchdog binary.
   --services-manager-binary=PATH  Use an existing services-manager binary.
   --session-manager-binary=PATH  Use an existing session-manager binary.
+  --journal-manager-binary=PATH  Use an existing journal-manager binary.
   --usb-manager-binary=PATH  Use an existing usb-manager binary.
   --log-analysis-binary=PATH  Use an existing log-analysis binary.
   --network-security-binary=PATH  Use an existing network-security binary.
@@ -107,8 +109,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets file-explorer-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets file-explorer-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -262,6 +264,10 @@ if args.has services-manager-binary && ! services_manager_binary_path="$(args.re
 fi
 if args.has session-manager-binary && ! session_manager_binary_path="$(args.require_arg session-manager-binary)"; then
 	log.error "Missing value for --session-manager-binary"
+	exit 64
+fi
+if args.has journal-manager-binary && ! journal_manager_binary_path="$(args.require_arg journal-manager-binary)"; then
+	log.error "Missing value for --journal-manager-binary"
 	exit 64
 fi
 if args.has usb-manager-binary && ! usb_manager_binary_path="$(args.require_arg usb-manager-binary)"; then
@@ -463,6 +469,10 @@ if [ -z "$session_manager_binary_path" ]; then
 	session_manager_binary_path="$output_dir/${package_name}-${package_arch}/session-manager"
 	"$LITE_NAS_REPO_ROOT/scripts/build-session-manager-binary.sh" "--output=$session_manager_binary_path"
 fi
+if [ -z "$journal_manager_binary_path" ]; then
+	journal_manager_binary_path="$output_dir/${package_name}-${package_arch}/journal-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-journal-manager-binary.sh" "--output=$journal_manager_binary_path"
+fi
 if [ -z "${usb_manager_binary_path:-}" ]; then
 	usb_manager_binary_path="$output_dir/${package_name}-${package_arch}/usb-manager"
 	"$LITE_NAS_REPO_ROOT/scripts/build-usb-manager-binary.sh" "--output=$usb_manager_binary_path"
@@ -617,7 +627,7 @@ if [ ! -f "$service_watchdog_binary_path" ]; then
 	log.error "Missing service-watchdog binary: $service_watchdog_binary_path"
 	exit 1
 fi
-if [ ! -f "$services_manager_binary_path" ] || [ ! -f "$session_manager_binary_path" ]; then
+if [ ! -f "$services_manager_binary_path" ] || [ ! -f "$session_manager_binary_path" ] || [ ! -f "$journal_manager_binary_path" ]; then
 	log.error "Missing host-manager binary"
 	exit 1
 fi
@@ -758,6 +768,7 @@ install -D -m 0755 "$system_service_monitor_binary_path" "$package_root/usr/libe
 install -D -m 0755 "$service_watchdog_binary_path" "$package_root/usr/libexec/lite-nas/service-watchdog"
 install -D -m 0755 "$services_manager_binary_path" "$package_root/usr/libexec/lite-nas/services-manager"
 install -D -m 0755 "$session_manager_binary_path" "$package_root/usr/libexec/lite-nas/session-manager"
+install -D -m 0755 "$journal_manager_binary_path" "$package_root/usr/libexec/lite-nas/journal-manager"
 install -D -m 0755 "$usb_manager_binary_path" "$package_root/usr/libexec/lite-nas/usb-manager"
 install -D -m 0755 "$log_analysis_binary_path" "$package_root/usr/libexec/lite-nas/log-analysis"
 install -D -m 0755 "$network_security_binary_path" "$package_root/usr/libexec/lite-nas/network-security"
@@ -800,6 +811,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/service-watchdog" \
 	"$package_root/usr/libexec/lite-nas/services-manager" \
 	"$package_root/usr/libexec/lite-nas/session-manager" \
+	"$package_root/usr/libexec/lite-nas/journal-manager" \
 	"$package_root/usr/libexec/lite-nas/usb-manager" \
 	"$package_root/usr/libexec/lite-nas/log-analysis" \
 	"$package_root/usr/libexec/lite-nas/network-security" \

@@ -26,7 +26,7 @@ import (
 	"lite-nas/shared/roleauth"
 )
 
-// Runtime owns configured file targets and serialized host mutations.
+// Runtime owns configured backup targets and serialized host mutations.
 type Runtime struct {
 	specs    map[string]Spec
 	store    Store
@@ -98,7 +98,7 @@ func Serve(ctx context.Context, configPath string) error {
 		return err
 	}
 	defer infra.Close()
-	runtime := &Runtime{specs: specs, store: Store{Root: storeRoot}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: infra.Client}
+	runtime := &Runtime{specs: specs, store: Store{Root: storeRoot, UFW: NewUFWPlugin(), Tailscale: NewTailscalePlugin(), Cloudflared: NewCloudflaredPlugin()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: infra.Client}
 	if err := runtime.register(infra.Server); err != nil {
 		return err
 	}
@@ -346,15 +346,31 @@ func (runtime *Runtime) backupAll(_ context.Context, envelope messaging.Envelope
 		spec := runtime.specs[name]
 		result := contract.BackupAllResult{Application: name}
 		present := false
-		for _, selection := range spec.Selections {
-			_, err := os.Lstat(selection.Path)
-			if err == nil {
-				present = true
-				break
+		if spec.Plugin == "ufw" {
+			present = true
+			for _, path := range []string{"/usr/sbin/ufw", "/etc/ufw/ufw.conf", "/etc/default/ufw"} {
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					present = false
+					break
+				}
 			}
-			if !os.IsNotExist(err) {
-				present = true
-				break
+		}
+		if spec.Plugin == "tailscale" {
+			present = tailscaleInstalled()
+		}
+		if spec.Plugin == "cloudflared" {
+			present = cloudflaredInstalled()
+			if _, err := os.Stat(spec.ConfigPath); os.IsNotExist(err) {
+				present = false
+			}
+		}
+		if spec.Plugin == "file" || spec.Plugin == "" {
+			for _, selection := range spec.Selections {
+				_, err := os.Lstat(selection.Path)
+				if err == nil || !os.IsNotExist(err) {
+					present = true
+					break
+				}
 			}
 		}
 		if !present {

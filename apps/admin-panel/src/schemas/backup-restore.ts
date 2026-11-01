@@ -113,3 +113,48 @@ export const backupMetadataSchema = z.object({
 
 /** Validates the selected restore mode. */
 export const restoreModeSchema = z.enum(["replace", "merge"]);
+
+/** Validates the editable UFW rule export before the merge provider uploads it. */
+export const ufwStateSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    enabled: z.boolean(),
+    logging: z.enum(["off", "low", "medium", "high", "full"]),
+    defaults: z
+      .object({
+        incoming: z.enum(["allow", "deny", "reject"]),
+        outgoing: z.enum(["allow", "deny", "reject"]),
+        routed: z.enum(["allow", "deny", "reject"]),
+      })
+      .strict(),
+    rules: z
+      .array(
+        z
+          .object({
+            kind: z.enum(["rule", "route"]),
+            action: z.enum(["allow", "deny", "reject", "limit"]),
+            arguments: z
+              .array(
+                z
+                  .string()
+                  .min(1)
+                  .max(256)
+                  .refine(
+                    (value) =>
+                      !value.startsWith("-") &&
+                      ![...value].some((character) => character.charCodeAt(0) < 32),
+                  ),
+              )
+              .min(1)
+              .max(64),
+          })
+          .strict(),
+      )
+      .max(4096),
+  })
+  .strict();
+
+/** Parses an edited UFW JSON document before any merge upload request. */
+export const validateUFWMergeText = (content: string): void => {
+  ufwStateSchema.parse(JSON.parse(content));
+};

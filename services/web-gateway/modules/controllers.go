@@ -12,6 +12,7 @@ import (
 type Controllers struct {
 	ServicesManagement controllers.ServicesManagementController
 	SessionsManagement controllers.SessionsManagementController
+	Journal            controllers.JournalController
 	USBManager         controllers.USBManagerController
 	Auth               controllers.AuthController
 	Static             controllers.StaticController
@@ -46,6 +47,7 @@ func NewControllersModule(
 	return Controllers{
 		ServicesManagement: controllers.NewServicesManagementController(services.ServicesManagement),
 		SessionsManagement: controllers.NewSessionsManagementController(services.SessionsManagement),
+		Journal:            controllers.NewJournalController(services.Journal),
 		USBManager:         controllers.NewUSBManagerController(services.USBManager),
 		Auth:               controllers.NewAuthController(services.Auth, domain),
 		Static:             controllers.NewStaticController(staticFiles, log),

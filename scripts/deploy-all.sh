@@ -95,6 +95,7 @@ system_service_monitor_binary=""
 service_watchdog_binary=""
 services_manager_binary=""
 session_manager_binary=""
+journal_manager_binary=""
 usb_manager_binary=""
 log_analysis_binary=""
 should_bootstrap=1
@@ -148,6 +149,7 @@ Options:
   --service-watchdog-binary PATH Install an existing service-watchdog binary.
   --services-manager-binary PATH Install an existing services-manager binary.
   --session-manager-binary PATH Install an existing session-manager binary.
+  --journal-manager-binary PATH Install an existing journal-manager binary.
   --usb-manager-binary PATH Install an existing usb-manager binary.
   --log-analysis-binary PATH Install an existing log-analysis binary.
   --network-security-binary PATH Install an existing network-security binary.
@@ -461,6 +463,14 @@ while [ "$#" -gt 0 ]; do
 		session_manager_binary="$2"
 		shift 2
 		;;
+	--journal-manager-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --journal-manager-binary"
+			exit 2
+		fi
+		journal_manager_binary="$2"
+		shift 2
+		;;
 	--usb-manager-binary)
 		if [ "$#" -lt 2 ]; then
 			log.error "Missing value for --usb-manager-binary"
@@ -728,6 +738,10 @@ if [ -z "$session_manager_binary" ]; then
 	"$ENTRYPOINT_DIR/build-session-manager-binary.sh" "--output=$tmp_dir/session-manager"
 	session_manager_binary="$tmp_dir/session-manager"
 fi
+if [ -z "$journal_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-journal-manager-binary.sh" "--output=$tmp_dir/journal-manager"
+	journal_manager_binary="$tmp_dir/journal-manager"
+fi
 if [ -z "$usb_manager_binary" ]; then
 	"$ENTRYPOINT_DIR/build-usb-manager-binary.sh" "--output=$tmp_dir/usb-manager"
 	usb_manager_binary="$tmp_dir/usb-manager"
@@ -879,6 +893,10 @@ log.popTask
 
 log.pushTask "Deploying session-manager service"
 deploy.hostManager.deploy "session-manager" "$session_manager_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying journal-manager service"
+deploy.hostManager.deploy "journal-manager" "$journal_manager_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying usb-manager service"

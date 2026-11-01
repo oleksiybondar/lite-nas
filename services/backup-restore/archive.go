@@ -24,14 +24,14 @@ type Metadata struct {
 	CreatedBy    string   `json:"created_by"`
 }
 
-// WriteArchive captures selected files, full directory trees, and file symlink targets.
-// Entries use absolute host paths without the leading slash.
+// WriteArchive captures selected host paths for file plugins.
+// UFW snapshots require a configured plugin through Store.BackupWithMetadata.
 func WriteArchive(writer io.Writer, spec Spec) error {
-	return writeArchive(writer, spec, nil)
+	return writeArchive(writer, spec, nil, nil, nil, nil)
 }
 
 // writeArchive includes metadata when creating a stored version.
-func writeArchive(writer io.Writer, spec Spec, metadata *Metadata) error {
+func writeArchive(writer io.Writer, spec Spec, metadata *Metadata, ufw *UFWPlugin, tailscale *TailscalePlugin, cloudflared *CloudflaredPlugin) error {
 	gzipWriter := gzip.NewWriter(writer)
 	tarWriter := tar.NewWriter(gzipWriter)
 	seen := make(map[string]bool)
@@ -48,11 +48,61 @@ func writeArchive(writer io.Writer, spec Spec, metadata *Metadata) error {
 			return err
 		}
 	}
-	for _, selection := range spec.Selections {
-		if err := archivePath(tarWriter, selection.Path, selection.Directory, seen, &totalSize); err != nil {
+	if spec.Plugin == "ufw" || spec.Plugin == "tailscale" {
+		var content []byte
+		var err error
+		archiveName := "ufw.json"
+		if spec.Plugin == "ufw" {
+			content, err = ufw.Export()
+		} else {
+			archiveName = "tailscale.json"
+			content, err = tailscale.Export()
+		}
+		if err != nil {
 			_ = tarWriter.Close()
 			_ = gzipWriter.Close()
 			return err
+		}
+		if err := tarWriter.WriteHeader(&tar.Header{Name: archiveName, Mode: 0o600, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
+			_ = tarWriter.Close()
+			_ = gzipWriter.Close()
+			return err
+		}
+		if _, err := tarWriter.Write(content); err != nil {
+			_ = tarWriter.Close()
+			_ = gzipWriter.Close()
+			return err
+		}
+	} else {
+		if spec.Plugin == "cloudflared" {
+			if err := validateLiveCloudflared(spec, cloudflared); err != nil {
+				_ = tarWriter.Close()
+				_ = gzipWriter.Close()
+				return err
+			}
+		}
+		archivedSelections := 0
+		for _, selection := range spec.Selections {
+			if selection.Optional {
+				if _, err := os.Lstat(selection.Path); os.IsNotExist(err) {
+					continue
+				} else if err != nil {
+					_ = tarWriter.Close()
+					_ = gzipWriter.Close()
+					return err
+				}
+			}
+			if err := archivePath(tarWriter, selection.Path, selection.Directory, seen, &totalSize); err != nil {
+				_ = tarWriter.Close()
+				_ = gzipWriter.Close()
+				return err
+			}
+			archivedSelections++
+		}
+		if archivedSelections == 0 {
+			_ = tarWriter.Close()
+			_ = gzipWriter.Close()
+			return fmt.Errorf("no selected paths exist")
 		}
 	}
 	if spec.SourcePath != "" {

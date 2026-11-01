@@ -19,22 +19,25 @@ ProtectHome=yes
 ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
-ProtectKernelTunables=yes
+# UFW policy replay uses sysctl and netlink while activating restored rules.
+ProtectKernelTunables=no
 ProtectProc=invisible
 ProtectSystem=strict
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 IPAddressDeny=any
 IPAddressAllow=127.0.0.1
 IPAddressAllow=::1
 RestrictNamespaces=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
-CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_CHOWN CAP_FOWNER
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_CHOWN CAP_FOWNER CAP_NET_ADMIN CAP_NET_RAW
 AmbientCapabilities=
 UMask=0077
-ReadWritePaths=/var/log/lite-nas/backup-restore.log /var/lib/lite-nas/backup /var/lib/aide /etc/lite-nas /etc/aide /etc/nats-server.conf /etc/nats-server /etc/logrotate.d /etc/ufw /etc/postfix /etc/rsyslog.d /etc/systemd/system /etc/apparmor.d
+# File restore creates atomic temporary siblings, including directly under /etc.
+# AppArmor limits the individual writable paths inside this mount namespace.
+ReadWritePaths=/var/log/lite-nas/backup-restore.log /var/lib/lite-nas/backup /var/lib/aide /etc /proc/sys -/usr/local/etc/cloudflared
 StandardOutput=null
 StandardError=journal
 

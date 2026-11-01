@@ -22,6 +22,7 @@ import {
   mergeSessionResponseSchema,
   restoreModeSchema,
   restoreResponseSchema,
+  validateUFWMergeText,
   versionListResponseSchema,
   versionResponseSchema,
 } from "@schemas/backup-restore";
@@ -333,13 +334,21 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
         );
         const completed = results.filter((result) => result.status === "completed").length;
         const skipped = results.filter((result) => result.status === "skipped").length;
-        const failed = results.filter((result) => result.status === "failed").length;
+        const failures = results.filter((result) => result.status === "failed");
         setMessage(
           getLabel("admin.backup.allCompleted")
             .replace("{completed}", String(completed))
             .replace("{skipped}", String(skipped))
-            .replace("{failed}", String(failed)),
+            .replace("{failed}", String(failures.length)),
         );
+        if (failures.length > 0) {
+          setError(
+            [
+              getLabel("admin.backup.failedTargets"),
+              ...failures.map((result) => `${result.application}: ${result.error || "—"}`),
+            ].join("\n"),
+          );
+        }
         const counts = await Promise.all(
           applications.map(async (app) => {
             const list = await readData(
@@ -451,8 +460,11 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
       async () => {
         if (action !== "discard") {
           for (const [path, content] of Object.entries(contents)) {
-            if (content.result !== content.current)
+            if (content.result !== content.current) {
+              if (application === "ufw-rules" && path === "/ufw.json")
+                validateUFWMergeText(content.result);
               await writeMergeText(put, session.session_id, path, content.result);
+            }
           }
         }
         const path = `/api/backup-restore/merge-sessions/${session.session_id}`;

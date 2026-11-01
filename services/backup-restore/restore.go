@@ -29,6 +29,16 @@ type stagedEntry struct {
 	stage  string
 }
 
+// stagedPathPresent reports whether an optional selection was captured.
+func stagedPathPresent(entries []stagedEntry, path string) bool {
+	for _, entry := range entries {
+		if entry.path == path {
+			return true
+		}
+	}
+	return false
+}
+
 const (
 	maxArchiveFileSize  int64 = 128 << 20
 	maxArchiveTotalSize int64 = 1 << 30
@@ -56,6 +66,52 @@ func (store Store) Restore(spec Spec, version string, mode RestoreMode) error {
 	if err := validateRestoreEntries(entries, spec); err != nil {
 		return err
 	}
+	if spec.Plugin == "ufw" || spec.Plugin == "tailscale" {
+		for _, entry := range entries {
+			if entry.path == spec.SourcePath {
+				if err := rejectSymlinkParents(entry.path); err != nil {
+					return err
+				}
+				archivedSpec, err := LoadSpec(entry.stage, spec.Application)
+				if err != nil || archivedSpec.Plugin != spec.Plugin {
+					return fmt.Errorf("archived plugin spec is invalid")
+				}
+			}
+		}
+		for _, entry := range entries {
+			if entry.path != ufwArchivePath && entry.path != tailscaleArchivePath {
+				continue
+			}
+			content, err := os.ReadFile(entry.stage)
+			if err != nil {
+				return err
+			}
+			var applyErr error
+			if spec.Plugin == "ufw" {
+				if mode == MergeMode {
+					applyErr = store.UFW.Merge(content)
+				} else {
+					applyErr = store.UFW.Apply(content)
+				}
+			} else {
+				applyErr = store.Tailscale.Apply(content)
+			}
+			if applyErr != nil {
+				return applyErr
+			}
+		}
+		for _, entry := range entries {
+			if entry.path == spec.SourcePath {
+				return restoreRegular(entry)
+			}
+		}
+		return nil
+	}
+	if spec.Plugin == "cloudflared" {
+		if err := validateStagedCloudflared(spec, entries, store.Cloudflared); err != nil {
+			return err
+		}
+	}
 	for _, entry := range entries {
 		if err := rejectSymlinkParents(entry.path); err != nil {
 			return err
@@ -63,6 +119,9 @@ func (store Store) Restore(spec Spec, version string, mode RestoreMode) error {
 	}
 	for _, selection := range spec.Selections {
 		if !selection.Directory {
+			continue
+		}
+		if selection.Optional && !stagedPathPresent(entries, selection.Path) {
 			continue
 		}
 		if info, err := os.Lstat(selection.Path); err == nil && !info.IsDir() {
@@ -214,6 +273,16 @@ func validateRestoreEntries(entries []stagedEntry, spec Spec) error {
 	}
 	for _, selection := range spec.Selections {
 		if !present[selection.Path] {
+			if selection.Optional {
+				if selection.Directory {
+					for path := range present {
+						if strings.HasPrefix(path, selection.Path+"/") {
+							return fmt.Errorf("optional directory root missing from archive: %s", selection.Path)
+						}
+					}
+				}
+				continue
+			}
 			return fmt.Errorf("selected path missing from archive: %s", selection.Path)
 		}
 		if selection.Directory && types[selection.Path] != tar.TypeDir || !selection.Directory && types[selection.Path] != tar.TypeReg && types[selection.Path] != tar.TypeSymlink {
@@ -234,6 +303,9 @@ func removeAbsentDirectoryEntries(entries []stagedEntry, spec Spec) error {
 	}
 	for _, selection := range spec.Selections {
 		if !selection.Directory {
+			continue
+		}
+		if selection.Optional && !present[selection.Path] {
 			continue
 		}
 		var absent []string

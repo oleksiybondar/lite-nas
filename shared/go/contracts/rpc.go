@@ -4,6 +4,7 @@ import (
 	authcontract "lite-nas/shared/contracts/auth"
 	backupcontract "lite-nas/shared/contracts/backuprestore"
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
+	journalmanagercontract "lite-nas/shared/contracts/journalmanager"
 	litenasintegritycontract "lite-nas/shared/contracts/litenasintegrity"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
@@ -68,6 +69,10 @@ var RPCByService = map[string]map[string]RPCContract{
 		"terminate": {Subject: sessionmanagercontract.TerminateSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
 		"lock":      {Subject: sessionmanagercontract.LockSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
 		"unlock":    {Subject: sessionmanagercontract.UnlockSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+	},
+	ServiceJournalManager: {
+		"query":  {Subject: journalmanagercontract.QuerySubject, Request: journalmanagercontract.QueryRequest{}, Response: journalmanagercontract.QueryResponse{}},
+		"vacuum": {Subject: journalmanagercontract.VacuumSubject, Request: journalmanagercontract.VacuumRequest{}, Response: journalmanagercontract.VacuumResponse{}},
 	},
 	ServiceDiskMetrics: {
 		"get_snapshot": {

@@ -12,6 +12,7 @@ import (
 type Services struct {
 	ServicesManagement services.ServicesManagementService
 	SessionsManagement services.SessionsManagementService
+	Journal            services.JournalService
 	USBManager         services.USBManagementService
 	Auth               services.AuthService
 	SystemAlerts       services.AlertsService
@@ -36,6 +37,7 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 	return Services{
 		ServicesManagement: services.NewServicesManagementService(client),
 		SessionsManagement: services.NewSessionsManagementService(client),
+		Journal:            services.NewJournalService(client),
 		USBManager:         services.NewUSBManagementService(client),
 		Auth:               services.NewAuthService(client, authVerifier),
 		SystemAlerts:       services.NewSystemAlertsService(client),

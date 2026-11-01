@@ -181,7 +181,10 @@ Drop-ins live at `/etc/lite-nas/backup.d/<application>.conf`, using INI syntax.
 The filename stem is the application ID. `[backup] plugin=<compiled-type>`
 selects the compiled plugin constructor. For the file plugin, named
 `[file.<name>]` and `[directory.<name>]` sections each contain one
-`path=/absolute/path` entry and may coexist in one spec. A CLI-backed plugin's
+`path=/absolute/path` entry and may coexist in one spec. File-plugin
+selections may also set `optional=true` for host-dependent configuration;
+an absent optional selection is omitted from capture and left untouched by
+restore, and a snapshot requires at least one present selection. A CLI-backed plugin's
 spec contains only settings defined and validated by that plugin. Specs are
 loaded and checked at startup, not interpreted from user-supplied paths during
 a NATS request. A directory section selects its entire tree; a file section
@@ -277,8 +280,21 @@ NATS; neither adapter should perform privileged file operations itself.
   permit compiled application-specific plugins where file copying cannot
   correctly export and restore application state. Such a plugin may use the
   application's CLI when its exact behavior and privilege rules are specified.
-  UFW is now an initial target, but its plugin type and operations are not yet
-  committed.
+  The UFW rule plugin exports a versioned JSON document containing enabled
+  state, logging level, incoming/outgoing/routed defaults, and ordered,
+  structured CLI-managed rules. It MUST fail backup when a rule cannot be
+  represented, validate edited JSON before any firewall mutation, and replay
+  a resolved document through UFW commands. Applying a merged document
+  replaces UFW-managed rules and defaults. Custom `before.rules` and
+  `after.rules`, the full `/etc/default/ufw` file, and app-profile files are
+  outside this JSON plugin.
+  The Cloudflare plugin MUST archive a locally managed tunnel configuration
+  and its credential file from a spec-declared directory, and validate ingress with
+  the installed `cloudflared` CLI before capture and restore. The Tailscale
+  plugin MUST archive local preferences exported by `tailscale get --set-flags`
+  and restore them through `tailscale set` with individually validated operands.
+  It MUST NOT copy device identity state. Both CLI targets MUST be skipped by
+  all-application backup when their executable is absent.
 - **backup-restore/FR-004 — Direct restore:** A user MUST be able to select a
   stored version and request its restoration to the applicable application.
   The stored application spec MUST be restorable with the version. In replace
@@ -290,7 +306,9 @@ NATS; neither adapter should perform privileged file operations itself.
   to compare and merge backed-up text with current files through a service-owned
   merge session shared by the CLI and Web Gateway/admin panel. The service
   stages resolved contents and owns apply, save-as-new-snapshot, and discard
-  actions.
+  actions. The UFW JSON document MUST be available in this UI merge flow;
+  applying its resolved content uses the UFW rule plugin's validation and
+  replay path rather than writing the JSON as a live configuration file.
 - **backup-restore/FR-006 — Merged-content versioning:** The merge
   session's `save` action MUST create a new backup version using the staged
   merged content, rather than reading the live file as the source for those
@@ -326,17 +344,44 @@ NATS; neither adapter should perform privileged file operations itself.
 | Target | Repository evidence | Scope still to define |
 | --- | --- | --- |
 | LiteNAS configuration | `configs/etc/lite-nas/` contains service configs, rules, templates, and certificate paths. | Which live files are included; how private keys and other credentials are handled. |
-| Firewall | Deployment manages `/etc/default/ufw`, `/etc/ufw/ufw.conf`, and UFW commands that change rules. | Both file and live-rule state; safe export and restore sequence. |
-| USBGuard | Installed dependency and service-watchdog protection are documented. `usb-manager/BR-001` scopes this target to USBGuard policy files. | Exact policy file selection and safe policy reload behavior. Runtime device authorization state is excluded. |
+| Firewall | The existing `ufw` file spec selects `/etc/ufw/ufw.conf`; the `ufw-rules` plugin exports and replays CLI-managed state in JSON. | Custom framework rules and app-profile files remain outside the JSON target. |
+| Cloudflare Tunnel | The `cloudflared` plugin archives a spec-declared local directory and validates ingress through the CLI. The packaged spec uses `/etc/cloudflared`. | Remote tunnel settings are excluded. Other local paths require matching confinement rules. |
+| Tailscale | The `tailscale` plugin exports and replays local preferences through the CLI. | Identity state and Serve/Funnel configuration are excluded. |
+| USBGuard | A file spec selects `/etc/usbguard/usbguard-daemon.conf` and `/etc/usbguard/rules.conf`. Both files must exist. Runtime device authorization state is excluded. | Safe policy reload behavior and optional `rules.d` directories remain separate work. |
+| Journal Manager | A file spec selects `/etc/lite-nas/journal-manager.conf` and requests a Journal Manager restart after restore. Shared systemd and AppArmor targets include its unit and profile. | Journal records and the package-managed sudoers rule are outside this configuration target. |
 | AIDE | `litenas-integrity` invokes AIDE and maintains its baseline under `/var/lib/aide`. | Configuration versus baseline database, and whether baseline restore is appropriate. |
 | AppArmor | Deployment manages profiles under `/etc/apparmor.d` and reloads them. | Profile selection, validation, and reload behavior. |
 | systemd | LiteNAS unit files are shipped under `configs/etc/systemd/system/`. | Which unit files, drop-ins, enablement state, and reload/restart effects are included. |
 | Postfix | Deployment manages `/etc/postfix` and may create restricted relay credential files. | Config and credential scope, generated maps, validation, and reload behavior. |
-| logrotate | Repository ships `/etc/logrotate.d/lite-nas`. | LiteNAS-only or broader host policy. |
+| logrotate | The `logrotate` file spec selects `/etc/logrotate.conf` and the complete `/etc/logrotate.d` tree. The existing `lite-nas` target also selects its own rule. | Restore uses the normal file plugin's replace or merge mode. |
 | rsyslog | Repository uses rsyslog output for log analysis. | Which host rules and state belong to the backup. |
 | IP routes | No dedicated backup contract found. | Persistent configuration versus current kernel route table. |
-| Host networking / Netplan | No Netplan configuration is shipped in this repository. | Detect the host's network manager and include Netplan only where applicable. |
-| auditd | No auditd configuration is shipped in this repository. | Installed-host presence and configuration scope. |
+| Host networking / Netplan | A file spec selects `/etc/netplan` when present; `backup all` skips an absent directory. Restore writes the files but does not apply them to the running network. | A validated, connectivity-safe apply operation is separate work. |
+| PAM | The `pam` file spec selects `/etc/pam.d` and `/etc/security`. | Password-history data inside `/etc/security` is included; restore does not reload consumers. |
+| auditd | The `auditd` file spec selects `/etc/audit` when installed. | Restore writes configuration and rules without activating them. |
+| SSH server | The `ssh` file spec selects `sshd_config` and optional server drop-ins. | Host keys and client settings are excluded; restore does not restart sshd. |
+| journald | The `journald` file spec selects the optional main config and local drop-ins. | Journal data is excluded; restore does not restart journald. |
+| GRUB | The `grub` file spec selects `/etc/default/grub`, optional drop-ins, and `/etc/grub.d`. | Generated `/boot/grub/grub.cfg` is excluded; restore does not run `update-grub`. |
+| nginx | The `nginx` file spec selects `/etc/nginx` and optional LiteNAS TLS assets under `/etc/lite-nas/certificates/nginx`. | Restore writes files without validating or reloading nginx. |
+| Privilege policy | The `privilege-policy` file spec selects sudoers, sudoers drop-ins, and polkit rules when present. | Restore writes policy without validating it; administrative access can be affected when the policy is applied. |
+| Kernel hardening | The `kernel-hardening` file spec selects sysctl configuration, modprobe drop-ins, and module-load settings. | Restore does not apply settings to the running kernel. |
+| Storage recovery | The `storage-recovery` file spec selects `/etc/fstab` and optional `/etc/crypttab`. | ZFS export and restore are excluded by request; restore does not mount filesystems or unlock volumes. |
+| Time synchronization | The `time-sync` file spec selects timesyncd and chrony configuration when present. | Restore does not restart either daemon. |
+| Package trust | The `package-trust` file spec selects APT sources, preferences, local keyrings, and `apt.conf` policy files under `/etc/apt`. | Dedicated `auth.conf` files and package-managed `/usr/share/keyrings` are excluded; policy files may still contain credentials. Restore does not run `apt update`. |
+
+Cloudflare Tunnel can have a local configuration file for a locally managed
+tunnel, but the tunnel credential file is a separate secret and remotely
+managed tunnel settings live in Cloudflare. A configuration-only snapshot would
+therefore be useful for review but insufficient to restore every tunnel setup.
+See [Cloudflare's local configuration](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/configuration-file/)
+and [remote tunnel tokens](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/).
+
+Tailscale's Linux daemon has local settings such as `/etc/default/tailscaled`,
+but its node identity and keys live in daemon state, which may be encrypted or
+stored outside a local file. A settings-only snapshot would not restore a
+node's authenticated identity. The state location and restore policy need
+separate design before adding a Tailscale target. See the
+[tailscaled reference](https://tailscale.com/docs/reference/tailscaled).
 
 ## Confirmed interface and architecture requirements
 
@@ -376,7 +421,11 @@ NATS; neither adapter should perform privileged file operations itself.
   an application CLI MUST validate commands and variable arguments against
   each program's operand and option rules and invoke them without a shell.
   The root-run service does not use sudo for file access in the first slice.
-  Application CLI plugins and their command policies belong to later slices.
+  The Cloudflare local-tunnel plugin validates its selected files with the
+  `cloudflared` ingress CLI before capture and restore. The Tailscale plugin
+  exports local preferences with `tailscale get --set-flags` and replays
+  validated flags with `tailscale set`; device identity remains outside its
+  snapshot. Missing CLI installations are skipped by all-application backup.
 - **backup-restore/SR-003 — Validate and authorize requests:** CLI, NATS,
   HTTP, and frontend inputs MUST be validated at their adapter boundaries.
   Backup reads, version reads, merge submissions, and restores MUST be

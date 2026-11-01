@@ -101,6 +101,9 @@ readonly LITE_NAS_SERVICES_MANAGER_MODULE
 export LITE_NAS_SESSION_MANAGER_MODULE="./services/session-manager"
 readonly LITE_NAS_SESSION_MANAGER_MODULE
 
+export LITE_NAS_JOURNAL_MANAGER_MODULE="./services/journal-manager"
+readonly LITE_NAS_JOURNAL_MANAGER_MODULE
+
 export LITE_NAS_USB_MANAGER_MODULE="./services/usb-manager"
 readonly LITE_NAS_USB_MANAGER_MODULE
 

@@ -78,6 +78,7 @@ SYSTEMD_SERVICES: list[str] = [
     "lite-nas-security-logging-manager",
     "lite-nas-system-email-notifier",
     "lite-nas-security-email-notifier",
+    "lite-nas-journal-manager",
     "postfix",
     "apparmor",
     "nginx",

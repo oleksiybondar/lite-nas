@@ -129,6 +129,24 @@ func TestBuildLogWriterRejectsPathOutsideAllowedDirectory(t *testing.T) {
 	}
 }
 
+func TestBuildLogWriterRequiresLogrotateCoveredPath(t *testing.T) {
+	baseDir := t.TempDir()
+	restoreAllowedLogDir := allowedLogDir
+	allowedLogDir = baseDir
+	defer func() { allowedLogDir = restoreAllowedLogDir }()
+	for _, relative := range []string{"nested/app.log", "app.txt", ".hidden.log"} {
+		t.Run(relative, func(t *testing.T) {
+			_, cleanup, err := buildLogWriter(sharedconfig.LoggingConfig{Output: "file", FilePath: filepath.Join(baseDir, relative)})
+			if cleanup != nil {
+				defer cleanup()
+			}
+			if err == nil {
+				t.Fatal("unrotated log path was accepted")
+			}
+		})
+	}
+}
+
 func TestNewAppLoggerCreatesLogger(t *testing.T) {
 	t.Parallel()
 

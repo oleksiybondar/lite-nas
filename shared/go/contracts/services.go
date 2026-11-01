@@ -27,6 +27,7 @@ const (
 	ServiceBackupRestore          = "backup-restore"
 	ServiceServicesManager        = "services-manager"
 	ServiceSessionManager         = "session-manager"
+	ServiceJournalManager         = "journal-manager"
 	ServiceUSBManager             = "usb-manager"
 
 	AppSystemMetricsCLI        = "system-metrics-cli"

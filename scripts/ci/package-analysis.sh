@@ -70,12 +70,13 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-service-watchdog.service "$systemd_root/etc/systemd/system/lite-nas-service-watchdog.service"
 	cp configs/etc/systemd/system/lite-nas-services-manager.service "$systemd_root/etc/systemd/system/lite-nas-services-manager.service"
 	cp configs/etc/systemd/system/lite-nas-session-manager.service "$systemd_root/etc/systemd/system/lite-nas-session-manager.service"
+	cp configs/etc/systemd/system/lite-nas-journal-manager.service "$systemd_root/etc/systemd/system/lite-nas-journal-manager.service"
 	cp configs/etc/systemd/system/lite-nas-usb-manager.service "$systemd_root/etc/systemd/system/lite-nas-usb-manager.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.service "$systemd_root/etc/systemd/system/lite-nas-log-analysis.service"
 	cp configs/etc/systemd/system/lite-nas-network-security.service "$systemd_root/etc/systemd/system/lite-nas-network-security.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.socket "$systemd_root/etc/systemd/system/lite-nas-log-analysis.socket"
 
-	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager usb-manager log-analysis network-security; do
+	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager journal-manager usb-manager log-analysis network-security; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -105,7 +106,7 @@ log.requireCommand "apparmor_parser" "Install AppArmor and retry."
 (
 	profile_cache="$(mktemp -d)"
 	trap 'rm -rf "$profile_cache"' EXIT
-	for manager in services-manager session-manager usb-manager; do
+	for manager in services-manager session-manager journal-manager usb-manager; do
 		apparmor_parser -Q -W -L "$profile_cache" \
 			-I configs/etc/apparmor.d -I /etc/apparmor.d \
 			"configs/etc/apparmor.d/usr.libexec.lite-nas.$manager"
@@ -201,6 +202,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-service-watchdog.service \
 		lite-nas-services-manager.service \
 		lite-nas-session-manager.service \
+		lite-nas-journal-manager.service \
 		lite-nas-usb-manager.service \
 		lite-nas-log-analysis.service \
 		lite-nas-network-security.service \
