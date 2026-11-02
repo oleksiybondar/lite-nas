@@ -11,7 +11,7 @@ import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   cancelGalleryScan,
   getGalleryScan,
@@ -36,6 +36,11 @@ export const GalleryScanControls = ({
   kind?: GalleryScan["kind"];
 }): ReactElement => {
   const { getLabel } = useLanguage();
+  // Load an existing scan even when the editor starts closed; later openings refresh it.
+  const [hasOpened, setHasOpened] = useState(open);
+  useEffect(() => {
+    if (open) setHasOpened(true);
+  }, [open]);
   const label = getLabel(kind === "CAPTION" ? "moments.scan.captions" : "moments.scan.media");
   const adapter = useMemo(
     () => ({
@@ -52,7 +57,7 @@ export const GalleryScanControls = ({
       key={`${galleryId}-${kind}`}
       taskKey={`${galleryId}-${kind}`}
       adapter={adapter}
-      enabled={open}
+      enabled={open || !hasOpened}
       loadFailedMessage={getLabel("moments.scan.loadingStatus").replace("{kind}", label)}
       refreshFailedMessage={getLabel("moments.scan.refreshFailed").replace("{kind}", label)}
     >

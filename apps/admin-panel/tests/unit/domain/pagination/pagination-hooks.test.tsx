@@ -25,6 +25,27 @@ describe("shared pagination hooks", () => {
     expect(result.current.page).toBe(1);
     expect(result.current.pageSize).toBe(25);
   });
+
+  test("advances to the next page", () => {
+    const { result } = renderHook(() => usePaginationState());
+    act(() => result.current.nextPage());
+    expect(result.current.page).toBe(2);
+  });
+
+  test("does not move before the first page", () => {
+    const { result } = renderHook(() => usePaginationState());
+    act(() => result.current.previousPage());
+    expect(result.current.page).toBe(1);
+  });
+
+  test("restores the initial page and page size", () => {
+    const { result } = renderHook(() =>
+      usePaginationState({ initialPage: 2, initialPageSize: 10 }),
+    );
+    act(() => result.current.setPageSize(25));
+    act(() => result.current.resetPagination());
+    expect([result.current.page, result.current.pageSize]).toEqual([2, 10]);
+  });
 });
 
 describe("shared client pagination adapter", () => {

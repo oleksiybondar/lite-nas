@@ -107,12 +107,27 @@ describe("buildAppNavigationItems", () => {
   });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Each case checks one role-specific navigation rule.
 describe("sessions navigation", () => {
   test("shows sessions to security officers", () => {
     const paths = JSON.stringify(
       buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
     );
     expect(paths).toContain('"path":"/security/sessions"');
+  });
+
+  test("shows loginctl sessions to security officers", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
+    );
+    expect(paths).toContain('"path":"/security/sessions/loginctl"');
+  });
+
+  test("hides LiteNAS Auth sessions from security officers", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
+    );
+    expect(paths).not.toContain("/security/sessions/litenas-auth");
   });
 
   test("shows sessions to administrators", () => {
@@ -127,6 +142,16 @@ describe("sessions navigation", () => {
       ),
     );
     expect(paths).toContain('"path":"/security/sessions"');
+  });
+
+  test("shows LiteNAS Auth sessions to administrators", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems(
+        { requireOperator: () => false, requireSecurity: () => false, requireAdmin: () => true },
+        false,
+      ),
+    );
+    expect(paths).toContain('"path":"/security/sessions/litenas-auth"');
   });
 
   test("hides sessions from users without security access", () => {

@@ -145,6 +145,47 @@ func TestStoreRevokeDeletesToken(t *testing.T) {
 	}
 }
 
+// TestListReturnsActiveSession lets administrators discover a revocation target.
+func TestListReturnsActiveSession(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	_, record := mustCreate(t, store)
+	listed := store.List()
+	if len(listed) != 1 || listed[0].SessionID != record.SessionID {
+		t.Fatalf("sessions = %#v", listed)
+	}
+}
+
+// TestRevokeSessionDeniesAccessTokens covers the session denial state.
+func TestRevokeSessionDeniesAccessTokens(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	_, record := mustCreate(t, store)
+	store.RevokeSession(record.SessionID)
+	if !store.IsRevoked(record.SessionID) {
+		t.Fatal("revoked session remains valid")
+	}
+}
+
+// TestRevokeSessionRemovesRefreshToken covers credential invalidation.
+func TestRevokeSessionRemovesRefreshToken(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	token, record := mustCreate(t, store)
+	store.RevokeSession(record.SessionID)
+	_, _, err := store.Rotate(token.Value, refreshContextFixture())
+	if !errors.Is(err, ErrUnknownRefreshToken) {
+		t.Fatalf("Rotate() error = %v", err)
+	}
+}
+
+// TestClearDeniesAccessTokens covers bulk session invalidation.
+func TestClearDeniesAccessTokens(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	_, record := mustCreate(t, store)
+	store.Clear()
+	if !store.IsRevoked(record.SessionID) {
+		t.Fatal("cleared session remains valid")
+	}
+}
+
 func TestStoreClearRemovesAllRecords(t *testing.T) {
 	t.Parallel()
 

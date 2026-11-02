@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
@@ -8,6 +9,30 @@ import (
 // StoreOptions controls refresh-token context enforcement.
 type StoreOptions struct {
 	EnforceClientIP bool
+	RevocationTTL   time.Duration
+}
+
+// SessionSummary exposes one active session without its refresh credential.
+type SessionSummary struct {
+	SessionID string
+	Subject   string
+	Login     string
+	ExpiresAt time.Time
+}
+
+// List returns active refresh-session metadata without revealing token hashes.
+func (s *Store) List() []SessionSummary {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.now().UTC()
+	records := make([]SessionSummary, 0, len(s.records))
+	for _, record := range s.records {
+		if now.Before(record.ExpiresAt) {
+			records = append(records, SessionSummary{SessionID: record.SessionID, Subject: record.Subject, Login: record.Login, ExpiresAt: record.ExpiresAt})
+		}
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].SessionID < records[j].SessionID })
+	return records
 }
 
 // Store keeps active refresh-token records in memory.
@@ -16,6 +41,7 @@ type Store struct {
 	now     func() time.Time
 	options StoreOptions
 	records map[string]RefreshRecord
+	revoked map[string]time.Time
 }
 
 // NewStore constructs an empty refresh-token store.
@@ -32,6 +58,7 @@ func NewStore(now func() time.Time, options StoreOptions) *Store {
 		now:     now,
 		options: options,
 		records: make(map[string]RefreshRecord),
+		revoked: make(map[string]time.Time),
 	}
 }
 
@@ -94,12 +121,51 @@ func (s *Store) Revoke(token string) error {
 	defer s.mu.Unlock()
 
 	tokenHash := hashToken(token)
-	if _, ok := s.records[tokenHash]; !ok {
+	record, ok := s.records[tokenHash]
+	if !ok {
 		return ErrUnknownRefreshToken
 	}
 
 	delete(s.records, tokenHash)
+	s.revokeLocked(record.SessionID)
 	return nil
+}
+
+// revokeLocked records a bounded access-token denial while the store lock is held.
+func (s *Store) revokeLocked(sessionID string) {
+	ttl := s.options.RevocationTTL
+	if ttl < time.Hour {
+		ttl = time.Hour
+	}
+	s.revoked[sessionID] = s.now().UTC().Add(ttl)
+}
+
+// RevokeSession removes its refresh token and rejects its access tokens until they expire.
+func (s *Store) RevokeSession(sessionID string) bool {
+	if sessionID == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	found := false
+	for hash, record := range s.records {
+		if record.SessionID == sessionID {
+			delete(s.records, hash)
+			found = true
+		}
+	}
+	if found {
+		s.revokeLocked(sessionID)
+	}
+	return found
+}
+
+// IsRevoked reports whether an access token's session remains in the deny list.
+func (s *Store) IsRevoked(sessionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	expires, ok := s.revoked[sessionID]
+	return ok && s.now().UTC().Before(expires)
 }
 
 // Clear removes every active refresh token from the store.
@@ -107,6 +173,9 @@ func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	for _, record := range s.records {
+		s.revokeLocked(record.SessionID)
+	}
 	s.records = make(map[string]RefreshRecord)
 }
 
@@ -125,6 +194,11 @@ func (s *Store) CleanupExpired() int {
 
 		delete(s.records, tokenHash)
 		removed++
+	}
+	for sessionID, expiry := range s.revoked {
+		if !now.Before(expiry) {
+			delete(s.revoked, sessionID)
+		}
 	}
 
 	return removed

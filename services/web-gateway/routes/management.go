@@ -32,6 +32,14 @@ func mountManagementRouters(api huma.API, controllers modules.Controllers, authe
 	huma.Register(sessions, managementOperation("sessions-terminate", http.MethodPost, "/{session}/terminate", "Terminate host session", "Terminates the specified login session, including sessions owned by other users. Requires a security-equivalent access token."), session.Terminate)
 	huma.Register(sessions, managementOperation("sessions-lock", http.MethodPost, "/{session}/lock", "Lock host session", "Locks the specified login session. Requires a security-equivalent access token."), session.Lock)
 	huma.Register(sessions, managementOperation("sessions-unlock", http.MethodPost, "/{session}/unlock", "Unlock host session", "Unlocks the specified login session. Requires a security-equivalent access token."), session.Unlock)
+
+	authSessions := huma.NewGroup(api, "/auth/sessions")
+	authSessions.UseSimpleModifier(func(op *huma.Operation) { op.Tags = []string{"auth-sessions-management"} })
+	authSessions.UseMiddleware(middlewares.RequireAuthentication(api, authentication))
+	authSessions.UseMiddleware(middlewares.RequireAdministrator(api))
+	authSession := controllers.AuthSessions
+	huma.Register(authSessions, managementOperation("auth-sessions-list", http.MethodGet, "", "List LiteNAS Auth sessions", "Returns active authentication sessions. Requires an administrator access token."), authSession.List)
+	huma.Register(authSessions, managementOperation("auth-sessions-revoke", http.MethodPost, "/{session_id}/revoke", "Revoke LiteNAS Auth session", "Revokes the selected authentication session. Requires an administrator access token."), authSession.Revoke)
 }
 
 func managementOperation(id, method, path, summary, description string) huma.Operation {

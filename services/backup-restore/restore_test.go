@@ -43,6 +43,27 @@ func TestStoreRestoreReplacesSelectedFile(t *testing.T) {
 	}
 }
 
+// TestRestoreRegularKeepsLiveFileWhenOwnershipCannotBeApplied covers backup-restore/SR-004.
+func TestRestoreRegularKeepsLiveFileWhenOwnershipCannotBeApplied(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("requires a non-root caller")
+	}
+	root := t.TempDir()
+	stage := filepath.Join(root, "stage")
+	target := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(stage, []byte("snapshot"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("live"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := restoreRegular(stagedEntry{path: target, stage: stage, header: &tar.Header{Uid: 0, Gid: 0, Mode: 0o600}})
+	content, readErr := os.ReadFile(target)
+	if err == nil || readErr != nil || string(content) != "live" {
+		t.Fatalf("restore = %v, live content = %q, read = %v", err, content, readErr)
+	}
+}
+
 // Requirements: backup-restore/FR-004.
 func TestStoreRestorePreservesLiveOptionalDirectoryAbsentFromSnapshot(t *testing.T) {
 	root := t.TempDir()

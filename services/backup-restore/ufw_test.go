@@ -142,6 +142,75 @@ func TestUFWArchiveContainsGeneratedJSON(t *testing.T) {
 	}
 }
 
+// TestUFWDiffFindsChangedRules covers backup-restore/FR-003.
+func TestUFWDiffFindsChangedRules(t *testing.T) {
+	const header = "Added user rules (see 'ufw status' for running firewall):\n"
+	plugin := mustUFWPlugin(t, header+"(None)\n", nil)
+	spec, store, version := mustUFWStore(t, plugin)
+	plugin.run = func(args ...string) ([]byte, error) { return []byte(header + "ufw allow 443/tcp\n"), nil }
+	differences, err := store.Diff(spec, version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(differences) != 1 || differences[0].Path != ufwArchivePath || differences[0].Status != "changed" {
+		t.Fatalf("differences = %#v", differences)
+	}
+}
+
+// TestUFWDiffOmitsUnchangedRules covers backup-restore/FR-010.
+func TestUFWDiffOmitsUnchangedRules(t *testing.T) {
+	plugin := mustUFWPlugin(t, "Added user rules (see 'ufw status' for running firewall):\n(None)\n", nil)
+	spec, store, version := mustUFWStore(t, plugin)
+	differences, err := store.Diff(spec, version)
+	if err != nil || len(differences) != 0 {
+		t.Fatalf("differences = %#v, error = %v", differences, err)
+	}
+}
+
+// TestUFWRunnerRejectsMissingCommand covers backup-restore/SR-003.
+func TestUFWRunnerRejectsMissingCommand(t *testing.T) {
+	if _, err := runUFWCommand(); err == nil {
+		t.Fatal("missing command accepted")
+	}
+}
+
+// TestUFWExportRejectsMissingConfiguration covers backup-restore/SR-003.
+func TestUFWExportRejectsMissingConfiguration(t *testing.T) {
+	plugin := &UFWPlugin{run: func(...string) ([]byte, error) { t.Fatal("CLI reached"); return nil, nil }, defaults: filepath.Join(t.TempDir(), "missing-defaults")}
+	if _, err := plugin.Export(); err == nil {
+		t.Fatal("missing UFW defaults accepted")
+	}
+}
+
+// TestUFWExportRejectsMissingRuntimeConfiguration covers backup-restore/SR-003.
+func TestUFWExportRejectsMissingRuntimeConfiguration(t *testing.T) {
+	plugin := mustUFWPlugin(t, "", nil)
+	plugin.configuration = filepath.Join(t.TempDir(), "missing-ufw.conf")
+	if _, err := plugin.Export(); err == nil {
+		t.Fatal("missing runtime configuration accepted")
+	}
+}
+
+// TestUFWExportRejectsMalformedDefaults covers backup-restore/SR-003.
+func TestUFWExportRejectsMalformedDefaults(t *testing.T) {
+	plugin := mustUFWPlugin(t, "", nil)
+	if err := os.WriteFile(plugin.defaults, []byte("INVALID=\"value\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Export(); err == nil {
+		t.Fatal("malformed UFW defaults accepted")
+	}
+}
+
+// TestLimitedUFWOutputBoundsCommandText covers backup-restore/SR-003.
+func TestLimitedUFWOutputBoundsCommandText(t *testing.T) {
+	var output limitedUFWOutput
+	_, _ = output.Write(make([]byte, 1<<20+1))
+	if !output.exceeded || output.Len() != 0 {
+		t.Fatal("oversized command output was retained")
+	}
+}
+
 // Requirements: backup-restore/FR-003.
 func TestUFWApplyReplaysRulesThroughCLI(t *testing.T) {
 	var commands []string
@@ -242,12 +311,59 @@ func TestUFWApplyAttemptsRollbackAfterRuleFailure(t *testing.T) {
 	}
 }
 
+// TestUFWApplyReportsRollbackInspectionFailure covers backup-restore/SR-003.
+func TestUFWApplyReportsRollbackInspectionFailure(t *testing.T) {
+	reads := 0
+	plugin := mustUFWPlugin(t, "", func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "show" && args[1] == "added" {
+			reads++
+			if reads > 1 {
+				return nil, errors.New("inspection unavailable")
+			}
+			return []byte("Added user rules (see 'ufw status' for running firewall):\nufw deny 80/tcp\n"), nil
+		}
+		if len(args) == 2 && args[0] == "allow" {
+			return nil, errors.New("rule rejected")
+		}
+		return nil, nil
+	})
+	state := UFWState{SchemaVersion: 1, Enabled: true, Logging: "low", Defaults: UFWDefaults{Incoming: "deny", Outgoing: "allow", Routed: "deny"}, Rules: []UFWRule{{Kind: "rule", Action: "allow", Arguments: []string{"443/tcp"}}}}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plugin.Apply(data); err == nil || !strings.Contains(err.Error(), "rollback inspection failed") {
+		t.Fatalf("rollback error = %v", err)
+	}
+}
+
+// TestUFWApplyReportsRollbackFailure covers backup-restore/SR-003.
+func TestUFWApplyReportsRollbackFailure(t *testing.T) {
+	plugin := mustUFWPlugin(t, "", func(args ...string) ([]byte, error) {
+		if len(args) == 2 && args[0] == "show" && args[1] == "added" {
+			return []byte("Added user rules (see 'ufw status' for running firewall):\nufw deny 80/tcp\n"), nil
+		}
+		if len(args) == 2 && (args[0] == "allow" || args[0] == "deny") {
+			return nil, errors.New("rule rejected")
+		}
+		return nil, nil
+	})
+	state := UFWState{SchemaVersion: 1, Enabled: true, Logging: "low", Defaults: UFWDefaults{Incoming: "deny", Outgoing: "allow", Routed: "deny"}, Rules: []UFWRule{{Kind: "rule", Action: "allow", Arguments: []string{"443/tcp"}}}}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plugin.Apply(data); err == nil || !strings.Contains(err.Error(), "rollback failed") {
+		t.Fatalf("rollback error = %v", err)
+	}
+}
+
 // Requirements: backup-restore/FR-005.
 func TestUFWBackupStartsUIMergeSessionWithJSON(t *testing.T) {
 	plugin := mustUFWPlugin(t, "Added user rules (see 'ufw status' for running firewall):\n(None)\n", nil)
 	spec, store, version := mustUFWStore(t, plugin)
 	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
-	runtime := &Runtime{specs: map[string]Spec{"ufw-rules": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"ufw-rules": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	result, err := runtime.mergeStart(context.Background(), messagingtest.MustEnvelope(t, contract.MergeStartRequest{AccessToken: token, Application: "ufw-rules", Version: version}))
 	if err != nil {
 		t.Fatal(err)
@@ -269,7 +385,7 @@ func TestUFWUIMergeApplyReplaysResolvedJSON(t *testing.T) {
 	})
 	spec, store, version := mustUFWStore(t, plugin)
 	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
-	runtime := &Runtime{specs: map[string]Spec{"ufw-rules": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"ufw-rules": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	started, err := runtime.mergeStart(context.Background(), messagingtest.MustEnvelope(t, contract.MergeStartRequest{AccessToken: token, Application: "ufw-rules", Version: version}))
 	if err != nil {
 		t.Fatal(err)

@@ -90,7 +90,27 @@ export const buildAppNavigationItems = (
       ? [
           {
             children: [
-              { icon: <SupervisorAccountIcon />, path: "/security/sessions", title: "Sessions" },
+              {
+                icon: <SupervisorAccountIcon />,
+                path: "/security/sessions",
+                title: "Sessions",
+                children: [
+                  {
+                    icon: <SupervisorAccountIcon />,
+                    path: "/security/sessions/loginctl",
+                    title: "loginctl",
+                  },
+                  ...(requireAdmin?.()
+                    ? [
+                        {
+                          icon: <SupervisorAccountIcon />,
+                          path: "/security/sessions/litenas-auth",
+                          title: "LiteNAS Auth",
+                        },
+                      ]
+                    : []),
+                ],
+              },
               { icon: <TableRowsIcon />, path: "/security/journal", title: "Journal" },
               { icon: <UsbIcon />, path: "/security/usb-devices", title: "USBDevices" },
               { icon: <SecurityIcon />, path: "/security/integrity", title: "Integrity" },

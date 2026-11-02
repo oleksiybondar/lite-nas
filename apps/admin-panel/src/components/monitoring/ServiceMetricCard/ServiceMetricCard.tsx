@@ -102,8 +102,8 @@ export const ServiceMetricCard = ({
           >
             {getLabel(
               actionResult === "success"
-                ? "admin.system.service.actionSucceeded"
-                : "admin.system.service.actionFailed",
+                ? "admin.telemetry.service.actionSucceeded"
+                : "admin.telemetry.service.actionFailed",
             )}
           </Alert>
         )}
@@ -122,17 +122,20 @@ export const ServiceMetricCard = ({
             zIndex: 1,
           }}
         >
-          <CircularProgress aria-label={getLabel("admin.system.service.actionInProgress")} />
-          <span>{getLabel("admin.system.service.actionInProgress")}</span>
+          <CircularProgress aria-label={getLabel("admin.telemetry.service.actionInProgress")} />
+          <span>{getLabel("admin.telemetry.service.actionInProgress")}</span>
         </Stack>
       )}
       <ConfirmActionDialog
         open={confirmation !== null}
         title={getLabel("dialogs.areYouSure")}
-        description={getLabel("admin.system.service.confirmAction")
-          .replace("{action}", confirmation ? getLabel(`admin.system.service.${confirmation}`) : "")
+        description={getLabel("admin.telemetry.service.confirmAction")
+          .replace(
+            "{action}",
+            confirmation ? getLabel(`admin.telemetry.service.${confirmation}`) : "",
+          )
           .replace("{service}", service.name)}
-        confirmLabel={confirmation ? getLabel(`admin.system.service.${confirmation}`) : ""}
+        confirmLabel={confirmation ? getLabel(`admin.telemetry.service.${confirmation}`) : ""}
         confirmColor={confirmation ? confirmationColors[confirmation] : "primary"}
         requireYes={confirmation === "stop"}
         onClose={() => setConfirmation(null)}

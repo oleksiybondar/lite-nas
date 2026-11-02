@@ -101,7 +101,7 @@ func TestDecodeRejectsMalformedRequests(t *testing.T) {
 	m, token := newTestManager(t, []string{"admin"})
 	for name, payload := range hostmanagertest.MalformedPayloads(token) {
 		t.Run(name, func(t *testing.T) {
-			_, err := decode(m, messaging.Envelope{Payload: payload}, func(request contract.ListRequest) string { return request.AccessToken })
+			_, err := decode(t.Context(), m, messaging.Envelope{Payload: payload}, func(request contract.ListRequest) string { return request.AccessToken })
 			if err == nil {
 				t.Fatal("invalid request accepted")
 			}

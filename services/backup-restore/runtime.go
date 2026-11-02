@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/ini.v1"
@@ -164,7 +165,9 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 	case contract.MergeSaveRequest:
 		token = value.AccessToken
 	}
-	claims, err := runtime.verifier.Verify(token)
+	validationCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	claims, err := authtoken.VerifyLive(validationCtx, runtime.client, runtime.verifier, token)
 	if err != nil || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementAdministrator) {
 		return request, fmt.Errorf("administrator authorization required")
 	}

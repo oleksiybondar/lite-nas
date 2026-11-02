@@ -84,7 +84,10 @@ func TestRegisterBindsAllRPCSubjects(t *testing.T) {
 // Requirements: session-manager/FR-001.
 func TestListReturnsCurrentSessions(t *testing.T) {
 	m, token := newTestManager(t, []string{"lite-nas-security"})
-	m.runner.(*hostcommandtest.RecordingRunner).OutputBytes = []byte("42 1000 alice seat0 1234 user tty2 no -\n")
+	m.runner.(*hostcommandtest.RecordingRunner).Results = []hostcommandtest.Result{
+		{Output: []byte("42 1000 alice seat0 1234 user tty2 no -\n")},
+		{Output: []byte("Type=tty\nClass=user\nService=login\nRemote=no\n")},
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go m.work(ctx)
@@ -103,7 +106,7 @@ func TestDecodeRejectsMalformedRequests(t *testing.T) {
 	m, token := newTestManager(t, []string{"lite-nas-security"})
 	for name, payload := range hostmanagertest.MalformedPayloads(token) {
 		t.Run(name, func(t *testing.T) {
-			_, err := decode(m, messaging.Envelope{Payload: payload}, func(request contract.ListRequest) string { return request.AccessToken })
+			_, err := decode(t.Context(), m, messaging.Envelope{Payload: payload}, func(request contract.ListRequest) string { return request.AccessToken })
 			if err == nil {
 				t.Fatal("invalid request accepted")
 			}

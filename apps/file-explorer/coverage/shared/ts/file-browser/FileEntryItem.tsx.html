@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>89/89</span>
+                <span class='fraction'>95/95</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.59% </span>
+                <span class="strong">80.64% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>25/27</span>
+                <span class='fraction'>25/31</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>89/89</span>
+                <span class='fraction'>95/95</span>
             </div>
         
             
@@ -175,7 +175,15 @@
 <a name='L110'></a><a href='#L110'>110</a>
 <a name='L111'></a><a href='#L111'>111</a>
 <a name='L112'></a><a href='#L112'>112</a>
-<a name='L113'></a><a href='#L113'>113</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -191,6 +199,11 @@
 <span class="cline-any cline-yes">679x</span>
 <span class="cline-any cline-yes">679x</span>
 <span class="cline-any cline-yes">918x</span>
+<span class="cline-any cline-yes">561x</span>
+<span class="cline-any cline-yes">561x</span>
+<span class="cline-any cline-yes">561x</span>
+<span class="cline-any cline-yes">561x</span>
+<span class="cline-any cline-yes">118x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -203,30 +216,31 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">918x</span>
+<span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
+<span class="cline-any cline-yes">918x</span>
+<span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -288,6 +302,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">918x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { formatByteSize } from "@lite-nas/formatting";
+import { useLanguage } from "@lite-nas/language";
 import { Box, ListItemButton, ListItemIcon, ListItemText, Typography } from "@mui/material";
 import type { MouseEvent, ReactElement } from "react";
 &nbsp;
@@ -296,13 +311,18 @@ import type { FileEntry } from "./file-service";
 import { displayName } from "./paths";
 &nbsp;
 /** Human-readable type detail shown under one item name. */
-function typeLabel(entry: FileEntry): string {
+function typeLabel(entry: FileEntry, getLabel: (key: string) =&gt; string): string {
   if (entry.kind === "directory") {
-    return "Folder";
+    return getLabel("fileBrowser.folder");
   }
   const name = displayName(entry.path);
   const dot = name.lastIndexOf(".");
-  return dot &gt; 0 &amp;&amp; dot &lt; name.length - 1 ? `${name.slice(dot + 1).toUpperCase()} file` : "File";
+  return dot &gt; 0 &amp;&amp; dot &lt; name.length - 1
+    ? getLabel("fileBrowser.fileExtension").replace(
+        "{extension}",
+        name.slice(dot + 1).toUpperCase(),
+      )
+    : getLabel("fileBrowser.file");
 }
 &nbsp;
 /** Converts File Service's rwx permission string to a four-digit octal mode. */
@@ -312,12 +332,12 @@ function formatPermissions(permissions: string | null): string {
     (triplet) =&gt;
       Number(triplet[0] === "r") * 4 +
       Number(triplet[1] === "w") * 2 +
-      Number("xs".includes(triplet[2])),
+      Number("xs".includes(triplet[2<span class="branch-0 cbranch-no" title="branch not covered" >] ?? "")</span>),
   );
   const special =
-    Number("sS".includes(permissions[2])) * 4 +
-    Number("sS".includes(permissions[5])) * 2 +
-    Number("tT".includes(permissions[8]));
+    Number("sS".includes(permissions[2<span class="branch-0 cbranch-no" title="branch not covered" >] ?? "")</span>) * 4 +
+    Number("sS".includes(permissions[5<span class="branch-0 cbranch-no" title="branch not covered" >] ?? "")</span>) * 2 +
+    Number("tT".includes(permissions[8<span class="branch-0 cbranch-no" title="branch not covered" >] ?? "")</span>);
   return `${special}${bits.join("")}`;
 }
 &nbsp;
@@ -340,6 +360,7 @@ export function FileEntryItem({
   onSelect: (multiple: boolean) =&gt; void;
   onOpen: () =&gt; void;
 }): ReactElement {
+  const { getLabel } = useLanguage();
   const name = displayName(entry.path);
 &nbsp;
   /** Uses Ctrl or Command to toggle an item in a multi-selection. */
@@ -382,7 +403,7 @@ export function FileEntryItem({
         {formatByteSize(entry.size)}
       &lt;/Typography&gt;
       &lt;Typography variant="body2" color="text.secondary"&gt;
-        {typeLabel(entry)}
+        {typeLabel(entry, getLabel)}
       &lt;/Typography&gt;
       &lt;Typography variant="body2" color="text.secondary"&gt;
         {formatPermissions(entry.permissions)}
@@ -406,7 +427,7 @@ export function FileEntryItem({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-28T20:58:47.722Z
+                at 2026-11-02T11:03:02.084Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

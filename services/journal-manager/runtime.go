@@ -177,7 +177,7 @@ func (m *manager) register(server messaging.Server) error {
 }
 
 // decode checks complete JSON, schema, and security authorization before work.
-func decode[T any](m *manager, envelope messaging.Envelope, token func(T) string) (T, string, error) {
+func decode[T any](ctx context.Context, m *manager, envelope messaging.Envelope, token func(T) string) (T, string, error) {
 	var request T
 	if len(envelope.Payload) > 16*1024 {
 		return request, "", fmt.Errorf("request too large")
@@ -193,7 +193,7 @@ func decode[T any](m *manager, envelope messaging.Envelope, token func(T) string
 	if err := m.validator.Struct(request); err != nil {
 		return request, "", err
 	}
-	claims, err := m.verifier.Verify(token(request))
+	claims, err := authtoken.VerifyLive(ctx, m.client, m.verifier, token(request))
 	if err != nil || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementSecurity) {
 		return request, "", fmt.Errorf("security authorization required")
 	}
@@ -202,7 +202,7 @@ func decode[T any](m *manager, envelope messaging.Envelope, token func(T) string
 
 // query validates filters, then returns one newest-first journal chunk.
 func (m *manager) query(ctx context.Context, envelope messaging.Envelope) (any, error) {
-	request, _, err := decode(m, envelope, func(v contract.QueryRequest) string { return v.AccessToken })
+	request, _, err := decode(ctx, m, envelope, func(v contract.QueryRequest) string { return v.AccessToken })
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func (m *manager) query(ctx context.Context, envelope messaging.Envelope) (any, 
 
 // units lists service units whose journal entries satisfy the non-unit filters.
 func (m *manager) units(ctx context.Context, envelope messaging.Envelope) (any, error) {
-	request, _, err := decode(m, envelope, func(v contract.UnitsRequest) string { return v.AccessToken })
+	request, _, err := decode(ctx, m, envelope, func(v contract.UnitsRequest) string { return v.AccessToken })
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func validateQuery(request contract.QueryRequest) error {
 
 // vacuum rotates active files, applies retention, and emits a security alert.
 func (m *manager) vacuum(ctx context.Context, envelope messaging.Envelope) (any, error) {
-	request, actor, err := decode(m, envelope, func(v contract.VacuumRequest) string { return v.AccessToken })
+	request, actor, err := decode(ctx, m, envelope, func(v contract.VacuumRequest) string { return v.AccessToken })
 	if err != nil {
 		return nil, err
 	}

@@ -45,7 +45,9 @@
       "securityAlertsActive": "Security alerts that remain active and need ongoing attention.",
       "securityAlertsHistory": "Complete security alert history for reviews, audits, and investigations.",
       "securityAlertsSummary": "Review security alert queues by status so investigation and acknowledgement workflows stay separated.",
-      "securitySessions": "Review active host sessions and manage their access.",
+      "securitySessions": "Review host login sessions and LiteNAS authentication sessions.",
+      "loginCtlSessions": "Inspect and manage host loginctl sessions.",
+      "authSessions": "Review and revoke LiteNAS Auth sign-ins.",
       "securityJournal": "Review and manage the host system journal.",
       "securitySummary": "Inspect host sessions, security tasks, and the system journal.",
       "applicationsExplorer": "Browse files and upload to directories where you have permission.",
@@ -337,6 +339,18 @@
       "confirmVacuum": "Confirm vacuum",
       "unknownSource": "Unknown source",
       "unavailableMessage": "Message unavailable"
+    },
+    "authSessions": {
+      "description": "Active LiteNAS sign-ins. Revoking a session prevents its tokens from authorizing further actions.",
+      "loading": "Loading authentication sessions.",
+      "loadFailed": "Failed to load authentication sessions.",
+      "empty": "No active authentication sessions.",
+      "subject": "Account",
+      "id": "Session ID",
+      "expiresAt": "Expires",
+      "revoke": "Revoke",
+      "revokeFailed": "Failed to revoke authentication session.",
+      "confirmRevoke": "Revoke the LiteNAS Auth session for {login}?"
     },
     "sessions": {
       "title": "Host sessions",
@@ -887,6 +901,8 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "Sessions": "Sessions",
+    "loginctl": "loginctl",
+    "LiteNAS Auth": "LiteNAS Auth",
     "Journal": "Journal",
     "Backup and restore": "Backup and restore",
     "Integrity": "Integrity",

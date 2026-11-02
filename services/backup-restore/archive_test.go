@@ -34,6 +34,19 @@ func TestWriteArchiveIncludesSymlinkAndTarget(t *testing.T) {
 	}
 }
 
+// TestWriteArchiveRejectsSymlinkToDirectory covers backup-restore/SR-003.
+func TestWriteArchiveRejectsSymlinkToDirectory(t *testing.T) {
+	root := t.TempDir()
+	link := filepath.Join(root, "directory.link")
+	if err := os.Symlink(root, link); err != nil {
+		t.Fatal(err)
+	}
+	var archive bytes.Buffer
+	if err := WriteArchive(&archive, Spec{Selections: []Selection{{Path: link}}}); err == nil {
+		t.Fatal("directory symlink was archived")
+	}
+}
+
 // Requirements: backup-restore/FR-002.
 func TestWriteArchiveRejectsAllMissingOptionalSelections(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing.conf")

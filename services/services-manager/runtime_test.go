@@ -17,7 +17,7 @@ import (
 func newTestManager(t *testing.T, roles []string) (*manager, string) {
 	t.Helper()
 	verifier, token := authtokentest.MustIssueAccessToken(t, roles)
-	return &manager{verifier: verifier, validator: validator.New(validator.WithRequiredStructEnabled()), runner: &hostcommandtest.RecordingRunner{}, jobs: make(chan commandJob, 1), ctx: context.Background()}, token
+	return &manager{verifier: verifier, client: &messagingtest.RecordingClient{AuthUsername: "tester"}, validator: validator.New(validator.WithRequiredStructEnabled()), runner: &hostcommandtest.RecordingRunner{}, jobs: make(chan commandJob, 1), ctx: context.Background()}, token
 }
 
 // Requirements: services-manager/SR-001.
@@ -47,6 +47,16 @@ func TestActionRunsForAdministrator(t *testing.T) {
 	response, err := m.action(context.Background(), messagingtest.MustEnvelope(t, contract.ActionRequest{AccessToken: token, Unit: "ssh.service"}), "start")
 	if err != nil || !response.(contract.ActionResponse).Completed {
 		t.Fatalf("action = %#v, %v", response, err)
+	}
+}
+
+// TestActionRejectsTokenDeniedByAuth covers live revocation enforcement.
+func TestActionRejectsTokenDeniedByAuth(t *testing.T) {
+	m, token := newTestManager(t, []string{"admin"})
+	m.client = &messagingtest.RecordingClient{}
+	_, err := m.action(t.Context(), messagingtest.MustEnvelope(t, contract.ActionRequest{AccessToken: token, Unit: "ssh.service"}), "start")
+	if err == nil {
+		t.Fatal("Auth-denied token accepted")
 	}
 }
 

@@ -68,6 +68,7 @@ type commandResult struct {
 // Jobs is never closed because callbacks can still run during NATS drain.
 type manager struct {
 	verifier  authtoken.Verifier
+	client    messaging.Client
 	validator *validator.Validate
 	runner    commandRunner
 	jobs      chan commandJob
@@ -111,7 +112,7 @@ func runWithDependencies(ctx context.Context, configPath string, infraFactory mo
 		return err
 	}
 	defer infra.Close()
-	service := &manager{verifier: verifier, validator: validator.New(validator.WithRequiredStructEnabled()), runner: runner, jobs: make(chan commandJob, 32), ctx: ctx}
+	service := &manager{verifier: verifier, client: infra.Client, validator: validator.New(validator.WithRequiredStructEnabled()), runner: runner, jobs: make(chan commandJob, 32), ctx: ctx}
 	if err := service.register(infra.Server); err != nil {
 		return err
 	}
@@ -149,7 +150,7 @@ func (m *manager) register(server messaging.Server) error {
 }
 
 // decode validates the complete RPC payload and an administrator access token.
-func decode[T any](m *manager, envelope messaging.Envelope, accessToken func(T) string) (T, error) {
+func decode[T any](ctx context.Context, m *manager, envelope messaging.Envelope, accessToken func(T) string) (T, error) {
 	var request T
 	if len(envelope.Payload) > 16*1024 {
 		return request, fmt.Errorf("request too large")
@@ -165,7 +166,7 @@ func decode[T any](m *manager, envelope messaging.Envelope, accessToken func(T) 
 	if err := m.validator.Struct(request); err != nil {
 		return request, err
 	}
-	claims, err := m.verifier.Verify(accessToken(request))
+	claims, err := authtoken.VerifyLive(ctx, m.client, m.verifier, accessToken(request))
 	if err != nil || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementAdministrator) {
 		return request, fmt.Errorf("administrator authorization required")
 	}
@@ -174,7 +175,7 @@ func decode[T any](m *manager, envelope messaging.Envelope, accessToken func(T) 
 
 // list returns the current systemd service inventory.
 func (m *manager) list(ctx context.Context, envelope messaging.Envelope) (any, error) {
-	if _, err := decode(m, envelope, func(request contract.ListRequest) string { return request.AccessToken }); err != nil {
+	if _, err := decode(ctx, m, envelope, func(request contract.ListRequest) string { return request.AccessToken }); err != nil {
 		return nil, err
 	}
 	result, err := m.submit(ctx, "list-units", "")
@@ -198,7 +199,7 @@ func (m *manager) list(ctx context.Context, envelope messaging.Envelope) (any, e
 
 // action validates a service name before requesting one fixed systemctl verb.
 func (m *manager) action(ctx context.Context, envelope messaging.Envelope, action string) (any, error) {
-	request, err := decode(m, envelope, func(request contract.ActionRequest) string { return request.AccessToken })
+	request, err := decode(ctx, m, envelope, func(request contract.ActionRequest) string { return request.AccessToken })
 	if err != nil {
 		return nil, err
 	}

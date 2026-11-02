@@ -544,6 +544,10 @@ func (s *fileService) copyFile(ctx context.Context, job *operationJob, source, d
 	if err != nil || staged.SHA256 != hex.EncodeToString(hash.Sum(nil)) {
 		return errors.New("copy checksum failed")
 	}
+	// A long copy may outlive the destination's RBAC decision made before staging.
+	if err := s.allowDestination(ctx, job.subject, destination, false); err != nil {
+		return err
+	}
 	if _, err := s.writerCommand(ctx, job.subject, "publish", record, nil); err != nil {
 		return err
 	}

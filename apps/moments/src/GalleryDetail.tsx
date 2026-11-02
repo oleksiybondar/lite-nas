@@ -217,7 +217,7 @@ export function GalleryDetail({
           </Typography>
         </Tooltip>
       )}
-      {owned && (
+      {(owned || userUploadDirectory !== null) && (
         <Stack direction="row" spacing={1} flexWrap="wrap">
           {ownedCollection && (
             <Button onClick={() => setPicker("file")}>{getLabel("moments.gallery.addFile")}</Button>

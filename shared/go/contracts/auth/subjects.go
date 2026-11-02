@@ -20,6 +20,10 @@ const (
 	CaptionGrantRevokeRPCSubject = "auth.rpc.caption_grant.revoke"
 	// #nosec G101 -- NATS subject name, not a credential.
 	ValidateAccessTokenRPCSubject = "auth.rpc.token.validate"
-	SetLockdownRPCSubject         = "auth.rpc.lockdown.set"
-	LockdownChangedEventSubject   = "auth.events.lockdown.changed"
+	// RevokeSessionRPCSubject invalidates one browser login session.
+	RevokeSessionRPCSubject = "auth.rpc.session.revoke"
+	// ListSessionsRPCSubject lists active login sessions for administrators.
+	ListSessionsRPCSubject      = "auth.rpc.session.list"
+	SetLockdownRPCSubject       = "auth.rpc.lockdown.set"
+	LockdownChangedEventSubject = "auth.events.lockdown.changed"
 )

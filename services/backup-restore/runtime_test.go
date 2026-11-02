@@ -15,6 +15,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"lite-nas/shared/authtoken"
+	authcontract "lite-nas/shared/contracts/auth"
 	contract "lite-nas/shared/contracts/backuprestore"
 	managercontract "lite-nas/shared/contracts/servicesmanager"
 	"lite-nas/shared/messaging"
@@ -43,7 +44,11 @@ func (server *failingRegistrationServer) RegisterRPC(subject string, handler mes
 }
 
 // Request records a restart request and returns an observable failure.
-func (client *failingRestartClient) Request(_ context.Context, subject string, request any, _ any) error {
+func (client *failingRestartClient) Request(_ context.Context, subject string, request any, response any) error {
+	if subject == authcontract.ValidateAccessTokenRPCSubject {
+		*response.(*authcontract.ValidateAccessTokenResponse) = authcontract.ValidateAccessTokenResponse{Valid: true, Status: authcontract.StatusAuthenticated, Username: "tester"}
+		return nil
+	}
 	if subject != "services-manager.rpc.restart" {
 		return errors.New("unexpected subject")
 	}
@@ -96,7 +101,7 @@ func TestApplicationsRPCListsConfiguredTarget(t *testing.T) {
 // Requirements: backup-restore/FR-009.
 func TestApplicationsRPCListsTargetWithoutBackupHistory(t *testing.T) {
 	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
-	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "example"}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "example"}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	result, err := runtime.applications(context.Background(), messagingtest.MustEnvelope(t, contract.ApplicationsRequest{AccessToken: token}))
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +216,7 @@ func TestBackupAllRPCReportsCompletedTarget(t *testing.T) {
 // Requirements: backup-restore/FR-001.
 func TestBackupAllRPCSkipsMissingTarget(t *testing.T) {
 	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
-	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "example", Selections: []Selection{{Path: filepath.Join(t.TempDir(), "missing.conf")}}}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "example", Selections: []Selection{{Path: filepath.Join(t.TempDir(), "missing.conf")}}}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	result, err := runtime.backupAll(context.Background(), messagingtest.MustEnvelope(t, contract.BackupAllRequest{AccessToken: token}))
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +233,7 @@ func TestBackupAllRPCReportsFailedTarget(t *testing.T) {
 	if err := os.WriteFile(path, []byte("enabled=yes\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "invalid_name", Selections: []Selection{{Path: path}}}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"example": {Application: "invalid_name", Selections: []Selection{{Path: path}}}}, store: Store{Root: t.TempDir()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	result, err := runtime.backupAll(context.Background(), messagingtest.MustEnvelope(t, contract.BackupAllRequest{AccessToken: token}))
 	if err != nil {
 		t.Fatal(err)
@@ -282,7 +287,7 @@ func TestDecodeRequestRequiresAdministratorRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime := &Runtime{verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "test"}}
 	cases := []struct {
 		name  string
 		login string

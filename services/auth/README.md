@@ -18,6 +18,7 @@ The auth service owns:
 - access-token issuance and refresh-token rotation
 - service-to-service token issuance and rotation for internal callers
 - refresh-token revocation and volatile in-memory refresh-session state
+- administrator session inventory and revocation over NATS
 - lockdown state and lockdown event publication
 - online token validation for critical backend flows
 
@@ -99,6 +100,15 @@ The trust model is intentionally split:
 
 This allows bounded local trust for routine requests while keeping an online
 credibility check available when revocation-sensitive behavior matters.
+
+Browser access tokens carry the LiteNAS refresh-session ID. Logout and the
+administrator `auth.rpc.session.revoke` RPC revoke that session's refresh token
+and make `auth.rpc.token.validate` reject its access tokens. Administrators can
+discover active IDs through `auth.rpc.session.list`. Revocation entries remain
+in Auth memory for at least one hour, or longer when the configured access-token
+lifetime and clock skew require it. An Auth restart clears this in-memory state.
+System service, session, USBGuard, journal, and backup/restore request handlers
+ask Auth to validate user tokens before accepting privileged operations.
 
 ## Lockdown Model
 

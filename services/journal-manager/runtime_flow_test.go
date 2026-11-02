@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	authcontract "lite-nas/shared/contracts/auth"
 	contract "lite-nas/shared/contracts/journalmanager"
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	"lite-nas/shared/messaging"
@@ -28,8 +29,11 @@ func (c *recordingAlertClient) Publish(_ context.Context, subject string, payloa
 	return c.err
 }
 
-// Request is unused by the journal manager's alert publisher.
-func (*recordingAlertClient) Request(context.Context, string, any, any) error { return nil }
+// Request supplies a live Auth validation for the journal request.
+func (*recordingAlertClient) Request(_ context.Context, _ string, _ any, response any) error {
+	*response.(*authcontract.ValidateAccessTokenResponse) = authcontract.ValidateAccessTokenResponse{Valid: true, Status: authcontract.StatusAuthenticated, Username: "tester"}
+	return nil
+}
 
 // Drain is unused by the journal manager's alert publisher.
 func (*recordingAlertClient) Drain() error { return nil }
@@ -147,7 +151,7 @@ func TestDecodeRejectsMalformedRequest(t *testing.T) {
 	m, token := testManager(t, []string{"lite-nas-security"})
 	for name, payload := range hostmanagertest.MalformedPayloads(token) {
 		t.Run(name, func(t *testing.T) {
-			_, _, err := decode(m, messaging.Envelope{Payload: payload}, func(v contract.QueryRequest) string { return v.AccessToken })
+			_, _, err := decode(t.Context(), m, messaging.Envelope{Payload: payload}, func(v contract.QueryRequest) string { return v.AccessToken })
 			if err == nil {
 				t.Fatal("malformed request accepted")
 			}

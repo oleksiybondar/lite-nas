@@ -38,7 +38,7 @@ func TestExecRunnerCapturesFixedCommandOutput(t *testing.T) {
 func testManager(t *testing.T, roles []string) (*manager, string) {
 	t.Helper()
 	verifier, token := authtokentest.MustIssueAccessToken(t, roles)
-	return &manager{verifier: verifier, validator: validator.New(validator.WithRequiredStructEnabled()), runner: &hostcommandtest.RecordingRunner{}, jobs: make(chan commandJob, 1), ctx: context.Background()}, token
+	return &manager{verifier: verifier, client: &messagingtest.RecordingClient{AuthUsername: "tester"}, validator: validator.New(validator.WithRequiredStructEnabled()), runner: &hostcommandtest.RecordingRunner{}, jobs: make(chan commandJob, 1), ctx: context.Background()}, token
 }
 
 // Requirements: journal-manager/SR-001.

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.61% </span>
+                <span class="strong">96.66% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>114/118</span>
+                <span class='fraction'>116/120</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.73% </span>
+                <span class="strong">94.11% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>18/19</span>
+                <span class='fraction'>16/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>8/10</span>
+                <span class='fraction'>8/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.61% </span>
+                <span class="strong">96.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>114/118</span>
+                <span class='fraction'>116/120</span>
             </div>
         
             
@@ -225,7 +225,8 @@
 <a name='L160'></a><a href='#L160'>160</a>
 <a name='L161'></a><a href='#L161'>161</a>
 <a name='L162'></a><a href='#L162'>162</a>
-<a name='L163'></a><a href='#L163'>163</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -242,9 +243,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
@@ -311,6 +310,7 @@
 <span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -355,18 +355,6 @@
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
@@ -384,18 +372,29 @@
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
+<span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-yes">141x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">141x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useLanguage } from "@lite-nas/language";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { StandardDialog } from "@lite-nas/dialogs";
+import { useLanguage } from "@lite-nas/language";
 import {
   Alert,
   Button,
   Checkbox,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   Stack,
   TextField,
@@ -411,16 +410,17 @@ async function createFolder(
   name: string,
   privateDirectory: boolean,
   onCreate: (name: string, privateDirectory: boolean) =&gt; Promise&lt;void&gt;,
+  getLabel: (key: string) =&gt; string,
 ): Promise&lt;string | null&gt; {
   const parsed = newFolderNameSchema.safeParse(name);
   if (!parsed.success) {
-    return "Enter a folder name without path separators.";
+    return getLabel("explorer.folderNameInvalid");
   }
   try {
     await onCreate(parsed.data, privateDirectory);
     return null;
 <span class="branch-0 cbranch-no" title="branch not covered" >  } catch (caught) {</span>
-<span class="cstat-no" title="statement not covered" >    return caught instanceof Error ? caught.message : "Could not create the folder.";</span>
+<span class="cstat-no" title="statement not covered" >    return caught instanceof Error ? caught.message : getLabel("explorer.folderCreateFailed");</span>
 <span class="cstat-no" title="statement not covered" >  }</span>
 }
 &nbsp;
@@ -475,6 +475,7 @@ function FolderNameInput({
 }
 &nbsp;
 /** Requests a validated name for one directory in the active panel. */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The dialog keeps folder validation and submission with its fields.
 export function NewFolderDialog({
   open,
   directory,
@@ -499,7 +500,7 @@ export function NewFolderDialog({
   const submit = async (): Promise&lt;void&gt; =&gt; {
     setBusy(true);
     setError("");
-    const creationError = await createFolder(name, privateDirectory, onCreate);
+    const creationError = await createFolder(name, privateDirectory, onCreate, getLabel);
     setBusy(false);
     if (creationError !== null) {
       setError(creationError);
@@ -511,42 +512,44 @@ export function NewFolderDialog({
   };
 &nbsp;
   return (
-    &lt;Dialog
+    &lt;StandardDialog
       open={open}
-      onClose={busy ? undefined : onClose}
+      onClose={<span class="fstat-no" title="function not covered" >() =&gt; !busy &amp;&amp; onClose()}</span>
       fullWidth
       maxWidth="xs"
       data-testid="file-explorer-new-folder-dialog"
+      title={getLabel("common.newFolder")}
+      closeLabel={getLabel("dialogs.close")}
+      closeDisabled={busy}
+      actions={
+        &lt;&gt;
+          &lt;Button onClick={onClose} disabled={busy}&gt;
+            {getLabel("common.cancel")}
+          &lt;/Button&gt;
+          &lt;Button
+            onClick={() =&gt; void submit()}
+            disabled={busy || name.length === 0}
+            variant="contained"
+            data-testid="file-explorer-new-folder-submit"
+          &gt;
+            {getLabel("explorer.create")}
+          &lt;/Button&gt;
+        &lt;/&gt;
+      }
     &gt;
-      &lt;DialogTitle&gt;{getLabel("common.newFolder")}&lt;/DialogTitle&gt;
-      &lt;DialogContent&gt;
-        &lt;Stack spacing={2} sx={{ pt: 1 }}&gt;
-          &lt;Typography variant="body2" color="text.secondary"&gt;
-            {getLabel("explorer.createIn")} {directory}
-          &lt;/Typography&gt;
-          &lt;FolderNameInput name={name} onChange={setName} onSubmit={<span class="fstat-no" title="function not covered" >() =&gt; void submit()} /</span>&gt;
-          &lt;FolderVisibilityControl
-            privateDirectory={privateDirectory}
-            busy={busy}
-            onChange={setPrivateDirectory}
-          /&gt;
-          {error &amp;&amp; &lt;Alert severity="error"&gt;{error}&lt;/Alert&gt;}
-        &lt;/Stack&gt;
-      &lt;/DialogContent&gt;
-      &lt;DialogActions&gt;
-        &lt;Button onClick={onClose} disabled={busy}&gt;
-          {getLabel("common.cancel")}
-        &lt;/Button&gt;
-        &lt;Button
-          onClick={() =&gt; void submit()}
-          disabled={busy || name.length === 0}
-          variant="contained"
-          data-testid="file-explorer-new-folder-submit"
-        &gt;
-          {getLabel("explorer.create")}
-        &lt;/Button&gt;
-      &lt;/DialogActions&gt;
-    &lt;/Dialog&gt;
+      &lt;Stack spacing={2} sx={{ pt: 1 }}&gt;
+        &lt;Typography variant="body2" color="text.secondary"&gt;
+          {getLabel("explorer.createIn")} {directory}
+        &lt;/Typography&gt;
+        &lt;FolderNameInput name={name} onChange={setName} onSubmit={<span class="fstat-no" title="function not covered" >() =&gt; void submit()} /</span>&gt;
+        &lt;FolderVisibilityControl
+          privateDirectory={privateDirectory}
+          busy={busy}
+          onChange={setPrivateDirectory}
+        /&gt;
+        {error &amp;&amp; &lt;Alert severity="error"&gt;{error}&lt;/Alert&gt;}
+      &lt;/Stack&gt;
+    &lt;/StandardDialog&gt;
   );
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -556,7 +559,7 @@ export function NewFolderDialog({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-10-28T20:58:47.722Z
+                at 2026-11-02T11:03:02.084Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -37,7 +37,7 @@ func mergeFixture(t *testing.T) (*Runtime, string, string, string) {
 		t.Fatal(err)
 	}
 	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
-	runtime := &Runtime{specs: map[string]Spec{"example": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"example": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	return runtime, token, version, path
 }
 
@@ -91,7 +91,7 @@ func TestMergeStartAcceptsMoreThanThirtyTwoSmallFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
-	runtime := &Runtime{specs: map[string]Spec{"example": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled())}
+	runtime := &Runtime{specs: map[string]Spec{"example": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
 	result, err := runtime.mergeStart(context.Background(), messagingtest.MustEnvelope(t, contract.MergeStartRequest{AccessToken: token, Application: "example", Version: version}))
 	if err != nil {
 		t.Fatal(err)

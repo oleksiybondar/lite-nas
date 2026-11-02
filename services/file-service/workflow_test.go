@@ -366,6 +366,27 @@ func TestTransferQueuesAuthorizedCopy(t *testing.T) {
 	}
 }
 
+// TestCopyFileRechecksRBACBeforePublish covers destination revocation during a copy.
+func TestCopyFileRechecksRBACBeforePublish(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source.txt")
+	destination := filepath.Join(root, "destination.txt")
+	mustWriteWorkflowFile(t, source, "copy me")
+	service := mustService(t, root, requestStub(func(_ context.Context, subject string, _ any, response any) error {
+		if subject == rbaccontract.CheckPathOperationRPCSubject {
+			response.(*rbaccontract.DecisionResponse).Allowed = false
+		}
+		return nil
+	}))
+	service.writerCommand = (&memoryWriter{}).command
+	service.readerCommand = openWorkflowFile
+	err := service.copyFile(t.Context(), workflowJob("copy", source, destination), source, destination, make(chan operationUpdate, 2))
+	_, statErr := os.Stat(destination)
+	if err == nil || !os.IsNotExist(statErr) {
+		t.Fatalf("copy = %v, destination stat = %v; denied destination was published", err, statErr)
+	}
+}
+
 // mustMoveDirectoryTree prepares and moves a nested fixture tree.
 func mustMoveDirectoryTree(t *testing.T) (string, string) {
 	t.Helper()

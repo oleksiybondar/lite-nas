@@ -205,7 +205,7 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
-	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil)
+	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil, "")
 	if !issued {
 		t.Fatal("issueAccessToken() failed")
 	}
@@ -222,6 +222,90 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	}
 	if response.Username != "testuser" {
 		t.Fatalf("Username = %q, want testuser", response.Username)
+	}
+}
+
+// TestRevokeSessionRejectsItsAccessToken covers live session revocation.
+func TestRevokeSessionRejectsItsAccessToken(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, issued := issueAccessToken(runtimeDeps, "admin", "admin", []string{"admin"}, "")
+	if !issued {
+		t.Fatal("admin token issuance failed")
+	}
+	response, err := handleRevokeSessionRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeSessionRequest{AccessToken: adminToken, SessionID: claims.SessionID}))
+	if err != nil || !response.Revoked {
+		t.Fatalf("revoke = %#v, %v", response, err)
+	}
+	validated, err := handleValidateAccessTokenRPC(runtimeDeps, rpcEnvelope(t, authcontract.ValidateAccessTokenRequest{AccessToken: login.AccessToken}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validated.Valid {
+		t.Fatal("revoked access token accepted")
+	}
+}
+
+// TestListSessionsReturnsLoginSession covers administrator session discovery.
+func TestListSessionsReturnsLoginSession(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, issued := issueAccessToken(runtimeDeps, "admin", "admin", []string{"admin"}, "")
+	if !issued {
+		t.Fatal("admin token issuance failed")
+	}
+	response, err := handleListSessionsRPC(runtimeDeps, rpcEnvelope(t, authcontract.ListSessionsRequest{AccessToken: adminToken}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Sessions) != 1 || response.Sessions[0].SessionID != claims.SessionID {
+		t.Fatalf("sessions = %#v, want login session", response.Sessions)
+	}
+}
+
+// TestRevokeSessionRequiresAdministrator covers the revocation RPC authorization boundary.
+func TestRevokeSessionRequiresAdministrator(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := handleRevokeSessionRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeSessionRequest{AccessToken: login.AccessToken, SessionID: claims.SessionID}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Revoked {
+		t.Fatal("non-administrator revoked session")
+	}
+}
+
+// TestRevokeSessionRejectsRefreshToken covers refresh credential invalidation.
+func TestRevokeSessionRejectsRefreshToken(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, issued := issueAccessToken(runtimeDeps, "admin", "admin", []string{"admin"}, "")
+	if !issued {
+		t.Fatal("admin token issuance failed")
+	}
+	response, err := handleRevokeSessionRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeSessionRequest{AccessToken: adminToken, SessionID: claims.SessionID}))
+	if err != nil || !response.Revoked {
+		t.Fatalf("revoke = %#v, %v", response, err)
+	}
+	refreshed, err := handleRefreshRPC(runtimeDeps, rpcEnvelope(t, authcontract.RefreshRequest{RefreshToken: login.RefreshToken, UserAgent: "lite-nas-test"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.AccessToken != "" {
+		t.Fatal("revoked refresh token accepted")
 	}
 }
 

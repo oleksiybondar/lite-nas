@@ -146,7 +146,7 @@ func (m *manager) register(server messaging.Server) error {
 }
 
 // decode rejects malformed payloads and callers without a security role.
-func decode[T any](m *manager, envelope messaging.Envelope, accessToken func(T) string) (T, authtoken.AccessClaims, error) {
+func decode[T any](ctx context.Context, m *manager, envelope messaging.Envelope, accessToken func(T) string) (T, authtoken.AccessClaims, error) {
 	var request T
 	if len(envelope.Payload) > 16*1024 {
 		return request, authtoken.AccessClaims{}, fmt.Errorf("request too large")
@@ -162,7 +162,7 @@ func decode[T any](m *manager, envelope messaging.Envelope, accessToken func(T) 
 	if err := m.validator.Struct(request); err != nil {
 		return request, authtoken.AccessClaims{}, err
 	}
-	claims, err := m.verifier.Verify(accessToken(request))
+	claims, err := authtoken.VerifyLive(ctx, m.client, m.verifier, accessToken(request))
 	if err != nil || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementSecurity) {
 		return request, authtoken.AccessClaims{}, fmt.Errorf("security authorization required")
 	}
@@ -171,7 +171,7 @@ func decode[T any](m *manager, envelope messaging.Envelope, accessToken func(T) 
 
 // list returns the current usbguard device inventory.
 func (m *manager) list(ctx context.Context, envelope messaging.Envelope) (any, error) {
-	if _, _, err := decode(m, envelope, func(request contract.ListRequest) string { return request.AccessToken }); err != nil {
+	if _, _, err := decode(ctx, m, envelope, func(request contract.ListRequest) string { return request.AccessToken }); err != nil {
 		return nil, err
 	}
 	output, err := m.submit(ctx, "list-devices", "", false)
@@ -183,7 +183,7 @@ func (m *manager) list(ctx context.Context, envelope messaging.Envelope) (any, e
 
 // action validates the USBGuard numeric device ID before queuing a decision.
 func (m *manager) action(ctx context.Context, envelope messaging.Envelope, action string) (any, error) {
-	request, claims, err := decode(m, envelope, func(request contract.DeviceRequest) string { return request.AccessToken })
+	request, claims, err := decode(ctx, m, envelope, func(request contract.DeviceRequest) string { return request.AccessToken })
 	if err != nil {
 		return nil, err
 	}

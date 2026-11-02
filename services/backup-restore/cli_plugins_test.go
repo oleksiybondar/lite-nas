@@ -3,6 +3,7 @@ package backuprestore
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -274,5 +275,180 @@ func TestCloudflaredRestoreValidationUsesStagedConfig(t *testing.T) {
 	}
 	if got != staged {
 		t.Fatalf("validated path = %q", got)
+	}
+}
+
+// TestCloudflaredLiveValidationChecksSelectedCredential covers backup-restore/SR-002.
+func TestCloudflaredLiveValidationChecksSelectedCredential(t *testing.T) {
+	root := t.TempDir()
+	credential := filepath.Join(root, "tunnel.json")
+	config := filepath.Join(root, "config.yml")
+	if err := os.WriteFile(credential, []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, []byte("tunnel: 1234\ncredentials-file: "+credential+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var validated string
+	plugin := &CloudflaredPlugin{run: func(path string) error { validated = path; return nil }}
+	spec := Spec{ConfigPath: config, Selections: []Selection{{Path: root, Directory: true}}}
+	if err := validateLiveCloudflared(spec, plugin); err != nil {
+		t.Fatal(err)
+	}
+	if validated != config {
+		t.Fatalf("validated path = %q", validated)
+	}
+}
+
+// TestCloudflaredBackupValidatesLiveConfig covers backup-restore/FR-003.
+func TestCloudflaredBackupValidatesLiveConfig(t *testing.T) {
+	root := t.TempDir()
+	credential := filepath.Join(root, "tunnel.json")
+	config := filepath.Join(root, "config.yml")
+	if err := os.WriteFile(credential, []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, []byte("tunnel: 1234\ncredentials-file: "+credential+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var validated bool
+	plugin := &CloudflaredPlugin{run: func(path string) error { validated = path == config; return nil }}
+	store := Store{Root: filepath.Join(t.TempDir(), "backups"), Cloudflared: plugin}
+	spec := Spec{Application: "cloudflared", Plugin: "cloudflared", ConfigPath: config, Selections: []Selection{{Path: root, Directory: true}}}
+	_, err := store.Backup(spec)
+	if err != nil || !validated {
+		t.Fatalf("backup = %v, validated = %t", err, validated)
+	}
+}
+
+// TestCloudflaredValidationRejectsRelativeConfig covers backup-restore/SR-003.
+func TestCloudflaredValidationRejectsRelativeConfig(t *testing.T) {
+	if err := runCloudflaredValidation("relative.yml"); err == nil {
+		t.Fatal("relative config path accepted")
+	}
+}
+
+// TestCloudflaredLiveValidationRejectsUnselectedCredential covers backup-restore/SR-002.
+func TestCloudflaredLiveValidationRejectsUnselectedCredential(t *testing.T) {
+	root := t.TempDir()
+	config := filepath.Join(root, "config.yml")
+	if err := os.WriteFile(config, []byte("tunnel: 1234\ncredentials-file: /tmp/unselected.json\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	plugin := &CloudflaredPlugin{run: func(string) error { t.Fatal("CLI reached"); return nil }}
+	spec := Spec{ConfigPath: config, Selections: []Selection{{Path: config}}}
+	if err := validateLiveCloudflared(spec, plugin); err == nil {
+		t.Fatal("unselected credential accepted")
+	}
+}
+
+// TestCloudflaredLiveValidationRejectsMissingCredential covers backup-restore/SR-002.
+func TestCloudflaredLiveValidationRejectsMissingCredential(t *testing.T) {
+	root := t.TempDir()
+	config := filepath.Join(root, "config.yml")
+	credential := filepath.Join(root, "missing.json")
+	if err := os.WriteFile(config, []byte("tunnel: 1234\ncredentials-file: "+credential+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	plugin := &CloudflaredPlugin{run: func(string) error { t.Fatal("CLI reached"); return nil }}
+	spec := Spec{ConfigPath: config, Selections: []Selection{{Path: root, Directory: true}}}
+	if err := validateLiveCloudflared(spec, plugin); err == nil {
+		t.Fatal("missing credential accepted")
+	}
+}
+
+// TestTailscaleExportRejectsUnavailablePlugin covers backup-restore/SR-003.
+func TestTailscaleExportRejectsUnavailablePlugin(t *testing.T) {
+	var plugin *TailscalePlugin
+	if _, err := plugin.Export(); err == nil {
+		t.Fatal("unavailable plugin exported preferences")
+	}
+}
+
+// TestTailscaleApplyRejectsMalformedInstalledPreferences covers backup-restore/SR-002.
+func TestTailscaleApplyRejectsMalformedInstalledPreferences(t *testing.T) {
+	plugin := &TailscalePlugin{run: func(arguments ...string) ([]byte, error) {
+		if arguments[0] == "get" {
+			return []byte("--ssh=invalid"), nil
+		}
+		t.Fatal("set reached after malformed installed preferences")
+		return nil, nil
+	}}
+	if err := plugin.Apply([]byte(`{"schemaVersion":1,"flags":["--ssh=false"]}`)); err == nil {
+		t.Fatal("malformed installed preferences accepted")
+	}
+}
+
+// TestTailscaleApplySurfacesInstalledCLIError covers backup-restore/SR-002.
+func TestTailscaleApplySurfacesInstalledCLIError(t *testing.T) {
+	plugin := &TailscalePlugin{run: func(arguments ...string) ([]byte, error) {
+		if arguments[0] != "get" {
+			t.Fatal("set reached after CLI error")
+		}
+		return nil, errors.New("CLI unavailable")
+	}}
+	if err := plugin.Apply([]byte(`{"schemaVersion":1,"flags":["--ssh=false"]}`)); err == nil {
+		t.Fatal("CLI error ignored")
+	}
+}
+
+// TestTailscaleRunnerRejectsMissingCommand covers backup-restore/SR-003.
+func TestTailscaleRunnerRejectsMissingCommand(t *testing.T) {
+	if _, err := runTailscaleCommand(); err == nil {
+		t.Fatal("missing command accepted")
+	}
+}
+
+// TestTailscaleFlagValuesRejectMalformedOperands covers backup-restore/SR-002.
+func TestTailscaleFlagValuesRejectMalformedOperands(t *testing.T) {
+	cases := []struct{ name, flag, value string }{
+		{"route", "advertise-routes", "not-a-prefix"},
+		{"netfilter", "netfilter-mode", "invalid"},
+		{"port", "relay-server-port", "65536"},
+		{"endpoint", "relay-server-static-endpoints", "invalid"},
+		{"hostname", "hostname", "space here"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := validateTailscaleFlagValue(testCase.flag, testCase.value, true); err == nil {
+				t.Fatal("malformed Tailscale flag value accepted")
+			}
+		})
+	}
+}
+
+// TestTailscaleFlagValuesAcceptValidNetworkOperands covers backup-restore/FR-003.
+func TestTailscaleFlagValuesAcceptValidNetworkOperands(t *testing.T) {
+	cases := []struct{ name, flag, value string }{
+		{"route", "advertise-routes", "192.0.2.0/24"},
+		{"netfilter", "netfilter-mode", "nodivert"},
+		{"port", "relay-server-port", "41641"},
+		{"endpoint", "relay-server-static-endpoints", "192.0.2.1:41641"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := validateTailscaleFlagValue(testCase.flag, testCase.value, true); err != nil {
+				t.Fatalf("valid Tailscale flag rejected: %v", err)
+			}
+		})
+	}
+}
+
+// TestTailscaleDiffOmitsUnchangedPreferences covers backup-restore/FR-010.
+func TestTailscaleDiffOmitsUnchangedPreferences(t *testing.T) {
+	root := t.TempDir()
+	plugin := &TailscalePlugin{run: func(...string) ([]byte, error) { return []byte("--ssh=false"), nil }}
+	store := Store{Root: filepath.Join(root, "backups"), Tailscale: plugin}
+	spec := Spec{Application: "tailscale", Plugin: "tailscale", Selections: []Selection{{Path: tailscaleArchivePath}}}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	differences, err := store.Diff(spec, version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(differences) != 0 {
+		t.Fatalf("differences = %#v", differences)
 	}
 }

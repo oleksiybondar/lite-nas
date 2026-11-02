@@ -45,7 +45,9 @@
       "securityAlertsActive": "Aktive sikkerhedsadvarsler, der kræver fortsat opmærksomhed.",
       "securityAlertsHistory": "Fuld historik over sikkerhedsadvarsler til gennemgang, revision og undersøgelser.",
       "securityAlertsSummary": "Gennemgå sikkerhedsadvarsler efter status, så undersøgelse og bekræftelse holdes adskilt.",
-      "securitySessions": "Gennemgå aktive værtssessioner, og administrer adgangen til dem.",
+      "securitySessions": "Gennemse værtens loginsessioner og LiteNAS-godkendelsessessioner.",
+      "loginCtlSessions": "Gennemse og administrer værtens loginctl-sessioner.",
+      "authSessions": "Gennemse og tilbagekald LiteNAS Auth-login.",
       "securityJournal": "Gennemse og administrer værtens systemjournal.",
       "securitySummary": "Gennemse værtssessioner, sikkerhedsopgaver og systemjournalen.",
       "applicationsExplorer": "Gennemse filer, og upload til mapper, du har adgang til.",
@@ -337,6 +339,18 @@
       "confirmVacuum": "Bekræft rydning",
       "unknownSource": "Ukendt kilde",
       "unavailableMessage": "Meddelelse ikke tilgængelig"
+    },
+    "authSessions": {
+      "description": "Aktive LiteNAS-login. Når en session tilbagekaldes, kan dens tokens ikke længere godkende handlinger.",
+      "loading": "Indlæser godkendelsessessioner.",
+      "loadFailed": "Kunne ikke indlæse godkendelsessessioner.",
+      "empty": "Ingen aktive godkendelsessessioner.",
+      "subject": "Konto",
+      "id": "Sessions-id",
+      "expiresAt": "Udløber",
+      "revoke": "Tilbagekald",
+      "revokeFailed": "Kunne ikke tilbagekalde godkendelsessessionen.",
+      "confirmRevoke": "Tilbagekald LiteNAS Auth-sessionen for {login}?"
     },
     "sessions": {
       "title": "Værtssessioner",
@@ -887,6 +901,8 @@
     "expand": "Udvid",
     "collapse": "Skjul",
     "Sessions": "Sessioner",
+    "loginctl": "loginctl",
+    "LiteNAS Auth": "LiteNAS Auth",
     "Journal": "Journal",
     "Backup and restore": "Sikkerhedskopi og gendannelse",
     "Integrity": "Integritet",

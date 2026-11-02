@@ -17,6 +17,7 @@ import (
 	authcontract "lite-nas/shared/contracts/auth"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	"lite-nas/shared/messaging"
+	"lite-nas/shared/roleauth"
 )
 
 const (
@@ -203,7 +204,7 @@ func verifierOptions(cfg sharedconfig.AuthTokenConfig) authtoken.VerifierOptions
 func newRefreshStore(cfg sharedconfig.AuthTokenConfig) *sessions.Store {
 	return sessions.NewStore(
 		time.Now,
-		sessions.StoreOptions{EnforceClientIP: cfg.EnforceRefreshClientIP},
+		sessions.StoreOptions{EnforceClientIP: cfg.EnforceRefreshClientIP, RevocationTTL: cfg.AccessLifetime + cfg.ClockSkew},
 	)
 }
 
@@ -249,6 +250,16 @@ func registerUserRPCHandlers(server messaging.Server, runtimeDeps authRuntime) e
 
 	if err := server.RegisterRPC(authcontract.ValidateAccessTokenRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
 		return handleValidateAccessTokenRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.RevokeSessionRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleRevokeSessionRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(authcontract.ListSessionsRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleListSessionsRPC(runtimeDeps, envelope)
 	}); err != nil {
 		return err
 	}
@@ -341,13 +352,13 @@ func handleLoginRPCWithContext(ctx context.Context, runtimeDeps authRuntime, env
 func issueLoginSession(runtimeDeps authRuntime, request authcontract.LoginRequest, result pamauth.Result) authcontract.LoginResponse {
 	login := resolvedLogin(result.Username, request.Username)
 	subject, roles := resolvePrincipalRoles(runtimeDeps, login)
-	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles)
-	if !issued {
+	refreshToken, record, created := createRefreshToken(runtimeDeps, request, subject, login)
+	if !created {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}
 	}
-
-	refreshToken, created := createRefreshToken(runtimeDeps, request, subject, login)
-	if !created {
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles, record.SessionID)
+	if !issued {
+		_ = runtimeDeps.RefreshStore.Revoke(refreshToken)
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}
 	}
 
@@ -379,11 +390,12 @@ func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRe
 	return result, true
 }
 
-func issueAccessToken(runtimeDeps authRuntime, subject string, login string, roles []string) (string, bool) {
+func issueAccessToken(runtimeDeps authRuntime, subject string, login string, roles []string, sessionID string) (string, bool) {
 	accessToken, _, err := runtimeDeps.Tokens.Issuer.Issue(authtoken.Principal{
-		Subject: subject,
-		Login:   login,
-		Roles:   roles,
+		SessionID: sessionID,
+		Subject:   subject,
+		Login:     login,
+		Roles:     roles,
 	})
 	if err != nil {
 		return "", false
@@ -419,8 +431,8 @@ func resolvePrincipalRoles(runtimeDeps authRuntime, username string) (string, []
 	return subject, response.Groups
 }
 
-func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginRequest, subject string, username string) (string, bool) {
-	refreshToken, _, err := runtimeDeps.RefreshStore.Create(sessions.CreateInput{
+func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginRequest, subject string, username string) (string, sessions.RefreshRecord, bool) {
+	refreshToken, record, err := runtimeDeps.RefreshStore.Create(sessions.CreateInput{
 		SessionID: newSessionID(),
 		Subject:   subject,
 		Login:     username,
@@ -428,10 +440,10 @@ func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginReque
 		TTL:       refreshTokenTTL,
 	})
 	if err != nil {
-		return "", false
+		return "", sessions.RefreshRecord{}, false
 	}
 
-	return refreshToken.Value, true
+	return refreshToken.Value, record, true
 }
 
 func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.RefreshResponse, error) {
@@ -453,7 +465,7 @@ func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (aut
 	}
 
 	subject, roles := resolvePrincipalRoles(runtimeDeps, record.Login)
-	accessToken, issued := issueAccessToken(runtimeDeps, subject, record.Login, roles)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, record.Login, roles, record.SessionID)
 	if !issued {
 		return authcontract.RefreshResponse{}, nil
 	}
@@ -513,11 +525,41 @@ func handleValidateAccessTokenRPC(runtimeDeps authRuntime, envelope messaging.En
 
 func verifyAccessToken(runtimeDeps authRuntime, accessToken string) (authtoken.AccessClaims, bool) {
 	claims, err := runtimeDeps.Tokens.Verifier.Verify(accessToken)
-	if err != nil {
+	if err != nil || runtimeDeps.RefreshStore.IsRevoked(claims.SessionID) {
 		return authtoken.AccessClaims{}, false
 	}
 
 	return claims, true
+}
+
+// handleRevokeSessionRPC revokes one login session after administrator authorization.
+func handleRevokeSessionRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.RevokeSessionResponse, error) {
+	var request authcontract.RevokeSessionRequest
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
+		return authcontract.RevokeSessionResponse{}, nil
+	}
+	claims, valid := verifyAccessToken(runtimeDeps, request.AccessToken)
+	if !valid || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementAdministrator) {
+		return authcontract.RevokeSessionResponse{}, nil
+	}
+	return authcontract.RevokeSessionResponse{Revoked: runtimeDeps.RefreshStore.RevokeSession(request.SessionID)}, nil
+}
+
+// handleListSessionsRPC returns active login sessions to an administrator.
+func handleListSessionsRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.ListSessionsResponse, error) {
+	var request authcontract.ListSessionsRequest
+	if !decodeRPCRequest(envelope, &request, runtimeDeps.Validator) {
+		return authcontract.ListSessionsResponse{}, nil
+	}
+	claims, valid := verifyAccessToken(runtimeDeps, request.AccessToken)
+	if !valid || !roleauth.MatchesRequirement(claims.Roles, roleauth.RequirementAdministrator) {
+		return authcontract.ListSessionsResponse{}, nil
+	}
+	response := authcontract.ListSessionsResponse{Sessions: []authcontract.SessionSummary{}}
+	for _, session := range runtimeDeps.RefreshStore.List() {
+		response.Sessions = append(response.Sessions, authcontract.SessionSummary{SessionID: session.SessionID, Subject: session.Subject, Login: session.Login, ExpiresAt: session.ExpiresAt})
+	}
+	return response, nil
 }
 
 // handleServiceTokenLoginRPC mints a new service token pair for one service.

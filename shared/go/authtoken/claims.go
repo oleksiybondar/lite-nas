@@ -28,6 +28,7 @@ func newAccessClaims(options accessClaimOptions) AccessClaims {
 
 	return AccessClaims{
 		RegisteredClaims: newRegisteredClaims(options),
+		SessionID:        options.Principal.SessionID,
 		Login:            options.Principal.Login,
 		Scopes:           scopes,
 		Roles:            roles,

@@ -52,7 +52,7 @@ export const ServiceMetricCardActions = ({
         startIcon={<ActionIcon fontSize="small" />}
         variant="contained"
       >
-        {getLabel(`admin.system.service.${primaryAction.label.toLowerCase()}`)}
+        {getLabel(`admin.telemetry.service.${primaryAction.label.toLowerCase()}`)}
       </Button>
       <Button
         color="warning"
@@ -63,7 +63,7 @@ export const ServiceMetricCardActions = ({
         startIcon={<RestartAltIcon fontSize="small" />}
         variant="contained"
       >
-        {getLabel("admin.system.service.restart")}
+        {getLabel("admin.telemetry.service.restart")}
       </Button>
       <ServiceMetricStartupToggle
         busy={busy}

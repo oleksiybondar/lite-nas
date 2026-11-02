@@ -180,6 +180,16 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  authcontract.ValidateAccessTokenRequest{},
 			Response: authcontract.ValidateAccessTokenResponse{},
 		},
+		"revoke_session": {
+			Subject:  authcontract.RevokeSessionRPCSubject,
+			Request:  authcontract.RevokeSessionRequest{},
+			Response: authcontract.RevokeSessionResponse{},
+		},
+		"list_sessions": {
+			Subject:  authcontract.ListSessionsRPCSubject,
+			Request:  authcontract.ListSessionsRequest{},
+			Response: authcontract.ListSessionsResponse{},
+		},
 		"login_service_token": {
 			Subject:  authcontract.ServiceTokenLoginRPCSubject,
 			Request:  authcontract.ServiceTokenLoginRequest{},

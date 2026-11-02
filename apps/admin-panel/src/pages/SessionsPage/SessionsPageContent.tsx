@@ -92,7 +92,7 @@ export const SessionsPageContent = (): ReactElement | null => {
   return (
     <Stack data-testid="sessions-page" spacing={3}>
       <Typography variant="h1" data-testid="sessions-title">
-        {getLabel("navigation.Sessions")}
+        {getLabel("navigation.loginctl")}
       </Typography>
       <Paper sx={{ p: 3 }}>
         <Stack spacing={2}>

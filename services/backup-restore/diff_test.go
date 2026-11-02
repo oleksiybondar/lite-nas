@@ -1,10 +1,37 @@
 package backuprestore
 
 import (
+	"archive/tar"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+// TestCompareEntryAcceptsMatchingSymlink covers backup-restore/FR-010.
+func TestCompareEntryAcceptsMatchingSymlink(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.link")
+	if err := os.Symlink("config.conf", path); err != nil {
+		t.Fatal(err)
+	}
+	status, err := compareEntry(stagedEntry{path: path, header: &tar.Header{Typeflag: tar.TypeSymlink, Linkname: "config.conf"}})
+	if err != nil || status != "same" {
+		t.Fatalf("status = %q, error = %v", status, err)
+	}
+}
+
+// TestCompareEntryReportsChangedSymlink covers backup-restore/FR-010.
+func TestCompareEntryReportsChangedSymlink(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "config.link")
+	if err := os.Symlink("other.conf", path); err != nil {
+		t.Fatal(err)
+	}
+	status, err := compareEntry(stagedEntry{path: path, header: &tar.Header{Typeflag: tar.TypeSymlink, Linkname: "config.conf"}})
+	if err != nil || status != "changed" {
+		t.Fatalf("status = %q, error = %v", status, err)
+	}
+}
 
 // Requirements: backup-restore/FR-010.
 func TestStoreDiffReportsChangedFile(t *testing.T) {
