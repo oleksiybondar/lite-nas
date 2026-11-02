@@ -62,7 +62,17 @@ applies one compiled FSM plugin to those observations. Add a rule that names an
 existing instance when its timing and key policy fit. Add another instance of
 an existing plugin type when the threshold, window, cooldown, or key policy
 differs. Each rule keeps separate FSM state even when several rules share an
-instance, because the state key starts with the rule ID.
+instance, because the state key is `rule ID / tracked key`. With `key_by: account`,
+each account has its own count, window, cooldown, and alert ID within
+that rule; `source` does the same per source address. For `global`, there is
+one state entry per rule. An observation for one entry cannot advance or reset
+another entry.
+
+Rules assigned to the same instance also share that instance's `max_keys`
+capacity and 32-observation input queue. If the shared capacity fills, the
+plugin logs an error and cannot track a new rule/key combination until an
+inactive entry expires. Give rules separate instances when they need separate
+capacity or queue limits, even if their timing and key policy are identical.
 
 | Plugin `type` | `threshold` | `key_by` | First alert |
 | --- | --- | --- | --- |
@@ -92,7 +102,7 @@ when Log Analysis restarts.
 | `cooldown` | Quiet period for grouping later records as occurrences |
 | `idle` | Maximum inactive state lifetime; must exceed `cooldown` |
 | `key_by` | `global`, `account`, or `source` as allowed by the plugin type |
-| `max_keys` | Bound on tracked rule/key combinations |
+| `max_keys` | Bound on tracked rule/key combinations across all rules using this instance |
 | `event_id_prefix` | Optional override of the file's default event ID prefix |
 
 | Rule key | Meaning |
