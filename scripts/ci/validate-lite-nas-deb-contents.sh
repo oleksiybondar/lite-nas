@@ -359,6 +359,10 @@ assert_cmd "security-logging-manager-cli AppArmor profile packaged" assert_file 
 assert_cmd "nginx AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.sbin.nginx"
 
 assert_cmd "PAM config template packaged" assert_file "$packaged_config_root/pam.d/litenas-auth"
+assert_cmd "PAM password policy packaged" assert_file "$packaged_config_root/security/pwquality.conf"
+assert_cmd "PAM lockout policy packaged" assert_file "$packaged_config_root/security/faillock.conf"
+assert_cmd "PAM precheck profile packaged" assert_file "usr/libexec/lite-nas/configs/usr/share/pam-configs/lite-nas-faillock-preauth"
+assert_cmd "PAM failed-auth profile packaged" assert_file "usr/libexec/lite-nas/configs/usr/share/pam-configs/lite-nas-faillock-authfail"
 assert_cmd "nginx site config template packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf"
 assert_cmd "web-gateway is the default loopback HTTP virtual host" \
 	assert_file_contains "$packaged_config_root/nginx/sites-available/lite-nas-web-gateway.conf" \
@@ -384,8 +388,8 @@ assert_cmd "service admin sudoers rule uses kill helper" assert_file_contains "$
 assert_cmd "auth unit permits PAM helper transition" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "NoNewPrivileges=no"
 assert_cmd "auth unit grants PAM credential read capability" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "CapabilityBoundingSet=CAP_DAC_READ_SEARCH"
 assert_cmd "auth unit makes PAM credential read capability effective" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" "AmbientCapabilities=CAP_DAC_READ_SEARCH"
-assert_cmd "auth unit grants shadow ownership capability" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_CHOWN'
-assert_cmd "auth unit makes shadow ownership capability effective" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_CHOWN'
+assert_cmd "auth unit grants shadow ownership capability" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN'
+assert_cmd "auth unit makes shadow ownership capability effective" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN'
 assert_cmd "auth unit permits shadow replacement" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-auth.service" 'ReadWritePaths=/etc '
 assert_cmd "auth defaults to traceable conversation logging" assert_file_contains "$packaged_config_root/lite-nas/auth.conf" 'level=info'
 assert_cmd "file-service unit bounds sudo identity capabilities" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-file-service.service" 'CapabilityBoundingSet=CAP_SETUID CAP_SETGID'

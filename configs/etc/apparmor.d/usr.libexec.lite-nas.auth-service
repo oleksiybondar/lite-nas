@@ -9,6 +9,8 @@ profile /usr/libexec/lite-nas/auth-service flags=(attach_disconnected,mediate_de
 
   # pam_unix preserves shadow ownership when replacing its temporary file.
   capability chown,
+  # pam_faillock writes each user's host tally from this service account.
+  capability dac_override,
 
   /usr/libexec/lite-nas/auth-service mr,
   /etc/lite-nas/auth.conf r,
@@ -21,6 +23,8 @@ profile /usr/libexec/lite-nas/auth-service flags=(attach_disconnected,mediate_de
   /etc/.pam.shadow* rwk,
   /etc/nshadow rwk,
   /etc/shadow rw,
+  /var/lib/faillock/ rw,
+  /var/lib/faillock/** rwk,
   /etc/lite-nas/certificates/auth/token-signing.crt r,
   /etc/lite-nas/certificates/auth/token-signing.key r,
   /var/log/lite-nas/auth-service.log rw,

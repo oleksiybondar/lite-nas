@@ -3,9 +3,34 @@ package main
 import (
 	"context"
 	"os"
+	"os/user"
 	"testing"
 	"time"
 )
+
+// Requirements: security-monitoring/FR-001.
+func TestResolveSenderUIDsAcceptsCurrentAccount(t *testing.T) {
+	t.Parallel()
+	current, err := user.Current()
+	if err != nil {
+		t.Fatalf("current account: %v", err)
+	}
+	senders, err := resolveSenderUIDs([]string{"missing-lite-nas-sender", current.Username})
+	if err != nil {
+		t.Fatalf("resolve senders: %v", err)
+	}
+	if !senders[uint32(os.Getuid())] {
+		t.Fatal("current sender was not resolved")
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestResolveSenderUIDsRejectsMissingAccounts(t *testing.T) {
+	t.Parallel()
+	if _, err := resolveSenderUIDs([]string{"missing-lite-nas-sender"}); err == nil {
+		t.Fatal("missing sender account was accepted")
+	}
+}
 
 // TestReceiverForwardsSelectedSocketRecord sends a real datagram through a
 // Unix socket so kernel-attached sender credentials are exercised.

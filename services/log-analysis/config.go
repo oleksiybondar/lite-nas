@@ -137,6 +137,7 @@ type ruleSpec struct {
 	Source          string   `json:"source"`
 	Category        string   `json:"category"`
 	Pattern         string   `json:"pattern"`
+	AccountPattern  string   `json:"account_pattern,omitempty"`
 	SuccessPattern  string   `json:"success_pattern,omitempty"`
 	Require         []string `json:"require,omitempty"`
 	Exclude         []string `json:"exclude,omitempty"`
@@ -159,6 +160,7 @@ type rulesFile struct {
 type compiledRule struct {
 	spec    ruleSpec
 	match   *regexp.Regexp
+	account *regexp.Regexp
 	success *regexp.Regexp
 	require []*regexp.Regexp
 	exclude []*regexp.Regexp
@@ -304,6 +306,15 @@ func compileRulePatterns(rule ruleSpec) (compiledRule, error) {
 		return compiledRule{}, err
 	}
 	compiled := compiledRule{spec: rule, match: match}
+	if rule.AccountPattern != "" {
+		compiled.account, err = compile(rule.AccountPattern)
+		if err != nil {
+			return compiledRule{}, err
+		}
+		if compiled.account.NumSubexp() != 1 {
+			return compiledRule{}, errors.New("account_pattern must have exactly one capture group")
+		}
+	}
 	if rule.SuccessPattern != "" {
 		compiled.success, err = compile(rule.SuccessPattern)
 		if err != nil {

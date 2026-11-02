@@ -96,6 +96,28 @@
       "key_by": "source",
       "max_keys": 2048,
       "event_id_prefix": "secssh"
+    },
+    {
+      "id": "account_lockout_event",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 1,
+      "window": "75m",
+      "cooldown": "75m",
+      "idle": "2h",
+      "key_by": "account",
+      "max_keys": 2048
+    },
+    {
+      "id": "repeated_account_lockout",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 5,
+      "window": "75m",
+      "cooldown": "75m",
+      "idle": "2h",
+      "key_by": "account",
+      "max_keys": 2048
     }
   ],
   "rules": [
@@ -115,7 +137,6 @@
       "source": "auth",
       "category": "password_guessing",
       "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
-      "success_pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l):session\\): session opened for user",
       "require": ["(^|\\s)user=\\S+"],
       "instance": "account_retry",
       "severity": "critical",
@@ -209,6 +230,30 @@
       "category": "password_guessing",
       "pattern": "^(Invalid user \\S* from|Failed [a-z/-]+ for \\S+ from) ",
       "instance": "ssh_source_probing",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "pam_account_lockout",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_lockout",
+      "pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user \\S+ account temporarily locked$",
+      "account_pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user (\\S+) account temporarily locked$",
+      "instance": "account_lockout_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false
+    },
+    {
+      "id": "pam_repeated_account_lockout",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_lockout",
+      "pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user \\S+ account temporarily locked$",
+      "account_pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user (\\S+) account temporarily locked$",
+      "instance": "repeated_account_lockout",
       "severity": "critical",
       "email_on_critical": true,
       "lockdown": false

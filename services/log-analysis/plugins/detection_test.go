@@ -49,6 +49,54 @@ func TestImmediatePluginCorrelatesObservationsDuringCooldown(t *testing.T) {
 }
 
 // Requirements: security-monitoring/FR-001.
+func TestPluginWorkerDrainsQueuedObservationOnShutdown(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 1, "account")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	plugin.Start(ctx)
+	plugin.Input() <- authObservation("alice")
+	close(plugin.input)
+	select {
+	case <-plugin.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("plugin worker did not drain its input")
+	}
+	if got := (<-output).Account; got != "alice" {
+		t.Fatalf("detected account = %q", got)
+	}
+}
+
+// Requirements: security-monitoring/IR-004.
+func TestCompiledPluginConstructorsAcceptTheirConfiguredTypes(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		keyBy  string
+		create func(Config, chan<- Detection, sharedlogger.Logger) (*Plugin, error)
+	}{
+		{name: "immediate", keyBy: "global", create: NewImmediate},
+		{name: "threshold", keyBy: "global", create: NewThreshold},
+		{name: "keyed_threshold", keyBy: "account", create: NewKeyedThreshold},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			plugin, err := testCase.create(Config{
+				ID: "configured", Threshold: 2, Window: time.Minute, Cooldown: time.Minute,
+				Idle: 2 * time.Minute, KeyBy: testCase.keyBy, MaxKeys: 1,
+			}, make(chan Detection, 1), sharedlogger.NewNop())
+			if err != nil {
+				t.Fatalf("create %s plugin: %v", testCase.name, err)
+			}
+			if plugin.ID() != "configured" {
+				t.Fatalf("instance ID = %q", plugin.ID())
+			}
+		})
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
 func TestThresholdPluginWaitsForThirdObservation(t *testing.T) {
 	t.Parallel()
 	plugin, output := pluginFixture(t, "threshold", 3, "global")
@@ -82,6 +130,22 @@ func TestKeyedPluginKeepsAccountsIndependent(t *testing.T) {
 	plugin.process(context.Background(), authObservation("bob"))
 	if len(output) != 0 {
 		t.Fatalf("detections = %d", len(output))
+	}
+}
+
+// Requirements: security-monitoring/IR-004.
+func TestSharedInstanceKeepsRulesIndependent(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "threshold", 2, "global")
+	first := authObservation("alice")
+	first.RuleID = "first"
+	second := authObservation("alice")
+	second.RuleID = "second"
+	plugin.process(context.Background(), first)
+	plugin.process(context.Background(), second)
+	plugin.process(context.Background(), first)
+	if len(output) != 1 {
+		t.Fatalf("detections across two rules = %d, want one", len(output))
 	}
 }
 

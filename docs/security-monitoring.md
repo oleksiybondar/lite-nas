@@ -13,7 +13,7 @@ lifecycles. Snapshot collection in metrics services is stateless and was not mig
 
 | Service | Input and output | Default |
 | --- | --- | --- |
-| Log Analysis | Receives rsyslog records on a socket-activated Unix datagram socket; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; one critical, emailed alert per newly connected USB device; source probing and lockdown disabled |
+| Log Analysis | Receives rsyslog records on a socket-activated Unix datagram socket; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; account lockout and fifth-lockout alerts; one critical, emailed alert per newly connected USB device; source probing and lockdown disabled |
 | Network Security | Subscribes to Log Analysis UFW blocked TCP attempt events and Network Metrics snapshots; reports port scans, horizontal scans, and repeated blocked attempts | Each detector defaults to 12 attempts in 2 minutes with a 30 minute cooldown |
 | Mount Monitor | Reads `/proc/self/mountinfo`; publishes `mount.events.lifecycle` and system alerts | 5 second poll; first snapshot is a baseline |
 | Antivirus | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; reports clean scans as normal info events, incomplete scans as warnings, and malware as error events in Security Logging Manager; cancels scans when mounts disappear | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout |
@@ -48,6 +48,78 @@ and `format` (`auth` or `kernel`) chooses the compiled field extraction. The shi
 input module. Authentication-facility records can still be written by any local process through `logger`, as
 with the previous file source.
 
+Rules can provide `account_pattern` with exactly one capture group when a
+selected log format places the account outside the parser's existing fields.
+The dispatcher applies that capture after the rule matches and uses it as the
+per-account correlation key. A missing capture is logged and the observation
+is skipped.
+
+### Rule and plugin configuration
+
+`rules.json` has three lists. A `source` selects forwarded rsyslog records; a
+`rule` matches a source record and produces an observation; an `instance`
+applies one compiled FSM plugin to those observations. Add a rule that names an
+existing instance when its timing and key policy fit. Add another instance of
+an existing plugin type when the threshold, window, cooldown, or key policy
+differs. Each rule keeps separate FSM state even when several rules share an
+instance, because the state key starts with the rule ID.
+
+| Plugin `type` | `threshold` | `key_by` | First alert |
+| --- | --- | --- | --- |
+| `immediate` | Always one | `global` | First matching record for the rule |
+| `threshold` | Configured count | `global` | Count reached for the rule |
+| `keyed_threshold` | Configured count, including one | `account` or `source` | Count reached for one account or source |
+
+For a per-account alert on the first record, use `keyed_threshold` with
+`threshold: 1`, as `pam_account_lockout` does. For a fifth-lockout alert, use a
+separate `keyed_threshold` instance with `threshold: 5`. All three types use
+the same occurrence lifecycle: the first detection creates an alert, each
+matching record during cooldown adds an occurrence to that alert, and every
+occurrence restarts the cooldown. The next matching record after a complete
+cooldown with no observations starts a new alert. A threshold above one counts
+records in a fixed `window` measured from the first record; if the threshold
+is not reached in that window, the count resets. Cooldown changes alert
+correlation, not PAM's account lock time. State is held in memory and resets
+when Log Analysis restarts.
+
+| Instance key | Meaning |
+| --- | --- |
+| `id` | Unique instance name referenced by rules |
+| `enabled` | Construct this instance at startup |
+| `type` | One of the compiled types above |
+| `threshold` | Count needed before the first alert; forced to one for `immediate` |
+| `window` | Fixed counting interval before detection |
+| `cooldown` | Quiet period for grouping later records as occurrences |
+| `idle` | Maximum inactive state lifetime; must exceed `cooldown` |
+| `key_by` | `global`, `account`, or `source` as allowed by the plugin type |
+| `max_keys` | Bound on tracked rule/key combinations |
+| `event_id_prefix` | Optional override of the file's default event ID prefix |
+
+| Rule key | Meaning |
+| --- | --- |
+| `id`, `enabled` | Unique rule name and whether it runs |
+| `source` | ID of the selected rsyslog source |
+| `category` | Alert category |
+| `pattern` | Required RE2 match against the message |
+| `require`, `exclude` | Additional matches that must be present or absent |
+| `account_pattern` | Optional RE2 pattern with one capture for the account key |
+| `instance` | ID of the plugin instance that receives matches |
+| `severity` | `info`, `warning`, `error`, or `critical` |
+| `email_on_critical` | Request email for a critical alert |
+| `lockdown` | Request Auth lockdown after a critical alert is created |
+
+The file also defines `event_id_prefix` and `sources`. Each source has an `id`,
+an `auth` or `kernel` `format`, and at least one selector from `facilities`,
+`inputs`, or `programs`. Selectors within a list are alternatives; populated
+lists must all match. New auth-facility rules usually reuse the shipped `auth`
+source. For a source-keyed rule, the current parser reads `rhost=` or the
+supported OpenSSH address forms; a different address format needs a new field
+extractor. `success_pattern` remains accepted for older rule files, but the
+current plugins ignore success observations, so it does not reset a counter or
+resolve an alert. Do not use it for new rules. Configuration is bounded to 16
+sources, 64 instances, and 128 rules; an unsupported plugin type or malformed
+rule fails at startup.
+
 LiteNAS ships only this drop-in, not a full `rsyslog.conf`. It relies on the distribution configuration loading
 `imklog`, setting `$WorkDirectory`, and including `/etc/rsyslog.d/*.conf`; Debian and Ubuntu defaults do. The
 Log Analysis deployment (`deploy-all.sh`, `deploy-log-analysis.sh`, and the Debian package) installs the drop-in
@@ -61,6 +133,8 @@ The shipped authentication rules, all critical and emailed unless noted:
 | Rule | Selects | Instance and IDs |
 | --- | --- | --- |
 | `pam_*` (existing) | PAM `auth` failures for `litenas-auth`, `sshd`, `login`, `su`, `su-l` and `sudo` | Existing thresholds, `secauth` |
+| `pam_account_lockout` | The `pam_faillock` record emitted when an account first reaches five failures | Per-account alert; later lockouts are occurrences until 75 minutes pass without another lockout, `secauth` |
+| `pam_repeated_account_lockout` | Five lockout records for one account within 75 minutes | Critical emailed alert with a 75-minute quiet-period cooldown; no extra account action, `secauth` |
 | `sudo_policy_violation` | Classic sudo `user NOT in sudoers`, `user NOT authorized on host`, `command not allowed` | Immediate, `secpriv` |
 | `privileged_group_membership` | shadow-utils adds to `sudo`, `admin`, `adm`, `root`, `wheel`, `shadow`, `disk`, `docker`, `lxd` | Immediate, `secpriv` |
 | `login_account_created` | `useradd` accounts whose shell is not `nologin` or `false` | Immediate, `secacct` |
@@ -72,6 +146,32 @@ service-account command, which would otherwise reset guessing state. The sudo de
 (Debian). Ubuntu 26.04 defaults to sudo-rs, whose syslog denial format has not been confirmed, so that rule may
 not trigger there. The SSH rule counts one record per invalid-user connection and one per failed attempt for an
 existing account. Detection messages now include the extracted source address when one is present.
+
+## Host PAM policy
+
+The auth-service deployment enables two `pam-auth-update` profiles in the host
+`common-auth` and `common-account` stacks. `/etc/security/pwquality.conf` requires
+at least nine characters, upper and lower case, a digit, and a special
+character, including for root password changes. `/etc/security/faillock.conf`
+locks an account after five consecutive failures in 15 minutes and unlocks it
+after 15 minutes. Root uses the same lockout time. Tallies in
+`/var/lib/faillock` survive a reboot. This applies to PAM services using the
+host common stacks, including LiteNAS, SSH password authentication, login,
+su, and sudo password authentication. SSH public-key logins and sudo commands
+that skip password authentication do not create password failures.
+
+The Log Analysis rules count the one `pam_faillock` record emitted when a new
+lockout begins. Rejected retries during an existing lockout are not counted.
+The fifth-lockout rule resets its count if 75 minutes elapse before the fifth
+lockout. Existing installed rule files
+are preserved during deployment; merge the two new instances and rules from
+the packaged `rules.json` into the active file to enable these alerts on an
+existing installation. A CIS/OpenSCAP result depends on the selected
+distribution benchmark and the installed host configuration. For example,
+the Ubuntu 24.04 CIS OpenSCAP profile requires a 14-character minimum and no
+more than four failures before lockout, so the requested nine-character and
+five-failure policy needs benchmark tailoring to pass those checks. This
+policy is not itself a certification result.
 
 AppArmor denials and kernel taint messages are not shipped as rules yet. LiteNAS profiles currently log routine
 denials (for example the Go runtime reading cgroup `cpu.max`), so alerts would be constant until those profiles

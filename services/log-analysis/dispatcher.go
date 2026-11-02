@@ -94,6 +94,14 @@ func (d *dispatchWorker) run(_ context.Context) {
 					Account: record.Account, SourceAddress: record.SourceAddress,
 					Service: record.Service, Device: record.Device, At: record.At,
 				}
+				if rule.account != nil {
+					match := rule.account.FindStringSubmatch(record.Message)
+					if len(match) != 2 || match[1] == "" {
+						d.log.Warn("rule account extraction failed", "rule", rule.spec.ID)
+						continue
+					}
+					observation.Account = match[1]
+				}
 				rule.plugin.Input() <- observation
 			}
 		}

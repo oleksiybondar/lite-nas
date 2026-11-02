@@ -37,14 +37,14 @@ RestrictRealtime=yes
 SystemCallArchitectures=native
 # PAM needs to read the account database and preserve shadow-file ownership
 # while replacing it with a temporary file during password changes.
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_CHOWN
-AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_CHOWN
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN
 UMask=0027
 StateDirectory=lite-nas-auth
 StateDirectoryMode=0700
 ReadOnlyPaths=/etc/lite-nas
 # pam_unix creates and renames temporary files in /etc when updating passwords.
-ReadWritePaths=/etc /var/log/lite-nas/auth-service.log /var/lib/lite-nas-auth
+ReadWritePaths=/etc /var/log/lite-nas/auth-service.log /var/lib/lite-nas-auth /var/lib/faillock
 StandardOutput=null
 StandardError=journal
 

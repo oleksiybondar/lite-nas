@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -116,5 +117,61 @@ func TestFanoutReachesTwoPluginInstancesOnOneSource(t *testing.T) {
 	dispatcher.run(nil)
 	if len(instances["account"].Input()) != 1 || len(instances["source"].Input()) != 1 {
 		t.Fatal("fanout missed a plugin instance")
+	}
+}
+
+// Requirements: security-monitoring/FR-009, security-monitoring/IR-004.
+func TestLockoutRuleCapturesAccountBeforeKeyedPlugin(t *testing.T) {
+	t.Parallel()
+	output := make(chan plugins.Detection, 1)
+	instances, err := constructInstances([]instanceSpec{{
+		ID: "lockout", Enabled: true, Type: "keyed_threshold", Threshold: 1,
+		Window: "75m", Cooldown: "75m", Idle: "2h", KeyBy: "account", MaxKeys: 16,
+	}}, "SEC", output, sharedlogger.NewNop())
+	if err != nil {
+		t.Fatalf("construct lockout instance: %v", err)
+	}
+	rule := mustSampleRule(t, "pam_account_lockout").spec
+	rule.Instance = "lockout"
+	routes, err := buildRoutes(rulesFile{Rules: []ruleSpec{rule}}, instances)
+	if err != nil {
+		t.Fatalf("build lockout route: %v", err)
+	}
+	input := make(chan logRecord, 1)
+	input <- logRecord{SourceID: "auth", Message: "pam_faillock(sshd:auth): Consecutive login failures for user alice account temporarily locked"}
+	close(input)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	instances["lockout"].Start(ctx)
+	newDispatchWorker(input, nil, routes, instances, sharedlogger.NewNop()).run(nil)
+	<-instances["lockout"].Done()
+	effect := <-output
+	if effect.Account != "alice" {
+		t.Fatalf("lockout account = %q, want alice", effect.Account)
+	}
+}
+
+// Requirements: security-monitoring/IR-004.
+func TestConstructInstancesRejectsInvalidPluginDefinitions(t *testing.T) {
+	t.Parallel()
+	valid := instanceSpec{
+		ID: "known", Enabled: true, Type: "threshold", Threshold: 2,
+		Window: "1m", Cooldown: "1m", Idle: "2m", KeyBy: "global", MaxKeys: 16,
+	}
+	cases := []struct {
+		name  string
+		specs []instanceSpec
+	}{
+		{name: "unknown type", specs: []instanceSpec{{ID: "unknown", Enabled: true, Type: "absent"}}},
+		{name: "bad threshold", specs: []instanceSpec{{ID: "bad", Enabled: true, Type: "threshold", Threshold: 0, Window: "1m", Cooldown: "1m", Idle: "2m", KeyBy: "global", MaxKeys: 16}}},
+		{name: "duplicate ID", specs: []instanceSpec{valid, valid}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := constructInstances(testCase.specs, "SEC", make(chan plugins.Detection, 1), sharedlogger.NewNop()); err == nil {
+				t.Fatal("invalid plugin instances accepted")
+			}
+		})
 	}
 }
