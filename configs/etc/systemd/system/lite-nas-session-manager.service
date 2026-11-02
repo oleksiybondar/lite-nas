@@ -1,8 +1,8 @@
 [Unit]
 Description=LiteNAS login sessions manager
 AssertSecurity=apparmor
-After=network-online.target nats-server.service systemd-logind.service
-Requires=nats-server.service
+After=network-online.target nats-server.service systemd-logind.service lite-nas-before-startup.service
+Requires=nats-server.service lite-nas-before-startup.service
 
 [Service]
 Type=simple

@@ -1,8 +1,8 @@
 [Unit]
 Description=LiteNAS log analysis service
-After=network-online.target nats-server.service lite-nas-system-logging-manager.service lite-nas-log-analysis.socket
+After=network-online.target nats-server.service lite-nas-system-logging-manager.service lite-nas-log-analysis.socket lite-nas-before-startup.service
 Wants=network-online.target
-Requires=nats-server.service lite-nas-log-analysis.socket
+Requires=nats-server.service lite-nas-log-analysis.socket lite-nas-before-startup.service
 
 [Service]
 Type=simple

@@ -1,8 +1,8 @@
 [Unit]
 Description=LiteNAS integrity service
-After=network-online.target nats-server.service lite-nas-auth.service lite-nas-rbac.service lite-nas-security-logging-manager.service
+After=network-online.target nats-server.service lite-nas-auth.service lite-nas-rbac.service lite-nas-security-logging-manager.service lite-nas-before-startup.service
 Wants=network-online.target lite-nas-auth.service lite-nas-rbac.service lite-nas-security-logging-manager.service
-Requires=nats-server.service
+Requires=nats-server.service lite-nas-before-startup.service
 
 [Service]
 Type=simple

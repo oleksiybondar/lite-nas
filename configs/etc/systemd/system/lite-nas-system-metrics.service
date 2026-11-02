@@ -1,8 +1,8 @@
 [Unit]
 Description=LiteNAS system metrics service
-After=network-online.target nats-server.service
+After=network-online.target nats-server.service lite-nas-before-startup.service
 Wants=network-online.target
-Requires=nats-server.service
+Requires=nats-server.service lite-nas-before-startup.service
 
 [Service]
 Type=simple

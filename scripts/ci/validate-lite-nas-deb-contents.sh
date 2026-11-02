@@ -162,6 +162,9 @@ for manager in services-manager session-manager journal-manager usb-manager; do
 	assert_cmd "$manager unit selects its profile" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-$manager.service" "AppArmorProfile=/usr/libexec/lite-nas/$manager"
 done
 assert_cmd "journal-manager backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/journal-manager.conf"
+assert_cmd "before-startup script packaged" assert_file "$packaged_config_root/lite-nas/before-startup.sh"
+assert_cmd "before-startup unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-before-startup.service"
+assert_cmd "before-startup backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/before-startup.conf"
 assert_cmd "journal-manager NATS authorization packaged" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" 'user: "lite-nas-journal-manager"'
 assert_cmd "journal-manager certificate rotation packaged" assert_file_contains usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh 'lite-nas-journal-manager}'
 # Match the packaged script's literal variable reference.

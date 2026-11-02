@@ -31,8 +31,14 @@ create_systemd_validation_root() {
 	# paths enough for systemd-analyze without depending on host files.
 	mkdir -p \
 		"$systemd_root/etc/systemd/system" \
+		"$systemd_root/etc/lite-nas" \
 		"$systemd_root/usr/bin" \
 		"$systemd_root/usr/libexec/lite-nas"
+	cp configs/etc/systemd/system/lite-nas-before-startup.service \
+		"$systemd_root/etc/systemd/system/lite-nas-before-startup.service"
+	cp configs/etc/lite-nas/before-startup.sh \
+		"$systemd_root/etc/lite-nas/before-startup.sh"
+	chmod 0700 "$systemd_root/etc/lite-nas/before-startup.sh"
 
 	cp configs/etc/systemd/system/lite-nas-auth.service \
 		"$systemd_root/etc/systemd/system/lite-nas-auth.service"
@@ -176,6 +182,11 @@ fi
 
 if command -v systemd-analyze >/dev/null 2>&1; then
 	log.pushTask "Validating systemd units"
+	for unit in configs/etc/systemd/system/lite-nas-*.service; do
+		[ "$unit" = "configs/etc/systemd/system/lite-nas-before-startup.service" ] && continue
+		grep -Eq '^After=.*lite-nas-before-startup\.service([[:space:]]|$)' "$unit"
+		grep -Eq '^Requires=.*lite-nas-before-startup\.service([[:space:]]|$)' "$unit"
+	done
 	if [ -z "${tmp_dir:-}" ]; then
 		tmp_dir="$(mktemp -d)"
 		trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
@@ -184,6 +195,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 	create_systemd_validation_root "$systemd_root"
 	systemd-analyze verify \
 		--root="$systemd_root" \
+		lite-nas-before-startup.service \
 		lite-nas-auth.service \
 		lite-nas-rbac.service \
 		lite-nas-system-logging-manager.service \

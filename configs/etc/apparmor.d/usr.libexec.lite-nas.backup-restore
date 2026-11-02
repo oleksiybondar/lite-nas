@@ -23,6 +23,7 @@ profile /usr/libexec/lite-nas/backup-restore flags=(attach_disconnected,mediate_
   /etc/lite-nas/backup.d/*.conf rw,
   /etc/lite-nas/backup.d/.restore-* rwk,
   /etc/lite-nas/*.conf rw,
+  /etc/lite-nas/before-startup.sh rwk,
   /etc/lite-nas/.restore-* rwk,
   /etc/aide/ r,
   /etc/aide/aide.conf rw,

@@ -1,5 +1,11 @@
 # Security monitoring services
 
+These services form the implemented LiteNAS SIEM path: validated host records
+and observations feed detection rules, alert storage, and optional email
+delivery. The shipped rules and compiled plugins are the current scope. More
+rules and plugin types may be added in later releases after implementation and
+verification; the active rules file is preserved across upgrades.
+
 The security services run as separate unprivileged Go processes. Within each process, polling, NATS input, scanning
 or evaluation, and reporting run as bounded workers. `shared/go/fsm` supplies typed transition tables and a
 bounded keyed memory store; Resources Monitor and LiteNAS Integrity use it for their existing incident

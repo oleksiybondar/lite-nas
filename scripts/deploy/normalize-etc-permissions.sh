@@ -55,6 +55,7 @@ deploy.normalizeLiteNAS() {
 	local spec_file
 	log.pushTask "Normalizing LiteNAS service config permissions"
 	deploy.normalizePath 0711 "$litenas_config_dir" "$litenas_config_owner"
+	deploy.normalizePath 0700 "$litenas_config_dir/before-startup.sh" "$owner"
 	deploy.normalizePath 0711 "$litenas_certificates_dir" "$litenas_config_owner"
 	deploy.normalizePath 0750 "$litenas_backup_specs_dir" "$litenas_config_owner"
 	if [ -d "$litenas_backup_specs_dir" ]; then

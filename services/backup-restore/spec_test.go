@@ -7,6 +7,24 @@ import (
 	"testing"
 )
 
+// Requirements: backup-restore/FR-002.
+func TestPackagedBeforeStartupSpecSelectsHostScript(t *testing.T) {
+	path := "../../configs/etc/lite-nas/backup.d/before-startup.conf"
+	got, err := LoadSpec(path, "before-startup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Spec{
+		Application: "before-startup",
+		SourcePath:  path,
+		Plugin:      "file",
+		Selections:  []Selection{{Path: "/etc/lite-nas/before-startup.sh"}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("before-startup spec = %#v, want %#v", got, want)
+	}
+}
+
 // Requirements: backup-restore/FR-002, journal-manager/BR-001.
 func TestPackagedJournalManagerSpecSelectsConfigurationAndRestart(t *testing.T) {
 	path := "../../configs/etc/lite-nas/backup.d/journal-manager.conf"

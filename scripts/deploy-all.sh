@@ -765,6 +765,23 @@ fi
 
 deploy.liteNAS.installPasswordRotator
 
+# The hook must also be available when --skip-bootstrap omits config deployment.
+install -D -o root -g root -m 0644 \
+	"$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-before-startup.service" \
+	/etc/systemd/system/lite-nas-before-startup.service
+if [ ! -e /etc/lite-nas/before-startup.sh ]; then
+	install -D -o root -g root -m 0700 \
+		"$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/before-startup.sh" \
+		/etc/lite-nas/before-startup.sh
+fi
+chown root:root /etc/lite-nas/before-startup.sh
+chmod 0700 /etc/lite-nas/before-startup.sh
+
+if [ "$should_start" = "1" ] && deploy.hasUsableSystemd; then
+	systemctl daemon-reload
+	systemctl enable --now lite-nas-before-startup.service
+fi
+
 log.pushTask "Preparing missing local system-test users"
 "$ENTRYPOINT_DIR/ci/prepare-system-test-users.sh" --missing-only
 "$ENTRYPOINT_DIR/ci/prepare-system-test-sudo-user.sh" --missing-only

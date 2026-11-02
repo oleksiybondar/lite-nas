@@ -1,8 +1,8 @@
 [Unit]
 Description=LiteNAS network security service
-After=network-online.target nats-server.service lite-nas-network-metrics.service lite-nas-log-analysis.service lite-nas-security-logging-manager.service
+After=network-online.target nats-server.service lite-nas-network-metrics.service lite-nas-log-analysis.service lite-nas-security-logging-manager.service lite-nas-before-startup.service
 Wants=network-online.target
-Requires=nats-server.service
+Requires=nats-server.service lite-nas-before-startup.service
 AssertSecurity=apparmor
 
 [Service]

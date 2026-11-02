@@ -220,6 +220,8 @@ deploy.restartAffectedServices
 log.popTask
 
 log.pushTask "Starting LiteNAS services"
+systemctl daemon-reload
+systemctl enable --now lite-nas-before-startup.service
 deploy.authService.enableAndStart
 deploy.rbacService.enableAndStart
 deploy.systemLoggingManager.enableAndStart

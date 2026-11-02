@@ -86,6 +86,10 @@ The `journal-manager` file target selects `/etc/lite-nas/journal-manager.conf`
 and requests a Journal Manager restart after restore. The shared `systemd` and
 `apparmor` targets include its unit and profile. Journal records and the
 package-managed sudoers rule are outside the Journal Manager file target.
+The `before-startup` file target selects the root-owned
+`/etc/lite-nas/before-startup.sh` host preparation script. Restoring it does
+not rerun the one-shot unit; the script takes effect on the next boot or when
+an administrator explicitly restarts `lite-nas-before-startup.service`.
 Add one `<application>.conf` per additional host application:
 
 ```ini

@@ -1,0 +1,14 @@
+[Unit]
+Description=Prepare the host before LiteNAS services start
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/etc/lite-nas/before-startup.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

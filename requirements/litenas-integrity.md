@@ -481,7 +481,9 @@ optional integration.
 LiteNAS MUST extend Debian's `/etc/aide/aide.conf` through its supported
 `/etc/aide/aide.conf.d` include directory. The policy MUST use separate,
 reviewable rules for the protected filesystem domains and remain compatible
-with AIDE configuration checking used by Debian and OpenSCAP content.
+with AIDE configuration checking used by Debian and OpenSCAP content. OpenSCAP
+assessment is an operator-run compliance workflow; the integrity service does
+not own a host assessment or remediation engine.
 
 #### OR-004 Acceptance Criteria
 

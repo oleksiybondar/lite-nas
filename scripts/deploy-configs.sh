@@ -118,7 +118,8 @@ log.pushTask "Deploying etc configs"
 security_monitor_saved="$(mktemp -d)"
 service_configs_saved="$(mktemp -d)"
 backup_specs_saved="$(mktemp -d)"
-trap 'rm -rf "$security_monitor_saved" "$service_configs_saved" "$backup_specs_saved"' EXIT
+before_startup_saved="$(mktemp -d)"
+trap 'rm -rf "$security_monitor_saved" "$service_configs_saved" "$backup_specs_saved" "$before_startup_saved"' EXIT
 # Merge before copying the tree, so a malformed local config cannot be replaced.
 for config_file in "$target_dir/lite-nas/"*.conf; do
 	[ -f "$config_file" ] || continue
@@ -134,6 +135,9 @@ if [ -d "$target_dir/lite-nas/log-analysis" ]; then
 fi
 if [ -d "$target_dir/lite-nas/backup.d" ]; then
 	cp -a "$target_dir/lite-nas/backup.d" "$backup_specs_saved/backup.d"
+fi
+if [ -f "$target_dir/lite-nas/before-startup.sh" ]; then
+	cp -p "$target_dir/lite-nas/before-startup.sh" "$before_startup_saved/before-startup.sh"
 fi
 old_moments_link=/usr/share/lite-nas/nginx/moments.conf
 if [ "$target_dir" = "/etc" ] && [ -L "$old_moments_link" ] && [ "$(readlink "$old_moments_link")" = "/usr/share/lite-nas/moments/nginx/moments.conf" ]; then
@@ -159,6 +163,9 @@ if [ -d "$security_monitor_saved/log-analysis" ]; then
 fi
 if [ -d "$backup_specs_saved/backup.d" ]; then
 	cp -a "$backup_specs_saved/backup.d" "$target_dir/lite-nas/"
+fi
+if [ -f "$before_startup_saved/before-startup.sh" ]; then
+	cp -p "$before_startup_saved/before-startup.sh" "$target_dir/lite-nas/before-startup.sh"
 fi
 log.popTask
 

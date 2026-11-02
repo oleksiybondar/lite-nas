@@ -27,7 +27,7 @@ review, host-specific decisions, and ongoing assessment.
 
 ## Baseline Model
 
-The LiteNAS Debian package is expected to apply a host profile that includes:
+The LiteNAS Debian package applies a host baseline that includes:
 
 - installation of selected security-related packages
 - deployment of pre-hardened LiteNAS-managed configs
@@ -40,14 +40,11 @@ environment-specific refinement.
 
 ## Runtime Hardening Model
 
-After installation, operators are expected to:
-
-- review the resulting security posture on the target host
-- run LiteNAS-provided assessment or linting tools when available
-- review findings and classify them
-- remediate findings automatically where supported
-- complete manual remediation where automatic changes are not safe or are too
-  environment-specific
+After installation, operators review the host's security posture, use OpenSCAP
+with suitable benchmark content and a selected profile for compliance
+assessment, and apply host-specific changes after reviewing the results.
+LiteNAS focuses on secure platform configuration and runtime monitoring. It
+does not plan a separate security assessment or remediation tool.
 
 ## Policy Exception Model
 

@@ -1,8 +1,7 @@
 # Security Monitoring Requirements
 
 This document records the implemented security-monitoring contracts. Service
-implementations and tests are the evidence for the current behavior; the old
-implementation task is not a source of outstanding work.
+implementations and tests are the evidence for the current behavior.
 
 - **security-monitoring/FR-001 — Log analysis:** Receive rsyslog records on a
   socket-activated Unix datagram socket, accept only configured rsyslog sender
@@ -44,8 +43,19 @@ implementation task is not a source of outstanding work.
 - **security-monitoring/IR-003 — On-demand scan API:** Expose authenticated
   start, status, and retry gateway endpoints backed by antivirus-specific
   request/reply subjects and the shared background-task contracts.
+- **security-monitoring/IR-004 — Configured detection plugins:** Construct
+  compiled Log Analysis plugin types and configured instances at startup.
+  Dispatch selected, validated records to each matching instance without
+  loading code or creating instances in listener workers. Preserve the active
+  rules file across package updates so operators can review new defaults.
+- **security-monitoring/OR-001 — Detection scope:** Ship only implemented and
+  verified detection rules in the default configuration. Additional rules and
+  plugin types may be delivered in later releases with matching documentation
+  and tests; their presence is not implied by the current SIEM deployment.
 
 The producer-owned event ID format is `<domain>_<eight decimal digits>`;
 `CONTRIBUTING.md` defines the repository-wide rule. These requirements describe
 implemented behavior, not a roadmap or an assertion that every integration has
-been exercised on an installed system.
+been exercised on an installed system. Compliance assessment is outside the
+SIEM contract: operators use OpenSCAP with selected benchmark content. A
+LiteNAS-owned host assessment or remediation service is outside platform scope.

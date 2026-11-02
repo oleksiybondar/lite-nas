@@ -94,6 +94,8 @@ normalizes permissions for LiteNAS-managed NATS config paths and restarts
 affected services. The currently affected service list contains `nats-server`.
 This also deploys the LiteNAS logrotate policy at
 `/etc/logrotate.d/lite-nas`, including the File Service and Stream Service logs.
+The root-owned [before-startup hook](before-startup.md) is preserved across
+config deployments and runs before LiteNAS services start.
 
 For validation without touching `/etc`, deploy to another target directory and
 skip service restarts:

@@ -1,7 +1,9 @@
 [Unit]
 Description=LiteNAS ClamAV signature database updater
-After=network-online.target
+After=network-online.target lite-nas-before-startup.service
 Wants=network-online.target
+
+Requires=lite-nas-before-startup.service
 
 [Service]
 Type=oneshot
