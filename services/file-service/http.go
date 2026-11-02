@@ -48,6 +48,8 @@ func newFileService(cfg serviceConfig, policy filesystem.Policy, auth *fileacces
 
 // ServeHTTP authenticates every protected request before dispatching its route.
 func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	principal := "anonymous"
+	writer = &accessDenialWriter{ResponseWriter: writer, logger: s.logger, principal: &principal}
 	if strings.HasPrefix(request.Header.Get("Authorization"), "CaptionGrant ") {
 		if request.Method != http.MethodGet || validateCaptionPath(request.URL.Path) != nil {
 			writeError(writer, http.StatusForbidden, "forbidden")
@@ -68,6 +70,7 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 			}
 			return
 		}
+		principal = subject.Username
 		// Keep the authorized canonical path even if the submitted symlink changes.
 		canonicalRequest := request.Clone(request.Context())
 		canonicalURL := *request.URL
@@ -95,6 +98,7 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 		}
 		return
 	}
+	principal = subject.Username
 	if cookieAuth && isMutation(request.Method) && !sameOrigin(request) {
 		writeError(writer, http.StatusForbidden, "csrf_rejected")
 		return
@@ -135,6 +139,27 @@ func (s *fileService) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 		s.deleteFile(writer, request, subject)
 	default:
 		writeError(writer, http.StatusMethodNotAllowed, "method_not_allowed")
+	}
+}
+
+// accessDenialWriter records only explicit authorization and authentication denials.
+type accessDenialWriter struct {
+	http.ResponseWriter
+	logger    sharedlogger.Logger
+	principal *string
+}
+
+// Unwrap preserves optional response capabilities used by net/http streaming.
+func (w *accessDenialWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// recordDenial writes one bounded, parseable record without a requested path or token.
+func (w *accessDenialWriter) recordDenial(code string) {
+	if w.logger == nil {
+		return
+	}
+	switch code {
+	case "unauthenticated", "forbidden", "protected_path", "identity_mismatch":
+		w.logger.Warn("access_denied", "user", *w.principal)
 	}
 }
 
@@ -196,6 +221,9 @@ func isMutation(method string) bool {
 
 // writeError emits the stable public error envelope without a host path.
 func writeError(writer http.ResponseWriter, status int, code string) {
+	if denial, ok := writer.(interface{ recordDenial(string) }); ok {
+		denial.recordDenial(code)
+	}
 	writeJSON(writer, status, map[string]any{"error": map[string]any{"code": code}})
 }
 

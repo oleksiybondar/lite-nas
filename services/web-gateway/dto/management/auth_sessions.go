@@ -17,6 +17,7 @@ type AuthSession struct {
 	SessionID string    `json:"session_id"`
 	Subject   string    `json:"subject"`
 	Login     string    `json:"login"`
+	Source    string    `json:"source,omitempty"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
@@ -42,7 +43,7 @@ type AuthSessionRevokeBody struct {
 func NewAuthSessionsBody(items []authcontract.SessionSummary) AuthSessionsBody {
 	data := make([]AuthSession, 0, len(items))
 	for _, item := range items {
-		data = append(data, AuthSession{SessionID: item.SessionID, Subject: item.Subject, Login: item.Login, ExpiresAt: item.ExpiresAt})
+		data = append(data, AuthSession{SessionID: item.SessionID, Subject: item.Subject, Login: item.Login, Source: item.Source, ExpiresAt: item.ExpiresAt})
 	}
 	return AuthSessionsBody{ResponseMeta: dto.ResponseMeta{Success: true, Timestamp: time.Now()}, Data: data}
 }

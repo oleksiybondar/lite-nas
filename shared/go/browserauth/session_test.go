@@ -14,17 +14,21 @@ import (
 
 // authRPCStub supplies the auth lifecycle replies without a running NATS server.
 type authRPCStub struct {
-	login  authcontract.LoginResponse
-	rotate authcontract.RefreshResponse
-	logout authcontract.LogoutResponse
-	err    error
+	login     authcontract.LoginResponse
+	rotate    authcontract.RefreshResponse
+	logout    authcontract.LogoutResponse
+	err       error
+	onRequest func(any)
 }
 
 // Publish is unused by the browser auth service.
 func (authRPCStub) Publish(context.Context, string, any) error { return nil }
 
 // Request returns the configured reply for the requested auth operation.
-func (stub authRPCStub) Request(_ context.Context, subject string, _ any, response any) error {
+func (stub authRPCStub) Request(_ context.Context, subject string, request any, response any) error {
+	if stub.onRequest != nil {
+		stub.onRequest(request)
+	}
 	if stub.err != nil {
 		return stub.err
 	}
@@ -37,6 +41,17 @@ func (stub authRPCStub) Request(_ context.Context, subject string, _ any, respon
 		*response.(*authcontract.LogoutResponse) = stub.logout
 	}
 	return nil
+}
+
+// TestLoginForwardsConfiguredSource verifies the backend, not the browser, names the app.
+func TestLoginForwardsConfiguredSource(t *testing.T) {
+	var source string
+	stub := authRPCStub{onRequest: func(request any) { source = request.(authcontract.LoginRequest).Source }}
+	service := NewAuthService(stub, claimsVerifier{}, "moments")
+	_, _ = service.BeginLogin(t.Context(), time.Now(), "alice", "secret", AuthRequestContext{})
+	if source != "moments" {
+		t.Fatalf("source = %q, want moments", source)
+	}
 }
 
 // Drain is unused by the browser auth service.

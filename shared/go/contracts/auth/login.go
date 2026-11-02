@@ -7,6 +7,7 @@ type LoginRequest struct {
 	Password  string `json:"password" validate:"required,min=1,max=4096"`
 	ClientIP  string `json:"client_ip,omitempty" validate:"omitempty,ip"`
 	UserAgent string `json:"user_agent,omitempty" validate:"omitempty,max=512"`
+	Source    string `json:"source,omitempty" validate:"omitempty,oneof=admin-panel moments"`
 }
 
 // LoginResponse returns the normalized auth outcome and issued session

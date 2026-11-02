@@ -267,6 +267,9 @@ func TestListSessionsReturnsLoginSession(t *testing.T) {
 	if len(response.Sessions) != 1 || response.Sessions[0].SessionID != claims.SessionID {
 		t.Fatalf("sessions = %#v, want login session", response.Sessions)
 	}
+	if response.Sessions[0].Source != "admin-panel" {
+		t.Fatalf("source = %q, want admin-panel", response.Sessions[0].Source)
+	}
 }
 
 // TestRevokeSessionRequiresAdministrator covers the revocation RPC authorization boundary.
@@ -679,6 +682,7 @@ func TestHandleLoginRPCUsesRBACUIDAndGroupsInToken(t *testing.T) {
 		Username:  "testuser",
 		Password:  "testpassword",
 		UserAgent: "lite-nas-test",
+		Source:    "admin-panel",
 	}))
 	assertLoginIssued(t, response, err)
 	assertAccessTokenClaims(t, runtimeDeps, response.AccessToken, "1002", 2)
@@ -804,6 +808,7 @@ func loginRPCFixture(t *testing.T) (authRuntime, authcontract.LoginResponse) {
 		Username:  "testuser",
 		Password:  "testpassword",
 		UserAgent: "lite-nas-test",
+		Source:    "admin-panel",
 	}))
 	if err != nil {
 		t.Fatalf("handleLoginRPC() error = %v", err)

@@ -18,6 +18,15 @@ func TestSampleRulesLoad(t *testing.T) {
 	}
 }
 
+// Requirements: security-monitoring/FR-010.
+func TestFileAccessRuleMatchesDenial(t *testing.T) {
+	t.Parallel()
+	rule := mustSampleRule(t, "file_access_denied")
+	if !rule.matches("<12>1 now nas file-service 1 FILE_SERVICE - access_denied user=alice") {
+		t.Fatal("file access denial did not match")
+	}
+}
+
 // Requirements: security-monitoring/FR-001.
 func TestDetectionMessageIdentifiesAuthenticationChannel(t *testing.T) {
 	t.Parallel()

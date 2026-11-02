@@ -178,7 +178,7 @@ func run(ctx context.Context, path string) error {
 	places.captionScript = cfg.CaptionScript
 	places.embeddingScript = cfg.EmbeddingScript
 	files := newFileServiceClient(cfg.FileServiceURL)
-	auth := browserauth.NewAuthService(infra.Client, verifier)
+	auth := browserauth.NewAuthService(infra.Client, verifier, "moments")
 	scans := newScanManager(store, auth, files, places)
 	scans.grants = infra.Client
 	if err := scans.resumeCaptionJobs(ctx); err != nil {

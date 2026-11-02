@@ -7,7 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 # The service name is supplied by a fixed entrypoint, never by a runtime request.
 deploy.securityMonitor.requireTools() {
 	local tool
-	for tool in getent groupadd id useradd usermod install chmod chown realpath systemctl visudo rsyslogd; do
+	for tool in getent groupadd id useradd usermod install chmod chown realpath systemctl visudo rsyslogd setfacl; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
 }
@@ -86,6 +86,13 @@ deploy.securityMonitor.deploy() {
 			/etc/rsyslog.d/30-lite-nas-log-analysis.conf
 		install -D -m 0644 -o root -g root "$LITE_NAS_REPO_ROOT/configs/etc/apparmor.d/rsyslog.d/lite-nas-log-analysis" \
 			/etc/apparmor.d/rsyslog.d/lite-nas-log-analysis
+		if getent passwd syslog >/dev/null; then
+			for access_log in /var/log/lite-nas/file-service.log /var/log/lite-nas/stream-service.log; do
+				if [ -f "$access_log" ]; then
+					setfacl -m u:syslog:r "$access_log"
+				fi
+			done
+		fi
 	fi
 	install -d -m 0751 -o root -g lite-nas /var/log/lite-nas
 	if [ ! -f "$log_target" ]; then

@@ -350,6 +350,11 @@
       "expiresAt": "Діє до",
       "revoke": "Відкликати",
       "revokeFailed": "Не вдалося відкликати сеанс автентифікації.",
+      "source": {
+        "admin-panel": "Панель адміністратора",
+        "moments": "Moments",
+        "unknown": "Невідоме джерело"
+      },
       "confirmRevoke": "Відкликати сеанс LiteNAS Auth для {login}?"
     },
     "sessions": {
@@ -901,7 +906,7 @@
     "expand": "Розгорнути",
     "collapse": "Згорнути",
     "Sessions": "Сеанси",
-    "loginctl": "loginctl",
+    "Loginctl": "Loginctl",
     "LiteNAS Auth": "LiteNAS Auth",
     "Journal": "Журнал",
     "Backup and restore": "Резервне копіювання та відновлення",

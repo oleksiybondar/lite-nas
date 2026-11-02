@@ -20,7 +20,7 @@ export const SessionsLandingPage = (): ReactElement | null => {
             description: getLabel("admin.landing.loginCtlSessions"),
             icon: <SupervisorAccountIcon />,
             path: "/security/sessions/loginctl",
-            title: getLabel("navigation.loginctl"),
+            title: getLabel("navigation.Loginctl"),
           },
           ...(requireAdmin()
             ? [

@@ -90,6 +90,9 @@ deploy.fileService.deploy() {
 	fi
 	chown "$LITE_NAS_FILE_SERVICE_USER:$LITE_NAS_FILE_SERVICE_USER" /var/log/lite-nas/file-service.log
 	chmod 0640 /var/log/lite-nas/file-service.log
+	if getent passwd syslog >/dev/null; then
+		setfacl -m u:syslog:r /var/log/lite-nas/file-service.log
+	fi
 	deploy.validateSudoersDropIn "$LITE_NAS_FILE_SERVICE_SUDOERS_SOURCE"
 	install -D -m 0440 -o root -g root "$LITE_NAS_FILE_SERVICE_SUDOERS_SOURCE" \
 		/etc/sudoers.d/lite-nas-file-service-commands

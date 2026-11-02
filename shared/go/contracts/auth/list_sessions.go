@@ -12,6 +12,7 @@ type SessionSummary struct {
 	SessionID string    `json:"session_id"`
 	Subject   string    `json:"subject"`
 	Login     string    `json:"login"`
+	Source    string    `json:"source,omitempty"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 

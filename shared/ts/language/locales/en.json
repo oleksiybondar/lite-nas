@@ -350,6 +350,7 @@
       "expiresAt": "Expires",
       "revoke": "Revoke",
       "revokeFailed": "Failed to revoke authentication session.",
+      "source": { "admin-panel": "Admin panel", "moments": "Moments", "unknown": "Unknown source" },
       "confirmRevoke": "Revoke the LiteNAS Auth session for {login}?"
     },
     "sessions": {
@@ -901,7 +902,7 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "Sessions": "Sessions",
-    "loginctl": "loginctl",
+    "Loginctl": "Loginctl",
     "LiteNAS Auth": "LiteNAS Auth",
     "Journal": "Journal",
     "Backup and restore": "Backup and restore",

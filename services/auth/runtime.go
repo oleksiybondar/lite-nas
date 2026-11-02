@@ -436,6 +436,7 @@ func createRefreshToken(runtimeDeps authRuntime, request authcontract.LoginReque
 		SessionID: newSessionID(),
 		Subject:   subject,
 		Login:     username,
+		Source:    request.Source,
 		Context:   refreshContext(request.ClientIP, request.UserAgent),
 		TTL:       refreshTokenTTL,
 	})
@@ -557,7 +558,7 @@ func handleListSessionsRPC(runtimeDeps authRuntime, envelope messaging.Envelope)
 	}
 	response := authcontract.ListSessionsResponse{Sessions: []authcontract.SessionSummary{}}
 	for _, session := range runtimeDeps.RefreshStore.List() {
-		response.Sessions = append(response.Sessions, authcontract.SessionSummary{SessionID: session.SessionID, Subject: session.Subject, Login: session.Login, ExpiresAt: session.ExpiresAt})
+		response.Sessions = append(response.Sessions, authcontract.SessionSummary{SessionID: session.SessionID, Subject: session.Subject, Login: session.Login, Source: session.Source, ExpiresAt: session.ExpiresAt})
 	}
 	return response, nil
 }

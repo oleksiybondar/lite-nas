@@ -17,6 +17,7 @@ type SessionSummary struct {
 	SessionID string
 	Subject   string
 	Login     string
+	Source    string
 	ExpiresAt time.Time
 }
 
@@ -28,7 +29,7 @@ func (s *Store) List() []SessionSummary {
 	records := make([]SessionSummary, 0, len(s.records))
 	for _, record := range s.records {
 		if now.Before(record.ExpiresAt) {
-			records = append(records, SessionSummary{SessionID: record.SessionID, Subject: record.Subject, Login: record.Login, ExpiresAt: record.ExpiresAt})
+			records = append(records, SessionSummary{SessionID: record.SessionID, Subject: record.Subject, Login: record.Login, Source: record.Source, ExpiresAt: record.ExpiresAt})
 		}
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].SessionID < records[j].SessionID })
@@ -79,6 +80,7 @@ func (s *Store) Create(input CreateInput) (RefreshToken, RefreshRecord, error) {
 		SessionID: input.SessionID,
 		Subject:   input.Subject,
 		Login:     input.Login,
+		Source:    input.Source,
 		ClientIP:  input.Context.ClientIP,
 		UserAgent: input.Context.UserAgent,
 	}

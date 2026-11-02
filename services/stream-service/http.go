@@ -18,12 +18,14 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"lite-nas/shared/fileaccess"
+	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/swaggerui"
 )
 
 // streamService authenticates each media request and sends only authorized files.
 type streamService struct {
 	cfg           serviceConfig
+	logger        sharedlogger.Logger
 	auth          *fileaccess.Authorizer
 	open          func(string, os.FileInfo) (*os.File, error)
 	transcodes    chan struct{}
@@ -78,6 +80,9 @@ func (s *streamService) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		if !errors.Is(err, fileaccess.ErrUnauthenticated) && !errors.Is(err, http.ErrNoCookie) {
 			status = http.StatusServiceUnavailable
 		}
+		if status == http.StatusUnauthorized {
+			s.logAccessDenial("anonymous")
+		}
 		http.Error(writer, http.StatusText(status), status)
 		return
 	}
@@ -87,6 +92,7 @@ func (s *streamService) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	if !s.inReadScope(path, roots) {
+		s.logAccessDenial(subject.Username)
 		http.NotFound(writer, request)
 		return
 	}
@@ -102,6 +108,7 @@ func (s *streamService) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	}
 	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
 		if errors.Is(err, fileaccess.ErrDenied) {
+			s.logAccessDenial(subject.Username)
 			http.NotFound(writer, request)
 		} else {
 			http.Error(writer, "authorization_unavailable", http.StatusServiceUnavailable)
@@ -145,6 +152,13 @@ func (s *streamService) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	writer.Header().Set("Content-Type", mediaContentType(resolved))
 	writer.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": filepath.Base(resolved)}))
 	http.ServeContent(writer, request, filepath.Base(resolved), before.ModTime(), file)
+}
+
+// logAccessDenial emits a username without exposing a media path or token.
+func (s *streamService) logAccessDenial(username string) {
+	if s.logger != nil {
+		s.logger.Warn("access_denied", "user", username)
+	}
 }
 
 // serveUserOriginal handles a private file using the verified owner's Unix ACL.

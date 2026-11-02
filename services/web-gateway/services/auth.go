@@ -31,7 +31,7 @@ const RefreshTokenCookieName = browserauth.RefreshTokenCookieName
 
 // NewAuthService creates a browser auth client backed by Auth Service RPCs.
 func NewAuthService(client messaging.Client, verifier AccessTokenVerifier) AuthService {
-	return browserauth.NewAuthService(client, verifier)
+	return browserauth.NewAuthService(client, verifier, "admin-panel")
 }
 
 // AccessCookie issues a host-only access cookie for legacy gateway callers.

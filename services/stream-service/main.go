@@ -71,7 +71,7 @@ func run(ctx context.Context, configPath string) error {
 	if err != nil {
 		return err
 	}
-	service := &streamService{cfg: cfg, auth: auth, open: openAuthorizedFile, readAsUser: userReader, transcodes: make(chan struct{}, 2)}
+	service := &streamService{cfg: cfg, logger: infra.Logger, auth: auth, open: openAuthorizedFile, readAsUser: userReader, transcodes: make(chan struct{}, 2)}
 	service.transcodeFile = service.transcode
 	service.previewFile = service.preview
 	server := &http.Server{

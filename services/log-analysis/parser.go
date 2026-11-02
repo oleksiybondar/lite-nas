@@ -110,6 +110,11 @@ func newLogRecord(source sourceSpec, record rsyslogRecord, at time.Time) (logRec
 		extractAuthFields(&normalized)
 	case formatKernel:
 		extractKernelFields(&normalized)
+	case formatAccess:
+		if match := accountField.FindStringSubmatch(record.Message); len(match) == 2 {
+			normalized.Account = match[1]
+		}
+		normalized.Service = record.Program
 	default:
 		return logRecord{}, errors.New("unsupported source format")
 	}

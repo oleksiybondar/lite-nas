@@ -70,6 +70,7 @@ type PasswordResult struct {
 type authService struct {
 	client   messaging.Client
 	verifier AccessTokenVerifier
+	source   string
 }
 
 // NewAuthService creates an auth service backed by auth-service RPCs and local
@@ -78,10 +79,16 @@ type authService struct {
 // Parameters:
 //   - client: messaging client used for auth-service request/reply calls
 //   - verifier: local verifier for JWT access tokens returned by auth-service
-func NewAuthService(client messaging.Client, verifier AccessTokenVerifier) AuthService {
+//   - source: optional server-owned application name recorded with new login sessions
+func NewAuthService(client messaging.Client, verifier AccessTokenVerifier, source ...string) AuthService {
+	applicationSource := ""
+	if len(source) > 0 {
+		applicationSource = source[0]
+	}
 	return authService{
 		client:   client,
 		verifier: verifier,
+		source:   applicationSource,
 	}
 }
 
@@ -125,6 +132,7 @@ func (s authService) BeginLogin(ctx context.Context, now time.Time, login string
 		Password:  password,
 		ClientIP:  requestContext.ClientIP,
 		UserAgent: requestContext.UserAgent,
+		Source:    s.source,
 	}, &response); err != nil {
 		return PasswordResult{}, err
 	}

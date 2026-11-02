@@ -3,7 +3,11 @@ import { useApi } from "@hooks/useApi";
 import { useRbac } from "@hooks/useRbac";
 import { ConfirmActionDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
-import Button from "@mui/material/Button";
+import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
+import DeleteIcon from "@mui/icons-material/Delete";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -83,7 +87,7 @@ export const AuthSessionsPage = (): ReactElement | null => {
             <Paper
               key={session.session_id}
               variant="outlined"
-              sx={{ p: 2 }}
+              sx={{ p: 2, borderLeft: 4, borderLeftColor: "primary.main" }}
               data-test-class="auth-session-card"
               data-test-name={session.session_id}
             >
@@ -93,27 +97,45 @@ export const AuthSessionsPage = (): ReactElement | null => {
                 spacing={2}
               >
                 <Stack spacing={0.5}>
-                  <Typography fontWeight={600}>{session.login}</Typography>
-                  <Typography variant="body2">
-                    {getLabel("admin.authSessions.subject")}: {session.subject}
-                  </Typography>
-                  <Typography variant="body2">
-                    {getLabel("admin.authSessions.id")}: {session.session_id}
-                  </Typography>
-                  <Typography variant="body2">
+                  <Stack direction="row" alignItems="center" spacing={0.75}>
+                    {session.source === "moments" && (
+                      <PhotoLibraryIcon color="secondary" fontSize="small" />
+                    )}
+                    {session.source === "admin-panel" && (
+                      <AppsRoundedIcon color="primary" fontSize="small" />
+                    )}
+                    {!session.source && <HelpOutlineIcon color="disabled" fontSize="small" />}
+                    <Typography color="primary.main" fontWeight={600}>
+                      {session.login}
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      alignItems: "center",
+                      display: "flex",
+                      gap: 0.5,
+                      overflowX: "auto",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {getLabel("admin.authSessions.subject")}: {session.subject} ·{" "}
+                    {getLabel("admin.authSessions.id")}: {session.session_id} ·{" "}
                     {getLabel("admin.authSessions.expiresAt")}:{" "}
-                    {new Date(session.expires_at).toLocaleString()}
+                    {new Date(session.expires_at).toLocaleString()} ·
+                    {getLabel(`admin.authSessions.source.${session.source ?? "unknown"}`)}
                   </Typography>
                 </Stack>
-                <Button
+                <IconButton
                   color="error"
                   disabled={pending}
+                  aria-label={getLabel("admin.authSessions.revoke")}
                   onClick={() => setSelected(session)}
                   data-test-class="auth-session-revoke"
                   data-test-name={session.session_id}
                 >
-                  {getLabel("admin.authSessions.revoke")}
-                </Button>
+                  <DeleteIcon />
+                </IconButton>
               </Stack>
             </Paper>
           ))}

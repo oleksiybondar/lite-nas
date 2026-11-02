@@ -25,6 +25,7 @@ func TestStoreCreateReturnsRefreshTokenAndRecord(t *testing.T) {
 		{Name: "session id", Got: func(record RefreshRecord) any { return record.SessionID }, Want: "session-id"},
 		{Name: "subject", Got: func(record RefreshRecord) any { return record.Subject }, Want: "1000"},
 		{Name: "login", Got: func(record RefreshRecord) any { return record.Login }, Want: "alice"},
+		{Name: "source", Got: func(record RefreshRecord) any { return record.Source }, Want: "admin-panel"},
 		{Name: "client ip", Got: func(record RefreshRecord) any { return record.ClientIP }, Want: "192.168.1.10"},
 		{Name: "user agent", Got: func(record RefreshRecord) any { return record.UserAgent }, Want: "browser"},
 	}
@@ -57,6 +58,9 @@ func TestStoreRotateReplacesTokenAndPreservesExpiry(t *testing.T) {
 	}
 	if rotatedRecord.TokenHash == created.TokenHash {
 		t.Fatal("rotated record reused the previous token hash")
+	}
+	if rotatedRecord.Source != created.Source {
+		t.Fatalf("rotated source = %q, want %q", rotatedRecord.Source, created.Source)
 	}
 	if rotatedRecord.ExpiresAt != created.ExpiresAt {
 		t.Fatalf("rotated ExpiresAt = %v, want %v", rotatedRecord.ExpiresAt, created.ExpiresAt)
@@ -150,7 +154,7 @@ func TestListReturnsActiveSession(t *testing.T) {
 	store := NewStore(time.Now, StoreOptions{})
 	_, record := mustCreate(t, store)
 	listed := store.List()
-	if len(listed) != 1 || listed[0].SessionID != record.SessionID {
+	if len(listed) != 1 || listed[0].SessionID != record.SessionID || listed[0].Source != record.Source {
 		t.Fatalf("sessions = %#v", listed)
 	}
 }
@@ -249,6 +253,7 @@ func createInputFixture() CreateInput {
 		SessionID: "session-id",
 		Subject:   "1000",
 		Login:     "alice",
+		Source:    "admin-panel",
 		Context:   refreshContextFixture(),
 		TTL:       30 * 24 * time.Hour,
 	}

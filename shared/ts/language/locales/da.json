@@ -350,6 +350,11 @@
       "expiresAt": "Udløber",
       "revoke": "Tilbagekald",
       "revokeFailed": "Kunne ikke tilbagekalde godkendelsessessionen.",
+      "source": {
+        "admin-panel": "Administrationspanel",
+        "moments": "Moments",
+        "unknown": "Ukendt kilde"
+      },
       "confirmRevoke": "Tilbagekald LiteNAS Auth-sessionen for {login}?"
     },
     "sessions": {
@@ -901,7 +906,7 @@
     "expand": "Udvid",
     "collapse": "Skjul",
     "Sessions": "Sessioner",
-    "loginctl": "loginctl",
+    "Loginctl": "Loginctl",
     "LiteNAS Auth": "LiteNAS Auth",
     "Journal": "Journal",
     "Backup and restore": "Sikkerhedskopi og gendannelse",

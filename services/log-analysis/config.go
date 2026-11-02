@@ -60,6 +60,7 @@ func loadAnalysisConfig(reader fileio.Reader) (analysisConfig, error) {
 const (
 	formatAuth   = "auth"
 	formatKernel = "kernel"
+	formatAccess = "access"
 )
 
 // sourceSpec selects forwarded rsyslog records by facility, input module and
@@ -96,7 +97,7 @@ func selectorMatches(allowed []string, value string) bool {
 // validSourceSpec bounds selector lists and requires at least one selector so
 // a source can never silently accept every forwarded record.
 func validSourceSpec(source sourceSpec) bool {
-	if !validAnalysisID(source.ID) || (source.Format != formatAuth && source.Format != formatKernel) {
+	if !validAnalysisID(source.ID) || (source.Format != formatAuth && source.Format != formatKernel && source.Format != formatAccess) {
 		return false
 	}
 	selectors := [][]string{source.Facilities, source.Inputs, source.Programs}

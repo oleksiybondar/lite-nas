@@ -19,6 +19,7 @@ const get = vi.fn(() => ({
             session_id: "session_1",
             subject: "1000",
             login: "alice",
+            source: "admin-panel",
             expires_at: "2026-11-02T12:00:00Z",
           },
         ],
@@ -57,6 +58,13 @@ describe("AuthSessionsPage", () => {
   test("shows active LiteNAS Auth sessions", async () => {
     renderPage(true);
     expect(await screen.findByText("alice")).toBeInTheDocument();
+  });
+
+  test("shows the application source", async () => {
+    renderPage(true);
+    expect(
+      (await screen.findByText("alice")).closest('[data-test-class="auth-session-card"]'),
+    ).toHaveTextContent("Admin panel");
   });
 
   test("revokes the selected session after confirmation", async () => {

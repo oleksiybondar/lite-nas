@@ -98,7 +98,7 @@ export const buildAppNavigationItems = (
                   {
                     icon: <SupervisorAccountIcon />,
                     path: "/security/sessions/loginctl",
-                    title: "loginctl",
+                    title: "Loginctl",
                   },
                   ...(requireAdmin?.()
                     ? [

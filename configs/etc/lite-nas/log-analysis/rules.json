@@ -2,7 +2,14 @@
   "event_id_prefix": "secauth",
   "sources": [
     { "id": "auth", "format": "auth", "facilities": ["auth", "authpriv"] },
-    { "id": "kernel", "format": "kernel", "inputs": ["imklog"] }
+    { "id": "kernel", "format": "kernel", "inputs": ["imklog"] },
+    {
+      "id": "file_access",
+      "format": "access",
+      "facilities": ["local0"],
+      "inputs": ["imfile"],
+      "programs": ["file-service", "stream-service"]
+    }
   ],
   "instances": [
     {
@@ -26,6 +33,18 @@
       "idle": "30m",
       "key_by": "account",
       "max_keys": 2048
+    },
+    {
+      "id": "file_access_probing",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 51,
+      "window": "5m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "account",
+      "max_keys": 2048,
+      "event_id_prefix": "secfile"
     },
     {
       "id": "unknown_account_retry",
@@ -129,6 +148,18 @@
       "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
       "instance": "single_failure",
       "severity": "warning",
+      "lockdown": false
+    },
+    {
+      "id": "file_access_denied",
+      "enabled": true,
+      "source": "file_access",
+      "category": "file_access_probing",
+      "pattern": "(?:^| )access_denied user=[^ ]+",
+      "account_pattern": "(?:^| )access_denied user=([^ ]+)",
+      "instance": "file_access_probing",
+      "severity": "critical",
+      "email_on_critical": true,
       "lockdown": false
     },
     {

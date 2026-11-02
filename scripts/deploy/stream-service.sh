@@ -125,6 +125,9 @@ deploy.streamService.deploy() {
 	fi
 	chown "$LITE_NAS_STREAM_SERVICE_USER:$LITE_NAS_STREAM_SERVICE_USER" /var/log/lite-nas/stream-service.log
 	chmod 0640 /var/log/lite-nas/stream-service.log
+	if getent passwd syslog >/dev/null && command -v setfacl >/dev/null 2>&1; then
+		setfacl -m u:syslog:r /var/log/lite-nas/stream-service.log
+	fi
 	deploy.validateSudoersDropIn "$LITE_NAS_STREAM_SERVICE_SUDOERS_SOURCE"
 	install -D -m 0440 -o root -g root "$LITE_NAS_STREAM_SERVICE_SUDOERS_SOURCE" \
 		/etc/sudoers.d/lite-nas-stream-service-read

@@ -5,6 +5,16 @@ import (
 	"testing"
 )
 
+// Requirements: security-monitoring/FR-010.
+func TestParserExtractsFileAccessAccount(t *testing.T) {
+	t.Parallel()
+	source := sourceSpec{ID: "file_access", Format: formatAccess, Facilities: []string{"local0"}, Inputs: []string{"imfile"}, Programs: []string{"file-service", "stream-service"}}
+	record := mustNormalize(t, source, `{"timestamp":"2026-10-25T08:26:06+01:00","facility":"local0","input":"imfile","program":"file-service","message":"<12>1 2026-10-25T08:26:06+01:00 nas file-service 1 FILE_SERVICE - access_denied user=alice"}`)
+	if record.Account != "alice" {
+		t.Fatalf("account = %q", record.Account)
+	}
+}
+
 // Requirements: security-monitoring/FR-001.
 func TestParserExtractsPAMAccount(t *testing.T) {
 	t.Parallel()

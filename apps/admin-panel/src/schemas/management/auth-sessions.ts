@@ -9,6 +9,7 @@ export const authSessionsResponseSchema = z.object({
       session_id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
       subject: z.string().min(1),
       login: z.string().min(1),
+      source: z.enum(["admin-panel", "moments"]).optional(),
       expires_at: z.iso.datetime({ offset: true }),
     }),
   ),

@@ -41,6 +41,12 @@ implementations and tests are the evidence for the current behavior.
   within 75 minutes. Alert separately when five lockouts occur within 75
   minutes; do not extend the PAM lockout or invoke
   an additional account action.
+- **security-monitoring/FR-010 — File access probing:** File and Stream services
+  log explicit access denials as `access_denied user=<username>`, using
+  `anonymous` before a principal is verified. rsyslog forwards their text log
+  records to Log Analysis. A configured per-user FSM raises a critical security
+  alert after 51 denials within five minutes and applies a 30-minute cooldown.
+  Missing files and service failures do not count as denials.
 - **security-monitoring/IR-001 — Detection state machines:** Use the shared
   table-driven FSM implementation for configured detection lifecycles.
 - **security-monitoring/IR-002 — Lifecycle integration:** Producers retain an
