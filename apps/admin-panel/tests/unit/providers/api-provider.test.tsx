@@ -48,12 +48,7 @@ describe("ApiProvider unauthorized handling", () => {
       responseWithStatus(200),
     );
 
-    render(
-      <ApiProvider>
-        <ApiConsumer />
-      </ApiProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
+    runApiRequest("Run protected request");
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -73,12 +68,7 @@ describe("ApiProvider unauthorized handling", () => {
     const dispatch = vi.spyOn(window, "dispatchEvent");
     mockFetch(responseWithStatus(401), responseWithStatus(401));
 
-    render(
-      <ApiProvider>
-        <ApiConsumer />
-      </ApiProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
+    runApiRequest("Run protected request");
 
     await waitFor(() => {
       expect(dispatch).toHaveBeenCalledWith(
@@ -91,12 +81,7 @@ describe("ApiProvider unauthorized handling", () => {
     const dispatch = vi.spyOn(window, "dispatchEvent");
     mockFetch(responseWithStatus(401), sessionResponse(), responseWithStatus(401));
 
-    render(
-      <ApiProvider>
-        <ApiConsumer />
-      </ApiProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
+    runApiRequest("Run protected request");
 
     await waitFor(() => {
       expect(dispatch).toHaveBeenCalledWith(
@@ -108,12 +93,7 @@ describe("ApiProvider unauthorized handling", () => {
   test("expires auth state when refresh returns malformed session data", async () => {
     const dispatch = vi.spyOn(window, "dispatchEvent");
     mockFetch(responseWithStatus(401), new Response("{}", { status: 200 }));
-    render(
-      <ApiProvider>
-        <ApiConsumer />
-      </ApiProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Run protected request" }));
+    runApiRequest("Run protected request");
     await waitFor(() =>
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({ type: "lite-nas-admin-session-expired" }),
@@ -133,18 +113,23 @@ describe("ApiProvider unauthorized handling", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(
-      <ApiProvider>
-        <ApiConsumer />
-      </ApiProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Run concurrent requests" }));
+    runApiRequest("Run concurrent requests");
     await waitFor(() => expect(fetchMock.mock.calls.length).toBe(3));
     completeRefresh(sessionResponse());
     await waitFor(() => expect(fetchMock.mock.calls.length).toBe(5));
     expect(fetchMock.mock.calls.filter(([path]) => path === "/api/auth/refresh")).toHaveLength(1);
   });
 });
+
+/** Renders the provider and invokes one request action through its consumer. */
+const runApiRequest = (action: string): void => {
+  render(
+    <ApiProvider>
+      <ApiConsumer />
+    </ApiProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: action }));
+};
 
 /**
  * Test consumer that exercises ApiProvider through the public hook contract.

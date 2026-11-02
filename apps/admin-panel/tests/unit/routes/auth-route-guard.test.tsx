@@ -82,9 +82,7 @@ describe("LoginPage", () => {
       );
 
     renderWithAuth(<LoginPage />, { login });
-    fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "passw" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    submitLogin("passw");
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("admin", "passw", "/");
@@ -95,9 +93,7 @@ describe("LoginPage", () => {
     const login = vi.fn().mockResolvedValue(responseWithStatus(401));
 
     renderWithAuth(<LoginPage />, { login });
-    fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "wrong" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    submitLogin("wrong");
 
     expect(await screen.findByText("Login failed.")).toBeInTheDocument();
   });
@@ -108,19 +104,8 @@ describe("LoginPage", () => {
       .mockResolvedValue(
         responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
       );
-    renderWithLanguage(
-      <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: "/system" } }]}>
-        <AuthContext.Provider value={createAuthContextValue({ login })}>
-          <Routes>
-            <Route element={<LoginPage />} path="/login" />
-            <Route element={<span>System page</span>} path="/system" />
-          </Routes>
-        </AuthContext.Provider>
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "passw" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    renderLoginReturnRoute([{ pathname: "/login", state: { from: "/system" } }], login);
+    submitLogin("passw");
     expect(await screen.findByText("System page")).toBeInTheDocument();
   });
 });
@@ -132,19 +117,8 @@ describe("LoginPage return paths", () => {
       .mockResolvedValue(
         responseWithJson(200, { data: { authenticated: true, user: { id: "admin-id" } } }),
       );
-    renderWithLanguage(
-      <MemoryRouter initialEntries={["/login?redirect_to=%2Fsystem"]}>
-        <AuthContext.Provider value={createAuthContextValue({ login })}>
-          <Routes>
-            <Route element={<LoginPage />} path="/login" />
-            <Route element={<span>System page</span>} path="/system" />
-          </Routes>
-        </AuthContext.Provider>
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "passw" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    renderLoginReturnRoute(["/login?redirect_to=%2Fsystem"], login);
+    submitLogin("passw");
     expect(await screen.findByText("System page")).toBeInTheDocument();
   });
 
@@ -157,22 +131,35 @@ describe("LoginPage return paths", () => {
         { status: 200 },
       ),
     );
-    renderWithLanguage(
-      <MemoryRouter initialEntries={["/login?redirect_to=%2Fpreferences"]}>
-        <AuthContext.Provider value={createAuthContextValue({ login })}>
-          <Routes>
-            <Route element={<LoginPage />} path="/login" />
-            <Route element={<span>System page</span>} path="/system" />
-          </Routes>
-        </AuthContext.Provider>
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
-    fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: "passw" } });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    renderLoginReturnRoute(["/login?redirect_to=%2Fpreferences"], login);
+    submitLogin("passw");
     expect(await screen.findByText("System page")).toBeInTheDocument();
   });
 });
+
+/** Submits credentials through the rendered login form. */
+const submitLogin = (password: string): void => {
+  fireEvent.change(screen.getByLabelText(/Login/i), { target: { value: "admin" } });
+  fireEvent.change(screen.getByLabelText(/Password/i), { target: { value: password } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+};
+
+/** Renders a login return route with its authenticated destination. */
+const renderLoginReturnRoute = (
+  initialEntries: NonNullable<React.ComponentProps<typeof MemoryRouter>["initialEntries"]>,
+  login: AuthContextValue["login"],
+): void => {
+  renderWithLanguage(
+    <MemoryRouter initialEntries={initialEntries}>
+      <AuthContext.Provider value={createAuthContextValue({ login })}>
+        <Routes>
+          <Route element={<LoginPage />} path="/login" />
+          <Route element={<span>System page</span>} path="/system" />
+        </Routes>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  );
+};
 
 /**
  * Renders the route guard with a protected child route.
