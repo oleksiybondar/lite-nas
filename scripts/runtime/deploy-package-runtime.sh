@@ -55,6 +55,8 @@ source "$PACKAGE_ROOT/scripts/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/moments.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/backup-restore.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/resources-monitor.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/litenas-integrity.sh"
@@ -107,6 +109,10 @@ deploy_runtime_files_without_start() {
 	deploy.streamService.deploy "$PACKAGE_ROOT/stream-service" 0
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
 	deploy.moments.deploy "$PACKAGE_ROOT/moments" "$PACKAGE_ROOT/moments-assets" 0
+	deploy.backupRestore.deploy "$PACKAGE_ROOT/backup-restore" 0
+	install -D -m 0755 "$PACKAGE_ROOT/backup-restore-cli" /usr/libexec/lite-nas/backup-restore-cli
+	ln -sfn /usr/libexec/lite-nas/backup-restore-cli /usr/bin/backup-restore-cli
+	apparmor_parser -r /etc/apparmor.d/usr.libexec.lite-nas.backup-restore-cli
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0
 	deploy.liteNASIntegrity.deploy "$PACKAGE_ROOT/litenas-integrity" 0
 	deploy.securityMonitor.deploy "mount-monitor" "$PACKAGE_ROOT/mount-monitor" 0
@@ -181,6 +187,7 @@ deploy.fileWriter.requireTools
 deploy.fileService.requireTools
 deploy.streamService.requireTools
 deploy.webGateway.requireTools
+deploy.backupRestore.requireTools
 deploy.resourcesMonitor.requireTools
 deploy.liteNASIntegrity.requireTools
 deploy.securityMonitor.requireTools
@@ -235,6 +242,7 @@ deploy.systemMetrics.enableAndStart
 deploy.zfsMetrics.enableAndStart
 deploy.webGateway.enableAndStart
 deploy.moments.enableAndStart
+deploy.enableAndRefreshService "lite-nas-backup-restore.service"
 deploy.fileService.enableAndStart
 deploy.streamService.enableAndStart
 deploy.resourcesMonitor.enableAndStart

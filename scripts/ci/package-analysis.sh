@@ -44,6 +44,8 @@ create_systemd_validation_root() {
 		"$systemd_root/etc/systemd/system/lite-nas-auth.service"
 	cp configs/etc/systemd/system/lite-nas-rbac.service \
 		"$systemd_root/etc/systemd/system/lite-nas-rbac.service"
+	cp configs/etc/systemd/system/lite-nas-backup-restore.service \
+		"$systemd_root/etc/systemd/system/lite-nas-backup-restore.service"
 	cp configs/etc/systemd/system/lite-nas-system-metrics.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-metrics.service"
 	cp configs/etc/systemd/system/lite-nas-process-metrics.service \
@@ -82,7 +84,7 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-network-security.service "$systemd_root/etc/systemd/system/lite-nas-network-security.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.socket "$systemd_root/etc/systemd/system/lite-nas-log-analysis.socket"
 
-	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager journal-manager usb-manager log-analysis network-security; do
+	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service backup-restore system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager journal-manager usb-manager log-analysis network-security; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -198,6 +200,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-before-startup.service \
 		lite-nas-auth.service \
 		lite-nas-rbac.service \
+		lite-nas-backup-restore.service \
 		lite-nas-system-logging-manager.service \
 		lite-nas-security-logging-manager.service \
 		lite-nas-system-email-notifier.service \

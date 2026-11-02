@@ -242,6 +242,38 @@ jobs:
               build_script: scripts/build-zfs-metrics-binary.sh
               output_path: .build/zfs-metrics/linux-amd64/zfs-metrics
               apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Backup restore
+              artifact_name: backup-restore-linux
+              build_script: scripts/build-backup-restore-binary.sh
+              output_path: .build/backup-restore/linux-amd64/backup-restore
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Moments service
+              artifact_name: moments-linux
+              build_script: scripts/build-moments-binary.sh
+              output_path: .build/moments/linux-amd64/moments
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: USB Manager
+              artifact_name: usb-manager-linux
+              build_script: scripts/build-usb-manager-binary.sh
+              output_path: .build/usb-manager/linux-amd64/usb-manager
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Network Security
+              artifact_name: network-security-linux
+              build_script: scripts/build-network-security-binary.sh
+              output_path: .build/network-security/linux-amd64/network-security
+              apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
             component:
@@ -442,6 +474,38 @@ jobs:
               build_script: scripts/build-zfs-metrics-binary.sh
               output_path: .build/zfs-metrics/linux-arm64/zfs-metrics
               apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Backup restore
+              artifact_name: backup-restore-linux
+              build_script: scripts/build-backup-restore-binary.sh
+              output_path: .build/backup-restore/linux-arm64/backup-restore
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Moments service
+              artifact_name: moments-linux
+              build_script: scripts/build-moments-binary.sh
+              output_path: .build/moments/linux-arm64/moments
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: USB Manager
+              artifact_name: usb-manager-linux
+              build_script: scripts/build-usb-manager-binary.sh
+              output_path: .build/usb-manager/linux-arm64/usb-manager
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Network Security
+              artifact_name: network-security-linux
+              build_script: scripts/build-network-security-binary.sh
+              output_path: .build/network-security/linux-arm64/network-security
+              apt_packages: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -516,6 +580,13 @@ jobs:
               artifact_name: lite-nas-file-writer-linux
               build_script: scripts/build-file-writer-binary.sh
               output_path: .build/lite-nas-file-writer/linux-amd64/lite-nas-file-writer
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: Backup restore CLI
+              artifact_name: backup-restore-cli-linux
+              build_script: scripts/build-backup-restore-cli-binary.sh
+              output_path: .build/backup-restore-cli/linux-amd64/backup-restore-cli
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -558,6 +629,13 @@ jobs:
               artifact_name: lite-nas-file-writer-linux
               build_script: scripts/build-file-writer-binary.sh
               output_path: .build/lite-nas-file-writer/linux-arm64/lite-nas-file-writer
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: Backup restore CLI
+              artifact_name: backup-restore-cli-linux
+              build_script: scripts/build-backup-restore-cli-binary.sh
+              output_path: .build/backup-restore-cli/linux-arm64/backup-restore-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -602,6 +680,9 @@ jobs:
       - name: Build Moments
         run: scripts/build-moments.sh
 
+      - name: Verify Moments asset output
+        run: test -f .build/moments/index.html
+
       - name: Verify admin-panel asset output
         run: |
           test -f .build/admin-panel/index.html
@@ -621,6 +702,14 @@ jobs:
         with:
           name: file-explorer-assets
           path: .build/file-explorer
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Moments asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moments-assets
+          path: .build/moments
           if-no-files-found: error
           retention-days: 1
 
@@ -647,7 +736,7 @@ jobs:
         run: npm --prefix apps/moments run test:unit:coverage
 
   build-release-package:
-    name: LiteNAS release package (${{ matrix.arch }})
+    name: LiteNAS package build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     needs:
       - service-build
@@ -859,6 +948,42 @@ jobs:
           name: web-gateway-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/web-gateway
 
+      - name: Download Backup restore build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backup-restore-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/backup-restore
+
+      - name: Download Moments service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: moments-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/moments
+
+      - name: Download USB Manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: usb-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/usb-manager
+
+      - name: Download Network Security build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: network-security-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/network-security
+
+      - name: Download Backup restore CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backup-restore-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/backup-restore-cli
+
+      - name: Download Moments asset artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: moments-assets
+          path: .artifacts/moments-assets
+
       - name: Download admin-panel asset artifact
         uses: actions/download-artifact@v4
         with:
@@ -904,12 +1029,58 @@ jobs:
             ${{ matrix.arch }} \
             2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/validate-package-contents.log
 
+      - name: Upload package build diagnostics on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-build-diagnostics-${{ matrix.arch }}
+          path: .build/package-ci-logs/${{ matrix.arch }}
+          if-no-files-found: warn
+          retention-days: 15
+
+      - name: Upload validated LiteNAS Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lite-nas-deb-${{ matrix.arch }}
+          path: .build/packages/${{ matrix.arch }}/*.deb
+          if-no-files-found: error
+          retention-days: 1
+
+  test-release-package:
+    name: LiteNAS package system tests (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs:
+      - build-release-package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download validated LiteNAS package
+        uses: actions/download-artifact@v4
+        with:
+          name: lite-nas-deb-${{ matrix.arch }}
+          path: .build/packages/${{ matrix.arch }}
+
+      - name: Install package test dependencies
+        run: scripts/ci/install-debian-packaging-dependencies.sh
+
+      - name: Prepare package diagnostic log directory
+        run: mkdir -p .build/package-ci-logs/${{ matrix.arch }}
+
       - name: Install LiteNAS package on runner for system tests
         run: |
           set -o pipefail
           sudo env DEBIAN_FRONTEND=noninteractive \
             scripts/package/install-lite-nas-deb.sh \
-              --package .build/packages/${{ matrix.arch }}/lite-nas_${{ steps.package-version.outputs.value }}_${{ matrix.arch }}.deb \
+              --package .build/packages/${{ matrix.arch }}/lite-nas_*.deb \
               --no-install-recommends \
               2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/install-package.log
 
@@ -1022,10 +1193,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 15
 
-      - name: Publish LiteNAS Debian package artifact
+
+  release-compliance:
+    name: LiteNAS before and after OpenSCAP assessment (amd64)
+    runs-on: ubuntu-24.04
+    needs:
+      - build-release-package
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download validated LiteNAS package
+        uses: actions/download-artifact@v4
+        with:
+          name: lite-nas-deb-amd64
+          path: .build/packages/amd64
+
+      - name: Scan before and after installing LiteNAS
+        run: bash scripts/ci/run-openscap-release-delta.sh .build/packages/amd64/lite-nas_*.deb
+
+      - name: Store OpenSCAP scans and delta report
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: lite-nas-deb-${{ matrix.arch }}
-          path: .build/packages/${{ matrix.arch }}/*.deb
-          if-no-files-found: error
-          retention-days: 1
+          name: openscap-release-delta-amd64
+          path: .build/openscap-release-delta
+          if-no-files-found: warn
+          retention-days: 30

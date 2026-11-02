@@ -35,6 +35,8 @@ file_writer_binary_path=""
 file_service_binary_path=""
 stream_service_binary_path=""
 web_gateway_binary_path=""
+backup_restore_binary_path=""
+backup_restore_cli_binary_path=""
 moments_binary_path=""
 moments_assets_path=""
 resources_monitor_binary_path=""
@@ -87,6 +89,8 @@ Options:
   --file-service-binary=PATH         Use an existing file-service binary.
   --stream-service-binary=PATH       Use an existing stream-service binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
+  --backup-restore-binary=PATH       Use an existing backup-restore binary.
+  --backup-restore-cli-binary=PATH   Use an existing backup-restore-cli binary.
   --moments-binary=PATH              Use an existing Moments binary.
   --moments-assets=PATH              Use an existing Moments Vite build output.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
@@ -109,8 +113,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets file-explorer-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets file-explorer-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary admin-panel-assets file-explorer-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -225,6 +229,14 @@ fi
 if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg web-gateway-binary)"; then
 	log.error "Missing value for --web-gateway-binary"
 	usage >&2
+	exit 64
+fi
+if args.has backup-restore-binary && ! backup_restore_binary_path="$(args.require_arg backup-restore-binary)"; then
+	log.error "Missing value for --backup-restore-binary"
+	exit 64
+fi
+if args.has backup-restore-cli-binary && ! backup_restore_cli_binary_path="$(args.require_arg backup-restore-cli-binary)"; then
+	log.error "Missing value for --backup-restore-cli-binary"
 	exit 64
 fi
 if args.has moments-binary && ! moments_binary_path="$(args.require_arg moments-binary)"; then
@@ -430,6 +442,14 @@ if [ -z "$web_gateway_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-web-gateway-binary.sh" \
 		"--output=${web_gateway_binary_path}"
 fi
+if [ -z "$backup_restore_binary_path" ]; then
+	backup_restore_binary_path="$output_dir/${package_name}-${package_arch}/backup-restore"
+	"$LITE_NAS_REPO_ROOT/scripts/build-backup-restore-binary.sh" "--output=$backup_restore_binary_path"
+fi
+if [ -z "$backup_restore_cli_binary_path" ]; then
+	backup_restore_cli_binary_path="$output_dir/${package_name}-${package_arch}/backup-restore-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-backup-restore-cli-binary.sh" "--output=$backup_restore_cli_binary_path"
+fi
 
 if [ -z "$moments_binary_path" ]; then
 	moments_binary_path="$output_dir/${package_name}-${package_arch}/moments"
@@ -600,6 +620,10 @@ if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
 	exit 1
 fi
+if [ ! -f "$backup_restore_binary_path" ] || [ ! -f "$backup_restore_cli_binary_path" ]; then
+	log.error "Missing backup-restore service or CLI binary"
+	exit 1
+fi
 if [ ! -f "$moments_binary_path" ] || [ ! -f "$moments_assets_path/index.html" ] || [ ! -d "$moments_assets_path/assets" ]; then
 	log.error "Missing Moments binary or frontend assets."
 	exit 1
@@ -744,6 +768,12 @@ ln -sfn /usr/libexec/lite-nas/scripts/rotate-user-password.sh \
 	"$package_root/usr/bin/lite-nas-rotate-password"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
+install -D -m 0755 "$backup_restore_binary_path" \
+	"$package_root/usr/libexec/lite-nas/backup-restore"
+install -D -m 0755 "$backup_restore_cli_binary_path" \
+	"$package_root/usr/libexec/lite-nas/backup-restore-cli"
+ln -sfn /usr/libexec/lite-nas/backup-restore-cli \
+	"$package_root/usr/bin/backup-restore-cli"
 install -D -m 0755 "$moments_binary_path" \
 	"$package_root/usr/libexec/lite-nas/moments"
 install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/data/cities1000.zip" \
@@ -825,6 +855,8 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/stream-service" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
 	"$package_root/usr/libexec/lite-nas/moments" \
+	"$package_root/usr/libexec/lite-nas/backup-restore" \
+	"$package_root/usr/libexec/lite-nas/backup-restore-cli" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh" \

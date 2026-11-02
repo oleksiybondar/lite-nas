@@ -191,6 +191,12 @@ assert_cmd "file-service binary packaged" assert_executable usr/libexec/lite-nas
 assert_cmd "stream-service binary packaged" assert_executable usr/libexec/lite-nas/stream-service
 assert_cmd "web-gateway binary packaged" assert_executable usr/libexec/lite-nas/web-gateway
 assert_cmd "Moments binary packaged" assert_executable usr/libexec/lite-nas/moments
+assert_cmd "backup-restore binary packaged" assert_executable usr/libexec/lite-nas/backup-restore
+assert_cmd "backup-restore CLI packaged" assert_executable usr/libexec/lite-nas/backup-restore-cli
+assert_cmd "backup-restore CLI command linked" assert_symlink_target usr/bin/backup-restore-cli /usr/libexec/lite-nas/backup-restore-cli
+assert_cmd "backup-restore service unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-backup-restore.service"
+assert_cmd "backup-restore service profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.backup-restore"
+assert_cmd "backup-restore CLI profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.backup-restore-cli"
 assert_cmd "Moments frontend packaged" assert_file usr/libexec/lite-nas/moments-assets/index.html
 assert_cmd "Moments offline city data packaged" assert_file usr/share/lite-nas/moments/cities1000.zip
 assert_cmd "Moments city data attribution packaged" assert_file usr/share/lite-nas/moments/GEONAMES-ATTRIBUTION.md
