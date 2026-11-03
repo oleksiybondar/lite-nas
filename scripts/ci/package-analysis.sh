@@ -31,17 +31,35 @@ create_systemd_validation_root() {
 	# paths enough for systemd-analyze without depending on host files.
 	mkdir -p \
 		"$systemd_root/etc/systemd/system" \
+		"$systemd_root/etc/lite-nas" \
 		"$systemd_root/usr/bin" \
 		"$systemd_root/usr/libexec/lite-nas"
+	cp configs/etc/systemd/system/lite-nas-before-startup.service \
+		"$systemd_root/etc/systemd/system/lite-nas-before-startup.service"
+	cp configs/etc/lite-nas/before-startup.sh \
+		"$systemd_root/etc/lite-nas/before-startup.sh"
+	chmod 0700 "$systemd_root/etc/lite-nas/before-startup.sh"
 
 	cp configs/etc/systemd/system/lite-nas-auth.service \
 		"$systemd_root/etc/systemd/system/lite-nas-auth.service"
 	cp configs/etc/systemd/system/lite-nas-rbac.service \
 		"$systemd_root/etc/systemd/system/lite-nas-rbac.service"
+	cp configs/etc/systemd/system/lite-nas-backup-restore.service \
+		"$systemd_root/etc/systemd/system/lite-nas-backup-restore.service"
 	cp configs/etc/systemd/system/lite-nas-system-metrics.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-process-metrics.service \
+		"$systemd_root/etc/systemd/system/lite-nas-process-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-disk-metrics.service \
+		"$systemd_root/etc/systemd/system/lite-nas-disk-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-service-metrics.service \
+		"$systemd_root/etc/systemd/system/lite-nas-service-metrics.service"
 	cp configs/etc/systemd/system/lite-nas-web-gateway.service \
 		"$systemd_root/etc/systemd/system/lite-nas-web-gateway.service"
+	cp configs/etc/systemd/system/lite-nas-file-service.service \
+		"$systemd_root/etc/systemd/system/lite-nas-file-service.service"
+	cp configs/etc/systemd/system/lite-nas-stream-service.service \
+		"$systemd_root/etc/systemd/system/lite-nas-stream-service.service"
 	cp configs/etc/systemd/system/lite-nas-system-logging-manager.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-logging-manager.service"
 	cp configs/etc/systemd/system/lite-nas-security-logging-manager.service \
@@ -52,8 +70,21 @@ create_systemd_validation_root() {
 		"$systemd_root/etc/systemd/system/lite-nas-security-email-notifier.service"
 	cp configs/etc/systemd/system/lite-nas-resources-monitor.service \
 		"$systemd_root/etc/systemd/system/lite-nas-resources-monitor.service"
+	cp configs/etc/systemd/system/lite-nas-integrity.service \
+		"$systemd_root/etc/systemd/system/lite-nas-integrity.service"
+	cp configs/etc/systemd/system/lite-nas-mount-monitor.service "$systemd_root/etc/systemd/system/lite-nas-mount-monitor.service"
+	cp configs/etc/systemd/system/lite-nas-antivirus.service "$systemd_root/etc/systemd/system/lite-nas-antivirus.service"
+	cp configs/etc/systemd/system/lite-nas-system-service-monitor.service "$systemd_root/etc/systemd/system/lite-nas-system-service-monitor.service"
+	cp configs/etc/systemd/system/lite-nas-service-watchdog.service "$systemd_root/etc/systemd/system/lite-nas-service-watchdog.service"
+	cp configs/etc/systemd/system/lite-nas-services-manager.service "$systemd_root/etc/systemd/system/lite-nas-services-manager.service"
+	cp configs/etc/systemd/system/lite-nas-session-manager.service "$systemd_root/etc/systemd/system/lite-nas-session-manager.service"
+	cp configs/etc/systemd/system/lite-nas-journal-manager.service "$systemd_root/etc/systemd/system/lite-nas-journal-manager.service"
+	cp configs/etc/systemd/system/lite-nas-usb-manager.service "$systemd_root/etc/systemd/system/lite-nas-usb-manager.service"
+	cp configs/etc/systemd/system/lite-nas-log-analysis.service "$systemd_root/etc/systemd/system/lite-nas-log-analysis.service"
+	cp configs/etc/systemd/system/lite-nas-network-security.service "$systemd_root/etc/systemd/system/lite-nas-network-security.service"
+	cp configs/etc/systemd/system/lite-nas-log-analysis.socket "$systemd_root/etc/systemd/system/lite-nas-log-analysis.socket"
 
-	for binary in auth-service rbac-service system-metrics web-gateway system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor; do
+	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service backup-restore system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager journal-manager usb-manager log-analysis network-security; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -63,6 +94,9 @@ create_systemd_validation_root() {
 
 	printf '[Unit]\nDescription=NATS server validation stub\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/true\n' \
 		>"$systemd_root/etc/systemd/system/nats-server.service"
+
+	printf '[Unit]\nDescription=USBGuard validation stub\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/true\n' \
+		>"$systemd_root/etc/systemd/system/usbguard.service"
 
 	for target in sysinit.target basic.target multi-user.target network-online.target; do
 		printf '[Unit]\nDescription=Validation stub for %s\n' "$target" \
@@ -75,11 +109,60 @@ log.requireCommand "shellcheck" "Run ./scripts/install-dev-dependencies.sh or sc
 shellcheck -s sh "${maintainer_scripts[@]}"
 log.popTask
 
+log.pushTask "Validating host-manager AppArmor profiles"
+log.requireCommand "apparmor_parser" "Install AppArmor and retry."
+(
+	profile_cache="$(mktemp -d)"
+	trap 'rm -rf "$profile_cache"' EXIT
+	for manager in services-manager session-manager journal-manager usb-manager; do
+		apparmor_parser -Q -W -L "$profile_cache" \
+			-I configs/etc/apparmor.d -I /etc/apparmor.d \
+			"configs/etc/apparmor.d/usr.libexec.lite-nas.$manager"
+	done
+)
+log.popTask
+
+log.pushTask "Validating Network Security AppArmor profile"
+(
+	profile_cache="$(mktemp -d)"
+	trap 'rm -rf "$profile_cache"' EXIT
+	apparmor_parser -Q -W -L "$profile_cache" \
+		-I configs/etc/apparmor.d -I /etc/apparmor.d \
+		configs/etc/apparmor.d/usr.libexec.lite-nas.network-security
+)
+log.popTask
+
+log.pushTask "Validating Watchdog recovery and shutdown policy"
+watchdog_config="configs/etc/lite-nas/service-watchdog.conf"
+watchdog_sudoers="configs/etc/sudoers.d/lite-nas-service-watchdog"
+watchdog_unit="configs/etc/systemd/system/lite-nas-service-watchdog.service"
+IFS=, read -r -a protected_units <<<"$(sed -n 's/^units=//p' "$watchdog_config")"
+if [ "${#protected_units[@]}" -eq 0 ]; then
+	log.error "Watchdog has no protected units"
+	exit 1
+fi
+watchdog_after="$(sed -n 's/^After=//p' "$watchdog_unit")"
+for protected_unit in "${protected_units[@]}"; do
+	if ! grep -Fxq "lite-nas-service-watchdog ALL=(root) NOPASSWD: /usr/bin/systemctl start $protected_unit" "$watchdog_sudoers"; then
+		log.error "Watchdog sudoers is missing exact unit: $protected_unit"
+		exit 1
+	fi
+	if [[ " $watchdog_after " != *" $protected_unit "* ]]; then
+		log.error "Watchdog shutdown ordering is missing unit: $protected_unit"
+		exit 1
+	fi
+done
+if [ "$(wc -l <"$watchdog_sudoers")" -ne "${#protected_units[@]}" ]; then
+	log.error "Watchdog sudoers contains an unexpected command"
+	exit 1
+fi
+log.popTask
+
 if command -v nats-server >/dev/null 2>&1 && command -v openssl >/dev/null 2>&1; then
 	log.pushTask "Validating NATS configuration"
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
-	cp -a configs/etc/. "$tmp_dir/"
+	cp -R configs/etc/. "$tmp_dir/"
 	openssl req \
 		-x509 \
 		-newkey rsa:2048 \
@@ -101,6 +184,11 @@ fi
 
 if command -v systemd-analyze >/dev/null 2>&1; then
 	log.pushTask "Validating systemd units"
+	for unit in configs/etc/systemd/system/lite-nas-*.service; do
+		[ "$unit" = "configs/etc/systemd/system/lite-nas-before-startup.service" ] && continue
+		grep -Eq '^After=.*lite-nas-before-startup\.service([[:space:]]|$)' "$unit"
+		grep -Eq '^Requires=.*lite-nas-before-startup\.service([[:space:]]|$)' "$unit"
+	done
 	if [ -z "${tmp_dir:-}" ]; then
 		tmp_dir="$(mktemp -d)"
 		trap 'rm -rf "$tmp_package_dir" "${tmp_dir:-}"' EXIT
@@ -109,15 +197,34 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 	create_systemd_validation_root "$systemd_root"
 	systemd-analyze verify \
 		--root="$systemd_root" \
+		lite-nas-before-startup.service \
 		lite-nas-auth.service \
 		lite-nas-rbac.service \
+		lite-nas-backup-restore.service \
 		lite-nas-system-logging-manager.service \
 		lite-nas-security-logging-manager.service \
 		lite-nas-system-email-notifier.service \
 		lite-nas-security-email-notifier.service \
 		lite-nas-system-metrics.service \
+		lite-nas-process-metrics.service \
+		lite-nas-disk-metrics.service \
+		lite-nas-service-metrics.service \
 		lite-nas-resources-monitor.service \
-		lite-nas-web-gateway.service
+		lite-nas-integrity.service \
+		lite-nas-mount-monitor.service \
+		lite-nas-antivirus.service \
+		lite-nas-system-service-monitor.service \
+		lite-nas-service-watchdog.service \
+		lite-nas-services-manager.service \
+		lite-nas-session-manager.service \
+		lite-nas-journal-manager.service \
+		lite-nas-usb-manager.service \
+		lite-nas-log-analysis.service \
+		lite-nas-network-security.service \
+		lite-nas-log-analysis.socket \
+		lite-nas-web-gateway.service \
+		lite-nas-file-service.service \
+		lite-nas-stream-service.service
 	log.popTask
 fi
 

@@ -1,0 +1,2 @@
+# The service constructs the AIDE and database-promotion arguments itself.
+lite-nas-integrity ALL=(root) NOPASSWD: /usr/bin/aide, /bin/mv

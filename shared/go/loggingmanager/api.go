@@ -16,6 +16,16 @@ type ListEventsPage struct {
 	TotalCount int
 }
 
+// ListEventOccurrences returns all stored occurrences for one event ID.
+func (core *Core) ListEventOccurrences(input dto.GetEventHistoryInput) ([]dto.OccurrenceRow, error) {
+	if err := core.validator.Struct(input); err != nil {
+		return nil, err
+	}
+
+	builtQuery := query.BuildGetEventHistoryQuery(input)
+	return core.listOccurrencesQuery(context.Background(), builtQuery)
+}
+
 // GetEvent returns one event by business event ID.
 func (core *Core) GetEvent(input dto.GetEventHistoryInput) (model.Event, bool, error) {
 	if err := core.validator.Struct(input); err != nil {
@@ -118,12 +128,13 @@ func (core *Core) SetState(input dto.SetStateInput) error {
 	return core.setState(context.Background(), input)
 }
 
-// AcknowledgeEvent updates lifecycle acknowledgement through the writer queue.
-func (core *Core) AcknowledgeEvent(input dto.AcknowledgeEventInput) error {
+// AcknowledgeEvent updates lifecycle acknowledgement through the writer queue
+// and returns only after the containing transaction commits or fails.
+func (core *Core) AcknowledgeEvent(ctx context.Context, input dto.AcknowledgeEventInput) error {
 	if err := core.validator.Struct(input); err != nil {
 		return err
 	}
-	return core.acknowledgeEvent(context.Background(), input)
+	return core.acknowledgeEvent(ctx, input)
 }
 
 // MuteEvent updates lifecycle mute state through the writer queue.

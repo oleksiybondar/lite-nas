@@ -71,8 +71,8 @@ func TestEvaluateAccessGroupAndOtherBranches(t *testing.T) {
 	if !evaluateAccess(identity, acl, "write") {
 		t.Fatalf("evaluateAccess() expected named group write to be allowed")
 	}
-	if !evaluateAccess(identity, acl, "execute") {
-		t.Fatalf("evaluateAccess() expected other execute fallback to be allowed")
+	if evaluateAccess(identity, acl, "execute") {
+		t.Fatalf("evaluateAccess() must not use other permissions after a group match")
 	}
 
 	nonMember := idparser.Identity{Username: "charlie", PrimaryGroup: "none", Groups: []string{"none"}}

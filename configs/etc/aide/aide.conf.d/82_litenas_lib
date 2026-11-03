@@ -1,0 +1,4 @@
+# Cover traditional library directories and their usr-merged targets.
+/(lib|lib64)(/.*)?$ LiteNASIntegrity
+/usr/lib(64)?(/.*)?$ LiteNASIntegrity
+/usr/local/lib(64)?(/.*)?$ LiteNASIntegrity

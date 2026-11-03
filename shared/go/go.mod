@@ -7,6 +7,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/nats-io/nats.go v1.51.0
+	golang.org/x/term v0.41.0
 	gopkg.in/ini.v1 v1.67.1
 	modernc.org/sqlite v1.50.1
 )

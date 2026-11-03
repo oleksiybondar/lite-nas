@@ -1,0 +1,275 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
+)
+
+// authController connects Moments routes to the shared browser auth lifecycle.
+type authController struct {
+	service      browserauth.AuthService
+	cookieDomain string
+}
+
+// loginInput validates submitted credentials at the HTTP boundary.
+type loginInput struct {
+	UserAgent  string `header:"User-Agent"`
+	RedirectTo string `query:"redirect_to" maxLength:"2048"`
+	Body       struct {
+		Login    string `json:"login" required:"true" pattern:"^(?:[A-Za-z0-9._-]+|[^@\\s]+@[^@\\s]+\\.[^@\\s]+)$"`
+		Password string `json:"password" required:"true" minLength:"1" maxLength:"4096"`
+	}
+}
+
+// refreshInput reads the HTTP-only refresh cookie.
+type refreshInput struct {
+	RefreshToken string `cookie:"lite-nas-rt"`
+	UserAgent    string `header:"User-Agent"`
+	Body         struct{}
+}
+
+// passwordChangeStartInput validates an authenticated user's current password.
+type passwordChangeStartInput struct {
+	Authorization string `header:"Authorization"`
+	AccessToken   string `cookie:"lite-nas-at"`
+	Body          struct{}
+}
+
+// passwordChangeReplyInput validates one answer to a PAM conversation.
+type passwordChangeReplyInput struct {
+	Body struct {
+		ConversationID string `json:"conversation_id" required:"true" minLength:"1" maxLength:"128"`
+		Sequence       int32  `json:"sequence" required:"true" minimum:"1"`
+		Answer         string `json:"answer" required:"true" minLength:"1" maxLength:"4096"`
+	}
+}
+
+// meInput accepts the access cookie or an explicit bearer token.
+type meInput struct {
+	Authorization string `header:"Authorization"`
+	AccessToken   string `cookie:"lite-nas-at"`
+}
+
+// configOutput exposes the configured initial browser directory to signed-in users.
+type configOutput struct {
+	Body struct {
+		WorkingDir string `json:"workingDir"`
+	}
+}
+
+// config verifies a session before returning the operator-configured picker path.
+func (c authController) config(workingDir string) func(context.Context, *meInput) (*configOutput, error) {
+	return func(_ context.Context, input *meInput) (*configOutput, error) {
+		session, err := c.service.Me(time.Now(), accessToken(input.Authorization, input.AccessToken))
+		if err != nil {
+			return nil, authError(err)
+		}
+		if session.UserID == "" {
+			return nil, huma.Error401Unauthorized("invalid authentication")
+		}
+		output := &configOutput{}
+		output.Body.WorkingDir = workingDir
+		return output, nil
+	}
+}
+
+// responseMeta is the browser auth response metadata shared with the gateway.
+type responseMeta struct {
+	Success   bool      `json:"success"`
+	Timestamp time.Time `json:"timestamp"`
+	Message   string    `json:"message,omitempty"`
+}
+
+// sessionOutput issues access and refresh cookies after login or rotation.
+type sessionOutput struct {
+	SetCookie []http.Cookie `header:"Set-Cookie"`
+	Body      sessionBody
+}
+
+// sessionBody carries the gateway-compatible session envelope.
+type sessionBody struct {
+	responseMeta
+	Data sessionData `json:"data"`
+}
+
+// sessionData reports the issued session without exposing token material.
+type sessionData struct {
+	Authenticated bool                               `json:"authenticated"`
+	User          sessionUser                        `json:"user"`
+	RedirectTo    string                             `json:"redirect_to,omitempty"`
+	Status        authcontract.Status                `json:"status,omitempty"`
+	Conversation  *authcontract.PasswordConversation `json:"conversation,omitempty"`
+	Messages      []authcontract.Message             `json:"messages,omitempty"`
+}
+
+// sessionUser identifies the authenticated principal.
+type sessionUser struct {
+	ID string `json:"id"`
+}
+
+// logoutOutput clears cookies after the refresh token is revoked.
+type logoutOutput struct {
+	SetCookie []http.Cookie `header:"Set-Cookie"`
+	Body      responseMeta
+}
+
+// meOutput returns the verified principal to the browser.
+type meOutput struct{ Body meBody }
+
+// meBody carries the current-user response envelope.
+type meBody struct {
+	responseMeta
+	Data meData `json:"data"`
+}
+
+// meData reports the verified user's identity and permissions.
+type meData struct {
+	Authenticated bool     `json:"authenticated"`
+	AuthType      string   `json:"auth_type"`
+	User          meUser   `json:"user"`
+	Roles         []string `json:"roles"`
+	Scopes        []string `json:"scopes"`
+}
+
+// meUser reports the current principal identity.
+type meUser struct {
+	ID    string `json:"id"`
+	Login string `json:"login"`
+}
+
+// login delegates credential verification to Auth Service.
+func (c authController) login(ctx context.Context, input *loginInput) (*sessionOutput, error) {
+	result, err := c.service.BeginLogin(ctx, time.Now(), input.Body.Login, input.Body.Password, browserauth.AuthRequestContext{UserAgent: strings.TrimSpace(input.UserAgent)})
+	if err != nil {
+		return nil, authError(err)
+	}
+	if result.Status == authcontract.StatusDenied {
+		return nil, huma.Error401Unauthorized("invalid authentication")
+	}
+	output := c.passwordResponse(result)
+	output.Body.Data.RedirectTo = browserauth.RedirectPath(input.RedirectTo)
+	return output, nil
+}
+
+// startPasswordChange starts a PAM change for the verified access-token user.
+func (c authController) startPasswordChange(ctx context.Context, input *passwordChangeStartInput) (*sessionOutput, error) {
+	result, err := c.service.BeginPasswordChange(ctx, accessToken(input.Authorization, input.AccessToken))
+	if err != nil {
+		return nil, authError(err)
+	}
+	return c.passwordResponse(result), nil
+}
+
+// replyPasswordChange forwards one answer to the pending PAM worker.
+func (c authController) replyPasswordChange(ctx context.Context, input *passwordChangeReplyInput) (*sessionOutput, error) {
+	result, err := c.service.ReplyPasswordChange(ctx, time.Now(), input.Body.ConversationID, input.Body.Sequence, input.Body.Answer)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return c.passwordResponse(result), nil
+}
+
+// passwordResponse renders the PAM state without issuing cookies for prompts.
+func (c authController) passwordResponse(result browserauth.PasswordResult) *sessionOutput {
+	output := &sessionOutput{}
+	output.Body.responseMeta = responseMeta{Success: result.Status != authcontract.StatusDenied, Timestamp: time.Now()}
+	output.Body.Data = sessionData{Authenticated: result.Status == authcontract.StatusAuthenticated, User: sessionUser{ID: result.Session.UserID}, Status: result.Status, Conversation: result.Conversation, Messages: result.Messages}
+	if result.Session.AccessToken != "" {
+		output.SetCookie = []http.Cookie{browserauth.AccessCookie(result.Session, c.cookieDomain), browserauth.RefreshCookie(result.Session, c.cookieDomain)}
+	}
+	return output
+}
+
+// refresh rotates the cookie session through Auth Service.
+func (c authController) refresh(ctx context.Context, input *refreshInput) (*sessionOutput, error) {
+	if strings.TrimSpace(input.RefreshToken) == "" {
+		return nil, huma.Error401Unauthorized("missing refresh token")
+	}
+	session, err := c.service.Refresh(ctx, time.Now(), input.RefreshToken, browserauth.AuthRequestContext{UserAgent: strings.TrimSpace(input.UserAgent)})
+	if err != nil {
+		return nil, authError(err)
+	}
+	return c.sessionResponse(session), nil
+}
+
+// logout revokes the refresh token and expires the issued cookie scope.
+func (c authController) logout(ctx context.Context, input *refreshInput) (*logoutOutput, error) {
+	if strings.TrimSpace(input.RefreshToken) == "" {
+		// Logout is idempotent: an expired or already-cleared browser session
+		// should still be able to leave the authenticated UI and expire stale cookies.
+		return c.logoutResponse(time.Now()), nil
+	}
+	session, err := c.service.Logout(ctx, time.Now(), input.RefreshToken, browserauth.AuthRequestContext{UserAgent: strings.TrimSpace(input.UserAgent)})
+	if err != nil {
+		if errors.Is(err, browserauth.ErrUnauthorized) {
+			// A stale token has no active session left to revoke, but its cookie
+			// still needs to be removed so the browser can finish signing out.
+			return c.logoutResponse(time.Now()), nil
+		}
+		return nil, authError(err)
+	}
+	return c.logoutResponse(session.AccessExpires), nil
+}
+
+// logoutResponse clears both browser cookies and returns the common logout envelope.
+func (c authController) logoutResponse(now time.Time) *logoutOutput {
+	return &logoutOutput{
+		SetCookie: []http.Cookie{
+			browserauth.ClearAccessCookie(now, c.cookieDomain),
+			browserauth.ClearRefreshCookie(now, c.cookieDomain),
+		},
+		Body: responseMeta{Success: true, Timestamp: now, Message: "logged out"},
+	}
+}
+
+// me returns the verified user profile from the shared auth client.
+func (c authController) me(_ context.Context, input *meInput) (*meOutput, error) {
+	session, err := c.service.Me(time.Now(), accessToken(input.Authorization, input.AccessToken))
+	if err != nil {
+		return nil, authError(err)
+	}
+	output := &meOutput{}
+	output.Body.responseMeta = responseMeta{Success: true, Timestamp: time.Now()}
+	output.Body.Data.Authenticated = true
+	output.Body.Data.AuthType = session.AuthType
+	output.Body.Data.User.ID = session.UserID
+	output.Body.Data.User.Login = session.Login
+	output.Body.Data.Roles = session.Roles
+	output.Body.Data.Scopes = session.Scopes
+	return output, nil
+}
+
+// sessionResponse shapes the gateway-compatible login and refresh response.
+func (c authController) sessionResponse(session browserauth.Session) *sessionOutput {
+	output := &sessionOutput{SetCookie: []http.Cookie{browserauth.AccessCookie(session, c.cookieDomain), browserauth.RefreshCookie(session, c.cookieDomain)}}
+	output.Body.responseMeta = responseMeta{Success: true, Timestamp: time.Now()}
+	output.Body.Data.Authenticated = true
+	output.Body.Data.User.ID = session.UserID
+	return output
+}
+
+// accessToken applies the gateway's header-before-cookie precedence.
+func accessToken(authorization, cookie string) string {
+	if strings.HasPrefix(authorization, "Bearer ") {
+		if token := strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer ")); token != "" {
+			return token
+		}
+	}
+	return strings.TrimSpace(cookie)
+}
+
+// authError maps shared auth failures to browser-facing HTTP statuses.
+func authError(err error) error {
+	if errors.Is(err, browserauth.ErrUnauthorized) || errors.Is(err, browserauth.ErrMissingCredentials()) || errors.Is(err, browserauth.ErrMissingRefreshToken()) {
+		return huma.Error401Unauthorized("invalid authentication")
+	}
+	return huma.Error500InternalServerError("failed to process auth token")
+}

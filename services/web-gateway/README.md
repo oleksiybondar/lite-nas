@@ -179,7 +179,9 @@ The current skeleton HTTP surface is:
   serves the packaged browser JavaScript bundle
 - `/api/auth/...`
   browser-facing auth transport endpoints intended to adapt requests to
-  the dedicated `auth-service` over NATS
+  the dedicated `auth-service` over NATS. Login accepts an optional
+  `redirect_to` query path and echoes a validated app-local destination in
+  `data.redirect_to`; the browser performs navigation after login.
 - `/api/system-metrics/...`
   browser-facing JSON endpoints backed by internal system metrics NATS
   calls

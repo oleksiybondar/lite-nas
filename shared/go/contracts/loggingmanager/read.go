@@ -21,6 +21,11 @@ type (
 		AccessToken string `json:"access_token" validate:"required,min=1,max=8192"`
 		EventID     string `json:"event_id" validate:"required,max=20,loggingmanager_event_id"`
 	}
+	// GetAlertOccurrencesInput defines alert-occurrence history input including auth context.
+	GetAlertOccurrencesInput struct {
+		AccessToken string `json:"access_token" validate:"required,min=1,max=8192"`
+		EventID     string `json:"event_id" validate:"required,max=20,loggingmanager_event_id"`
+	}
 )
 
 // ToDTO converts read list contract input into core DTO input.
@@ -34,6 +39,11 @@ func (input ListAlertsInput) ToDTO() loggingmanagerdto.ListEventsInput {
 
 // ToDTO converts single-alert contract input into core DTO input.
 func (input GetAlertInput) ToDTO() loggingmanagerdto.GetEventHistoryInput {
+	return loggingmanagerdto.GetEventHistoryInput{EventID: input.EventID}
+}
+
+// ToDTO converts alert-occurrence history contract input into core DTO input.
+func (input GetAlertOccurrencesInput) ToDTO() loggingmanagerdto.GetEventHistoryInput {
 	return loggingmanagerdto.GetEventHistoryInput{EventID: input.EventID}
 }
 
@@ -79,6 +89,24 @@ type ListAlertsResponse struct {
 
 type GetAlertResponse struct {
 	Item *ListAlertItem `json:"item,omitempty"`
+}
+
+// AlertOccurrenceItem defines one flattened occurrence row returned by alert-history reads.
+type AlertOccurrenceItem struct {
+	RecID      int64          `json:"RecID"`
+	EventID    string         `json:"EventID"`
+	EventRecID int64          `json:"EventRecID"`
+	Timestamp  string         `json:"Timestamp"`
+	ValueType  enum.ValueType `json:"ValueType"`
+	ValueNum   *float64       `json:"ValueNum"`
+	ValueText  *string        `json:"ValueText"`
+	ValueBool  *bool          `json:"ValueBool"`
+	ValueUnit  *string        `json:"ValueUnit"`
+}
+
+// GetAlertOccurrencesResponse defines the occurrences-history reply for one alert.
+type GetAlertOccurrencesResponse struct {
+	Items []AlertOccurrenceItem `json:"items"`
 }
 
 type itemsEnvelope struct {
@@ -148,6 +176,30 @@ func BuildListAlertItem(event model.Event) ListAlertItem {
 		}
 	}
 	return item
+}
+
+// BuildAlertOccurrenceItems maps storage occurrence rows into contract items.
+func BuildAlertOccurrenceItems(rows []loggingmanagerdto.OccurrenceRow) []AlertOccurrenceItem {
+	items := make([]AlertOccurrenceItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, BuildAlertOccurrenceItem(row))
+	}
+	return items
+}
+
+// BuildAlertOccurrenceItem maps one storage occurrence row into one contract item.
+func BuildAlertOccurrenceItem(row loggingmanagerdto.OccurrenceRow) AlertOccurrenceItem {
+	return AlertOccurrenceItem{
+		RecID:      row.RecID,
+		EventID:    row.EventID,
+		EventRecID: row.EventRecID,
+		Timestamp:  row.Timestamp,
+		ValueType:  row.ValueType,
+		ValueNum:   row.ValueNum,
+		ValueText:  row.ValueText,
+		ValueBool:  row.ValueBool,
+		ValueUnit:  row.ValueUnit,
+	}
 }
 
 func populateLastOccurrenceFields(item *ListAlertItem, event model.Event) {

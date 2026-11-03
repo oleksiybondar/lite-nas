@@ -1,110 +1,42 @@
 # Preinstalled Hardened Configs
 
-## Purpose
+LiteNAS's single Debian package installs the service baseline and depends on
+AIDE, ClamAV, USBGuard, rsyslog, AppArmor, UFW, and other runtime packages listed
+in `packaging/debian/lite-nas/DEBIAN/control.in`. OpenSCAP is not a package
+dependency; operators install and use it separately for compliance assessment.
 
-This document records the security baseline that LiteNAS installs and configures
-as part of the Debian package. It should describe controls that are expected to
-be present immediately after installation without requiring separate manual
-setup by the operator.
+## Service and Host Baseline
 
-## Installed Security Packages
+The package deploys dedicated service identities, systemd units, AppArmor
+profiles, NATS permissions, and repository-managed configuration. Log Analysis
+receives selected rsyslog records through a socket-activated Unix datagram
+socket. Network Security evaluates UFW blocked TCP attempt events. The current
+SIEM path and its limits are described in [Security
+Monitoring](./security-monitoring.md).
 
-The LiteNAS package baseline is expected to include selected security tools and
-supporting runtime dependencies.
+## Log Retention
 
-Current planned baseline areas:
+The packaged `/etc/logrotate.d/lite-nas` policy rotates direct
+`/var/log/lite-nas/*.log` files daily or at 50 MiB, retains seven rotations,
+compresses old files, and uses `copytruncate` for loggers that keep their file
+open. Operators should check available storage and retention needs.
 
-- integrity monitoring
-- malware scanning
-- USB device control
-- log retention management
-- firewall baseline
+## Integrity Monitoring
 
-Planned preinstalled tools include:
+LiteNAS ships AIDE configuration drop-ins and runs LiteNAS Integrity for
+scheduled checks and authorized baseline regeneration. Installation does not
+initialize the AIDE database automatically. Operators establish and review a
+baseline on the target host. See [Integrity
+Requirements](../requirements/litenas-integrity.md).
 
-- `aide`
-- `clamav`
-- `usbguard`
-- `logrotate`
+## Malware and USB Controls
 
-This section should later record:
+ClamAV is a package dependency. Antivirus scans eligible mounts and accepts
+authorized on-demand scans; the deployed updater service supports signature
+updates. Operators review scan results and scope. USBGuard is also a package
+dependency and the platform includes USB Manager. Operators must review device
+policy for required local storage and peripherals. These controls require
+host-specific decisions after installation.
 
-- whether the tool is installed as a hard dependency or recommended dependency
-- what LiteNAS config files are deployed for it
-- whether the service or timer is enabled by default
-
-## Preconfigured Service Baseline
-
-LiteNAS-managed services and apps should ship with repository-managed runtime
-configuration and service integration defaults that support a safer dedicated
-host profile.
-
-Examples of baseline areas to track here:
-
-- service users and groups
-- file ownership and permissions
-- systemd unit hardening directives
-- runtime directory ownership
-- default network exposure
-
-## Logging And Retention Baseline
-
-LiteNAS should ship managed log rotation defaults for LiteNAS-owned services
-and apps.
-
-Current intent:
-
-- ship preconfigured `logrotate` entries with the package
-- keep retention intentionally short to reduce write pressure on Raspberry Pi
-  SD-card-based environments
-- prefer a conservative default such as 7 days of rotation for LiteNAS-managed
-  logs unless a specific service requires a different policy
-
-This section should later list each shipped log target and its retention rule.
-
-## Integrity Monitoring Baseline
-
-LiteNAS installs the AIDE binary as a filesystem integrity monitoring
-dependency, but it does not initialize the distribution default AIDE database
-during package installation. LiteNAS-owned AIDE configuration and database
-initialization are deferred to a dedicated future service.
-
-This section should later define:
-
-- what `aide` configuration LiteNAS provides
-- what paths are included or excluded by default
-- when database initialization is expected to happen
-- what operator review remains necessary
-
-## Malware Scanning Baseline
-
-LiteNAS is expected to preinstall and preconfigure malware scanning components.
-
-This section should later define:
-
-- what `clamav` packages and services are installed
-- whether signatures are updated automatically
-- what scan defaults are enabled
-- what scan scheduling or review actions remain with the operator
-
-## USB Device Control Baseline
-
-LiteNAS is expected to preinstall and preconfigure USB device control suitable
-for a NAS appliance profile.
-
-This section should later define:
-
-- what `usbguard` baseline policy is shipped
-- what LiteNAS enables automatically
-- what operator review is required for local hardware and peripherals
-- how LiteNAS handles deployment scenarios that depend on USB-attached storage
-
-## Deferred Items
-
-Some hardening controls may be intentionally deferred to post-installation work
-when they depend on the physical environment, network model, administrator
-workflow, or attached hardware.
-
-Those items should be tracked in
-[Post-Installation Hardening](./post-installation-hardening.md) instead of
-being described here as if they were fully automated.
+See [Post-Installation Hardening](./post-installation-hardening.md) for the
+operator workflow and [Security Tooling](./security-tooling.md) for tool roles.

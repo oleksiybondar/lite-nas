@@ -113,6 +113,20 @@ func TestBuildAlertTemplateDataNormalizesPriorityAndSeverity(t *testing.T) {
 	}
 }
 
+// TestSecurityAlertTemplateRendersMitigationBlock verifies operator guidance appears as a full email section.
+func TestSecurityAlertTemplateRendersMitigationBlock(t *testing.T) {
+	cfg := buildWorkerConfig(t)
+	cfg.TemplatesPath = filepath.Join("..", "..", "..", "configs", "etc", "lite-nas", "security-email-notifier")
+	worker := mustNewWorker(t, cfg, make(chan loggingmanagercontract.AlertPayload))
+	body, err := worker.renderTemplate(alertTemplateFileName, loggingmanagercontract.AlertPayload{Category: "security", Mitigate: "Review source.\nRestrict if hostile."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, "Mitigation</div>") || !strings.Contains(body, "Review source.\nRestrict if hostile.") {
+		t.Fatalf("mitigation section missing from rendered email")
+	}
+}
+
 func TestSendSMTPMessageDeliversMessage(t *testing.T) {
 	t.Parallel()
 

@@ -1,0 +1,41 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/stream-service flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+  include <abstractions/authentication>
+
+  capability setuid,
+  capability setgid,
+
+  /usr/libexec/lite-nas/stream-service mrix,
+  /etc/lite-nas/stream-service.conf r,
+  /var/log/lite-nas/stream-service.log rw,
+  /proc/sys/net/core/somaxconn r,
+  / r,
+  /home/ r,
+  /home/** r,
+  # Mounted ZFS datasets may be rooted anywhere; the HTTP adapter admits only
+  # /home and paths reported as mounted ZFS, then requires an RBAC read allow.
+  /** r,
+  /usr/bin/ffmpeg ix,
+  /usr/bin/heif-dec ix,
+  /usr/bin/sudo ix,
+  /usr/lib/cargo/bin/sudo ix,
+  /usr/lib/sudo/** mr,
+  /usr/libexec/sudo/** mr,
+  /etc/sudo.conf r,
+  /etc/sudoers r,
+  /etc/sudoers.d/ r,
+  /etc/sudoers.d/** r,
+  /run/sudo/** rwk,
+  /var/db/sudo/** rwk,
+  /var/lib/sudo/** rwk,
+  /tmp/ rw,
+  /tmp/lite-nas-preview-*/ rw,
+  /tmp/lite-nas-preview-*/** rw,
+
+  include if exists <local/usr.libexec.lite-nas.stream-service>
+}

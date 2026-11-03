@@ -93,6 +93,9 @@ func alertsOperations(controller controllers.AlertsController) []func(huma.API, 
 			huma.Register(group, newAlertsOperation(basePath, "get", http.MethodGet, "/{id}", "Get alert", "Returns one alert detail item by business record ID."), controller.Get)
 		},
 		func(group huma.API, basePath string) {
+			huma.Register(group, newAlertsOperation(basePath, "get-occurrences", http.MethodGet, "/{id}/occurrences", "Get alert occurrences", "Returns the full occurrence history for one alert by business record ID."), controller.GetOccurrences)
+		},
+		func(group huma.API, basePath string) {
 			huma.Register(group, newAlertsOperation(basePath, "acknowledge", http.MethodPost, "/{id}/acknowledge", "Acknowledge alert", "Acknowledges one alert in the configured domain."), controller.Acknowledge)
 		},
 		func(group huma.API, basePath string) {

@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import type { AppNavigationPageItem } from "@routes/navigation";
@@ -26,6 +27,7 @@ export const AppSidebarTreeButton = ({
   onNavigate?: (() => void) | undefined;
   onToggleExpanded: (event: MouseEvent<HTMLSpanElement>) => void;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <ListItemButton
       component={RouterLink}
@@ -41,7 +43,7 @@ export const AppSidebarTreeButton = ({
       <ListItemText
         data-test-class="sidebar-tree-item-label"
         data-test-name={item.title}
-        primary={item.title}
+        primary={getLabel(`navigation.${item.title}`)}
       />
       <AppSidebarTreeExpandControl
         hasChildren={hasChildren}

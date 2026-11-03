@@ -1,0 +1,4 @@
+# RBAC is checked before this fixed read-only helper starts as the verified user.
+lite-nas-stream-service ALL=(ALL,!root,!#0) NOPASSWD: /usr/libexec/lite-nas/stream-service --read-file *
+lite-nas-stream-service ALL=(ALL,!root,!#0) NOPASSWD: /usr/libexec/lite-nas/stream-service --transcode-file *
+lite-nas-stream-service ALL=(ALL,!root,!#0) NOPASSWD: /usr/libexec/lite-nas/stream-service --preview-file *

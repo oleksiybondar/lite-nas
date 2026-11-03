@@ -2,17 +2,23 @@ package contracts
 
 import (
 	authcontract "lite-nas/shared/contracts/auth"
+	backupcontract "lite-nas/shared/contracts/backuprestore"
+	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
+	journalmanagercontract "lite-nas/shared/contracts/journalmanager"
+	litenasintegritycontract "lite-nas/shared/contracts/litenasintegrity"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	processmetricscontract "lite-nas/shared/contracts/processmetrics"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
+	servicesmanagercontract "lite-nas/shared/contracts/servicesmanager"
+	sessionmanagercontract "lite-nas/shared/contracts/sessionmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 )
 
 // RPCContract describes one request/reply endpoint contract.
-//
-// Request and Response are zero-value typed placeholders that encode endpoint
-// DTO ownership in one registry map.
 type RPCContract struct {
 	Subject  string
 	Request  any
@@ -22,6 +28,7 @@ type RPCContract struct {
 type loggingManagerRPCSubjects struct {
 	GetAlerts                     string
 	GetAlert                      string
+	GetAlertOccurrences           string
 	GetActiveAlerts               string
 	GetUnacknowledgedActiveAlerts string
 	UpdateAlertState              string
@@ -31,6 +38,87 @@ type loggingManagerRPCSubjects struct {
 
 // RPCByService defines known RPC endpoints per service identity.
 var RPCByService = map[string]map[string]RPCContract{
+	ServiceBackupRestore: {
+		"applications":        {Subject: backupcontract.ApplicationsSubject, Request: backupcontract.ApplicationsRequest{}, Response: backupcontract.ApplicationsResponse{}},
+		"backed_up":           {Subject: backupcontract.BackedUpSubject, Request: backupcontract.ApplicationsRequest{}, Response: backupcontract.ApplicationsResponse{}},
+		"versions":            {Subject: backupcontract.VersionsSubject, Request: backupcontract.ApplicationRequest{}, Response: backupcontract.VersionsResponse{}},
+		"metadata":            {Subject: backupcontract.MetadataSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.BackupMetadataResponse{}},
+		"delete":              {Subject: backupcontract.DeleteSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DeleteResponse{}},
+		"backup":              {Subject: backupcontract.BackupSubject, Request: backupcontract.BackupRequest{}, Response: backupcontract.BackupResponse{}},
+		"backup_all":          {Subject: backupcontract.BackupAllSubject, Request: backupcontract.BackupAllRequest{}, Response: backupcontract.BackupAllResponse{}},
+		"diff":                {Subject: backupcontract.DiffSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DiffResponse{}},
+		"restore":             {Subject: backupcontract.RestoreSubject, Request: backupcontract.RestoreRequest{}, Response: backupcontract.RestoreResponse{}},
+		"restore_by_name":     {Subject: backupcontract.RestoreByNameSubject, Request: backupcontract.RestoreByNameRequest{}, Response: backupcontract.RestoreByNameResponse{}},
+		"restore_all_by_name": {Subject: backupcontract.RestoreAllByNameSubject, Request: backupcontract.RestoreAllByNameRequest{}, Response: backupcontract.RestoreAllByNameResponse{}},
+		"merge_start":         {Subject: backupcontract.MergeStartSubject, Request: backupcontract.MergeStartRequest{}, Response: backupcontract.MergeStartResponse{}},
+		"merge_status":        {Subject: backupcontract.MergeStatusSubject, Request: backupcontract.MergeActionRequest{}, Response: backupcontract.MergeStartResponse{}},
+		"merge_read":          {Subject: backupcontract.MergeReadSubject, Request: backupcontract.MergeReadRequest{}, Response: backupcontract.MergeReadResponse{}},
+		"merge_write":         {Subject: backupcontract.MergeWriteSubject, Request: backupcontract.MergeWriteRequest{}, Response: backupcontract.MergeWriteResponse{}},
+		"merge_apply":         {Subject: backupcontract.MergeApplySubject, Request: backupcontract.MergeActionRequest{}, Response: backupcontract.MergeActionResponse{}},
+		"merge_save":          {Subject: backupcontract.MergeSaveSubject, Request: backupcontract.MergeSaveRequest{}, Response: backupcontract.BackupResponse{}},
+		"merge_discard":       {Subject: backupcontract.MergeDiscardSubject, Request: backupcontract.MergeActionRequest{}, Response: backupcontract.MergeActionResponse{}},
+	},
+	ServiceServicesManager: {
+		"list":    {Subject: servicesmanagercontract.ListSubject, Request: servicesmanagercontract.ListRequest{}, Response: servicesmanagercontract.ListResponse{}},
+		"start":   {Subject: servicesmanagercontract.StartSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"stop":    {Subject: servicesmanagercontract.StopSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"restart": {Subject: servicesmanagercontract.RestartSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"enable":  {Subject: servicesmanagercontract.EnableSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+		"disable": {Subject: servicesmanagercontract.DisableSubject, Request: servicesmanagercontract.ActionRequest{}, Response: servicesmanagercontract.ActionResponse{}},
+	},
+	ServiceSessionManager: {
+		"list":      {Subject: sessionmanagercontract.ListSubject, Request: sessionmanagercontract.ListRequest{}, Response: sessionmanagercontract.ListResponse{}},
+		"terminate": {Subject: sessionmanagercontract.TerminateSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+		"lock":      {Subject: sessionmanagercontract.LockSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+		"unlock":    {Subject: sessionmanagercontract.UnlockSubject, Request: sessionmanagercontract.ActionRequest{}, Response: sessionmanagercontract.ActionResponse{}},
+	},
+	ServiceJournalManager: {
+		"query":  {Subject: journalmanagercontract.QuerySubject, Request: journalmanagercontract.QueryRequest{}, Response: journalmanagercontract.QueryResponse{}},
+		"vacuum": {Subject: journalmanagercontract.VacuumSubject, Request: journalmanagercontract.VacuumRequest{}, Response: journalmanagercontract.VacuumResponse{}},
+	},
+	ServiceDiskMetrics: {
+		"get_snapshot": {
+			Subject:  diskmetricscontract.SnapshotRPCSubject,
+			Request:  diskmetricscontract.GetSnapshotRequest{},
+			Response: diskmetricscontract.GetSnapshotResponse{},
+		},
+		"get_history": {
+			Subject:  diskmetricscontract.HistoryRPCSubject,
+			Request:  diskmetricscontract.GetHistoryRequest{},
+			Response: diskmetricscontract.GetHistoryResponse{},
+		},
+	},
+	ServiceNetworkMetrics: {
+		"get_snapshot": {
+			Subject:  networkmetricscontract.SnapshotRPCSubject,
+			Request:  networkmetricscontract.GetSnapshotRequest{},
+			Response: networkmetricscontract.GetSnapshotResponse{},
+		},
+		"get_history": {
+			Subject:  networkmetricscontract.HistoryRPCSubject,
+			Request:  networkmetricscontract.GetHistoryRequest{},
+			Response: networkmetricscontract.GetHistoryResponse{},
+		},
+	},
+	ServiceProcessMetrics: {
+		"get_snapshot": {
+			Subject:  processmetricscontract.SnapshotRPCSubject,
+			Request:  processmetricscontract.GetSnapshotRequest{},
+			Response: processmetricscontract.GetSnapshotResponse{},
+		},
+	},
+	ServiceServiceMetrics: {
+		"get_snapshot": {
+			Subject:  servicemetricscontract.SnapshotRPCSubject,
+			Request:  servicemetricscontract.GetSnapshotRequest{},
+			Response: servicemetricscontract.GetSnapshotResponse{},
+		},
+		"get_history": {
+			Subject:  servicemetricscontract.HistoryRPCSubject,
+			Request:  servicemetricscontract.GetHistoryRequest{},
+			Response: servicemetricscontract.GetHistoryResponse{},
+		},
+	},
 	ServiceSystemMetrics: {
 		"get_snapshot": {
 			Subject:  systemmetricscontract.SnapshotRPCSubject,
@@ -46,6 +134,7 @@ var RPCByService = map[string]map[string]RPCContract{
 	ServiceSystemLoggingManager: buildLoggingManagerRPCContracts(loggingManagerRPCSubjects{
 		GetAlerts:                     systemloggingmanagercontract.GetAlertsRPCSubject,
 		GetAlert:                      systemloggingmanagercontract.GetAlertRPCSubject,
+		GetAlertOccurrences:           systemloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 		GetActiveAlerts:               systemloggingmanagercontract.GetActiveAlertsRPCSubject,
 		GetUnacknowledgedActiveAlerts: systemloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		UpdateAlertState:              systemloggingmanagercontract.UpdateAlertStateRPCSubject,
@@ -55,6 +144,7 @@ var RPCByService = map[string]map[string]RPCContract{
 	ServiceSecurityLoggingManager: buildLoggingManagerRPCContracts(loggingManagerRPCSubjects{
 		GetAlerts:                     securityloggingmanagercontract.GetAlertsRPCSubject,
 		GetAlert:                      securityloggingmanagercontract.GetAlertRPCSubject,
+		GetAlertOccurrences:           securityloggingmanagercontract.GetAlertOccurrencesRPCSubject,
 		GetActiveAlerts:               securityloggingmanagercontract.GetActiveAlertsRPCSubject,
 		GetUnacknowledgedActiveAlerts: securityloggingmanagercontract.GetUnacknowledgedActiveAlertsRPCSubject,
 		UpdateAlertState:              securityloggingmanagercontract.UpdateAlertStateRPCSubject,
@@ -65,6 +155,16 @@ var RPCByService = map[string]map[string]RPCContract{
 		"login": {
 			Subject:  authcontract.LoginRPCSubject,
 			Request:  authcontract.LoginRequest{},
+			Response: authcontract.LoginResponse{},
+		},
+		"password_change_start": {
+			Subject:  authcontract.PasswordChangeStartRPCSubject,
+			Request:  authcontract.PasswordChangeStartRequest{},
+			Response: authcontract.LoginResponse{},
+		},
+		"password_change_reply": {
+			Subject:  authcontract.PasswordChangeReplyRPCSubject,
+			Request:  authcontract.PasswordChangeReplyRequest{},
 			Response: authcontract.LoginResponse{},
 		},
 		"refresh": {
@@ -82,6 +182,16 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  authcontract.ValidateAccessTokenRequest{},
 			Response: authcontract.ValidateAccessTokenResponse{},
 		},
+		"revoke_session": {
+			Subject:  authcontract.RevokeSessionRPCSubject,
+			Request:  authcontract.RevokeSessionRequest{},
+			Response: authcontract.RevokeSessionResponse{},
+		},
+		"list_sessions": {
+			Subject:  authcontract.ListSessionsRPCSubject,
+			Request:  authcontract.ListSessionsRequest{},
+			Response: authcontract.ListSessionsResponse{},
+		},
 		"login_service_token": {
 			Subject:  authcontract.ServiceTokenLoginRPCSubject,
 			Request:  authcontract.ServiceTokenLoginRequest{},
@@ -92,10 +202,37 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  authcontract.ServiceTokenRefreshRequest{},
 			Response: authcontract.ServiceTokenRefreshResponse{},
 		},
+		"issue_caption_grant": {
+			Subject:  authcontract.CaptionGrantIssueRPCSubject,
+			Request:  authcontract.CaptionGrantIssueRequest{},
+			Response: authcontract.CaptionGrantIssueResponse{},
+		},
+		"validate_caption_grant": {
+			Subject:  authcontract.CaptionGrantValidateRPCSubject,
+			Request:  authcontract.CaptionGrantValidateRequest{},
+			Response: authcontract.CaptionGrantValidateResponse{},
+		},
+		"revoke_caption_grant": {
+			Subject:  authcontract.CaptionGrantRevokeRPCSubject,
+			Request:  authcontract.CaptionGrantRevokeRequest{},
+			Response: authcontract.CaptionGrantRevokeResponse{},
+		},
 		"set_lockdown": {
 			Subject:  authcontract.SetLockdownRPCSubject,
 			Request:  authcontract.SetLockdownRequest{},
 			Response: authcontract.SetLockdownResponse{},
+		},
+	},
+	ServiceLiteNASIntegrity: {
+		"regenerate_baseline": {
+			Subject:  litenasintegritycontract.RegenerateBaselineRPCSubject,
+			Request:  litenasintegritycontract.RegenerateBaselineRequest{},
+			Response: litenasintegritycontract.RegenerateBaselineResponse{},
+		},
+		"start_baseline_task": {
+			Subject:  litenasintegritycontract.StartBaselineTaskSubject,
+			Request:  litenasintegritycontract.StartBaselineRequest{},
+			Response: litenasintegritycontract.StartBaselineResponse{},
 		},
 	},
 	ServiceRBAC: {
@@ -119,6 +256,11 @@ var RPCByService = map[string]map[string]RPCContract{
 			Request:  rbaccontract.CheckPathRequest{},
 			Response: rbaccontract.DecisionResponse{},
 		},
+		"check_path_operation": {
+			Subject:  rbaccontract.CheckPathOperationRPCSubject,
+			Request:  rbaccontract.CheckPathOperationRequest{},
+			Response: rbaccontract.DecisionResponse{},
+		},
 		"check_sudo_exec": {
 			Subject:  rbaccontract.CanSudoExecRPCSubject,
 			Request:  rbaccontract.CheckSudoExecRequest{},
@@ -133,41 +275,31 @@ var RPCByService = map[string]map[string]RPCContract{
 }
 
 func buildLoggingManagerRPCContracts(subjects loggingManagerRPCSubjects) map[string]RPCContract {
-	return map[string]RPCContract{
-		"get_alerts": {
-			Subject:  subjects.GetAlerts,
-			Request:  loggingmanagercontract.ListAlertsInput{},
-			Response: loggingmanagercontract.ListAlertsResponse{},
-		},
-		"get_alert": {
-			Subject:  subjects.GetAlert,
-			Request:  loggingmanagercontract.GetAlertInput{},
-			Response: loggingmanagercontract.GetAlertResponse{},
-		},
-		"get_active_alerts": {
-			Subject:  subjects.GetActiveAlerts,
-			Request:  loggingmanagercontract.ListAlertsInput{},
-			Response: loggingmanagercontract.ListAlertsResponse{},
-		},
-		"get_active_unacknowledged_alerts": {
-			Subject:  subjects.GetUnacknowledgedActiveAlerts,
-			Request:  loggingmanagercontract.ListAlertsInput{},
-			Response: loggingmanagercontract.ListAlertsResponse{},
-		},
-		"update_alert_state": {
-			Subject:  subjects.UpdateAlertState,
-			Request:  loggingmanagercontract.UpdateAlertStateInput{},
-			Response: loggingmanagercontract.OKResponse{},
-		},
-		"acknowledge_alert": {
-			Subject:  subjects.AcknowledgeAlert,
-			Request:  loggingmanagercontract.AcknowledgeAlertInput{},
-			Response: loggingmanagercontract.OKResponse{},
-		},
-		"mute_alert": {
-			Subject:  subjects.MuteAlert,
-			Request:  loggingmanagercontract.MuteAlertInput{},
-			Response: loggingmanagercontract.OKResponse{},
-		},
+	contracts := buildLoggingManagerReadRPCContracts(subjects)
+	for name, contract := range buildLoggingManagerWriteRPCContracts(subjects) {
+		contracts[name] = contract
 	}
+	return contracts
+}
+
+func buildLoggingManagerReadRPCContracts(subjects loggingManagerRPCSubjects) map[string]RPCContract {
+	return map[string]RPCContract{
+		"get_alerts":                       newRPCContract(subjects.GetAlerts, loggingmanagercontract.ListAlertsInput{}, loggingmanagercontract.ListAlertsResponse{}),
+		"get_alert":                        newRPCContract(subjects.GetAlert, loggingmanagercontract.GetAlertInput{}, loggingmanagercontract.GetAlertResponse{}),
+		"get_alert_occurrences":            newRPCContract(subjects.GetAlertOccurrences, loggingmanagercontract.GetAlertOccurrencesInput{}, loggingmanagercontract.GetAlertOccurrencesResponse{}),
+		"get_active_alerts":                newRPCContract(subjects.GetActiveAlerts, loggingmanagercontract.ListAlertsInput{}, loggingmanagercontract.ListAlertsResponse{}),
+		"get_active_unacknowledged_alerts": newRPCContract(subjects.GetUnacknowledgedActiveAlerts, loggingmanagercontract.ListAlertsInput{}, loggingmanagercontract.ListAlertsResponse{}),
+	}
+}
+
+func buildLoggingManagerWriteRPCContracts(subjects loggingManagerRPCSubjects) map[string]RPCContract {
+	return map[string]RPCContract{
+		"update_alert_state": newRPCContract(subjects.UpdateAlertState, loggingmanagercontract.UpdateAlertStateInput{}, loggingmanagercontract.OKResponse{}),
+		"acknowledge_alert":  newRPCContract(subjects.AcknowledgeAlert, loggingmanagercontract.AcknowledgeAlertInput{}, loggingmanagercontract.OKResponse{}),
+		"mute_alert":         newRPCContract(subjects.MuteAlert, loggingmanagercontract.MuteAlertInput{}, loggingmanagercontract.OKResponse{}),
+	}
+}
+
+func newRPCContract(subject string, request any, response any) RPCContract {
+	return RPCContract{Subject: subject, Request: request, Response: response}
 }

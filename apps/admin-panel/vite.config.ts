@@ -7,10 +7,12 @@ import { createViteAliases } from "./vite.aliases";
  * Default local gateway origin used by the Vite development server.
  */
 const defaultGatewayOrigin = "http://127.0.0.1:9090";
+const defaultFileServiceOrigin = "http://127.0.0.1:8082";
 
 export default defineConfig(() => {
   const outDir = process.env.LITE_NAS_ADMIN_PANEL_OUT_DIR || "../../.build/admin-panel";
   const gatewayOrigin = process.env.LITE_NAS_WEB_GATEWAY_ORIGIN || defaultGatewayOrigin;
+  const fileServiceOrigin = process.env.LITE_NAS_FILE_SERVICE_ORIGIN || defaultFileServiceOrigin;
 
   return {
     build: {
@@ -34,6 +36,10 @@ export default defineConfig(() => {
         "/api": {
           changeOrigin: true,
           target: gatewayOrigin,
+        },
+        "/f/": {
+          target: fileServiceOrigin,
+          rewrite: (path) => path.slice(2),
         },
       },
     },

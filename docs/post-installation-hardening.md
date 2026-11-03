@@ -1,53 +1,27 @@
 # Post-Installation Hardening
 
-## Purpose
+LiteNAS installs a security baseline, but host hardware, network exposure, and
+administrator policy still require review after installation.
 
-This document records hardening work that remains after the LiteNAS Debian
-package has been installed. These actions exist because some controls cannot be
-safely decided in a generic package without understanding the target host,
-attached devices, network exposure, and operational workflow.
+## Operator Workflow
 
-## Operator Responsibility
+1. Verify the installed service, firewall, AppArmor, USBGuard, AIDE, and log
+   rotation configuration against the actual host.
+2. Initialize or update the AIDE baseline after planned package and policy
+   changes, then review subsequent integrity reports.
+3. Install OpenSCAP separately if compliance assessment is needed. Select
+   benchmark content and a profile appropriate to the host, run the assessment,
+   and review each result in its deployment context.
+4. Record intentional deviations in [Security Policy
+   Exceptions](./security-policy-exceptions.md). Apply approved host changes
+   through the appropriate system or LiteNAS configuration and reassess.
+5. Review SIEM alerts, malware scan results, backup recovery, and attached
+   device policy as ongoing operational work.
 
-Operators should treat the package baseline as the starting point, not the end
-state.
+OpenSCAP results are compliance evidence for the selected content and profile.
+LiteNAS does not provide a separate assessment engine or automatic remediation
+workflow. AIDE integrity checks and SIEM detections continue to serve their
+own runtime purposes.
 
-Post-installation hardening is expected to include:
-
-- reviewing the deployed baseline on the target host
-- validating that enabled controls fit the real hardware and service topology
-- running assessment tooling when available
-- reviewing findings and selecting remediation actions
-- applying safe automatic remediation where available
-- completing manual remediation where environment-specific judgment is required
-
-## Planned Assessment Flow
-
-The intended LiteNAS hardening workflow is:
-
-1. Install the LiteNAS package baseline.
-2. Run LiteNAS hardening assessment or linting tooling when available.
-3. Review findings and distinguish expected deviations, true hardening gaps,
-   and environment-specific accepted risk.
-4. Remediate issues automatically where LiteNAS can do so safely.
-5. Complete any remaining remediation manually.
-
-## Typical Runtime Topics
-
-This document should later cover topics such as:
-
-- host-specific network exposure review
-- administrator account and access policy review
-- review of integrity-monitoring baselines after installation
-- review and tuning of malware scanning scope and schedules
-- review and enrollment of `usbguard` policy for the actual hardware set
-- validation of backup, recovery, and audit expectations
-
-## Relationship To Other Security Docs
-
-- Use [Preinstalled Hardened Configs](./preinstalled-hardened-configs.md) for
-  controls that LiteNAS already installs and configures by default.
-- Use [Security Tooling](./security-tooling.md) for a tool inventory and
-  responsibilities.
-- Use [Security Policy Exceptions](./security-policy-exceptions.md) when a
-  benchmark-style recommendation is intentionally not followed.
+See [Preinstalled Hardened Configs](./preinstalled-hardened-configs.md) for the
+packaged baseline and [Security Tooling](./security-tooling.md) for tool roles.

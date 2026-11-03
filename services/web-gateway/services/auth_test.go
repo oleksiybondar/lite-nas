@@ -108,6 +108,9 @@ func TestAuthServiceLoginRequestsAuthRPC(t *testing.T) {
 	if client.subject != authcontract.LoginRPCSubject {
 		t.Fatalf("subject = %q, want %q", client.subject, authcontract.LoginRPCSubject)
 	}
+	if client.request.(authcontract.LoginRequest).Source != "admin-panel" {
+		t.Fatalf("source = %q, want admin-panel", client.request.(authcontract.LoginRequest).Source)
+	}
 	if session.UserID != "1000" {
 		t.Fatalf("UserID = %q, want 1000", session.UserID)
 	}

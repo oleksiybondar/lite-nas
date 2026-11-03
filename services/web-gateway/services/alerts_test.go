@@ -89,6 +89,23 @@ func TestSystemAlertsServiceForwardsFilters(t *testing.T) {
 	)
 }
 
+func TestSystemAlertsServiceGetOccurrencesRequestsHistorySubject(t *testing.T) {
+	t.Parallel()
+
+	wantItems := []loggingmanagercontract.AlertOccurrenceItem{{EventID: "evt-1", RecID: 9}}
+	client := newAlertsOccurrencesClientStub(t, wantItems)
+	service := NewSystemAlertsService(client)
+
+	items, err := service.GetOccurrences(context.Background(), AlertGetInput{AccessToken: "AT", ID: "evt-1"})
+	if err != nil {
+		t.Fatalf("GetOccurrences() error = %v", err)
+	}
+
+	assertAlertsListSubject(t, client.subject, systemloggingmanagercontract.GetAlertOccurrencesRPCSubject)
+	assertAlertsOccurrencesRequest(t, client.request, "AT", "evt-1")
+	assertAlertsOccurrencesResult(t, items, wantItems)
+}
+
 // Requirements: web-gateway/FR-005, web-gateway/TR-001
 func TestSystemAlertsServiceGetReturnsNotFoundWhenRPCItemMissing(t *testing.T) {
 	t.Parallel()

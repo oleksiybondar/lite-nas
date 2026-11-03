@@ -1,9 +1,10 @@
 import { useAuth } from "@hooks/useAuth";
+import { loginDestination, loginRedirectPath } from "@lite-nas/profile";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { LoginPage } from "@pages/LoginPage";
 import type { ReactElement } from "react";
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 /**
  * Route guard for admin-panel application content.
@@ -14,13 +15,21 @@ import { Outlet } from "react-router-dom";
  */
 export const AuthRouteGuard = (): ReactElement => {
   const { isAuthInited, isAuthenticated } = useAuth();
+  const location = useLocation();
 
   if (!isAuthInited) {
     return <AuthLoadingView />;
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    if (location.pathname === "/login") return <LoginPage />;
+    const from = location.pathname + location.search + location.hash;
+    return <Navigate replace to={loginRedirectPath(from)} state={{ from }} />;
+  }
+
+  if (location.pathname === "/login") {
+    const from = (location.state as { from?: unknown } | null)?.from;
+    return <Navigate replace to={loginDestination(location.search, from)} />;
   }
 
   return <Outlet />;

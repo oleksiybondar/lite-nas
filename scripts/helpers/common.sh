@@ -27,6 +27,33 @@ source "$COMMON_DIR/args.sh"
 source "$COMMON_DIR/build.sh"
 # shellcheck disable=SC1091
 source "$COMMON_DIR/packaging.sh"
+# shellcheck disable=SC1091
+source "$COMMON_DIR/package-version.sh"
+
+# Install an INI service config, retaining local values and adding new keys.
+deploy.installMergedConfig() {
+	local source_file="$1"
+	local target_file="$2"
+	local owner="$3"
+	local group="$4"
+	local merged_file=""
+
+	if [ ! -f "$target_file" ]; then
+		install -D -m 0640 -o "$owner" -g "$group" "$source_file" "$target_file"
+		return
+	fi
+
+	merged_file="$(mktemp)"
+	if ! awk -f "$COMMON_DIR/merge-ini-config.awk" -- "$source_file" "$target_file" >"$merged_file"; then
+		rm -f "$merged_file"
+		return 1
+	fi
+	if ! install -D -m 0640 -o "$owner" -g "$group" "$merged_file" "$target_file"; then
+		rm -f "$merged_file"
+		return 1
+	fi
+	rm -f "$merged_file"
+}
 
 deploy.hasUsableSystemd() {
 	command -v systemctl >/dev/null 2>&1 &&
@@ -36,6 +63,53 @@ deploy.hasUsableSystemd() {
 
 deploy.hasServiceCommand() {
 	command -v service >/dev/null 2>&1
+}
+
+deploy.ensureSystemGroup() {
+	local group_name="$1"
+	local group_description="${2:-system group}"
+
+	if getent group "$group_name" >/dev/null 2>&1; then
+		return 0
+	fi
+
+	log.info "Creating ${group_description}: $group_name"
+	groupadd --system "$group_name"
+}
+
+deploy.validateSudoersDropIn() {
+	local sudoers_file="$1"
+
+	visudo -c -f "$sudoers_file" >/dev/null
+}
+
+deploy.installSudoersTemplate() {
+	local source_template="$1"
+	local target_file="$2"
+
+	install -d -m 0750 -o root -g root "$(dirname "$target_file")"
+	install -m 0440 -o root -g root "$source_template" "$target_file"
+	deploy.validateSudoersDropIn "$target_file"
+}
+
+# Runs a command with stderr suppressed on success and replayed on failure.
+command.quietStderrUnlessFailure() {
+	local stderr_file
+	local exit_code=0
+
+	stderr_file="$(mktemp)"
+	if "$@" 2>"$stderr_file"; then
+		rm -f "$stderr_file"
+		return 0
+	else
+		exit_code=$?
+	fi
+
+	if [ -s "$stderr_file" ]; then
+		cat "$stderr_file" >&2
+	fi
+	rm -f "$stderr_file"
+	return "$exit_code"
 }
 
 deploy.enableAndRefreshService() {

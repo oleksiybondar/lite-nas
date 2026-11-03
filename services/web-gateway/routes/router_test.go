@@ -15,6 +15,8 @@ import (
 	"lite-nas/services/web-gateway/services"
 	webtest "lite-nas/services/web-gateway/testutil"
 	"lite-nas/shared/authtoken"
+	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/metrics"
@@ -54,6 +56,19 @@ func (s routeAuthService) Login(
 		AccessExpires: now.Add(time.Minute),
 		RefreshExpiry: now.Add(2 * time.Minute),
 	}, nil
+}
+
+func (s routeAuthService) BeginLogin(ctx context.Context, now time.Time, login, password string, requestContext services.AuthRequestContext) (browserauth.PasswordResult, error) {
+	session, err := s.Login(ctx, now, login, password, requestContext)
+	return browserauth.PasswordResult{Session: session, Status: authcontract.StatusAuthenticated}, err
+}
+
+func (s routeAuthService) BeginPasswordChange(context.Context, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, nil
+}
+
+func (s routeAuthService) ReplyPasswordChange(context.Context, time.Time, string, int32, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, nil
 }
 
 func (s routeAuthService) Refresh(
@@ -121,6 +136,12 @@ func (routeSystemMetricsService) GetHistory(context.Context) ([]metrics.SystemSn
 	}, nil
 }
 
+type routeProcessMetricsService struct{}
+
+func (routeProcessMetricsService) GetSnapshot(context.Context) (metrics.ProcessMetricsSnapshot, error) {
+	return metrics.ProcessMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
 type routeZFSMetricsService struct{}
 
 func (routeZFSMetricsService) GetSnapshot(context.Context) (metrics.ZFSSnapshot, error) {
@@ -129,6 +150,45 @@ func (routeZFSMetricsService) GetSnapshot(context.Context) (metrics.ZFSSnapshot,
 
 func (routeZFSMetricsService) GetHistory(context.Context) ([]metrics.ZFSSnapshot, error) {
 	return []metrics.ZFSSnapshot{
+		{Timestamp: time.Unix(100, 0).UTC()},
+		{Timestamp: time.Unix(101, 0).UTC()},
+	}, nil
+}
+
+type routeDiskMetricsService struct{}
+
+func (routeDiskMetricsService) GetSnapshot(context.Context) (metrics.DiskMetricsSnapshot, error) {
+	return metrics.DiskMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeDiskMetricsService) GetHistory(context.Context) ([]metrics.DiskMetricsSnapshot, error) {
+	return []metrics.DiskMetricsSnapshot{
+		{Timestamp: time.Unix(100, 0).UTC()},
+		{Timestamp: time.Unix(101, 0).UTC()},
+	}, nil
+}
+
+type routeNetworkMetricsService struct{}
+
+func (routeNetworkMetricsService) GetSnapshot(context.Context) (metrics.NetworkMetricsSnapshot, error) {
+	return metrics.NetworkMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeNetworkMetricsService) GetHistory(context.Context) ([]metrics.NetworkMetricsSnapshot, error) {
+	return []metrics.NetworkMetricsSnapshot{
+		{Timestamp: time.Unix(100, 0).UTC()},
+		{Timestamp: time.Unix(101, 0).UTC()},
+	}, nil
+}
+
+type routeServiceMetricsService struct{}
+
+func (routeServiceMetricsService) GetSnapshot(context.Context) (metrics.ServiceMetricsSnapshot, error) {
+	return metrics.ServiceMetricsSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeServiceMetricsService) GetHistory(context.Context) ([]metrics.ServiceMetricsSnapshot, error) {
+	return []metrics.ServiceMetricsSnapshot{
 		{Timestamp: time.Unix(100, 0).UTC()},
 		{Timestamp: time.Unix(101, 0).UTC()},
 	}, nil
@@ -159,6 +219,10 @@ func (routeAlertsService) ListUnacknowledged(context.Context, services.AlertList
 
 func (routeAlertsService) Get(context.Context, services.AlertGetInput) (loggingmanagercontract.ListAlertItem, bool, error) {
 	return loggingmanagercontract.ListAlertItem{EventID: "evt-1"}, true, nil
+}
+
+func (routeAlertsService) GetOccurrences(context.Context, services.AlertGetInput) ([]loggingmanagercontract.AlertOccurrenceItem, error) {
+	return []loggingmanagercontract.AlertOccurrenceItem{{EventID: "evt-1", RecID: 1}}, nil
 }
 
 func (routeAlertsService) Acknowledge(context.Context, services.AlertActionInput) error {
@@ -207,6 +271,10 @@ func routerFixtureWithVerifier(authService controllers.AuthService, verifier rou
 		SystemAlerts:   controllers.NewSystemAlertsController(routeAlertsService{}),
 		SecurityAlerts: controllers.NewSecurityAlertsController(routeAlertsService{}),
 		SystemMetrics:  controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		ProcessMetrics: controllers.NewProcessMetricsController(routeProcessMetricsService{}),
+		ServiceMetrics: controllers.NewServiceMetricsController(routeServiceMetricsService{}),
+		DiskMetrics:    controllers.NewDiskMetricsController(routeDiskMetricsService{}),
+		NetworkMetrics: controllers.NewNetworkMetricsController(routeNetworkMetricsService{}),
 		ZFSMetrics:     controllers.NewZFSMetricsController(routeZFSMetricsService{}),
 	}
 
@@ -255,6 +323,25 @@ func TestRouterLoginReturnsCookies(t *testing.T) {
 
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 	webtest.AssertCookieCount(t, recorder, 2)
+}
+
+// TestRouterLoginEchoesValidatedReturnPath covers browserauth/FR-001.
+func TestRouterLoginEchoesValidatedReturnPath(t *testing.T) {
+	t.Parallel()
+	handler := routerFixture(nil)
+	request := webtest.NewRequest(http.MethodPost, "/api/auth/login?redirect_to=%2Fsystem%3Ftab%3Dnetwork", []byte(`{"login":"john.doe","password":"pass"}`))
+	recorder := webtest.ServeRequest(handler, request)
+	var body struct {
+		Data struct {
+			RedirectTo string `json:"redirect_to"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Data.RedirectTo != "/system?tab=network" {
+		t.Fatalf("redirect_to = %q, want /system?tab=network", body.Data.RedirectTo)
+	}
 }
 
 // Requirements: web-gateway/FR-004, web-gateway/TR-001
@@ -311,6 +398,14 @@ func TestRouterLogoutAcceptsRefreshTokenCookie(t *testing.T) {
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 }
 
+// Requirements: web-gateway/FR-004, web-gateway/TR-001
+func TestRouterLogoutWithoutRefreshTokenStillClearsCookies(t *testing.T) {
+	t.Parallel()
+
+	recorder := webtest.ServeRequest(routerFixture(nil), webtest.NewRequest(http.MethodPost, "/api/auth/logout", []byte(`{}`)))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
+
 // Requirements: web-gateway/FR-003, web-gateway/TR-001
 func TestRouterSystemMetricsHistoryRequiresAuthentication(t *testing.T) {
 	t.Parallel()
@@ -325,6 +420,52 @@ func TestRouterSystemMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/system-metrics/history", nil, http.StatusOK)
+}
+
+func TestRouterProcessMetricsSnapshotRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/process-metrics/snapshot", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestRouterProcessMetricsSnapshotReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/process-metrics/snapshot", nil, http.StatusOK)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterDiskMetricsHistoryRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/disk-metrics/history", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterDiskMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/disk-metrics/history", nil, http.StatusOK)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterNetworkMetricsHistoryRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/network-metrics/history", nil))
+	webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+}
+
+// Requirements: web-gateway/FR-003, web-gateway/TR-001
+func TestRouterNetworkMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/network-metrics/history", nil, http.StatusOK)
 }
 
 // Requirements: web-gateway/FR-003, web-gateway/TR-001
@@ -364,6 +505,16 @@ func TestRouterSystemAlertsAcceptOperatorRole(t *testing.T) {
 }
 
 // Requirements: web-gateway/FR-005, web-gateway/TR-001
+func TestRouterSystemAlertOccurrencesAcceptOperatorRole(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixtureWithVerifier(nil, routeAuthVerifier{
+		claims: authtoken.AccessClaims{Login: "john.doe", Roles: []string{"lite-nas-operator"}},
+	})
+	recorder := webtest.ServeRequest(handler, webtest.NewAuthenticatedRequest(http.MethodGet, "/api/alerts/system/evt-1/occurrences", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+}
+
 func TestRouterSecurityAlertsRejectOperatorRole(t *testing.T) {
 	t.Parallel()
 
@@ -413,6 +564,29 @@ func TestRouterExposesOpenAPIDocs(t *testing.T) {
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 }
 
+// Requirements: web-gateway/FR-005, web-gateway/IR-004.
+// TestRouterDocumentsSecurityTaskOperations verifies all on-demand task endpoints appear in OpenAPI.
+func TestRouterDocumentsSecurityTaskOperations(t *testing.T) {
+	t.Parallel()
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/openapi.json", nil))
+	webtest.AssertStatus(t, recorder, http.StatusOK)
+	var spec map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &spec); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	for _, operation := range []struct{ path, method string }{
+		{path: "/security/tasks/antivirus/scans", method: "post"},
+		{path: "/security/tasks/antivirus/tasks/{task_id}", method: "get"},
+		{path: "/security/tasks/antivirus/tasks/{task_id}/retry", method: "post"},
+		{path: "/security/tasks/integrity/checks", method: "post"},
+		{path: "/security/tasks/integrity/tasks/{task_id}", method: "get"},
+		{path: "/security/tasks/integrity/tasks/{task_id}/retry", method: "post"},
+	} {
+		mustOpenAPIOperation(t, spec, operation.path, operation.method)
+	}
+}
+
 // Requirements: web-gateway/IR-001
 func TestRouterDocumentsAlertFiltersQueryParameter(t *testing.T) {
 	t.Parallel()
@@ -439,7 +613,7 @@ func TestRouterDocsPageReferencesMountedOpenAPIPath(t *testing.T) {
 	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/docs", nil))
 	webtest.AssertStatus(t, recorder, http.StatusOK)
 
-	if !strings.Contains(recorder.Body.String(), `apiDescriptionUrl="/api/openapi.yaml"`) {
+	if !strings.Contains(recorder.Body.String(), `url: "/api/openapi.yaml"`) {
 		t.Fatalf("docs html = %q, want mounted OpenAPI path", recorder.Body.String())
 	}
 }
@@ -531,4 +705,20 @@ func mustMapField(t *testing.T, source map[string]any, field string) map[string]
 		t.Fatalf("openapi %s = %T, want map[string]any", field, source[field])
 	}
 	return value
+}
+
+func TestRouterServiceMetricsHistoryRequiresAuthentication(t *testing.T) {
+	t.Parallel()
+
+	handler := routerFixture(nil)
+	recorder := webtest.ServeRequest(handler, webtest.NewRequest(http.MethodGet, "/api/service-metrics/history", nil))
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestRouterServiceMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/service-metrics/history", nil, http.StatusOK)
 }

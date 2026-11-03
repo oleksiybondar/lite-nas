@@ -2,6 +2,7 @@ import { buildMonitoringPollingSettingsStorageKey } from "@helpers/monitoring-po
 import { useMonitoringPollingSettings } from "@hooks/useMonitoringPollingSettings";
 import { MonitoringPollingSettingsProvider } from "@providers/MonitoringPollingSettingsProvider";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { TestProfileBoundary } from "@tests/unit/test-utils/profile-boundary";
 import type { ReactElement } from "react";
 
 beforeEach(() => {
@@ -13,6 +14,16 @@ describe("MonitoringPollingSettingsProvider", () => {
     renderMonitoringPollingSettingsProvider();
 
     expectDefaultMonitoringPollingSettings();
+  });
+
+  test("uses service telemetry defaults for the service scope", () => {
+    renderMonitoringPollingSettingsProvider("service-metrics");
+
+    expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("snapshot");
+    expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("1");
+    expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("15000");
+    expect(screen.getByTestId("monitoring-max-records")).toHaveTextContent("1");
+    expect(screen.getByTestId("monitoring-history-reset-gap")).toHaveTextContent("1");
   });
 });
 
@@ -61,13 +72,24 @@ describe("MonitoringPollingSettingsProvider resets", () => {
 
     expectDefaultMonitoringPollingSettings();
   });
+
+  test("resets service telemetry back to its scope-specific default interval", () => {
+    renderMonitoringPollingSettingsProvider("service-metrics");
+
+    fireEvent.click(screen.getByTestId("set-snapshot-interval"));
+    expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("1500");
+
+    fireEvent.click(screen.getByTestId("reset-settings"));
+    expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("15000");
+    expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("1");
+  });
 });
 
 /**
  * Asserts the default monitoring polling settings exposed by the shared test probe.
  */
 const expectDefaultMonitoringPollingSettings = (): void => {
-  expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("history");
+  expect(screen.getByTestId("monitoring-mode")).toHaveTextContent("snapshot");
   expect(screen.getByTestId("monitoring-history-interval")).toHaveTextContent("15000");
   expect(screen.getByTestId("monitoring-snapshot-interval")).toHaveTextContent("1000");
   expect(screen.getByTestId("monitoring-max-records")).toHaveTextContent("180");
@@ -133,10 +155,12 @@ const MonitoringPollingSettingsProbe = (): ReactElement => {
 /**
  * Renders the monitoring polling settings provider around the shared test probe.
  */
-const renderMonitoringPollingSettingsProvider = (): void => {
+const renderMonitoringPollingSettingsProvider = (storageKey = "system-metrics"): void => {
   render(
-    <MonitoringPollingSettingsProvider storageKey="system-metrics">
-      <MonitoringPollingSettingsProbe />
-    </MonitoringPollingSettingsProvider>,
+    <TestProfileBoundary>
+      <MonitoringPollingSettingsProvider storageKey={storageKey}>
+        <MonitoringPollingSettingsProbe />
+      </MonitoringPollingSettingsProvider>
+    </TestProfileBoundary>,
   );
 };

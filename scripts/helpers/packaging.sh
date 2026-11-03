@@ -22,7 +22,8 @@ package.copyTree() {
 	local destination_dir="$2"
 
 	mkdir -p "$destination_dir"
-	cp -a "$source_dir/." "$destination_dir/"
+	# Package builders set final file modes below; host ACLs must not enter the package root.
+	cp -R "$source_dir/." "$destination_dir/"
 }
 
 package.prepareRoot() {
@@ -66,6 +67,7 @@ package.prepareMetadata() {
 		"$package_version" \
 		"$template_dir/DEBIAN/control.in" \
 		"$package_root/DEBIAN/control"
+	chmod 0755 "$package_root/DEBIAN"
 }
 
 package.copyDocTreeAndCompressChangelog() {

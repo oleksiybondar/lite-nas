@@ -24,6 +24,9 @@ func NewAlertSubscriptionHandler(
 		if err := validator.Struct(payload); err != nil {
 			return err
 		}
+		if payload.Email != nil && !*payload.Email {
+			return nil
+		}
 
 		select {
 		case <-ctx.Done():

@@ -1,6 +1,9 @@
 package getfacl
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseParsesHeadersAndOwnerGroup(t *testing.T) {
 	t.Parallel()
@@ -15,6 +18,21 @@ func TestParseParsesHeadersAndOwnerGroup(t *testing.T) {
 	}
 	if document.Owner != "root" || document.Group != "lite-nas" {
 		t.Fatalf("owner/group = %q/%q", document.Owner, document.Group)
+	}
+}
+
+// Requirements: stream-service-svc/FR-003.
+func TestParseAcceptsFileHeaderWithSpaces(t *testing.T) {
+	t.Parallel()
+	input := strings.Replace(validInputFixture(),
+		"# file: /etc/lite-nas/certificates",
+		"# file: /home/alice/IMG_0210 (1).mov", 1)
+	document, err := Parse(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if document.FilePath != "/home/alice/IMG_0210 (1).mov" {
+		t.Fatalf("FilePath = %q", document.FilePath)
 	}
 }
 
@@ -69,6 +87,27 @@ func TestParseReturnsErrorWhenOwnerGroupHeadersMissing(t *testing.T) {
 	_, err := Parse("user::rwx\nother::---\n")
 	if err == nil {
 		t.Fatalf("Parse() expected error for missing owner/group headers")
+	}
+}
+
+func TestParseAcceptsGetfaclEffectivePermissionComments(t *testing.T) {
+	t.Parallel()
+
+	input := `# file: /home/testoperator/direct.txt
+# owner: testoperator
+# group: testoperator
+user::rw-
+group::r-x		#effective:r--
+group:lite-nas-fs-rd:r-x	#effective:r--
+mask::r--
+other::---
+`
+	document, err := Parse(input)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if !document.User.Read || document.User.Execute {
+		t.Fatalf("owner permission = %#v", document.User)
 	}
 }
 

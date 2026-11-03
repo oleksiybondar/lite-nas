@@ -1,3 +1,5 @@
+import type { PaginationActions, PaginationMeta, PaginationState } from "@dto/pagination";
+
 /**
  * Alert domains exposed by the gateway alerts API.
  */
@@ -141,6 +143,36 @@ export type AlertListResponseDTO = {
 };
 
 /**
+ * One occurrence row returned by the alert occurrences endpoints.
+ *
+ * The field names intentionally mirror the current gateway response contract.
+ */
+export type AlertOccurrenceItemDTO = {
+  EventID: string;
+  EventRecID: number;
+  RecID: number;
+  Timestamp: string;
+  ValueBool: boolean | null;
+  ValueNum: number | null;
+  ValueText: string | null;
+  ValueType: string;
+  ValueUnit: string | null;
+};
+
+/**
+ * Response envelope returned by alert occurrences endpoints.
+ */
+export type AlertOccurrencesResponseDTO = {
+  code?: string;
+  data: AlertOccurrenceItemDTO[];
+  message?: string;
+  request_id?: string;
+  success: boolean;
+  timestamp: string;
+  trace_id?: string;
+};
+
+/**
  * Browser-facing alert action response returned by acknowledge endpoints.
  */
 export type AlertActionResponseDTO = {
@@ -164,27 +196,34 @@ export type AlertsFilterState = {
 };
 
 /**
- * Shared filter setters and page controls used by alerts list views and control-panel state.
+ * Pagination contract exposed by alerts route slices and reusable controls.
+ */
+export type AlertsPaginationState = Pick<PaginationState, "page" | "pageSize"> &
+  Pick<PaginationMeta, "hasNextPage" | "hasPreviousPage" | "totalCount" | "totalPages"> &
+  Pick<
+    PaginationActions,
+    "nextPage" | "previousPage" | "resetPage" | "resetPagination" | "setPage" | "setPageSize"
+  >;
+
+/**
+ * Shared filter setters used by alerts list views and control-panel state.
  */
 export type AlertsFilterControls = {
   clearFilters: () => void;
-  page: number;
   search: string;
   setCategoryFilter: (value: string[]) => void;
-  setPage: (page: number) => void;
   setPriorityFilter: (value: number[]) => void;
   setSearch: (value: string) => void;
   setSeverityFilter: (value: AlertSeverity[]) => void;
   setSourceFilter: (value: string[]) => void;
-  totalCount: number;
-  totalPages: number;
 };
 
 /**
  * Browser-facing alerts page state and commands shared across one route slice.
  */
 export type AlertsContextValue = AlertsFilterState &
-  AlertsFilterControls & {
+  AlertsFilterControls &
+  AlertsPaginationState & {
     acknowledge: (id: string) => Promise<void>;
     acknowledgeMany: (ids: string[]) => Promise<void>;
     apiPath: string;
@@ -196,13 +235,9 @@ export type AlertsContextValue = AlertsFilterState &
     isFetching: boolean;
     isLoading: boolean;
     items: AlertListItemDTO[];
-    nextPage: () => void;
-    pageSize: number;
-    previousPage: () => void;
     queryKey: readonly unknown[];
     refetch: () => Promise<unknown>;
     routePath: string;
-    setPageSize: (size: number) => void;
   };
 
 /**
@@ -217,7 +252,8 @@ export type AlertsControlPanelOption<T extends string | number> = {
  * Focused UI contract exposed by the alerts control-panel provider.
  */
 export type AlertsControlPanelContextValue = AlertsFilterState &
-  AlertsFilterControls & {
+  AlertsFilterControls &
+  Pick<AlertsPaginationState, "page" | "setPage" | "totalCount" | "totalPages"> & {
     availableCategoryOptions: AlertsControlPanelOption<string>[];
     availablePriorityOptions: AlertsControlPanelOption<number>[];
     availableSeverityOptions: AlertsControlPanelOption<AlertSeverity>[];
@@ -231,6 +267,7 @@ export type AlertsControlPanelContextValue = AlertsFilterState &
  * state and setter signatures inline at the call site.
  */
 export type BuildAlertsControlPanelValueInput = AlertsFilterState &
-  AlertsFilterControls & {
+  AlertsFilterControls &
+  Pick<AlertsPaginationState, "page" | "setPage" | "totalCount" | "totalPages"> & {
     domain: AlertDomain;
   };

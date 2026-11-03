@@ -11,6 +11,7 @@ package_arch=""
 package_version=""
 install_recommends=1
 run_as_user=()
+should_bump_local_build_counter=0
 
 usage() {
 	cat <<'MSG'
@@ -18,7 +19,7 @@ Usage: scripts/package/rebuild-validate-install-lite-nas-deb.sh [options]
 
 Options:
   --package-arch ARCH       Package architecture to build/install (amd64 or arm64). Defaults to current Go architecture.
-  --version VERSION         Package version to build. Defaults to LITE_NAS_BASE_VERSION+local.<timestamp>.
+  --version VERSION         Package version to build. Defaults to the current local alpha version from scripts/config/package-build-counter.txt.
   --no-install-recommends   Install only hard package dependencies.
   -h, --help                Show this help.
 MSG
@@ -73,7 +74,8 @@ amd64 | arm64) ;;
 esac
 
 if [ -z "$package_version" ]; then
-	package_version="${LITE_NAS_BASE_VERSION}+local.$(date +%Y%m%d%H%M%S)"
+	package_version="$(packageVersion.localAlpha)"
+	should_bump_local_build_counter=1
 fi
 
 log.requireCommand "apt-get" "Install apt-get and retry."
@@ -155,6 +157,10 @@ main() {
 			--package "$package_path"
 	fi
 	log.popTask
+
+	if [ "$should_bump_local_build_counter" -eq 1 ]; then
+		packageVersion.bumpLocalBuildCounter
+	fi
 
 	log.info "Rebuilt, validated, and installed package: $package_path"
 }

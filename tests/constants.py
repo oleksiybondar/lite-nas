@@ -20,6 +20,9 @@ DEPENDENCY_PACKAGES: list[str] = [
     "acl",
     "aide",
     "apparmor",
+    "ffmpeg",
+    "libheif-examples",
+    "libheif-plugin-libde265",
     "postfix",
     "sudo",
     "zfsutils-linux",
@@ -30,6 +33,18 @@ DEPENDENCY_PACKAGES: list[str] = [
 SYSTEM_METRICS_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_METRICS_CLI_BINARY",
     "/usr/bin/system-metrics-cli",
+)
+FILE_WRITER_BINARY: str = os.environ.get(
+    "LITENAS_FILE_WRITER_BINARY",
+    "/usr/bin/lite-nas-file-writer",
+)
+BACKUP_RESTORE_CLI_BINARY: str = os.environ.get(
+    "LITENAS_BACKUP_RESTORE_CLI_BINARY",
+    "/usr/bin/backup-restore-cli",
+)
+SECURITY_AUTOMATION_CLI_BINARY: str = os.environ.get(
+    "LITENAS_SECURITY_AUTOMATION_CLI_BINARY",
+    "/usr/bin/security-automation-cli",
 )
 SYSTEM_LOGGING_MANAGER_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY",
@@ -49,7 +64,7 @@ SYSTEM_LOGGING_MANAGER_OPERATOR_PASSWORD: str = os.environ.get(
 )
 SECURITY_LOGGING_MANAGER_LOGIN: str = os.environ.get(
     "LITENAS_SECURITY_LOGIN",
-    "testsecurity",
+    "testsecurityuser",
 )
 SECURITY_LOGGING_MANAGER_PASSWORD: str = os.environ.get(
     "LITENAS_SECURITY_PASSWORD",
@@ -60,15 +75,18 @@ TEST_SUDO_PASSWORD: str = os.environ.get(
     "LITENAS_TESTSUDO_PASSWORD",
     os.environ.get("LITENAS_TEST_PASSWORD", "testpassword"),
 )
+PASSWORD_TEST_LOGIN: str = os.environ.get("LITENAS_PASSWORD_TEST_LOGIN", "testpasswduser")
 
 SYSTEMD_SERVICES: list[str] = [
     "lite-nas-auth",
     "lite-nas-web-gateway",
+    "lite-nas-stream-service",
     "lite-nas-system-metrics",
     "lite-nas-system-logging-manager",
     "lite-nas-security-logging-manager",
     "lite-nas-system-email-notifier",
     "lite-nas-security-email-notifier",
+    "lite-nas-journal-manager",
     "postfix",
     "apparmor",
     "nginx",

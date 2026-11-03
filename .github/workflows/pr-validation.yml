@@ -105,6 +105,34 @@ jobs:
             dir: ./services/rbac
           - name: Resources monitor service
             dir: ./services/resources-monitor
+          - name: LiteNAS integrity service
+            dir: ./services/litenas-integrity
+          - name: Mount monitor service
+            dir: ./services/mount-monitor
+          - name: Antivirus service
+            dir: ./services/antivirus
+          - name: System service monitor
+            dir: ./services/system-service-monitor
+          - name: Service watchdog
+            dir: ./services/service-watchdog
+          - name: Services manager
+            dir: ./services/services-manager
+          - name: Session manager
+            dir: ./services/session-manager
+          - name: Journal manager
+            dir: ./services/journal-manager
+          - name: Log analysis service
+            dir: ./services/log-analysis
+          - name: Security automation service
+            dir: ./services/security-automation
+          - name: Network metrics service
+            dir: ./services/network-metrics
+          - name: Process metrics service
+            dir: ./services/process-metrics
+          - name: Disk metrics service
+            dir: ./services/disk-metrics
+          - name: Service metrics service
+            dir: ./services/service-metrics
           - name: Security email notifier service
             dir: ./services/security-email-notifier
           - name: Security logging manager service
@@ -117,6 +145,10 @@ jobs:
             dir: ./services/system-metrics
           - name: Web gateway service
             dir: ./services/web-gateway
+          - name: File service
+            dir: ./services/file-service
+          - name: Stream service
+            dir: ./services/stream-service
           - name: ZFS metrics service
             dir: ./services/zfs-metrics
           - name: Security logging manager CLI app
@@ -125,8 +157,22 @@ jobs:
             dir: ./apps/system-logging-manager-cli
           - name: System metrics CLI app
             dir: ./apps/system-metrics-cli
+          - name: Network metrics CLI app
+            dir: ./apps/network-metrics-cli
           - name: ZFS metrics CLI app
             dir: ./apps/zfs-metrics-cli
+          - name: File writer app
+            dir: ./apps/file-writer
+          - name: Backup restore
+            dir: ./services/backup-restore
+          - name: Moments service
+            dir: ./services/moments
+          - name: USB Manager
+            dir: ./services/usb-manager
+          - name: Network Security
+            dir: ./services/network-security
+          - name: Backup restore CLI
+            dir: ./apps/backup-restore-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -161,6 +207,46 @@ jobs:
       - name: Run markdownlint
         run: scripts/ci/markdown-analysis.sh
 
+  security-automation-test:
+    name: Security automation tests and build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/security-automation/go.mod
+          cache-dependency-path: services/security-automation/go.sum
+      - name: Test security automation module
+        run: scripts/test-security-automation.sh --with-coverage --minimum-coverage=75
+      - name: Test security automation CLI
+        run: scripts/ci/go-test-module.sh ./apps/security-automation-cli --with-coverage --minimum-coverage=75
+      - name: Build security automation daemon
+        run: scripts/build-security-automation-binary.sh --output=.build/security-automation/linux-${{ matrix.arch }}/security-automation
+      - name: Build security automation CLI
+        run: scripts/build-security-automation-cli-binary.sh --output=.build/security-automation-cli/linux-${{ matrix.arch }}/security-automation-cli
+      - name: Upload security automation daemon
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-automation-linux-${{ matrix.arch }}
+          path: .build/security-automation/linux-${{ matrix.arch }}/security-automation
+          if-no-files-found: error
+      - name: Upload security automation CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-automation-cli-linux-${{ matrix.arch }}
+          path: .build/security-automation-cli/linux-${{ matrix.arch }}/security-automation-cli
+          if-no-files-found: error
+
   js-ts-analysis:
     name: JS/TS analysis
     runs-on: ubuntu-latest
@@ -189,6 +275,9 @@ jobs:
 
       - name: Run Python analysis
         run: scripts/ci/python-analysis.sh
+
+      - name: Test OpenSCAP comparison report
+        run: python3 -m unittest discover -s scripts/ci -p 'test_scap_delta_report.py'
 
   python-duplication-analysis:
     name: Python duplication analysis
@@ -224,6 +313,15 @@ jobs:
       - name: Build admin-panel
         run: scripts/build-admin-panel.sh
 
+      - name: Build File Explorer
+        run: scripts/build-file-explorer.sh
+
+      - name: Build Moments
+        run: scripts/build-moments.sh
+
+      - name: Verify Moments asset output
+        run: test -f .build/moments/index.html
+
       - name: Verify admin-panel asset output
         run: |
           test -f .build/admin-panel/index.html
@@ -235,6 +333,22 @@ jobs:
         with:
           name: admin-panel-assets
           path: .build/admin-panel
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload File Explorer asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: file-explorer-assets
+          path: .build/file-explorer
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload Moments asset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: moments-assets
+          path: .build/moments
           if-no-files-found: error
           retention-days: 1
 
@@ -255,6 +369,12 @@ jobs:
 
       - name: Test admin-panel
         run: scripts/test-admin-panel.sh --with-coverage
+
+      - name: Test File Explorer
+        run: scripts/test-file-explorer.sh --with-coverage
+
+      - name: Test Moments
+        run: npm --prefix apps/moments run test:unit:coverage
 
   shared-go-build-and-test:
     name: Shared Go build and test (${{ matrix.arch }})
@@ -278,6 +398,9 @@ jobs:
         with:
           run_tests: "true"
 
+      - name: Test Moments service with coverage
+        run: scripts/ci/go-test-module.sh ./services/moments --with-coverage
+
   service-build-and-test:
     name: ${{ matrix.component.name }} build and test (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -294,7 +417,7 @@ jobs:
               artifact_name: auth-service-linux
               build_script: scripts/build-auth-service-binary.sh
               output_path: .build/auth-service/linux-amd64/auth-service
-              test_script: scripts/test-auth-service.sh
+              test_script: scripts/test-auth-service.sh --with-coverage --minimum-coverage=0
               apt_packages: gcc libc6-dev libpam0g-dev
           - arch: amd64
             runner: ubuntu-latest
@@ -303,7 +426,7 @@ jobs:
               artifact_name: rbac-service-linux
               build_script: scripts/build-rbac-service-binary.sh
               output_path: .build/rbac-service/linux-amd64/rbac-service
-              test_script: scripts/ci/go-test-module.sh ./services/rbac
+              test_script: scripts/ci/go-test-module.sh ./services/rbac --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -312,7 +435,124 @@ jobs:
               artifact_name: resources-monitor-linux
               build_script: scripts/build-resources-monitor-binary.sh
               output_path: .build/resources-monitor/linux-amd64/resources-monitor
-              test_script: scripts/ci/go-test-module.sh ./services/resources-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/resources-monitor --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: LiteNAS integrity
+              artifact_name: litenas-integrity-linux
+              build_script: scripts/build-litenas-integrity-binary.sh
+              output_path: .build/litenas-integrity/linux-amd64/litenas-integrity
+              test_script: scripts/ci/go-test-module.sh ./services/litenas-integrity --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Mount Monitor
+              artifact_name: mount-monitor-linux
+              build_script: scripts/build-mount-monitor-binary.sh
+              output_path: .build/mount-monitor/linux-amd64/mount-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/mount-monitor --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Antivirus
+              artifact_name: antivirus-linux
+              build_script: scripts/build-antivirus-binary.sh
+              output_path: .build/antivirus/linux-amd64/antivirus
+              test_script: scripts/ci/go-test-module.sh ./services/antivirus --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: System Service Monitor
+              artifact_name: system-service-monitor-linux
+              build_script: scripts/build-system-service-monitor-binary.sh
+              output_path: .build/system-service-monitor/linux-amd64/system-service-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/system-service-monitor --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Service Watchdog
+              artifact_name: service-watchdog-linux
+              build_script: scripts/build-service-watchdog-binary.sh
+              output_path: .build/service-watchdog/linux-amd64/service-watchdog
+              test_script: scripts/ci/go-test-module.sh ./services/service-watchdog --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Services Manager
+              artifact_name: services-manager-linux
+              build_script: scripts/build-services-manager-binary.sh
+              output_path: .build/services-manager/linux-amd64/services-manager
+              test_script: scripts/ci/go-test-module.sh ./services/services-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Session Manager
+              artifact_name: session-manager-linux
+              build_script: scripts/build-session-manager-binary.sh
+              output_path: .build/session-manager/linux-amd64/session-manager
+              test_script: scripts/ci/go-test-module.sh ./services/session-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Journal Manager
+              artifact_name: journal-manager-linux
+              build_script: scripts/build-journal-manager-binary.sh
+              output_path: .build/journal-manager/linux-amd64/journal-manager
+              test_script: scripts/ci/go-test-module.sh ./services/journal-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Log Analysis
+              artifact_name: log-analysis-linux
+              build_script: scripts/build-log-analysis-binary.sh
+              output_path: .build/log-analysis/linux-amd64/log-analysis
+              test_script: scripts/ci/go-test-module.sh ./services/log-analysis --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Network metrics
+              artifact_name: network-metrics-linux
+              build_script: scripts/build-network-metrics-binary.sh
+              output_path: .build/network-metrics/linux-amd64/network-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Process metrics
+              artifact_name: process-metrics-linux
+              build_script: scripts/build-process-metrics-binary.sh
+              output_path: .build/process-metrics/linux-amd64/process-metrics
+              test_script: scripts/test-process-metrics.sh --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Disk metrics
+              artifact_name: disk-metrics-linux
+              build_script: scripts/build-disk-metrics-binary.sh
+              output_path: .build/disk-metrics/linux-amd64/disk-metrics
+              test_script: scripts/test-disk-metrics.sh --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Service metrics
+              artifact_name: service-metrics-linux
+              build_script: scripts/build-service-metrics-binary.sh
+              output_path: .build/service-metrics/linux-amd64/service-metrics
+              test_script: scripts/test-service-metrics.sh --with-coverage
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -321,7 +561,7 @@ jobs:
               artifact_name: security-email-notifier-linux
               build_script: scripts/build-security-email-notifier-binary.sh
               output_path: .build/security-email-notifier/linux-amd64/security-email-notifier
-              test_script: scripts/ci/go-test-module.sh ./services/security-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/security-email-notifier --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -330,7 +570,7 @@ jobs:
               artifact_name: security-logging-manager-linux
               build_script: scripts/build-security-logging-manager-binary.sh
               output_path: .build/security-logging-manager/linux-amd64/security-logging-manager
-              test_script: scripts/ci/go-test-module.sh ./services/security-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/security-logging-manager --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -339,7 +579,7 @@ jobs:
               artifact_name: system-email-notifier-linux
               build_script: scripts/build-system-email-notifier-binary.sh
               output_path: .build/system-email-notifier/linux-amd64/system-email-notifier
-              test_script: scripts/ci/go-test-module.sh ./services/system-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/system-email-notifier --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -348,7 +588,7 @@ jobs:
               artifact_name: system-logging-manager-linux
               build_script: scripts/build-system-logging-manager-binary.sh
               output_path: .build/system-logging-manager/linux-amd64/system-logging-manager
-              test_script: scripts/ci/go-test-module.sh ./services/system-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/system-logging-manager --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -362,11 +602,29 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: File Service
+              artifact_name: file-service-linux
+              build_script: scripts/build-file-service-binary.sh
+              output_path: .build/file-service/linux-amd64/file-service
+              test_script: scripts/test-file-service.sh --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Stream Service
+              artifact_name: stream-service-linux
+              build_script: scripts/build-stream-service-binary.sh
+              output_path: .build/stream-service/linux-amd64/stream-service
+              test_script: scripts/test-stream-service.sh --with-coverage
+              apt_packages: "ffmpeg libheif-examples libheif-plugin-libde265"
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Web gateway
               artifact_name: web-gateway-linux
               build_script: scripts/build-web-gateway-binary.sh
               output_path: .build/web-gateway/linux-amd64/web-gateway
-              test_script: scripts/test-web-gateway.sh
+              test_script: scripts/test-web-gateway.sh --with-coverage --minimum-coverage=75
               apt_packages: ""
           - arch: amd64
             runner: ubuntu-latest
@@ -375,7 +633,43 @@ jobs:
               artifact_name: zfs-metrics-linux
               build_script: scripts/build-zfs-metrics-binary.sh
               output_path: .build/zfs-metrics/linux-amd64/zfs-metrics
-              test_script: scripts/ci/go-test-module.sh ./services/zfs-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/zfs-metrics --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Backup restore
+              artifact_name: backup-restore-linux
+              build_script: scripts/build-backup-restore-binary.sh
+              output_path: .build/backup-restore/linux-amd64/backup-restore
+              test_script: scripts/ci/go-test-module.sh ./services/backup-restore --with-coverage --minimum-coverage=75
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Moments service
+              artifact_name: moments-linux
+              build_script: scripts/build-moments-binary.sh
+              output_path: .build/moments/linux-amd64/moments
+              test_script: scripts/ci/go-test-module.sh ./services/moments --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: USB Manager
+              artifact_name: usb-manager-linux
+              build_script: scripts/build-usb-manager-binary.sh
+              output_path: .build/usb-manager/linux-amd64/usb-manager
+              test_script: scripts/ci/go-test-module.sh ./services/usb-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
+              name: Network Security
+              artifact_name: network-security-linux
+              build_script: scripts/build-network-security-binary.sh
+              output_path: .build/network-security/linux-amd64/network-security
+              test_script: scripts/ci/go-test-module.sh ./services/network-security --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -384,7 +678,7 @@ jobs:
               artifact_name: auth-service-linux
               build_script: scripts/build-auth-service-binary.sh
               output_path: .build/auth-service/linux-arm64/auth-service
-              test_script: scripts/test-auth-service.sh
+              test_script: scripts/test-auth-service.sh --with-coverage --minimum-coverage=0
               apt_packages: gcc libc6-dev libpam0g-dev
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -393,7 +687,7 @@ jobs:
               artifact_name: rbac-service-linux
               build_script: scripts/build-rbac-service-binary.sh
               output_path: .build/rbac-service/linux-arm64/rbac-service
-              test_script: scripts/ci/go-test-module.sh ./services/rbac
+              test_script: scripts/ci/go-test-module.sh ./services/rbac --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -402,7 +696,124 @@ jobs:
               artifact_name: resources-monitor-linux
               build_script: scripts/build-resources-monitor-binary.sh
               output_path: .build/resources-monitor/linux-arm64/resources-monitor
-              test_script: scripts/ci/go-test-module.sh ./services/resources-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/resources-monitor --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: LiteNAS integrity
+              artifact_name: litenas-integrity-linux
+              build_script: scripts/build-litenas-integrity-binary.sh
+              output_path: .build/litenas-integrity/linux-arm64/litenas-integrity
+              test_script: scripts/ci/go-test-module.sh ./services/litenas-integrity --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Mount Monitor
+              artifact_name: mount-monitor-linux
+              build_script: scripts/build-mount-monitor-binary.sh
+              output_path: .build/mount-monitor/linux-arm64/mount-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/mount-monitor --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Antivirus
+              artifact_name: antivirus-linux
+              build_script: scripts/build-antivirus-binary.sh
+              output_path: .build/antivirus/linux-arm64/antivirus
+              test_script: scripts/ci/go-test-module.sh ./services/antivirus --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: System Service Monitor
+              artifact_name: system-service-monitor-linux
+              build_script: scripts/build-system-service-monitor-binary.sh
+              output_path: .build/system-service-monitor/linux-arm64/system-service-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/system-service-monitor --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Service Watchdog
+              artifact_name: service-watchdog-linux
+              build_script: scripts/build-service-watchdog-binary.sh
+              output_path: .build/service-watchdog/linux-arm64/service-watchdog
+              test_script: scripts/ci/go-test-module.sh ./services/service-watchdog --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Services Manager
+              artifact_name: services-manager-linux
+              build_script: scripts/build-services-manager-binary.sh
+              output_path: .build/services-manager/linux-arm64/services-manager
+              test_script: scripts/ci/go-test-module.sh ./services/services-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Session Manager
+              artifact_name: session-manager-linux
+              build_script: scripts/build-session-manager-binary.sh
+              output_path: .build/session-manager/linux-arm64/session-manager
+              test_script: scripts/ci/go-test-module.sh ./services/session-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Journal Manager
+              artifact_name: journal-manager-linux
+              build_script: scripts/build-journal-manager-binary.sh
+              output_path: .build/journal-manager/linux-arm64/journal-manager
+              test_script: scripts/ci/go-test-module.sh ./services/journal-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Log Analysis
+              artifact_name: log-analysis-linux
+              build_script: scripts/build-log-analysis-binary.sh
+              output_path: .build/log-analysis/linux-arm64/log-analysis
+              test_script: scripts/ci/go-test-module.sh ./services/log-analysis --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Network metrics
+              artifact_name: network-metrics-linux
+              build_script: scripts/build-network-metrics-binary.sh
+              output_path: .build/network-metrics/linux-arm64/network-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Process metrics
+              artifact_name: process-metrics-linux
+              build_script: scripts/build-process-metrics-binary.sh
+              output_path: .build/process-metrics/linux-arm64/process-metrics
+              test_script: scripts/test-process-metrics.sh --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Disk metrics
+              artifact_name: disk-metrics-linux
+              build_script: scripts/build-disk-metrics-binary.sh
+              output_path: .build/disk-metrics/linux-arm64/disk-metrics
+              test_script: scripts/test-disk-metrics.sh --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Service metrics
+              artifact_name: service-metrics-linux
+              build_script: scripts/build-service-metrics-binary.sh
+              output_path: .build/service-metrics/linux-arm64/service-metrics
+              test_script: scripts/test-service-metrics.sh --with-coverage
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -411,7 +822,7 @@ jobs:
               artifact_name: security-email-notifier-linux
               build_script: scripts/build-security-email-notifier-binary.sh
               output_path: .build/security-email-notifier/linux-arm64/security-email-notifier
-              test_script: scripts/ci/go-test-module.sh ./services/security-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/security-email-notifier --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -420,7 +831,7 @@ jobs:
               artifact_name: security-logging-manager-linux
               build_script: scripts/build-security-logging-manager-binary.sh
               output_path: .build/security-logging-manager/linux-arm64/security-logging-manager
-              test_script: scripts/ci/go-test-module.sh ./services/security-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/security-logging-manager --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -429,7 +840,7 @@ jobs:
               artifact_name: system-email-notifier-linux
               build_script: scripts/build-system-email-notifier-binary.sh
               output_path: .build/system-email-notifier/linux-arm64/system-email-notifier
-              test_script: scripts/ci/go-test-module.sh ./services/system-email-notifier
+              test_script: scripts/ci/go-test-module.sh ./services/system-email-notifier --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -438,7 +849,7 @@ jobs:
               artifact_name: system-logging-manager-linux
               build_script: scripts/build-system-logging-manager-binary.sh
               output_path: .build/system-logging-manager/linux-arm64/system-logging-manager
-              test_script: scripts/ci/go-test-module.sh ./services/system-logging-manager
+              test_script: scripts/ci/go-test-module.sh ./services/system-logging-manager --with-coverage --minimum-coverage=0
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -452,11 +863,29 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
             component:
+              name: File Service
+              artifact_name: file-service-linux
+              build_script: scripts/build-file-service-binary.sh
+              output_path: .build/file-service/linux-arm64/file-service
+              test_script: scripts/test-file-service.sh --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Stream Service
+              artifact_name: stream-service-linux
+              build_script: scripts/build-stream-service-binary.sh
+              output_path: .build/stream-service/linux-arm64/stream-service
+              test_script: scripts/test-stream-service.sh --with-coverage
+              apt_packages: "ffmpeg libheif-examples libheif-plugin-libde265"
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
               name: Web gateway
               artifact_name: web-gateway-linux
               build_script: scripts/build-web-gateway-binary.sh
               output_path: .build/web-gateway/linux-arm64/web-gateway
-              test_script: scripts/test-web-gateway.sh
+              test_script: scripts/test-web-gateway.sh --with-coverage --minimum-coverage=75
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -465,7 +894,43 @@ jobs:
               artifact_name: zfs-metrics-linux
               build_script: scripts/build-zfs-metrics-binary.sh
               output_path: .build/zfs-metrics/linux-arm64/zfs-metrics
-              test_script: scripts/ci/go-test-module.sh ./services/zfs-metrics
+              test_script: scripts/ci/go-test-module.sh ./services/zfs-metrics --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Backup restore
+              artifact_name: backup-restore-linux
+              build_script: scripts/build-backup-restore-binary.sh
+              output_path: .build/backup-restore/linux-arm64/backup-restore
+              test_script: scripts/ci/go-test-module.sh ./services/backup-restore --with-coverage --minimum-coverage=75
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Moments service
+              artifact_name: moments-linux
+              build_script: scripts/build-moments-binary.sh
+              output_path: .build/moments/linux-arm64/moments
+              test_script: scripts/ci/go-test-module.sh ./services/moments --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: USB Manager
+              artifact_name: usb-manager-linux
+              build_script: scripts/build-usb-manager-binary.sh
+              output_path: .build/usb-manager/linux-arm64/usb-manager
+              test_script: scripts/ci/go-test-module.sh ./services/usb-manager --with-coverage --minimum-coverage=0
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Network Security
+              artifact_name: network-security-linux
+              build_script: scripts/build-network-security-binary.sh
+              output_path: .build/network-security/linux-arm64/network-security
+              test_script: scripts/ci/go-test-module.sh ./services/network-security --with-coverage --minimum-coverage=0
               apt_packages: ""
     steps:
       - name: Checkout
@@ -503,11 +968,19 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             app:
+              name: Network metrics CLI
+              artifact_name: network-metrics-cli-linux
+              build_script: scripts/build-network-metrics-cli-binary.sh
+              output_path: .build/network-metrics-cli/linux-amd64/network-metrics-cli
+              test_script: scripts/test-network-metrics-cli.sh --with-coverage --minimum-coverage=0
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
               name: Security logging manager CLI
               artifact_name: security-logging-manager-cli-linux
               build_script: scripts/build-security-logging-manager-cli-binary.sh
               output_path: .build/security-logging-manager-cli/linux-amd64/security-logging-manager-cli
-              test_script: scripts/ci/go-test-module.sh ./apps/security-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/security-logging-manager-cli --with-coverage --minimum-coverage=0
           - arch: amd64
             runner: ubuntu-latest
             app:
@@ -515,7 +988,7 @@ jobs:
               artifact_name: system-logging-manager-cli-linux
               build_script: scripts/build-system-logging-manager-cli-binary.sh
               output_path: .build/system-logging-manager-cli/linux-amd64/system-logging-manager-cli
-              test_script: scripts/ci/go-test-module.sh ./apps/system-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/system-logging-manager-cli --with-coverage --minimum-coverage=0
           - arch: amd64
             runner: ubuntu-latest
             app:
@@ -523,7 +996,7 @@ jobs:
               artifact_name: system-metrics-cli-linux
               build_script: scripts/build-system-metrics-cli-binary.sh
               output_path: .build/system-metrics-cli/linux-amd64/system-metrics-cli
-              test_script: scripts/test-system-metrics-cli.sh
+              test_script: scripts/test-system-metrics-cli.sh --with-coverage --minimum-coverage=0
           - arch: amd64
             runner: ubuntu-latest
             app:
@@ -531,7 +1004,31 @@ jobs:
               artifact_name: zfs-metrics-cli-linux
               build_script: scripts/build-zfs-metrics-cli-binary.sh
               output_path: .build/zfs-metrics-cli/linux-amd64/zfs-metrics-cli
-              test_script: scripts/test-zfs-metrics-cli.sh
+              test_script: scripts/test-zfs-metrics-cli.sh --with-coverage --minimum-coverage=0
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: File writer
+              artifact_name: lite-nas-file-writer-linux
+              build_script: scripts/build-file-writer-binary.sh
+              output_path: .build/lite-nas-file-writer/linux-amd64/lite-nas-file-writer
+              test_script: scripts/test-file-writer.sh --with-coverage
+          - arch: amd64
+            runner: ubuntu-latest
+            app:
+              name: Backup restore CLI
+              artifact_name: backup-restore-cli-linux
+              build_script: scripts/build-backup-restore-cli-binary.sh
+              output_path: .build/backup-restore-cli/linux-amd64/backup-restore-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/backup-restore-cli --with-coverage --minimum-coverage=75
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: Network metrics CLI
+              artifact_name: network-metrics-cli-linux
+              build_script: scripts/build-network-metrics-cli-binary.sh
+              output_path: .build/network-metrics-cli/linux-arm64/network-metrics-cli
+              test_script: scripts/test-network-metrics-cli.sh --with-coverage --minimum-coverage=0
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -539,7 +1036,7 @@ jobs:
               artifact_name: security-logging-manager-cli-linux
               build_script: scripts/build-security-logging-manager-cli-binary.sh
               output_path: .build/security-logging-manager-cli/linux-arm64/security-logging-manager-cli
-              test_script: scripts/ci/go-test-module.sh ./apps/security-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/security-logging-manager-cli --with-coverage --minimum-coverage=0
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -547,7 +1044,7 @@ jobs:
               artifact_name: system-logging-manager-cli-linux
               build_script: scripts/build-system-logging-manager-cli-binary.sh
               output_path: .build/system-logging-manager-cli/linux-arm64/system-logging-manager-cli
-              test_script: scripts/ci/go-test-module.sh ./apps/system-logging-manager-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/system-logging-manager-cli --with-coverage --minimum-coverage=0
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -555,7 +1052,7 @@ jobs:
               artifact_name: system-metrics-cli-linux
               build_script: scripts/build-system-metrics-cli-binary.sh
               output_path: .build/system-metrics-cli/linux-arm64/system-metrics-cli
-              test_script: scripts/test-system-metrics-cli.sh
+              test_script: scripts/test-system-metrics-cli.sh --with-coverage --minimum-coverage=0
           - arch: arm64
             runner: ubuntu-24.04-arm
             app:
@@ -563,7 +1060,23 @@ jobs:
               artifact_name: zfs-metrics-cli-linux
               build_script: scripts/build-zfs-metrics-cli-binary.sh
               output_path: .build/zfs-metrics-cli/linux-arm64/zfs-metrics-cli
-              test_script: scripts/test-zfs-metrics-cli.sh
+              test_script: scripts/test-zfs-metrics-cli.sh --with-coverage --minimum-coverage=0
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: File writer
+              artifact_name: lite-nas-file-writer-linux
+              build_script: scripts/build-file-writer-binary.sh
+              output_path: .build/lite-nas-file-writer/linux-arm64/lite-nas-file-writer
+              test_script: scripts/test-file-writer.sh --with-coverage
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            app:
+              name: Backup restore CLI
+              artifact_name: backup-restore-cli-linux
+              build_script: scripts/build-backup-restore-cli-binary.sh
+              output_path: .build/backup-restore-cli/linux-arm64/backup-restore-cli
+              test_script: scripts/ci/go-test-module.sh ./apps/backup-restore-cli --with-coverage --minimum-coverage=75
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -591,6 +1104,7 @@ jobs:
     name: LiteNAS package validation (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     needs:
+      - security-automation-test
       - package-analysis
       - service-build-and-test
       - app-build-and-test
@@ -612,8 +1126,8 @@ jobs:
         id: package-version
         run: |
           # shellcheck disable=SC1091
-          source scripts/config/version.conf
-          echo "value=${LITE_NAS_BASE_VERSION}+pr.${{ github.run_number }}.$(printf '%s' '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          source scripts/helpers/common.sh
+          echo "value=$(packageVersion.prBeta '${{ github.run_number }}' '${{ github.sha }}')" >> "$GITHUB_OUTPUT"
 
       - name: Download auth service build artifact
         uses: actions/download-artifact@v4
@@ -632,6 +1146,84 @@ jobs:
         with:
           name: resources-monitor-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/resources-monitor
+
+      - name: Download litenas-integrity build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: litenas-integrity-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/litenas-integrity
+
+      - name: Download mount-monitor build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mount-monitor-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/mount-monitor
+
+      - name: Download antivirus build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: antivirus-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/antivirus
+
+      - name: Download system-service-monitor build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: system-service-monitor-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/system-service-monitor
+
+      - name: Download service-watchdog build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: service-watchdog-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/service-watchdog
+
+      - name: Download services-manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: services-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/services-manager
+
+      - name: Download session-manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: session-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/session-manager
+
+      - name: Download journal-manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: journal-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/journal-manager
+
+      - name: Download log-analysis build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: log-analysis-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/log-analysis
+
+      - name: Download network metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: network-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/network-metrics
+
+      - name: Download process metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: process-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/process-metrics
+
+      - name: Download disk metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: disk-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/disk-metrics
+
+      - name: Download service metrics build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: service-metrics-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/service-metrics
 
       - name: Download security email notifier build artifact
         uses: actions/download-artifact@v4
@@ -687,11 +1279,35 @@ jobs:
           name: system-metrics-cli-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/system-metrics-cli
 
+      - name: Download network metrics CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: network-metrics-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/network-metrics-cli
+
       - name: Download zfs metrics CLI build artifact
         uses: actions/download-artifact@v4
         with:
           name: zfs-metrics-cli-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/zfs-metrics-cli
+
+      - name: Download file writer build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lite-nas-file-writer-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/lite-nas-file-writer
+
+      - name: Download File Service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: file-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/file-service
+
+      - name: Download Stream Service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-service-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/stream-service
 
       - name: Download web gateway build artifact
         uses: actions/download-artifact@v4
@@ -699,11 +1315,65 @@ jobs:
           name: web-gateway-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/web-gateway
 
+      - name: Download Backup restore build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backup-restore-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/backup-restore
+
+      - name: Download Moments service build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: moments-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/moments
+
+      - name: Download USB Manager build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: usb-manager-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/usb-manager
+
+      - name: Download Network Security build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: network-security-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/network-security
+
+      - name: Download Security Automation build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-automation-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-automation
+
+      - name: Download Security Automation CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-automation-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-automation-cli
+
+      - name: Download Backup restore CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backup-restore-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/backup-restore-cli
+
+      - name: Download Moments asset artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: moments-assets
+          path: .artifacts/moments-assets
+
       - name: Download admin-panel asset artifact
         uses: actions/download-artifact@v4
         with:
           name: admin-panel-assets
           path: .artifacts/admin-panel
+
+      - name: Download File Explorer asset artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: file-explorer-assets
+          path: .artifacts/file-explorer
 
       - name: Prepare package job dependencies
         run: scripts/ci/install-debian-packaging-dependencies.sh
@@ -719,6 +1389,7 @@ jobs:
             --source-root=.artifacts \
             --package-arch=${{ matrix.arch }} \
             --version=${{ steps.package-version.outputs.value }} \
+            --file-explorer-assets=.artifacts/file-explorer \
             --output-dir=.build/packages/${{ matrix.arch }} \
             2>&1 | tee .build/package-ci-logs/${{ matrix.arch }}/build-package.log
 
@@ -772,6 +1443,8 @@ jobs:
           LITENAS_API_PASSWORD: testpassword
           LITENAS_OPERATOR_LOGIN: testoperator
           LITENAS_SECURITY_LOGIN: testsecurity
+          LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
+          LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
           LITENAS_TEST_PASSWORD: testpassword
         run: scripts/ci/prepare-system-test-users.sh
 
@@ -784,6 +1457,10 @@ jobs:
           LITENAS_SECURITY_LOGGING_MANAGER_CLI_BINARY: /usr/bin/security-logging-manager-cli
         run: scripts/ci/prepare-system-test-sudo-user.sh
 
+      - name: Prepare loopback SSH authentication tests
+        if: ${{ matrix.arch == 'amd64' }}
+        run: sudo bash scripts/ci/prepare-system-test-ssh.sh
+
       - name: Verify CI system-test users
         if: ${{ matrix.arch == 'amd64' }}
         run: |
@@ -791,22 +1468,35 @@ jobs:
           id testoperator
           id testsecurity
           id testsudouser
+          id testadmin
+          id testpasswduser
 
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-web-gateway
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login
           curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9090/api/auth/login
+
+      - name: Verify host manager confinement
+        if: ${{ matrix.arch == 'amd64' }}
+        run: sudo scripts/ci/verify-host-manager-installation.sh
 
       - name: Test installed LiteNAS package
         if: ${{ matrix.arch == 'amd64' }}
         env:
           LITENAS_API_LOGIN: testuser
           LITENAS_API_PASSWORD: testpassword
+          LITENAS_OPERATOR_LOGIN: testoperator
+          LITENAS_SECURITY_LOGIN: testsecurity
+          LITENAS_TEST_PASSWORD: testpassword
+          LITENAS_FILE_SERVICE_ADMIN_LOGIN: testadmin
+          LITENAS_FILE_SERVICE_ADMIN_PASSWORD: testpassword
+          LITENAS_TESTSUDO_LOGIN: testsudouser
+          LITENAS_TESTSUDO_PASSWORD: testpassword
         run: scripts/test-python.sh
 
       - name: Archive system test logs

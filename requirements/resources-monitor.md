@@ -57,7 +57,7 @@ evaluate matching rules for each received snapshot.
 #### FR-002 Input
 
 - Messaging events on supported metric subjects such as
-  `system.metrics.events.stats` and `zfs.metrics.events.snapshot`
+  `system.metrics.events.snapshot` and `zfs.metrics.events.snapshot`
 - Validated rule set from FR-001
 
 #### FR-002 Output
@@ -174,7 +174,7 @@ contract subjects.
 #### IR-001 Input
 
 - NATS events on supported snapshot subjects such as
-  `system.metrics.events.stats` and `zfs.metrics.events.snapshot`
+  `system.metrics.events.snapshot` and `zfs.metrics.events.snapshot`
 
 #### IR-001 Output
 
@@ -298,7 +298,7 @@ configuration.
 
 #### OR-002 Acceptance Criteria
 
-- Current behavior supports both `system.metrics.events.stats` and
+- Current behavior supports both `system.metrics.events.snapshot` and
   `zfs.metrics.events.snapshot`
 - Rule schema includes explicit event matching (`event`) and event ID prefix
   (`event_prefix`)

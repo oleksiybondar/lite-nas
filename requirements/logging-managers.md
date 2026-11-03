@@ -30,7 +30,7 @@ messaging subscriptions and process them through a shared loggingmanager flow.
 #### FR-001 Input
 
 - Incoming messaging traffic on manager-specific subscribed subjects
-- Validated event-related payloads
+- Validated event-related payloads, including an optional initial event-state message
 
 #### FR-001 Output
 
@@ -41,6 +41,7 @@ messaging subscriptions and process them through a shared loggingmanager flow.
 - Each manager consumes only its configured subjects
 - Subject configuration supports separate source streams per manager
 - Ingestion supports continuous processing under normal operating load
+- A supplied create-event message is persisted as the initial event-state message and returned by event reads
 - Message handling failures for one message do not stop the service loop
 
 ---

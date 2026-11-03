@@ -1,6 +1,8 @@
 import { ApiProvider } from "@providers/ApiProvider";
+import { AppLanguageProvider } from "@providers/AppLanguageProvider";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
 import { AuthProvider } from "@providers/AuthProvider";
+import { ProfileSettingsLoader } from "@providers/ProfileSettingsLoader";
 import { QueryProvider } from "@providers/QueryProvider";
 import { RbacProvider } from "@providers/RbacProvider";
 import { ThemeManagerProvider } from "@providers/ThemeManagerProvider";
@@ -13,7 +15,11 @@ export const AppProviders = ({ children }: PropsWithChildren): ReactElement => {
         <ApiProvider>
           <QueryProvider>
             <AuthProvider>
-              <RbacProvider>{children}</RbacProvider>
+              <AppLanguageProvider>
+                <RbacProvider>
+                  <ProfileSettingsLoader>{children}</ProfileSettingsLoader>
+                </RbacProvider>
+              </AppLanguageProvider>
             </AuthProvider>
           </QueryProvider>
         </ApiProvider>

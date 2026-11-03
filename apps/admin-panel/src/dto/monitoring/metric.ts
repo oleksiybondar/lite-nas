@@ -1,9 +1,10 @@
 import type { MonitoringPollingMode } from "@dto/monitoring/monitoring-polling-settings";
+import type { PollingResponseParser } from "@dto/monitoring/polling-resource";
 
 /**
  * Generic parser used to validate and extract one browser-facing metrics payload.
  */
-export type MetricResponseParser<TResult> = (value: unknown) => TResult;
+export type MetricResponseParser<TResult> = PollingResponseParser<TResult>;
 
 /**
  * Generic runtime state exposed by one metrics polling provider.

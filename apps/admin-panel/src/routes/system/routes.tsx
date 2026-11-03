@@ -1,5 +1,6 @@
 import { SystemLandingPage } from "@pages/SystemLandingPage";
 import { performanceRoutes } from "@routes/system/performance-routes";
+import { processesRoutes } from "@routes/system/processes-routes";
 import { sensorsRoutes } from "@routes/system/sensors-routes";
 import type { RouteObject } from "react-router-dom";
 
@@ -12,5 +13,6 @@ export const systemRoutes: RouteObject[] = [
     path: "/system",
   },
   ...performanceRoutes,
+  ...processesRoutes,
   ...sensorsRoutes,
 ];

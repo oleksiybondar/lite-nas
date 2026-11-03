@@ -1,8 +1,8 @@
 [Unit]
 Description=LiteNAS auth service
-After=network-online.target nats-server.service lite-nas-rbac.service
+After=network-online.target nats-server.service lite-nas-rbac.service lite-nas-before-startup.service
 Wants=network-online.target
-Requires=nats-server.service
+Requires=nats-server.service lite-nas-before-startup.service
 
 [Service]
 Type=simple
@@ -13,7 +13,8 @@ ExecStart=/usr/libexec/lite-nas/auth-service
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/
-NoNewPrivileges=yes
+# PAM's unix_chkpwd helper needs its AppArmor profile transition.
+NoNewPrivileges=no
 PrivateDevices=yes
 PrivateTmp=yes
 ProtectClock=yes
@@ -34,11 +35,16 @@ IPAddressAllow=::1
 RestrictNamespaces=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
-CapabilityBoundingSet=
-AmbientCapabilities=
+# PAM needs to read the account database and preserve shadow-file ownership
+# while replacing it with a temporary file during password changes.
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN
 UMask=0027
+StateDirectory=lite-nas-auth
+StateDirectoryMode=0700
 ReadOnlyPaths=/etc/lite-nas
-ReadWritePaths=/var/log/lite-nas/auth-service.log
+# pam_unix creates and renames temporary files in /etc when updating passwords.
+ReadWritePaths=/etc /var/log/lite-nas/auth-service.log /var/lib/lite-nas-auth /var/lib/faillock
 StandardOutput=null
 StandardError=journal
 

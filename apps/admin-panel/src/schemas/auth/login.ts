@@ -14,5 +14,5 @@ const loginPattern = /^(?:[A-Za-z0-9._-]+|[^@\s]+@[^@\s]+\.[^@\s]+)$/;
  */
 export const loginRequestSchema = z.object({
   login: z.string().regex(loginPattern, "Enter a valid login or email address."),
-  password: z.string().min(4, "Password must contain at least 4 characters."),
+  password: z.string().min(1).max(4096),
 }) satisfies z.ZodType<LoginRequestDTO>;

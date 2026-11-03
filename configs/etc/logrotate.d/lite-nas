@@ -1,0 +1,11 @@
+# The shared application logger accepts only direct .log files in this directory.
+/var/log/lite-nas/*.log {
+	daily
+	rotate 7
+	maxsize 50M
+	missingok
+	notifempty
+	compress
+	delaycompress
+	copytruncate
+}

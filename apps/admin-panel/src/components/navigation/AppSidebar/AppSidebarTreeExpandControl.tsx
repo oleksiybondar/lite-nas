@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import ExpandMoreRoundedIcon from "@mui/icons-material/ExpandMoreRounded";
 import Box from "@mui/material/Box";
@@ -18,13 +19,14 @@ export const AppSidebarTreeExpandControl = ({
   item: AppNavigationPageItem;
   onToggleExpanded: (event: MouseEvent<HTMLSpanElement>) => void;
 }): ReactElement | null => {
+  const { getLabel } = useLanguage();
   if (!hasChildren) {
     return null;
   }
 
   return (
     <Box
-      aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.title}`}
+      aria-label={`${getLabel(isExpanded ? "navigation.collapse" : "navigation.expand")} ${getLabel(`navigation.${item.title}`)}`}
       component="span"
       data-test-class="sidebar-tree-expand-control"
       data-test-name={item.title}

@@ -1,0 +1,49 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/journal-manager flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/authentication>
+
+  # sudo keeps this profile while switching to root for the validated vacuum entrypoint.
+  capability setuid,
+  capability setgid,
+
+  network inet stream,
+  network inet6 stream,
+  network unix stream,
+  network unix dgram,
+
+  /usr/libexec/lite-nas/journal-manager mrix,
+  /etc/lite-nas/journal-manager.conf r,
+  /etc/machine-id r,
+  /var/log/lite-nas/journal-manager.log rw,
+  /etc/lite-nas/certificates/transport/ r,
+  /etc/lite-nas/certificates/transport/root-ca.crt r,
+  /etc/lite-nas/certificates/transport/lite-nas-journal-manager/ r,
+  /etc/lite-nas/certificates/transport/lite-nas-journal-manager/client.{crt,key} r,
+  /etc/lite-nas/certificates/auth/ r,
+  /etc/lite-nas/certificates/auth/token-signing.crt r,
+
+  /usr/bin/journalctl ix,
+  /var/log/journal/ r,
+  /var/log/journal/** rwk,
+  /run/log/journal/ r,
+  /run/log/journal/** rwk,
+  /run/systemd/journal/** rw,
+
+  /usr/bin/sudo ix,
+  /usr/lib/cargo/bin/sudo ix,
+  /usr/lib/sudo/** mr,
+  /usr/libexec/sudo/** mr,
+  /etc/sudo.conf r,
+  /etc/sudoers r,
+  /etc/sudoers.d/ r,
+  /etc/sudoers.d/** r,
+  /run/sudo/** rwk,
+  /var/db/sudo/** rwk,
+  /var/lib/sudo/** rwk,
+
+  include if exists <local/usr.libexec.lite-nas.journal-manager>
+}

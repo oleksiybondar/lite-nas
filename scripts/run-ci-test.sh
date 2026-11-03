@@ -10,11 +10,26 @@ source "$SCRIPT_DIR/helpers/tool-paths.sh"
 cd "$(git rev-parse --show-toplevel)"
 log.pushTask "Running local CI test checks"
 scripts/test-auth-service.sh
+scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+scripts/test-process-metrics.sh --with-coverage
+scripts/test-disk-metrics.sh --with-coverage
+scripts/test-service-metrics.sh --with-coverage
 scripts/test-system-metrics.sh --with-coverage
 scripts/test-system-metrics-cli.sh
+scripts/test-network-metrics-cli.sh
 scripts/test-zfs-metrics-cli.sh
+scripts/test-file-writer.sh --with-coverage
+scripts/test-file-service.sh --with-coverage
+scripts/test-stream-service.sh --with-coverage
 scripts/test-shared.sh --with-coverage
+scripts/ci/go-test-module.sh ./services/services-manager --with-coverage
+scripts/ci/go-test-module.sh ./services/session-manager --with-coverage
+scripts/ci/go-test-module.sh ./services/journal-manager --with-coverage
+scripts/ci/go-test-module.sh ./services/usb-manager --with-coverage
 scripts/test-web-gateway.sh
+scripts/ci/go-test-module.sh ./services/moments --with-coverage
 scripts/test-admin-panel.sh --with-coverage
+scripts/test-file-explorer.sh --with-coverage
+npm --prefix apps/moments run test:unit:coverage
 scripts/test-python.sh
 log.popTask

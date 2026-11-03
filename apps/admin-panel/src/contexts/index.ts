@@ -2,5 +2,8 @@ export { ApiContext } from "@contexts/api-context";
 export { AuthContext } from "@contexts/auth-context";
 export { MetricContext } from "@contexts/metric-context";
 export { MonitoringPollingSettingsContext } from "@contexts/monitoring-polling-settings-context";
+export { PollingResourceContext } from "@contexts/polling-resource-context";
+export { ProcessMetricContext } from "@contexts/process-metric-context";
 export { RbacContext } from "@contexts/rbac-context";
+export { ServiceMetricContext } from "@contexts/service-metric-context";
 export { ThemeManagerContext } from "@contexts/theme-manager-context";

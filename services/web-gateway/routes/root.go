@@ -5,6 +5,8 @@ import (
 
 	"lite-nas/services/web-gateway/middlewares"
 	"lite-nas/services/web-gateway/modules"
+	"lite-nas/shared/apireference"
+	"lite-nas/shared/browserauth"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -30,22 +32,50 @@ func NewRouter(
 	useRootMiddlewares(root)
 
 	apiRouter := chi.NewMux()
-	api := humachi.New(apiRouter, apiConfig(serviceName, version))
+	config := apiConfig(serviceName, version)
+	api := humachi.New(apiRouter, config)
 
 	mountAssetsRouter(root, controllerModule)
+	mountDocsRoute(apiRouter, config)
 	mountAuthRouter(api, controllerModule, authentication)
 	mountAlertsRouters(api, controllerModule, authentication)
+	mountManagementRouters(api, controllerModule, authentication)
+	mountJournalRouter(api, controllerModule, authentication)
+	mountUSBManagerRouter(api, controllerModule, authentication)
+	mountBackupRestoreRouter(api, controllerModule, authentication)
+	mountSecurityTasksRouter(api, controllerModule, authentication)
+	mountSecurityAutomationRouter(api, controllerModule, authentication)
+	mountLogAuditRouter(api, controllerModule, authentication)
 	mountMetricsRouters(api, controllerModule, authentication)
 	root.Mount("/api", apiRouter)
 	mountIndexRouter(root, controllerModule)
 
-	return root
+	return browserauth.SameOrigin(root)
 }
 
 func apiConfig(serviceName string, version string) huma.Config {
 	config := huma.DefaultConfig(serviceName, version)
 	config.Servers = []*huma.Server{{URL: "/api"}}
+	config.DocsPath = ""
 	return config
+}
+
+func mountDocsRoute(apiRouter chi.Router, config huma.Config) {
+	apiRouter.Get("/docs", apireference.Handler(docsTitle(config), docsOpenAPIPath(config)))
+}
+
+func docsTitle(config huma.Config) string {
+	if config.Info != nil && config.Info.Title != "" {
+		return config.Info.Title + " Reference"
+	}
+	return "API Reference"
+}
+
+func docsOpenAPIPath(config huma.Config) string {
+	if len(config.Servers) == 0 || config.Servers[0] == nil || config.Servers[0].URL == "" {
+		return "/api/openapi.yaml"
+	}
+	return config.Servers[0].URL + config.OpenAPIPath + ".yaml"
 }
 
 func useRootMiddlewares(root chi.Router) {
@@ -60,5 +90,9 @@ func mountMetricsRouters(
 	authentication middlewares.AuthenticationOptions,
 ) {
 	mountSystemMetricsRouter(api, controllerModule, authentication)
+	mountProcessMetricsRouter(api, controllerModule, authentication)
+	mountServiceMetricsRouter(api, controllerModule, authentication)
+	mountDiskMetricsRouter(api, controllerModule, authentication)
+	mountNetworkMetricsRouter(api, controllerModule, authentication)
 	mountZFSMetricsRouter(api, controllerModule, authentication)
 }

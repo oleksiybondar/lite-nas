@@ -17,6 +17,16 @@ source "$ENTRYPOINT_DIR/deploy/system-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/network-metrics.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/process-metrics.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/backup-restore.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/disk-metrics.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/service-metrics.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/zfs-metrics.sh"
@@ -25,13 +35,33 @@ source "$ENTRYPOINT_DIR/deploy/system-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-logging-manager-cli.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/security-automation-cli.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/network-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/zfs-metrics-cli.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/file-writer.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/file-service.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/stream-service.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/web-gateway.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/moments.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/file-explorer.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/resources-monitor.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/litenas-integrity.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/security-monitor.sh"
+# shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/host-manager.sh"
 
 auth_service_binary=""
 rbac_service_binary=""
@@ -39,15 +69,39 @@ system_logging_manager_binary=""
 security_logging_manager_binary=""
 system_email_notifier_binary=""
 security_email_notifier_binary=""
+network_metrics_binary=""
+process_metrics_binary=""
+backup_restore_binary=""
+disk_metrics_binary=""
+service_metrics_binary=""
 system_metrics_binary=""
 zfs_metrics_binary=""
 system_logging_manager_cli_binary=""
 security_logging_manager_cli_binary=""
+security_automation_cli_binary=""
 system_metrics_cli_binary=""
+network_metrics_cli_binary=""
 zfs_metrics_cli_binary=""
+file_writer_binary=""
+file_service_binary=""
+stream_service_binary=""
 web_gateway_binary=""
+moments_binary=""
+moments_assets=""
 admin_panel_assets=""
+file_explorer_assets=""
 resources_monitor_binary=""
+litenas_integrity_binary=""
+mount_monitor_binary=""
+antivirus_binary=""
+system_service_monitor_binary=""
+service_watchdog_binary=""
+services_manager_binary=""
+session_manager_binary=""
+journal_manager_binary=""
+usb_manager_binary=""
+log_analysis_binary=""
+security_automation_binary=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -67,6 +121,11 @@ Options:
                                   Install an existing system-email-notifier binary.
   --security-email-notifier-binary PATH
                                   Install an existing security-email-notifier binary.
+  --network-metrics-binary PATH   Install an existing network-metrics binary.
+  --process-metrics-binary PATH   Install an existing process-metrics binary.
+  --backup-restore-binary PATH    Install an existing backup-restore binary.
+  --disk-metrics-binary PATH      Install an existing disk-metrics binary.
+  --service-metrics-binary PATH   Install an existing service-metrics binary.
   --system-metrics-binary PATH    Install an existing system-metrics binary.
   --zfs-metrics-binary PATH       Install an existing zfs-metrics binary.
   --system-logging-manager-cli-binary PATH
@@ -75,10 +134,31 @@ Options:
                                   Install an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary PATH
                                   Install an existing system-metrics-cli binary.
+  --network-metrics-cli-binary PATH
+                                  Install an existing network-metrics-cli binary.
   --zfs-metrics-cli-binary PATH   Install an existing zfs-metrics-cli binary.
+  --file-writer-binary PATH       Install an existing lite-nas-file-writer binary.
+  --file-service-binary PATH      Install an existing file-service binary.
+  --stream-service-binary PATH    Install an existing stream-service binary.
   --web-gateway-binary PATH       Install an existing web-gateway binary.
+  --moments-binary PATH           Install an existing Moments binary.
+  --moments-assets PATH           Install existing Moments Vite build output.
   --admin-panel-assets PATH       Install existing admin-panel Vite build output.
+  --file-explorer-assets PATH     Install existing File Explorer Vite build output.
   --resources-monitor-binary PATH Install an existing resources-monitor binary.
+  --litenas-integrity-binary PATH Install an existing litenas-integrity binary.
+  --mount-monitor-binary PATH Install an existing mount-monitor binary.
+  --antivirus-binary PATH Install an existing antivirus binary.
+  --system-service-monitor-binary PATH Install an existing system-service-monitor binary.
+  --service-watchdog-binary PATH Install an existing service-watchdog binary.
+  --services-manager-binary PATH Install an existing services-manager binary.
+  --session-manager-binary PATH Install an existing session-manager binary.
+  --journal-manager-binary PATH Install an existing journal-manager binary.
+  --usb-manager-binary PATH Install an existing usb-manager binary.
+  --log-analysis-binary PATH Install an existing log-analysis binary.
+  --network-security-binary PATH Install an existing network-security binary.
+  --security-automation-binary PATH Install an existing security-automation binary.
+  --security-automation-cli-binary PATH Install an existing security-automation CLI binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
   --no-nats-config                Keep the current NATS configuration unchanged during bootstrap.
@@ -113,6 +193,51 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		system_metrics_binary="$2"
+		shift 2
+		;;
+	--network-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --network-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		network_metrics_binary="$2"
+		shift 2
+		;;
+	--process-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --process-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		process_metrics_binary="$2"
+		shift 2
+		;;
+	--backup-restore-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --backup-restore-binary"
+			usage >&2
+			exit 2
+		fi
+		backup_restore_binary="$2"
+		shift 2
+		;;
+	--disk-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --disk-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		disk_metrics_binary="$2"
+		shift 2
+		;;
+	--service-metrics-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --service-metrics-binary"
+			usage >&2
+			exit 2
+		fi
+		service_metrics_binary="$2"
 		shift 2
 		;;
 	--zfs-metrics-binary)
@@ -187,6 +312,15 @@ while [ "$#" -gt 0 ]; do
 		system_metrics_cli_binary="$2"
 		shift 2
 		;;
+	--network-metrics-cli-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --network-metrics-cli-binary"
+			usage >&2
+			exit 2
+		fi
+		network_metrics_cli_binary="$2"
+		shift 2
+		;;
 	--zfs-metrics-cli-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --zfs-metrics-cli-binary"
@@ -194,6 +328,32 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		zfs_metrics_cli_binary="$2"
+		shift 2
+		;;
+	--file-writer-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --file-writer-binary"
+			usage >&2
+			exit 2
+		fi
+		file_writer_binary="$2"
+		shift 2
+		;;
+	--file-service-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --file-service-binary"
+			usage >&2
+			exit 2
+		fi
+		file_service_binary="$2"
+		shift 2
+		;;
+	--stream-service-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --stream-service-binary"
+			exit 2
+		fi
+		stream_service_binary="$2"
 		shift 2
 		;;
 	--web-gateway-binary)
@@ -205,6 +365,22 @@ while [ "$#" -gt 0 ]; do
 		web_gateway_binary="$2"
 		shift 2
 		;;
+	--moments-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --moments-binary"
+			exit 2
+		fi
+		moments_binary="$2"
+		shift 2
+		;;
+	--moments-assets)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --moments-assets"
+			exit 2
+		fi
+		moments_assets="$2"
+		shift 2
+		;;
 	--admin-panel-assets)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --admin-panel-assets"
@@ -214,6 +390,15 @@ while [ "$#" -gt 0 ]; do
 		admin_panel_assets="$2"
 		shift 2
 		;;
+	--file-explorer-assets)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --file-explorer-assets"
+			usage >&2
+			exit 2
+		fi
+		file_explorer_assets="$2"
+		shift 2
+		;;
 	--resources-monitor-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --resources-monitor-binary"
@@ -221,6 +406,119 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		resources_monitor_binary="$2"
+		shift 2
+		;;
+	--litenas-integrity-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --litenas-integrity-binary"
+			usage >&2
+			exit 2
+		fi
+		litenas_integrity_binary="$2"
+		shift 2
+		;;
+	--mount-monitor-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --mount-monitor-binary"
+			usage >&2
+			exit 2
+		fi
+		mount_monitor_binary="$2"
+		shift 2
+		;;
+	--antivirus-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --antivirus-binary"
+			usage >&2
+			exit 2
+		fi
+		antivirus_binary="$2"
+		shift 2
+		;;
+	--system-service-monitor-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --system-service-monitor-binary"
+			usage >&2
+			exit 2
+		fi
+		system_service_monitor_binary="$2"
+		shift 2
+		;;
+	--service-watchdog-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --service-watchdog-binary"
+			usage >&2
+			exit 2
+		fi
+		service_watchdog_binary="$2"
+		shift 2
+		;;
+	--services-manager-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --services-manager-binary"
+			exit 2
+		fi
+		services_manager_binary="$2"
+		shift 2
+		;;
+	--session-manager-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --session-manager-binary"
+			exit 2
+		fi
+		session_manager_binary="$2"
+		shift 2
+		;;
+	--journal-manager-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --journal-manager-binary"
+			exit 2
+		fi
+		journal_manager_binary="$2"
+		shift 2
+		;;
+	--usb-manager-binary)
+		if [ "$#" -lt 2 ]; then
+			log.error "Missing value for --usb-manager-binary"
+			exit 64
+		fi
+		usb_manager_binary="$2"
+		shift 2
+		;;
+	--log-analysis-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --log-analysis-binary"
+			usage >&2
+			exit 2
+		fi
+		log_analysis_binary="$2"
+		shift 2
+		;;
+	--network-security-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --network-security-binary"
+			usage >&2
+			exit 2
+		fi
+		network_security_binary="$2"
+		shift 2
+		;;
+	--security-automation-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --security-automation-binary"
+			usage >&2
+			exit 2
+		fi
+		security_automation_binary="$2"
+		shift 2
+		;;
+	--security-automation-cli-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --security-automation-cli-binary"
+			usage >&2
+			exit 2
+		fi
+		security_automation_cli_binary="$2"
 		shift 2
 		;;
 	--no-start)
@@ -255,17 +553,26 @@ deploy.systemLoggingManager.requireTools
 deploy.securityLoggingManager.requireTools
 deploy.systemEmailNotifier.requireTools
 deploy.securityEmailNotifier.requireTools
+deploy.networkMetrics.requireTools
+deploy.diskMetrics.requireTools
+deploy.serviceMetrics.requireTools
 deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
 deploy.systemMetricsCLI.requireTools
+deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
+deploy.fileWriter.requireTools
+deploy.fileService.requireTools
 deploy.webGateway.requireTools
 deploy.resourcesMonitor.requireTools
+deploy.liteNASIntegrity.requireTools
+deploy.securityMonitor.requireTools
+deploy.hostManager.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$admin_panel_assets" ] || [ -z "$resources_monitor_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ] || [ -z "$backup_restore_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -304,6 +611,34 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		security_email_notifier_binary="$tmp_dir/security-email-notifier"
 	fi
 
+	if [ -z "$network_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/network-metrics")
+		"$ENTRYPOINT_DIR/build-network-metrics-binary.sh" "${build_args[@]}"
+		network_metrics_binary="$tmp_dir/network-metrics"
+	fi
+
+	if [ -z "$process_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/process-metrics")
+		"$ENTRYPOINT_DIR/build-process-metrics-binary.sh" "${build_args[@]}"
+		process_metrics_binary="$tmp_dir/process-metrics"
+	fi
+	if [ -z "$backup_restore_binary" ]; then
+		"$ENTRYPOINT_DIR/build-backup-restore-binary.sh" --output="$tmp_dir/backup-restore"
+		backup_restore_binary="$tmp_dir/backup-restore"
+	fi
+
+	if [ -z "$disk_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/disk-metrics")
+		"$ENTRYPOINT_DIR/build-disk-metrics-binary.sh" "${build_args[@]}"
+		disk_metrics_binary="$tmp_dir/disk-metrics"
+	fi
+
+	if [ -z "$service_metrics_binary" ]; then
+		build_args=("--output=$tmp_dir/service-metrics")
+		"$ENTRYPOINT_DIR/build-service-metrics-binary.sh" "${build_args[@]}"
+		service_metrics_binary="$tmp_dir/service-metrics"
+	fi
+
 	if [ -z "$system_metrics_binary" ]; then
 		build_args=("--output=$tmp_dir/system-metrics")
 		"$ENTRYPOINT_DIR/build-system-metrics-binary.sh" "${build_args[@]}"
@@ -334,10 +669,32 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		system_metrics_cli_binary="$tmp_dir/system-metrics-cli"
 	fi
 
+	if [ -z "$network_metrics_cli_binary" ]; then
+		build_args=("--output=$tmp_dir/network-metrics-cli")
+		"$ENTRYPOINT_DIR/build-network-metrics-cli-binary.sh" "${build_args[@]}"
+		network_metrics_cli_binary="$tmp_dir/network-metrics-cli"
+	fi
+
 	if [ -z "$zfs_metrics_cli_binary" ]; then
 		build_args=("--output=$tmp_dir/zfs-metrics-cli")
 		"$ENTRYPOINT_DIR/build-zfs-metrics-cli-binary.sh" "${build_args[@]}"
 		zfs_metrics_cli_binary="$tmp_dir/zfs-metrics-cli"
+	fi
+
+	if [ -z "$file_writer_binary" ]; then
+		build_args=("--output=$tmp_dir/lite-nas-file-writer")
+		"$ENTRYPOINT_DIR/build-file-writer-binary.sh" "${build_args[@]}"
+		file_writer_binary="$tmp_dir/lite-nas-file-writer"
+	fi
+
+	if [ -z "$file_service_binary" ]; then
+		build_args=("--output=$tmp_dir/file-service")
+		"$ENTRYPOINT_DIR/build-file-service-binary.sh" "${build_args[@]}"
+		file_service_binary="$tmp_dir/file-service"
+	fi
+	if [ -z "$stream_service_binary" ]; then
+		"$ENTRYPOINT_DIR/build-stream-service-binary.sh" --output="$tmp_dir/stream-service"
+		stream_service_binary="$tmp_dir/stream-service"
 	fi
 
 	if [ -z "$web_gateway_binary" ]; then
@@ -345,10 +702,22 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		"$ENTRYPOINT_DIR/build-web-gateway-binary.sh" "${build_args[@]}"
 		web_gateway_binary="$tmp_dir/web-gateway"
 	fi
+	if [ -z "$moments_binary" ]; then
+		"$ENTRYPOINT_DIR/build-moments-binary.sh" --output="$tmp_dir/moments"
+		moments_binary="$tmp_dir/moments"
+	fi
+	if [ -z "$moments_assets" ]; then
+		"$ENTRYPOINT_DIR/build-moments.sh" --output-dir="$tmp_dir/moments-assets"
+		moments_assets="$tmp_dir/moments-assets"
+	fi
 
 	if [ -z "$admin_panel_assets" ]; then
 		"$ENTRYPOINT_DIR/build-admin-panel.sh" --output-dir="$tmp_dir/admin-panel-assets"
 		admin_panel_assets="$tmp_dir/admin-panel-assets"
+	fi
+	if [ -z "$file_explorer_assets" ]; then
+		"$ENTRYPOINT_DIR/build-file-explorer.sh" --output-dir="$tmp_dir/file-explorer-assets"
+		file_explorer_assets="$tmp_dir/file-explorer-assets"
 	fi
 
 	if [ -z "$resources_monitor_binary" ]; then
@@ -356,6 +725,66 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		"$ENTRYPOINT_DIR/build-resources-monitor-binary.sh" "${build_args[@]}"
 		resources_monitor_binary="$tmp_dir/resources-monitor"
 	fi
+
+	if [ -z "$litenas_integrity_binary" ]; then
+		build_args=("--output=$tmp_dir/litenas-integrity")
+		"$ENTRYPOINT_DIR/build-litenas-integrity-binary.sh" "${build_args[@]}"
+		litenas_integrity_binary="$tmp_dir/litenas-integrity"
+	fi
+fi
+
+if [ -z "$tmp_dir" ]; then
+	tmp_dir="$(mktemp -d)"
+	trap 'rm -rf "$tmp_dir"' EXIT
+fi
+
+if [ -z "$mount_monitor_binary" ]; then
+	"$ENTRYPOINT_DIR/build-mount-monitor-binary.sh" "--output=$tmp_dir/mount-monitor"
+	mount_monitor_binary="$tmp_dir/mount-monitor"
+fi
+if [ -z "$antivirus_binary" ]; then
+	"$ENTRYPOINT_DIR/build-antivirus-binary.sh" "--output=$tmp_dir/antivirus"
+	antivirus_binary="$tmp_dir/antivirus"
+fi
+if [ -z "$system_service_monitor_binary" ]; then
+	"$ENTRYPOINT_DIR/build-system-service-monitor-binary.sh" "--output=$tmp_dir/system-service-monitor"
+	system_service_monitor_binary="$tmp_dir/system-service-monitor"
+fi
+if [ -z "$service_watchdog_binary" ]; then
+	"$ENTRYPOINT_DIR/build-service-watchdog-binary.sh" "--output=$tmp_dir/service-watchdog"
+	service_watchdog_binary="$tmp_dir/service-watchdog"
+fi
+if [ -z "$services_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-services-manager-binary.sh" "--output=$tmp_dir/services-manager"
+	services_manager_binary="$tmp_dir/services-manager"
+fi
+if [ -z "$session_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-session-manager-binary.sh" "--output=$tmp_dir/session-manager"
+	session_manager_binary="$tmp_dir/session-manager"
+fi
+if [ -z "$journal_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-journal-manager-binary.sh" "--output=$tmp_dir/journal-manager"
+	journal_manager_binary="$tmp_dir/journal-manager"
+fi
+if [ -z "$usb_manager_binary" ]; then
+	"$ENTRYPOINT_DIR/build-usb-manager-binary.sh" "--output=$tmp_dir/usb-manager"
+	usb_manager_binary="$tmp_dir/usb-manager"
+fi
+if [ -z "$log_analysis_binary" ]; then
+	"$ENTRYPOINT_DIR/build-log-analysis-binary.sh" "--output=$tmp_dir/log-analysis"
+	log_analysis_binary="$tmp_dir/log-analysis"
+fi
+if [ -z "${network_security_binary:-}" ]; then
+	"$ENTRYPOINT_DIR/build-network-security-binary.sh" "--output=$tmp_dir/network-security"
+	network_security_binary="$tmp_dir/network-security"
+fi
+if [ -z "$security_automation_binary" ]; then
+	"$ENTRYPOINT_DIR/build-security-automation-binary.sh" "--output=$tmp_dir/security-automation"
+	security_automation_binary="$tmp_dir/security-automation"
+fi
+if [ -z "$security_automation_cli_binary" ]; then
+	"$ENTRYPOINT_DIR/build-security-automation-cli-binary.sh" "--output=$tmp_dir/security-automation-cli"
+	security_automation_cli_binary="$tmp_dir/security-automation-cli"
 fi
 
 if [ "$should_bootstrap" -eq 1 ]; then
@@ -365,6 +794,30 @@ if [ "$should_bootstrap" -eq 1 ]; then
 else
 	log.info "Skipping shared LiteNAS bootstrap."
 fi
+
+deploy.liteNAS.installPasswordRotator
+
+# The hook must also be available when --skip-bootstrap omits config deployment.
+install -D -o root -g root -m 0644 \
+	"$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-before-startup.service" \
+	/etc/systemd/system/lite-nas-before-startup.service
+if [ ! -e /etc/lite-nas/before-startup.sh ]; then
+	install -D -o root -g root -m 0700 \
+		"$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/before-startup.sh" \
+		/etc/lite-nas/before-startup.sh
+fi
+chown root:root /etc/lite-nas/before-startup.sh
+chmod 0700 /etc/lite-nas/before-startup.sh
+
+if [ "$should_start" = "1" ] && deploy.hasUsableSystemd; then
+	systemctl daemon-reload
+	systemctl enable --now lite-nas-before-startup.service
+fi
+
+log.pushTask "Preparing missing local system-test users"
+"$ENTRYPOINT_DIR/ci/prepare-system-test-users.sh" --missing-only
+"$ENTRYPOINT_DIR/ci/prepare-system-test-sudo-user.sh" --missing-only
+log.popTask
 
 log.pushTask "Deploying auth-service"
 deploy.authService.deploy "$auth_service_binary" "$should_start"
@@ -390,6 +843,26 @@ log.pushTask "Deploying security-email-notifier service"
 deploy.securityEmailNotifier.deploy "$security_email_notifier_binary" "$should_start"
 log.popTask
 
+log.pushTask "Deploying network-metrics service"
+deploy.networkMetrics.deploy "$network_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying process-metrics service"
+deploy.processMetrics.deploy "$process_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying backup-restore service"
+deploy.backupRestore.deploy "$backup_restore_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying disk-metrics service"
+deploy.diskMetrics.deploy "$disk_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying service-metrics service"
+deploy.serviceMetrics.deploy "$service_metrics_binary" "$should_start"
+log.popTask
+
 log.pushTask "Deploying system-metrics service"
 deploy.systemMetrics.deploy "$system_metrics_binary" "$should_start"
 log.popTask
@@ -398,9 +871,17 @@ log.pushTask "Deploying zfs-metrics service"
 deploy.zfsMetrics.deploy "$zfs_metrics_binary" "$should_start"
 log.popTask
 
+log.pushTask "Configuring File Explorer static app"
+deploy.fileExplorer.deploy "$file_explorer_assets"
+log.popTask
+
 log.pushTask "Deploying web-gateway service"
 export LITE_NAS_WEB_GATEWAY_ASSETS_SOURCE="$admin_panel_assets"
 deploy.webGateway.deploy "$web_gateway_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying Moments service and frontend"
+deploy.moments.deploy "$moments_binary" "$moments_assets" "$should_start"
 log.popTask
 
 log.pushTask "Deploying system-logging-manager-cli app"
@@ -415,12 +896,80 @@ log.pushTask "Deploying system-metrics-cli app"
 deploy.systemMetricsCLI.deploy "$system_metrics_cli_binary"
 log.popTask
 
+log.pushTask "Deploying network-metrics-cli app"
+deploy.networkMetricsCLI.deploy "$network_metrics_cli_binary"
+log.popTask
+
 log.pushTask "Deploying zfs-metrics-cli app"
 deploy.zfsMetricsCLI.deploy "$zfs_metrics_cli_binary"
 log.popTask
 
+log.pushTask "Deploying file-writer app"
+deploy.fileWriter.deploy "$file_writer_binary"
+log.popTask
+
+log.pushTask "Deploying file-service"
+deploy.fileService.deploy "$file_service_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying stream-service"
+deploy.streamService.deploy "$stream_service_binary" "$should_start"
+log.popTask
+
 log.pushTask "Deploying resources-monitor service"
 deploy.resourcesMonitor.deploy "$resources_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying litenas-integrity service"
+deploy.liteNASIntegrity.deploy "$litenas_integrity_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying mount-monitor service"
+deploy.securityMonitor.deploy "mount-monitor" "$mount_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying antivirus service"
+deploy.securityMonitor.deploy "antivirus" "$antivirus_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying system-service-monitor service"
+deploy.securityMonitor.deploy "system-service-monitor" "$system_service_monitor_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying services-manager service"
+deploy.hostManager.deploy "services-manager" "$services_manager_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying session-manager service"
+deploy.hostManager.deploy "session-manager" "$session_manager_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying journal-manager service"
+deploy.hostManager.deploy "journal-manager" "$journal_manager_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying usb-manager service"
+deploy.hostManager.deploy "usb-manager" "$usb_manager_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying log-analysis service"
+deploy.securityMonitor.deploy "log-analysis" "$log_analysis_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying network-security service"
+deploy.securityMonitor.deploy "network-security" "$network_security_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying security-automation service"
+deploy.securityMonitor.deploy "security-automation" "$security_automation_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying security-automation CLI"
+deploy.securityAutomationCLI.deploy "$security_automation_cli_binary"
+log.popTask
+
+log.pushTask "Deploying service-watchdog service"
+deploy.securityMonitor.deploy "service-watchdog" "$service_watchdog_binary" "$should_start"
 log.popTask
 
 log.pushTask "Normalizing deployed LiteNAS permissions"

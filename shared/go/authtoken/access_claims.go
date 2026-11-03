@@ -14,6 +14,8 @@ import "github.com/golang-jwt/jwt/v5"
 // itself.
 type AccessClaims struct {
 	jwt.RegisteredClaims
+	// SessionID identifies the refresh session that issued this access token.
+	SessionID string `json:"session_id,omitempty"`
 
 	// Login is the authenticated host login name associated with Subject.
 	Login string `json:"login"`

@@ -1,0 +1,232 @@
+package plugins
+
+import (
+	"context"
+	"regexp"
+	"slices"
+	"testing"
+	"time"
+
+	sharedlogger "lite-nas/shared/logger"
+	"lite-nas/shared/testutil/loggingmanagertest"
+)
+
+func pluginFixture(t *testing.T, kind string, threshold int, keyBy string) (*Plugin, chan Detection) {
+	t.Helper()
+	output := make(chan Detection, 16)
+	plugin, err := New(Config{
+		ID: "auth1", Type: kind, Threshold: threshold, Window: 2 * time.Minute,
+		Cooldown: 10 * time.Minute, Idle: 30 * time.Minute, KeyBy: keyBy, MaxKeys: 16,
+	}, output, sharedlogger.NewNop())
+	if err != nil {
+		t.Fatalf("new plugin: %v", err)
+	}
+	return plugin, output
+}
+
+func authObservation(account string) Observation {
+	return Observation{RuleID: "auth_fail", Category: "auth_failure", Severity: "warning", Kind: "failure", Account: account, At: time.Now()}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestGeneratedEventIDMatchesLoggingManagerContract(t *testing.T) {
+	t.Parallel()
+	eventID := newEventID("secauth")
+	loggingmanagertest.MustValidateEventID(t, eventID)
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestImmediatePluginCorrelatesObservationsDuringCooldown(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "immediate", 1, "global")
+	for range 2 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	first, second := <-output, <-output
+	if first.Operation != "create" || second.Operation != "occurrence" || first.EventID != second.EventID {
+		t.Fatalf("immediate detections = %#v, %#v", first, second)
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestPluginWorkerDrainsQueuedObservationOnShutdown(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 1, "account")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	plugin.Start(ctx)
+	plugin.Input() <- authObservation("alice")
+	close(plugin.input)
+	select {
+	case <-plugin.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("plugin worker did not drain its input")
+	}
+	if got := (<-output).Account; got != "alice" {
+		t.Fatalf("detected account = %q", got)
+	}
+}
+
+// Requirements: security-monitoring/IR-004.
+func TestCompiledPluginConstructorsAcceptTheirConfiguredTypes(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name   string
+		keyBy  string
+		create func(Config, chan<- Detection, sharedlogger.Logger) (*Plugin, error)
+	}{
+		{name: "immediate", keyBy: "global", create: NewImmediate},
+		{name: "threshold", keyBy: "global", create: NewThreshold},
+		{name: "keyed_threshold", keyBy: "account", create: NewKeyedThreshold},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			plugin, err := testCase.create(Config{
+				ID: "configured", Threshold: 2, Window: time.Minute, Cooldown: time.Minute,
+				Idle: 2 * time.Minute, KeyBy: testCase.keyBy, MaxKeys: 1,
+			}, make(chan Detection, 1), sharedlogger.NewNop())
+			if err != nil {
+				t.Fatalf("create %s plugin: %v", testCase.name, err)
+			}
+			if plugin.ID() != "configured" {
+				t.Fatalf("instance ID = %q", plugin.ID())
+			}
+		})
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestThresholdPluginWaitsForThirdObservation(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "threshold", 3, "global")
+	for range 2 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	if len(output) != 0 {
+		t.Fatalf("detections = %d", len(output))
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestThresholdPluginTriggersAtBoundary(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "threshold", 3, "global")
+	for range 3 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	if len(output) != 1 {
+		t.Fatalf("detections = %d", len(output))
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestKeyedPluginKeepsAccountsIndependent(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
+	for range 2 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	plugin.process(context.Background(), authObservation("bob"))
+	if len(output) != 0 {
+		t.Fatalf("detections = %d", len(output))
+	}
+}
+
+// Requirements: security-automation/IR-004.
+// TestAccountSourceKeyKeepsClientIPsIndependent checks one account's sources cannot share a threshold.
+func TestAccountSourceKeyKeepsClientIPsIndependent(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account_source")
+	first := authObservation("alice")
+	first.SourceAddress = "192.0.2.4"
+	second := first
+	second.SourceAddress = "192.0.2.5"
+	plugin.process(context.Background(), first)
+	plugin.process(context.Background(), first)
+	plugin.process(context.Background(), second)
+	if len(output) != 0 {
+		t.Fatalf("cross-source detections = %d", len(output))
+	}
+}
+
+// Requirements: security-automation/IR-004.
+// TestAccountSourceKeyRejectsMissingAddress checks unproven sources cannot form a keyed incident.
+func TestAccountSourceKeyRejectsMissingAddress(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 1, "account_source")
+	plugin.process(context.Background(), authObservation("alice"))
+	if len(output) != 0 {
+		t.Fatalf("detections without source = %d", len(output))
+	}
+}
+
+// Requirements: security-monitoring/IR-004.
+func TestSharedInstanceKeepsRulesIndependent(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "threshold", 2, "global")
+	first := authObservation("alice")
+	first.RuleID = "first"
+	second := authObservation("alice")
+	second.RuleID = "second"
+	plugin.process(context.Background(), first)
+	plugin.process(context.Background(), second)
+	plugin.process(context.Background(), first)
+	if len(output) != 1 {
+		t.Fatalf("detections across two rules = %d, want one", len(output))
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestKeyedPluginIgnoresSuccessForFailureAlertLifecycle(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
+	for range 3 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	success := authObservation("alice")
+	success.Kind = "success"
+	plugin.process(context.Background(), success)
+	if len(output) != 1 {
+		t.Fatalf("detections = %d", len(output))
+	}
+	if got := <-output; got.Operation != "create" {
+		t.Fatalf("detection operation = %q, want create", got.Operation)
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestKeyedPluginDoesNotMergeMissingAccounts(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account")
+	for range 3 {
+		plugin.process(context.Background(), authObservation(""))
+	}
+	if len(output) != 0 {
+		t.Fatalf("detections = %d", len(output))
+	}
+}
+
+// Requirements: security-monitoring/FR-001.
+func TestCooldownSuppressesRepeatDetection(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "threshold", 3, "global")
+	for range 5 {
+		plugin.process(context.Background(), authObservation("alice"))
+	}
+	operations := make([]string, 0, len(output))
+	for range len(output) {
+		operations = append(operations, (<-output).Operation)
+	}
+	if !slices.Equal(operations, []string{"create", "occurrence", "occurrence"}) {
+		t.Fatalf("operations = %v", operations)
+	}
+}
+
+// TestReadableEventID verifies the producer's domain prefix and decimal counter.
+func TestReadableEventID(t *testing.T) {
+	t.Parallel()
+	if got := newEventID("secauth"); !regexp.MustCompile(`^secauth_[0-9]{8}$`).MatchString(got) {
+		t.Fatalf("unexpected event ID: %q", got)
+	}
+}

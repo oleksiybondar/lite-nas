@@ -52,6 +52,12 @@ func (service *decisionService) CanExec(ctx context.Context, uid string, path st
 	return err == nil && allowed
 }
 
+// CheckPathOperation answers a path mutation or traversal decision for one UID.
+func (service *decisionService) CheckPathOperation(ctx context.Context, uid string, path string, operation string) bool {
+	allowed, err := rbacchecks.CheckPathOperation(ctx, service.runner, uid, path, operation)
+	return err == nil && allowed
+}
+
 func (service *decisionService) CanSudoExec(ctx context.Context, uid string, command string) bool {
 	if entry, ok := service.cache.Get(uid, command); ok && entry.IsValid(time.Now()) {
 		return entry.Allowed

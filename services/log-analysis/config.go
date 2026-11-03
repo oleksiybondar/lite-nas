@@ -1,0 +1,368 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"gopkg.in/ini.v1"
+
+	"lite-nas/services/log-analysis/plugins"
+	sharedconfig "lite-nas/shared/config"
+	"lite-nas/shared/fileio"
+)
+
+// analysisConfig uses the shared INI bootstrap sections and a JSON rule file,
+// matching the existing Resources Monitor rules convention.
+type analysisConfig struct {
+	Messaging   sharedconfig.MessagingConfig
+	Auth        sharedconfig.AuthConfig
+	Logging     sharedconfig.LoggingConfig
+	RulesFile   string
+	SenderUsers []string
+}
+
+// senderUserName bounds configured rsyslog account names to portable Unix
+// user names before they are resolved to numeric identities.
+var senderUserName = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
+
+func loadAnalysisConfig(reader fileio.Reader) (analysisConfig, error) {
+	return sharedconfig.LoadConfigWithSharedSections(reader, func(file *ini.File, shared sharedconfig.SharedConfig) (analysisConfig, error) {
+		section := file.Section("analysis")
+		rules := section.Key("rules_file").String()
+		if !filepath.IsAbs(rules) || filepath.Clean(rules) != rules {
+			return analysisConfig{}, errors.New("analysis rules_file must be an absolute clean path")
+		}
+		senders := section.Key("sender_users").Strings(",")
+		if len(senders) == 0 || len(senders) > 8 {
+			return analysisConfig{}, errors.New("analysis sender_users must list 1-8 rsyslog accounts")
+		}
+		for _, sender := range senders {
+			if !senderUserName.MatchString(sender) {
+				return analysisConfig{}, fmt.Errorf("analysis sender_users contains invalid account %q", sender)
+			}
+		}
+		if shared.Auth.ServiceLogin == "" {
+			return analysisConfig{}, errors.New("analysis auth service_login is required")
+		}
+		return analysisConfig{Messaging: shared.Messaging, Auth: shared.Auth, Logging: shared.Logging, RulesFile: rules, SenderUsers: senders}, nil
+	})
+}
+
+// Source formats select the compiled field extraction for selected records.
+const (
+	formatAuth   = "auth"
+	formatKernel = "kernel"
+	formatAccess = "access"
+)
+
+// sourceSpec selects forwarded rsyslog records by facility, input module and
+// program name, and binds them to a compiled field extraction format. Every
+// non-empty selector must match; empty selectors do not constrain the record.
+// A record selected by several sources is routed once per source.
+type sourceSpec struct {
+	ID         string   `json:"id"`
+	Format     string   `json:"format"`
+	Facilities []string `json:"facilities,omitempty"`
+	Inputs     []string `json:"inputs,omitempty"`
+	Programs   []string `json:"programs,omitempty"`
+}
+
+// selects reports whether this source accepts one validated rsyslog record.
+func (s sourceSpec) selects(record rsyslogRecord) bool {
+	return selectorMatches(s.Facilities, record.Facility) &&
+		selectorMatches(s.Inputs, record.Input) &&
+		selectorMatches(s.Programs, record.Program)
+}
+
+func selectorMatches(allowed []string, value string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, candidate := range allowed {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
+}
+
+// validSourceSpec bounds selector lists and requires at least one selector so
+// a source can never silently accept every forwarded record.
+func validSourceSpec(source sourceSpec) bool {
+	if !validAnalysisID(source.ID) || (source.Format != formatAuth && source.Format != formatKernel && source.Format != formatAccess) {
+		return false
+	}
+	selectors := [][]string{source.Facilities, source.Inputs, source.Programs}
+	total := 0
+	for _, values := range selectors {
+		if len(values) > 16 {
+			return false
+		}
+		for _, value := range values {
+			if !validAnalysisID(value) {
+				return false
+			}
+		}
+		total += len(values)
+	}
+	return total > 0
+}
+
+// instanceSpec selects one compiled plugin type and its validated parameters.
+// EventIDPrefix optionally overrides the rules-file default for this instance.
+type instanceSpec struct {
+	ID            string `json:"id"`
+	Enabled       bool   `json:"enabled"`
+	Type          string `json:"type"`
+	Threshold     int    `json:"threshold"`
+	Window        string `json:"window"`
+	Cooldown      string `json:"cooldown"` // Quiet period that ends correlation of one occurrence burst.
+	Idle          string `json:"idle"`
+	KeyBy         string `json:"key_by"`
+	MaxKeys       int    `json:"max_keys"`
+	EventIDPrefix string `json:"event_id_prefix,omitempty"`
+}
+
+// ruleSpec selects observations for one initialized plugin instance.
+type ruleSpec struct {
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Explanation       string   `json:"explanation"`
+	PossibleReactions []string `json:"possible_reactions"`
+	Enabled           bool     `json:"enabled"`
+	Source            string   `json:"source"`
+	Category          string   `json:"category"`
+	Pattern           string   `json:"pattern"`
+	AccountPattern    string   `json:"account_pattern,omitempty"`
+	SuccessPattern    string   `json:"success_pattern,omitempty"`
+	Require           []string `json:"require,omitempty"`
+	Exclude           []string `json:"exclude,omitempty"`
+	Instance          string   `json:"instance"`
+	Severity          string   `json:"severity"`
+	EmailOnCritical   bool     `json:"email_on_critical"`
+	Lockdown          bool     `json:"lockdown"`
+}
+
+// rulesFile is the complete startup construction plan. Nothing in this file
+// is evaluated as Go code or a command.
+type rulesFile struct {
+	EventIDPrefix string         `json:"event_id_prefix"`
+	Sources       []sourceSpec   `json:"sources"`
+	Instances     []instanceSpec `json:"instances"`
+	Rules         []ruleSpec     `json:"rules"`
+}
+
+// compiledRule holds safe RE2 patterns and an already initialized plugin.
+type compiledRule struct {
+	spec    ruleSpec
+	match   *regexp.Regexp
+	account *regexp.Regexp
+	success *regexp.Regexp
+	require []*regexp.Regexp
+	exclude []*regexp.Regexp
+	plugin  *plugins.Plugin
+}
+
+// loadRulesFile rejects unknown fields, duplicates, unsafe paths, missing
+// instance references and malformed patterns before any listener starts.
+func loadRulesFile(path string) (rulesFile, error) {
+	data, err := os.ReadFile(path) // #nosec G304 -- validated administrator configuration path
+	if err != nil {
+		return rulesFile{}, err
+	}
+	if len(data) > 1024*1024 {
+		return rulesFile{}, errors.New("analysis rules file exceeds 1 MiB")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var spec rulesFile
+	if err := decoder.Decode(&spec); err != nil {
+		return rulesFile{}, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return rulesFile{}, errors.New("analysis rules file contains trailing JSON")
+	}
+	if len(spec.Sources) == 0 || len(spec.Sources) > 16 || len(spec.Instances) == 0 || len(spec.Instances) > 64 || len(spec.Rules) == 0 || len(spec.Rules) > 128 {
+		return rulesFile{}, errors.New("analysis rules file exceeds configured bounds")
+	}
+	if !validEventIDPrefix(spec.EventIDPrefix) {
+		return rulesFile{}, errors.New("analysis rules event_id_prefix must be 1-8 alphanumeric characters")
+	}
+	sources := make(map[string]bool)
+	for _, source := range spec.Sources {
+		if !validSourceSpec(source) || sources[source.ID] {
+			return rulesFile{}, fmt.Errorf("invalid source %q", source.ID)
+		}
+		sources[source.ID] = true
+	}
+	instances := make(map[string]bool)
+	instanceIDs := make(map[string]bool)
+	for _, instance := range spec.Instances {
+		if !validAnalysisID(instance.ID) || instanceIDs[instance.ID] {
+			return rulesFile{}, fmt.Errorf("invalid instance %q", instance.ID)
+		}
+		instanceIDs[instance.ID] = true
+		instances[instance.ID] = instance.Enabled
+		if !instance.Enabled {
+			continue
+		}
+		if instance.EventIDPrefix != "" && !validEventIDPrefix(instance.EventIDPrefix) {
+			return rulesFile{}, fmt.Errorf("instance %s event_id_prefix must be 1-8 alphanumeric characters", instance.ID)
+		}
+		if _, err := instance.pluginConfig(spec.EventIDPrefix); err != nil {
+			return rulesFile{}, fmt.Errorf("instance %s: %w", instance.ID, err)
+		}
+	}
+	rules := make(map[string]bool)
+	for _, rule := range spec.Rules {
+		if !validAnalysisID(rule.ID) || rules[rule.ID] {
+			return rulesFile{}, fmt.Errorf("invalid rule %q", rule.ID)
+		}
+		rules[rule.ID] = true
+		legacyMetadata := rule.Name == "" && rule.Explanation == "" && len(rule.PossibleReactions) == 0
+		if !legacyMetadata && (!validRuleText(rule.Name, 100) || !validRuleText(rule.Explanation, 500) || len(rule.PossibleReactions) == 0 || len(rule.PossibleReactions) > 8) {
+			return rulesFile{}, fmt.Errorf("rule %s has invalid operator metadata", rule.ID)
+		}
+		for _, reaction := range rule.PossibleReactions {
+			if !validRuleText(reaction, 200) {
+				return rulesFile{}, fmt.Errorf("rule %s has invalid possible reaction", rule.ID)
+			}
+		}
+		if !rule.Enabled {
+			continue
+		}
+		if !sources[rule.Source] || !instances[rule.Instance] || !validAnalysisID(rule.Category) {
+			return rulesFile{}, fmt.Errorf("rule %s has missing source, instance or category", rule.ID)
+		}
+		if rule.Severity != "info" && rule.Severity != "warning" && rule.Severity != "error" && rule.Severity != "critical" {
+			return rulesFile{}, fmt.Errorf("rule %s has invalid severity", rule.ID)
+		}
+		if rule.Lockdown && rule.Severity != "critical" {
+			return rulesFile{}, fmt.Errorf("rule %s lockdown requires critical severity", rule.ID)
+		}
+		if rule.EmailOnCritical && rule.Severity != "critical" {
+			return rulesFile{}, fmt.Errorf("rule %s email requires critical severity", rule.ID)
+		}
+		if _, err := compileRulePatterns(rule); err != nil {
+			return rulesFile{}, fmt.Errorf("rule %s: %w", rule.ID, err)
+		}
+	}
+	return spec, nil
+}
+
+// validRuleText bounds visible rule metadata and excludes control characters.
+func validRuleText(value string, limit int) bool {
+	if value == "" || len(value) > limit || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, char := range value {
+		if char < 32 || char == 127 {
+			return false
+		}
+	}
+	return true
+}
+
+func validAnalysisID(value string) bool {
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	for _, r := range value {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+func (spec instanceSpec) pluginConfig(eventIDPrefix string) (plugins.Config, error) {
+	if spec.EventIDPrefix != "" {
+		eventIDPrefix = spec.EventIDPrefix
+	}
+	window, err := time.ParseDuration(spec.Window)
+	if err != nil {
+		return plugins.Config{}, err
+	}
+	cooldown, err := time.ParseDuration(spec.Cooldown)
+	if err != nil {
+		return plugins.Config{}, err
+	}
+	idle, err := time.ParseDuration(spec.Idle)
+	if err != nil {
+		return plugins.Config{}, err
+	}
+	return plugins.Config{
+		ID: spec.ID, Type: spec.Type, Threshold: spec.Threshold, Window: window,
+		Cooldown: cooldown, Idle: idle, KeyBy: spec.KeyBy, MaxKeys: spec.MaxKeys,
+		EventIDPrefix: eventIDPrefix,
+	}, nil
+}
+
+// validEventIDPrefix bounds the readable marker used with an eight-digit counter.
+func validEventIDPrefix(value string) bool {
+	if len(value) < 1 || len(value) > 8 {
+		return false
+	}
+	for _, r := range value {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
+func compileRulePatterns(rule ruleSpec) (compiledRule, error) {
+	compile := func(text string) (*regexp.Regexp, error) {
+		if text == "" || len(text) > 256 || strings.ContainsAny(text, "\r\n\x00") {
+			return nil, errors.New("pattern must be 1-256 single-line bytes")
+		}
+		return regexp.Compile(text)
+	}
+	match, err := compile(rule.Pattern)
+	if err != nil {
+		return compiledRule{}, err
+	}
+	compiled := compiledRule{spec: rule, match: match}
+	if rule.AccountPattern != "" {
+		compiled.account, err = compile(rule.AccountPattern)
+		if err != nil {
+			return compiledRule{}, err
+		}
+		if compiled.account.NumSubexp() != 1 {
+			return compiledRule{}, errors.New("account_pattern must have exactly one capture group")
+		}
+	}
+	if rule.SuccessPattern != "" {
+		compiled.success, err = compile(rule.SuccessPattern)
+		if err != nil {
+			return compiledRule{}, err
+		}
+	}
+	if len(rule.Require) > 8 || len(rule.Exclude) > 8 {
+		return compiledRule{}, errors.New("too many conditions")
+	}
+	for _, pattern := range rule.Require {
+		parsed, err := compile(pattern)
+		if err != nil {
+			return compiledRule{}, err
+		}
+		compiled.require = append(compiled.require, parsed)
+	}
+	for _, pattern := range rule.Exclude {
+		parsed, err := compile(pattern)
+		if err != nil {
+			return compiledRule{}, err
+		}
+		compiled.exclude = append(compiled.exclude, parsed)
+	}
+	return compiled, nil
+}

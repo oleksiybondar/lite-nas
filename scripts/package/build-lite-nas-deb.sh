@@ -12,22 +12,48 @@ source "$SCRIPT_DIR/../config/version.conf"
 cd "$LITE_NAS_REPO_ROOT"
 
 package_name="lite-nas"
-package_version="${LITE_NAS_PACKAGE_VERSION:-$LITE_NAS_BASE_VERSION}"
+package_version="${LITE_NAS_PACKAGE_VERSION:-}"
+should_bump_local_build_counter=0
 auth_service_binary_path=""
 rbac_service_binary_path=""
 system_logging_manager_binary_path=""
 security_logging_manager_binary_path=""
 system_email_notifier_binary_path=""
 security_email_notifier_binary_path=""
+network_metrics_binary_path=""
+process_metrics_binary_path=""
+disk_metrics_binary_path=""
+service_metrics_binary_path=""
 system_metrics_binary_path=""
 zfs_metrics_binary_path=""
 system_logging_manager_cli_binary_path=""
 security_logging_manager_cli_binary_path=""
 system_metrics_cli_binary_path=""
+network_metrics_cli_binary_path=""
 zfs_metrics_cli_binary_path=""
+file_writer_binary_path=""
+file_service_binary_path=""
+stream_service_binary_path=""
 web_gateway_binary_path=""
+backup_restore_binary_path=""
+backup_restore_cli_binary_path=""
+moments_binary_path=""
+moments_assets_path=""
 resources_monitor_binary_path=""
+litenas_integrity_binary_path=""
+mount_monitor_binary_path=""
+antivirus_binary_path=""
+system_service_monitor_binary_path=""
+service_watchdog_binary_path=""
+services_manager_binary_path=""
+session_manager_binary_path=""
+journal_manager_binary_path=""
+usb_manager_binary_path=""
+log_analysis_binary_path=""
+security_automation_binary_path=""
+security_automation_cli_binary_path=""
 admin_panel_assets_path=""
+file_explorer_assets_path=""
 output_dir="$LITE_NAS_REPO_ROOT/.build/packages"
 package_template_dir="$LITE_NAS_REPO_ROOT/packaging/debian/$package_name"
 package_root=""
@@ -37,7 +63,7 @@ usage() {
 Usage: scripts/package/build-lite-nas-deb.sh [options]
 
 Options:
-  --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or LITE_NAS_BASE_VERSION from scripts/config/version.conf.
+  --version=VERSION                  Debian package version. Defaults to LITE_NAS_PACKAGE_VERSION or the current local alpha version from scripts/config/package-build-counter.txt.
   --auth-service-binary=PATH         Use an existing auth-service binary.
   --rbac-service-binary=PATH         Use an existing rbac-service binary.
   --system-logging-manager-binary=PATH
@@ -48,6 +74,10 @@ Options:
                                      Use an existing system-email-notifier binary.
   --security-email-notifier-binary=PATH
                                      Use an existing security-email-notifier binary.
+  --network-metrics-binary=PATH      Use an existing network-metrics binary.
+  --process-metrics-binary=PATH      Use an existing process-metrics binary.
+  --disk-metrics-binary=PATH         Use an existing disk-metrics binary.
+  --service-metrics-binary=PATH      Use an existing service-metrics binary.
   --system-metrics-binary=PATH       Use an existing system-metrics binary.
   --zfs-metrics-binary=PATH          Use an existing zfs-metrics binary.
   --system-logging-manager-cli-binary=PATH
@@ -55,18 +85,40 @@ Options:
   --security-logging-manager-cli-binary=PATH
                                      Use an existing security-logging-manager-cli binary.
   --system-metrics-cli-binary=PATH   Use an existing system-metrics-cli binary.
+  --network-metrics-cli-binary=PATH  Use an existing network-metrics-cli binary.
   --zfs-metrics-cli-binary=PATH      Use an existing zfs-metrics-cli binary.
+  --file-writer-binary=PATH          Use an existing lite-nas-file-writer binary.
+  --file-service-binary=PATH         Use an existing file-service binary.
+  --stream-service-binary=PATH       Use an existing stream-service binary.
   --web-gateway-binary=PATH          Use an existing web-gateway binary.
+  --backup-restore-binary=PATH       Use an existing backup-restore binary.
+  --backup-restore-cli-binary=PATH   Use an existing backup-restore-cli binary.
+  --moments-binary=PATH              Use an existing Moments binary.
+  --moments-assets=PATH              Use an existing Moments Vite build output.
   --resources-monitor-binary=PATH    Use an existing resources-monitor binary.
+  --litenas-integrity-binary=PATH    Use an existing litenas-integrity binary.
+  --mount-monitor-binary=PATH  Use an existing mount-monitor binary.
+  --antivirus-binary=PATH  Use an existing antivirus binary.
+  --system-service-monitor-binary=PATH  Use an existing system-service-monitor binary.
+  --service-watchdog-binary=PATH  Use an existing service-watchdog binary.
+  --services-manager-binary=PATH  Use an existing services-manager binary.
+  --session-manager-binary=PATH  Use an existing session-manager binary.
+  --journal-manager-binary=PATH  Use an existing journal-manager binary.
+  --usb-manager-binary=PATH  Use an existing usb-manager binary.
+  --log-analysis-binary=PATH  Use an existing log-analysis binary.
+  --network-security-binary=PATH  Use an existing network-security binary.
+  --security-automation-binary=PATH Use an existing security-automation binary.
+  --security-automation-cli-binary=PATH Use an existing security-automation CLI binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
+  --file-explorer-assets=PATH        Include File Explorer Vite assets in this package.
   --output-dir=PATH                  Directory where the package and build root will be written.
   -h, --help                         Show this help.
 MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary zfs-metrics-cli-binary web-gateway-binary resources-monitor-binary admin-panel-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary security-automation-binary security-automation-cli-binary admin-panel-assets file-explorer-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary security-automation-binary security-automation-cli-binary admin-panel-assets file-explorer-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -109,6 +161,26 @@ if args.has security-email-notifier-binary && ! security_email_notifier_binary_p
 	usage >&2
 	exit 64
 fi
+if args.has network-metrics-binary && ! network_metrics_binary_path="$(args.require_arg network-metrics-binary)"; then
+	log.error "Missing value for --network-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has process-metrics-binary && ! process_metrics_binary_path="$(args.require_arg process-metrics-binary)"; then
+	log.error "Missing value for --process-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has disk-metrics-binary && ! disk_metrics_binary_path="$(args.require_arg disk-metrics-binary)"; then
+	log.error "Missing value for --disk-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has service-metrics-binary && ! service_metrics_binary_path="$(args.require_arg service-metrics-binary)"; then
+	log.error "Missing value for --service-metrics-binary"
+	usage >&2
+	exit 64
+fi
 if args.has system-metrics-binary && ! system_metrics_binary_path="$(args.require_arg system-metrics-binary)"; then
 	log.error "Missing value for --system-metrics-binary"
 	usage >&2
@@ -134,13 +206,50 @@ if args.has system-metrics-cli-binary && ! system_metrics_cli_binary_path="$(arg
 	usage >&2
 	exit 64
 fi
+if args.has network-metrics-cli-binary && ! network_metrics_cli_binary_path="$(args.require_arg network-metrics-cli-binary)"; then
+	log.error "Missing value for --network-metrics-cli-binary"
+	usage >&2
+	exit 64
+fi
 if args.has zfs-metrics-cli-binary && ! zfs_metrics_cli_binary_path="$(args.require_arg zfs-metrics-cli-binary)"; then
 	log.error "Missing value for --zfs-metrics-cli-binary"
 	usage >&2
 	exit 64
 fi
+if args.has file-writer-binary && ! file_writer_binary_path="$(args.require_arg file-writer-binary)"; then
+	log.error "Missing value for --file-writer-binary"
+	usage >&2
+	exit 64
+fi
+if args.has file-service-binary && ! file_service_binary_path="$(args.require_arg file-service-binary)"; then
+	log.error "Missing value for --file-service-binary"
+	usage >&2
+	exit 64
+fi
+if args.has stream-service-binary && ! stream_service_binary_path="$(args.require_arg stream-service-binary)"; then
+	log.error "Missing value for --stream-service-binary"
+	exit 2
+fi
 if args.has web-gateway-binary && ! web_gateway_binary_path="$(args.require_arg web-gateway-binary)"; then
 	log.error "Missing value for --web-gateway-binary"
+	usage >&2
+	exit 64
+fi
+if args.has backup-restore-binary && ! backup_restore_binary_path="$(args.require_arg backup-restore-binary)"; then
+	log.error "Missing value for --backup-restore-binary"
+	exit 64
+fi
+if args.has backup-restore-cli-binary && ! backup_restore_cli_binary_path="$(args.require_arg backup-restore-cli-binary)"; then
+	log.error "Missing value for --backup-restore-cli-binary"
+	exit 64
+fi
+if args.has moments-binary && ! moments_binary_path="$(args.require_arg moments-binary)"; then
+	log.error "Missing value for --moments-binary"
+	usage >&2
+	exit 64
+fi
+if args.has moments-assets && ! moments_assets_path="$(args.require_arg moments-assets)"; then
+	log.error "Missing value for --moments-assets"
 	usage >&2
 	exit 64
 fi
@@ -149,8 +258,66 @@ if args.has resources-monitor-binary && ! resources_monitor_binary_path="$(args.
 	usage >&2
 	exit 64
 fi
+if args.has mount-monitor-binary && ! mount_monitor_binary_path="$(args.require_arg mount-monitor-binary)"; then
+	log.error "Missing value for --mount-monitor-binary"
+	exit 64
+fi
+if args.has antivirus-binary && ! antivirus_binary_path="$(args.require_arg antivirus-binary)"; then
+	log.error "Missing value for --antivirus-binary"
+	exit 64
+fi
+if args.has system-service-monitor-binary && ! system_service_monitor_binary_path="$(args.require_arg system-service-monitor-binary)"; then
+	log.error "Missing value for --system-service-monitor-binary"
+	exit 64
+fi
+if args.has service-watchdog-binary && ! service_watchdog_binary_path="$(args.require_arg service-watchdog-binary)"; then
+	log.error "Missing value for --service-watchdog-binary"
+	exit 64
+fi
+if args.has services-manager-binary && ! services_manager_binary_path="$(args.require_arg services-manager-binary)"; then
+	log.error "Missing value for --services-manager-binary"
+	exit 64
+fi
+if args.has session-manager-binary && ! session_manager_binary_path="$(args.require_arg session-manager-binary)"; then
+	log.error "Missing value for --session-manager-binary"
+	exit 64
+fi
+if args.has journal-manager-binary && ! journal_manager_binary_path="$(args.require_arg journal-manager-binary)"; then
+	log.error "Missing value for --journal-manager-binary"
+	exit 64
+fi
+if args.has usb-manager-binary && ! usb_manager_binary_path="$(args.require_arg usb-manager-binary)"; then
+	log.error "Missing value for --usb-manager-binary"
+	exit 64
+fi
+if args.has log-analysis-binary && ! log_analysis_binary_path="$(args.require_arg log-analysis-binary)"; then
+	log.error "Missing value for --log-analysis-binary"
+	exit 64
+fi
+if args.has network-security-binary && ! network_security_binary_path="$(args.require_arg network-security-binary)"; then
+	log.error "Missing value for --network-security-binary"
+	exit 64
+fi
+if args.has security-automation-binary && ! security_automation_binary_path="$(args.require_arg security-automation-binary)"; then
+	log.error "Missing value for --security-automation-binary"
+	exit 64
+fi
+if args.has security-automation-cli-binary && ! security_automation_cli_binary_path="$(args.require_arg security-automation-cli-binary)"; then
+	log.error "Missing value for --security-automation-cli-binary"
+	exit 64
+fi
+if args.has litenas-integrity-binary && ! litenas_integrity_binary_path="$(args.require_arg litenas-integrity-binary)"; then
+	log.error "Missing value for --litenas-integrity-binary"
+	usage >&2
+	exit 64
+fi
 if args.has admin-panel-assets && ! admin_panel_assets_path="$(args.require_arg admin-panel-assets)"; then
 	log.error "Missing value for --admin-panel-assets"
+	usage >&2
+	exit 64
+fi
+if args.has file-explorer-assets && ! file_explorer_assets_path="$(args.require_arg file-explorer-assets)"; then
+	log.error "Missing value for --file-explorer-assets"
 	usage >&2
 	exit 64
 fi
@@ -160,7 +327,13 @@ if args.has output-dir && ! output_dir="$(args.require_arg output-dir)"; then
 	exit 64
 fi
 
+if [ -z "$package_version" ]; then
+	package_version="$(packageVersion.localAlpha)"
+	should_bump_local_build_counter=1
+fi
+
 package.requireBuildCommands
+log.requireCommand realpath "Install coreutils and retry."
 package_arch="$(package.resolveArchitecture)"
 
 if [ -z "$auth_service_binary_path" ]; then
@@ -198,6 +371,30 @@ if [ -z "$security_email_notifier_binary_path" ]; then
 		"--output=${security_email_notifier_binary_path}"
 fi
 
+if [ -z "$network_metrics_binary_path" ]; then
+	network_metrics_binary_path="$output_dir/${package_name}-${package_arch}/network-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-network-metrics-binary.sh" \
+		"--output=${network_metrics_binary_path}"
+fi
+
+if [ -z "$process_metrics_binary_path" ]; then
+	process_metrics_binary_path="$output_dir/${package_name}-${package_arch}/process-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-process-metrics-binary.sh" \
+		"--output=${process_metrics_binary_path}"
+fi
+
+if [ -z "$disk_metrics_binary_path" ]; then
+	disk_metrics_binary_path="$output_dir/${package_name}-${package_arch}/disk-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-disk-metrics-binary.sh" \
+		"--output=${disk_metrics_binary_path}"
+fi
+
+if [ -z "$service_metrics_binary_path" ]; then
+	service_metrics_binary_path="$output_dir/${package_name}-${package_arch}/service-metrics"
+	"$LITE_NAS_REPO_ROOT/scripts/build-service-metrics-binary.sh" \
+		"--output=${service_metrics_binary_path}"
+fi
+
 if [ -z "$system_metrics_binary_path" ]; then
 	system_metrics_binary_path="$output_dir/${package_name}-${package_arch}/system-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-binary.sh" \
@@ -226,10 +423,30 @@ if [ -z "$system_metrics_cli_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-system-metrics-cli-binary.sh" \
 		"--output=${system_metrics_cli_binary_path}"
 fi
+if [ -z "$network_metrics_cli_binary_path" ]; then
+	network_metrics_cli_binary_path="$output_dir/${package_name}-${package_arch}/network-metrics-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-network-metrics-cli-binary.sh" \
+		"--output=${network_metrics_cli_binary_path}"
+fi
 if [ -z "$zfs_metrics_cli_binary_path" ]; then
 	zfs_metrics_cli_binary_path="$output_dir/${package_name}-${package_arch}/zfs-metrics-cli"
 	"$LITE_NAS_REPO_ROOT/scripts/build-zfs-metrics-cli-binary.sh" \
 		"--output=${zfs_metrics_cli_binary_path}"
+fi
+if [ -z "$file_writer_binary_path" ]; then
+	file_writer_binary_path="$output_dir/${package_name}-${package_arch}/lite-nas-file-writer"
+	"$LITE_NAS_REPO_ROOT/scripts/build-file-writer-binary.sh" \
+		"--output=${file_writer_binary_path}"
+fi
+if [ -z "$file_service_binary_path" ]; then
+	file_service_binary_path="$output_dir/${package_name}-${package_arch}/file-service"
+	"$LITE_NAS_REPO_ROOT/scripts/build-file-service-binary.sh" \
+		"--output=${file_service_binary_path}"
+fi
+if [ -z "$stream_service_binary_path" ]; then
+	stream_service_binary_path="$output_dir/${package_name}-${package_arch}/stream-service"
+	"$LITE_NAS_REPO_ROOT/scripts/build-stream-service-binary.sh" \
+		"--output=${stream_service_binary_path}"
 fi
 
 if [ -z "$web_gateway_binary_path" ]; then
@@ -237,17 +454,93 @@ if [ -z "$web_gateway_binary_path" ]; then
 	"$LITE_NAS_REPO_ROOT/scripts/build-web-gateway-binary.sh" \
 		"--output=${web_gateway_binary_path}"
 fi
+if [ -z "$backup_restore_binary_path" ]; then
+	backup_restore_binary_path="$output_dir/${package_name}-${package_arch}/backup-restore"
+	"$LITE_NAS_REPO_ROOT/scripts/build-backup-restore-binary.sh" "--output=$backup_restore_binary_path"
+fi
+if [ -z "$backup_restore_cli_binary_path" ]; then
+	backup_restore_cli_binary_path="$output_dir/${package_name}-${package_arch}/backup-restore-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-backup-restore-cli-binary.sh" "--output=$backup_restore_cli_binary_path"
+fi
+
+if [ -z "$moments_binary_path" ]; then
+	moments_binary_path="$output_dir/${package_name}-${package_arch}/moments"
+	"$LITE_NAS_REPO_ROOT/scripts/build-moments-binary.sh" "--output=${moments_binary_path}"
+fi
+if [ -z "$moments_assets_path" ]; then
+	moments_assets_path="$output_dir/${package_name}-${package_arch}/moments-assets"
+	"$LITE_NAS_REPO_ROOT/scripts/build-moments.sh" "--output-dir=${moments_assets_path}"
+fi
 
 if [ -z "$resources_monitor_binary_path" ]; then
 	resources_monitor_binary_path="$output_dir/${package_name}-${package_arch}/resources-monitor"
 	"$LITE_NAS_REPO_ROOT/scripts/build-resources-monitor-binary.sh" \
 		"--output=${resources_monitor_binary_path}"
 fi
+if [ -z "$mount_monitor_binary_path" ]; then
+	mount_monitor_binary_path="$output_dir/${package_name}-${package_arch}/mount-monitor"
+	"$LITE_NAS_REPO_ROOT/scripts/build-mount-monitor-binary.sh" "--output=$mount_monitor_binary_path"
+fi
+if [ -z "$antivirus_binary_path" ]; then
+	antivirus_binary_path="$output_dir/${package_name}-${package_arch}/antivirus"
+	"$LITE_NAS_REPO_ROOT/scripts/build-antivirus-binary.sh" "--output=$antivirus_binary_path"
+fi
+if [ -z "$system_service_monitor_binary_path" ]; then
+	system_service_monitor_binary_path="$output_dir/${package_name}-${package_arch}/system-service-monitor"
+	"$LITE_NAS_REPO_ROOT/scripts/build-system-service-monitor-binary.sh" "--output=$system_service_monitor_binary_path"
+fi
+if [ -z "$service_watchdog_binary_path" ]; then
+	service_watchdog_binary_path="$output_dir/${package_name}-${package_arch}/service-watchdog"
+	"$LITE_NAS_REPO_ROOT/scripts/build-service-watchdog-binary.sh" "--output=$service_watchdog_binary_path"
+fi
+if [ -z "$services_manager_binary_path" ]; then
+	services_manager_binary_path="$output_dir/${package_name}-${package_arch}/services-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-services-manager-binary.sh" "--output=$services_manager_binary_path"
+fi
+if [ -z "$session_manager_binary_path" ]; then
+	session_manager_binary_path="$output_dir/${package_name}-${package_arch}/session-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-session-manager-binary.sh" "--output=$session_manager_binary_path"
+fi
+if [ -z "$journal_manager_binary_path" ]; then
+	journal_manager_binary_path="$output_dir/${package_name}-${package_arch}/journal-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-journal-manager-binary.sh" "--output=$journal_manager_binary_path"
+fi
+if [ -z "${usb_manager_binary_path:-}" ]; then
+	usb_manager_binary_path="$output_dir/${package_name}-${package_arch}/usb-manager"
+	"$LITE_NAS_REPO_ROOT/scripts/build-usb-manager-binary.sh" "--output=$usb_manager_binary_path"
+fi
+if [ -z "$log_analysis_binary_path" ]; then
+	log_analysis_binary_path="$output_dir/${package_name}-${package_arch}/log-analysis"
+	"$LITE_NAS_REPO_ROOT/scripts/build-log-analysis-binary.sh" "--output=$log_analysis_binary_path"
+fi
+if [ -z "${network_security_binary_path:-}" ]; then
+	network_security_binary_path="$output_dir/${package_name}-${package_arch}/network-security"
+	"$LITE_NAS_REPO_ROOT/scripts/build-network-security-binary.sh" "--output=$network_security_binary_path"
+fi
+if [ -z "$security_automation_binary_path" ]; then
+	security_automation_binary_path="$output_dir/${package_name}-${package_arch}/security-automation"
+	"$LITE_NAS_REPO_ROOT/scripts/build-security-automation-binary.sh" "--output=$security_automation_binary_path"
+fi
+if [ -z "$security_automation_cli_binary_path" ]; then
+	security_automation_cli_binary_path="$output_dir/${package_name}-${package_arch}/security-automation-cli"
+	"$LITE_NAS_REPO_ROOT/scripts/build-security-automation-cli-binary.sh" "--output=$security_automation_cli_binary_path"
+fi
+if [ -z "$litenas_integrity_binary_path" ]; then
+	litenas_integrity_binary_path="$output_dir/${package_name}-${package_arch}/litenas-integrity"
+	"$LITE_NAS_REPO_ROOT/scripts/build-litenas-integrity-binary.sh" \
+		"--output=${litenas_integrity_binary_path}"
+fi
 
 if [ -z "$admin_panel_assets_path" ]; then
 	admin_panel_assets_path="$output_dir/${package_name}-${package_arch}/admin-panel-assets"
 	"$LITE_NAS_REPO_ROOT/scripts/build-admin-panel.sh" \
 		"--output-dir=${admin_panel_assets_path}"
+fi
+
+if [ -z "$file_explorer_assets_path" ]; then
+	file_explorer_assets_path="$output_dir/${package_name}-${package_arch}/file-explorer-assets"
+	"$LITE_NAS_REPO_ROOT/scripts/build-file-explorer.sh" \
+		"--output-dir=${file_explorer_assets_path}"
 fi
 
 if [ ! -f "$auth_service_binary_path" ]; then
@@ -279,6 +572,26 @@ if [ ! -f "$security_email_notifier_binary_path" ]; then
 	exit 1
 fi
 
+if [ ! -f "$network_metrics_binary_path" ]; then
+	log.error "Missing network-metrics binary: $network_metrics_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$process_metrics_binary_path" ]; then
+	log.error "Missing process-metrics binary: $process_metrics_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$disk_metrics_binary_path" ]; then
+	log.error "Missing disk-metrics binary: $disk_metrics_binary_path"
+	exit 1
+fi
+
+if [ ! -f "$service_metrics_binary_path" ]; then
+	log.error "Missing service-metrics binary: $service_metrics_binary_path"
+	exit 1
+fi
+
 if [ ! -f "$system_metrics_binary_path" ]; then
 	log.error "Missing system-metrics binary: $system_metrics_binary_path"
 	exit 1
@@ -302,8 +615,24 @@ if [ ! -f "$system_metrics_cli_binary_path" ]; then
 	log.error "Missing system-metrics-cli binary: $system_metrics_cli_binary_path"
 	exit 1
 fi
+if [ ! -f "$network_metrics_cli_binary_path" ]; then
+	log.error "Missing network-metrics-cli binary: $network_metrics_cli_binary_path"
+	exit 1
+fi
 if [ ! -f "$zfs_metrics_cli_binary_path" ]; then
 	log.error "Missing zfs-metrics-cli binary: $zfs_metrics_cli_binary_path"
+	exit 1
+fi
+if [ ! -f "$file_writer_binary_path" ]; then
+	log.error "Missing file-writer binary: $file_writer_binary_path"
+	exit 1
+fi
+if [ ! -f "$file_service_binary_path" ]; then
+	log.error "Missing file-service binary: $file_service_binary_path"
+	exit 1
+fi
+if [ ! -f "$stream_service_binary_path" ]; then
+	log.error "Missing stream-service binary: $stream_service_binary_path"
 	exit 1
 fi
 
@@ -311,13 +640,64 @@ if [ ! -f "$web_gateway_binary_path" ]; then
 	log.error "Missing web-gateway binary: $web_gateway_binary_path"
 	exit 1
 fi
+if [ ! -f "$backup_restore_binary_path" ] || [ ! -f "$backup_restore_cli_binary_path" ]; then
+	log.error "Missing backup-restore service or CLI binary"
+	exit 1
+fi
+if [ ! -f "$moments_binary_path" ] || [ ! -f "$moments_assets_path/index.html" ] || [ ! -d "$moments_assets_path/assets" ]; then
+	log.error "Missing Moments binary or frontend assets."
+	exit 1
+fi
+moments_binary_path="$(realpath -- "$moments_binary_path")"
+moments_assets_path="$(realpath -- "$moments_assets_path")"
 
 if [ ! -f "$resources_monitor_binary_path" ]; then
 	log.error "Missing resources-monitor binary: $resources_monitor_binary_path"
 	exit 1
 fi
+if [ ! -f "$mount_monitor_binary_path" ]; then
+	log.error "Missing mount-monitor binary: $mount_monitor_binary_path"
+	exit 1
+fi
+if [ ! -f "$antivirus_binary_path" ]; then
+	log.error "Missing antivirus binary: $antivirus_binary_path"
+	exit 1
+fi
+if [ ! -f "$system_service_monitor_binary_path" ]; then
+	log.error "Missing system-service-monitor binary: $system_service_monitor_binary_path"
+	exit 1
+fi
+if [ ! -f "$service_watchdog_binary_path" ]; then
+	log.error "Missing service-watchdog binary: $service_watchdog_binary_path"
+	exit 1
+fi
+if [ ! -f "$services_manager_binary_path" ] || [ ! -f "$session_manager_binary_path" ] || [ ! -f "$journal_manager_binary_path" ]; then
+	log.error "Missing host-manager binary"
+	exit 1
+fi
+if [ ! -f "$log_analysis_binary_path" ]; then
+	log.error "Missing log-analysis binary: $log_analysis_binary_path"
+	exit 1
+fi
+if [ ! -f "$network_security_binary_path" ]; then
+	log.error "Missing network-security binary: $network_security_binary_path"
+	exit 1
+fi
+if [ ! -f "$security_automation_binary_path" ] || [ ! -f "$security_automation_cli_binary_path" ]; then
+	log.error "Missing security-automation service or CLI binary"
+	exit 1
+fi
+if [ ! -f "$litenas_integrity_binary_path" ]; then
+	log.error "Missing litenas-integrity binary: $litenas_integrity_binary_path"
+	exit 1
+fi
 
 adminPanelAssets.validateBuildOutput "$admin_panel_assets_path"
+if [ ! -f "$file_explorer_assets_path/index.html" ] || [ ! -d "$file_explorer_assets_path/assets" ]; then
+	log.error "Missing File Explorer Vite assets in: $file_explorer_assets_path"
+	exit 1
+fi
+file_explorer_assets_path="$(realpath -- "$file_explorer_assets_path")"
 
 package_root="$output_dir/${package_name}_${package_version}_${package_arch}.root"
 deb_path="$output_dir/${package_name}_${package_version}_${package_arch}.deb"
@@ -339,6 +719,7 @@ mv "$package_root/usr/share/doc/$package_name/changelog.Debian.gz" \
 	"$package_root/usr/share/doc/$package_name/changelog.gz"
 
 package.copyTree "$LITE_NAS_REPO_ROOT/configs" "$package_root/usr/libexec/lite-nas/configs"
+package.copyTree "$LITE_NAS_REPO_ROOT/scripts/config" "$package_root/usr/libexec/lite-nas/scripts/config"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/helpers" "$package_root/usr/libexec/lite-nas/scripts/helpers"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/deploy" "$package_root/usr/libexec/lite-nas/scripts/deploy"
 package.copyTree "$LITE_NAS_REPO_ROOT/scripts/runtime" "$package_root/usr/libexec/lite-nas/scripts/runtime"
@@ -352,6 +733,8 @@ install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-nginx-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
 install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-auth-token-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh"
+install -D -m 0755 "$LITE_NAS_REPO_ROOT/scripts/rotate-user-password.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-user-password.sh"
 install -D -m 0755 "$auth_service_binary_path" \
 	"$package_root/usr/libexec/lite-nas/auth-service"
 install -D -m 0755 "$rbac_service_binary_path" \
@@ -364,6 +747,14 @@ install -D -m 0755 "$system_email_notifier_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-email-notifier"
 install -D -m 0755 "$security_email_notifier_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier"
+install -D -m 0755 "$network_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/network-metrics"
+install -D -m 0755 "$process_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/process-metrics"
+install -D -m 0755 "$disk_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/disk-metrics"
+install -D -m 0755 "$service_metrics_binary_path" \
+	"$package_root/usr/libexec/lite-nas/service-metrics"
 install -D -m 0755 "$system_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics"
 install -D -m 0755 "$zfs_metrics_binary_path" \
@@ -374,26 +765,83 @@ install -D -m 0755 "$security_logging_manager_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli"
 install -D -m 0755 "$system_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli"
+install -D -m 0755 "$network_metrics_cli_binary_path" \
+	"$package_root/usr/libexec/lite-nas/network-metrics-cli"
 install -D -m 0755 "$zfs_metrics_cli_binary_path" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli"
+install -D -m 0755 "$file_writer_binary_path" \
+	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer"
+install -D -m 0755 "$file_service_binary_path" \
+	"$package_root/usr/libexec/lite-nas/file-service"
+install -D -m 0755 "$stream_service_binary_path" \
+	"$package_root/usr/libexec/lite-nas/stream-service"
 install -d -m 0755 "$package_root/usr/bin"
 ln -sfn /usr/libexec/lite-nas/system-logging-manager-cli \
 	"$package_root/usr/bin/system-logging-manager-cli"
 ln -sfn /usr/libexec/lite-nas/security-logging-manager-cli \
 	"$package_root/usr/bin/security-logging-manager-cli"
+ln -sfn /usr/libexec/lite-nas/security-automation-cli \
+	"$package_root/usr/bin/security-automation-cli"
 ln -sfn /usr/libexec/lite-nas/system-metrics-cli \
 	"$package_root/usr/bin/system-metrics-cli"
+ln -sfn /usr/libexec/lite-nas/network-metrics-cli \
+	"$package_root/usr/bin/network-metrics-cli"
 ln -sfn /usr/libexec/lite-nas/zfs-metrics-cli \
 	"$package_root/usr/bin/zfs-metrics-cli"
+ln -sfn /usr/libexec/lite-nas/lite-nas-file-writer \
+	"$package_root/usr/bin/lite-nas-file-writer"
+ln -sfn /usr/libexec/lite-nas/scripts/rotate-user-password.sh \
+	"$package_root/usr/bin/lite-nas-rotate-password"
 install -D -m 0755 "$web_gateway_binary_path" \
 	"$package_root/usr/libexec/lite-nas/web-gateway"
+install -D -m 0755 "$backup_restore_binary_path" \
+	"$package_root/usr/libexec/lite-nas/backup-restore"
+install -D -m 0755 "$backup_restore_cli_binary_path" \
+	"$package_root/usr/libexec/lite-nas/backup-restore-cli"
+ln -sfn /usr/libexec/lite-nas/backup-restore-cli \
+	"$package_root/usr/bin/backup-restore-cli"
+install -D -m 0755 "$moments_binary_path" \
+	"$package_root/usr/libexec/lite-nas/moments"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/data/cities1000.zip" \
+	"$package_root/usr/share/lite-nas/moments/cities1000.zip"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/data/README.md" \
+	"$package_root/usr/share/lite-nas/moments/GEONAMES-ATTRIBUTION.md"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/caption_image.py" \
+	"$package_root/usr/share/lite-nas/moments/caption_image.py"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_caption_model.py" \
+	"$package_root/usr/share/lite-nas/moments/install_caption_model.py"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/embed_text.py" \
+	"$package_root/usr/share/lite-nas/moments/embed_text.py"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_embedding_model.py" \
+	"$package_root/usr/share/lite-nas/moments/install_embedding_model.py"
+package.copyTree "$moments_assets_path" \
+	"$package_root/usr/libexec/lite-nas/moments-assets"
 install -D -m 0755 "$resources_monitor_binary_path" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor"
+install -D -m 0755 "$mount_monitor_binary_path" "$package_root/usr/libexec/lite-nas/mount-monitor"
+install -D -m 0755 "$antivirus_binary_path" "$package_root/usr/libexec/lite-nas/antivirus"
+install -D -m 0755 "$system_service_monitor_binary_path" "$package_root/usr/libexec/lite-nas/system-service-monitor"
+install -D -m 0755 "$service_watchdog_binary_path" "$package_root/usr/libexec/lite-nas/service-watchdog"
+install -D -m 0755 "$services_manager_binary_path" "$package_root/usr/libexec/lite-nas/services-manager"
+install -D -m 0755 "$session_manager_binary_path" "$package_root/usr/libexec/lite-nas/session-manager"
+install -D -m 0755 "$journal_manager_binary_path" "$package_root/usr/libexec/lite-nas/journal-manager"
+install -D -m 0755 "$usb_manager_binary_path" "$package_root/usr/libexec/lite-nas/usb-manager"
+install -D -m 0755 "$log_analysis_binary_path" "$package_root/usr/libexec/lite-nas/log-analysis"
+install -D -m 0755 "$network_security_binary_path" "$package_root/usr/libexec/lite-nas/network-security"
+install -D -m 0755 "$security_automation_binary_path" "$package_root/usr/libexec/lite-nas/security-automation"
+install -D -m 0755 "$security_automation_cli_binary_path" "$package_root/usr/libexec/lite-nas/security-automation-cli"
+install -D -m 0755 "$litenas_integrity_binary_path" \
+	"$package_root/usr/libexec/lite-nas/litenas-integrity"
 package.copyTree "$admin_panel_assets_path" \
 	"$package_root/usr/libexec/lite-nas/admin-panel-assets"
 adminPanelAssets.installFlat \
 	"$admin_panel_assets_path" \
 	"$package_root/usr/share/lite-nas/web-gateway/assets"
+package.copyTree "$file_explorer_assets_path" \
+	"$package_root/usr/share/lite-nas/file-explorer"
+install -D -m 0644 \
+	"$LITE_NAS_REPO_ROOT/packaging/debian/lite-nas-file-explorer/nginx/file-explorer.conf" \
+	"$package_root/usr/share/lite-nas/file-explorer/nginx/file-explorer.conf"
 
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
@@ -407,27 +855,57 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager" \
 	"$package_root/usr/libexec/lite-nas/system-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
+	"$package_root/usr/libexec/lite-nas/network-metrics" \
+	"$package_root/usr/libexec/lite-nas/process-metrics" \
+	"$package_root/usr/libexec/lite-nas/disk-metrics" \
+	"$package_root/usr/libexec/lite-nas/service-metrics" \
 	"$package_root/usr/libexec/lite-nas/system-metrics" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics" \
 	"$package_root/usr/libexec/lite-nas/resources-monitor" \
+	"$package_root/usr/libexec/lite-nas/litenas-integrity" \
+	"$package_root/usr/libexec/lite-nas/mount-monitor" \
+	"$package_root/usr/libexec/lite-nas/antivirus" \
+	"$package_root/usr/libexec/lite-nas/system-service-monitor" \
+	"$package_root/usr/libexec/lite-nas/service-watchdog" \
+	"$package_root/usr/libexec/lite-nas/services-manager" \
+	"$package_root/usr/libexec/lite-nas/session-manager" \
+	"$package_root/usr/libexec/lite-nas/journal-manager" \
+	"$package_root/usr/libexec/lite-nas/usb-manager" \
+	"$package_root/usr/libexec/lite-nas/log-analysis" \
+	"$package_root/usr/libexec/lite-nas/network-security" \
+	"$package_root/usr/libexec/lite-nas/security-automation" \
+	"$package_root/usr/libexec/lite-nas/security-automation-cli" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/system-metrics-cli" \
+	"$package_root/usr/libexec/lite-nas/network-metrics-cli" \
 	"$package_root/usr/libexec/lite-nas/zfs-metrics-cli" \
+	"$package_root/usr/libexec/lite-nas/lite-nas-file-writer" \
+	"$package_root/usr/libexec/lite-nas/file-service" \
+	"$package_root/usr/libexec/lite-nas/stream-service" \
 	"$package_root/usr/libexec/lite-nas/web-gateway" \
+	"$package_root/usr/libexec/lite-nas/moments" \
+	"$package_root/usr/libexec/lite-nas/backup-restore" \
+	"$package_root/usr/libexec/lite-nas/backup-restore-cli" \
 	"$package_root/usr/libexec/lite-nas/scripts/deploy-configs.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/install-runtime-dependencies.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-auth-token-certificates.sh" \
 	"$package_root/usr/libexec/lite-nas/scripts/rotate-nats-certificates.sh" \
-	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh"
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-nginx-certificates.sh" \
+	"$package_root/usr/libexec/lite-nas/scripts/rotate-user-password.sh"
 find "$package_root/usr/libexec/lite-nas/scripts" -type f -name "*.sh" -exec chmod 0755 {} +
 
 package.writeMd5sums "$package_root"
+chmod 0755 "$package_root/DEBIAN"
 log.popTask
 
 log.pushTask "Building Debian package ${deb_path}"
 dpkg-deb --root-owner-group --build "$package_root" "$deb_path"
 log.popTask
+
+if [ "$should_bump_local_build_counter" -eq 1 ]; then
+	packageVersion.bumpLocalBuildCounter
+fi
 
 log.info "Built Debian package: $deb_path"

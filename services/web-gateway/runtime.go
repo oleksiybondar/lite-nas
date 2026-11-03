@@ -23,7 +23,8 @@ const (
 	apiVersion          = "0.1.0"
 	httpReadTimeout     = 10 * time.Second
 	httpReadHeaderLimit = 5 * time.Second
-	httpWriteTimeout    = 15 * time.Second
+	// Restore RPCs can take five minutes; leave time to send their HTTP response.
+	httpWriteTimeout    = 305 * time.Second
 	httpIdleTimeout     = 30 * time.Second
 	httpShutdownTimeout = 10 * time.Second
 )
@@ -50,7 +51,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	controllerModule := modules.NewControllersModule(fileModule.Static, infra.Logger, serviceModule)
+	controllerModule := modules.NewControllersModule(fileModule.Static, infra.Logger, serviceModule, infra.Config.CookieDomain)
 
 	handler := routes.NewRouter(
 		serviceName,
@@ -59,6 +60,7 @@ func run(ctx context.Context) error {
 		middlewares.AuthenticationOptions{
 			AccessCookieName:  services.AccessTokenCookieName,
 			RefreshCookieName: services.RefreshTokenCookieName,
+			CookieDomain:      infra.Config.CookieDomain,
 			Verifier:          authVerifier,
 		},
 	)

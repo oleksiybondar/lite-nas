@@ -5,6 +5,128 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.4.1 - 2026-10-30
+
+### RL-0.4.1 Summary
+
+- Expanded File Service AppArmor access for mounted storage trees, including
+  ZFS mount points and `/mnt` and `/media`, while denying writes to protected
+  system paths.
+
+## 0.4.0 - 2026-10-28
+
+### RL-0.4.0 Summary
+
+- Aligned the release baseline with the implemented media, security, file,
+  monitoring, and browser functionality in the repository.
+
+### RL-0.4.0 Added
+
+- Added Moments gallery metadata, sharing, scan, tagging, and thumbnail routes,
+  with a browser gallery and Stream Service media delivery.
+- Added Log Analysis, Mount Monitor, Antivirus, System Service Monitor, Service
+  Watchdog, and LiteNAS Integrity service implementations and their contracts.
+- Added readable producer-owned alert IDs for mount, service availability,
+  authentication, and antivirus events.
+
+### RL-0.4.0 Changed
+
+- Updated project requirements and operator documentation to reflect current
+  service boundaries and removed stale implementation handoffs.
+- Updated the Debian base package version and local Go shared-module dependency
+  references to 0.4.0.
+
+### RL-0.4.0 Notes
+
+- Event counters follow the resources monitor's volatile startup-time seed.
+  Mount alerts created before a Mount Monitor restart cannot be correlated for
+  later normalization by the restarted monitor.
+- Historical release entries below describe their own release snapshots.
+
+## 0.3.0 - 2026-10-23
+
+### RL-0.3.0 Summary
+
+- Added a separately served File Explorer and connected the admin panel to
+  user-owned profile files. This release turns the earlier File Service and
+  file-writer foundations into browser-facing file and preference workflows.
+
+### RL-0.3.0 Added
+
+- Added File Explorer browsing with a metadata grid, one or two panels, hidden
+  file controls, and image, PDF, media, Markdown, and highlighted text previews.
+- Added shared upload UI, folder creation, copy, move, delete, typed
+  confirmation, and a queue that resumes display of server jobs after reload.
+- Added fixed authenticated File Service routes for `ui.json`,
+  `admin-panel.json`, and PNG/JPEG `avatar.image` under each user's `.lite-nas`
+  directory. Another authenticated user may read the fixed avatar path.
+- Added shared TypeScript profile transport and validation, avatar and
+  appearance controls, and monitoring and process polling settings cards for
+  reuse by later applications.
+- Added an Applications area with an embedded File Explorer, plus whole-card
+  navigation from Applications and the admin dashboard.
+
+### RL-0.3.0 Changed
+
+- Admin appearance and monitoring settings now load authenticated files first,
+  mirror valid values to local storage, and use local values when files are
+  unavailable. The shared `ui.json` carries the preferred light or dark mode;
+  `admin-panel.json` carries admin-specific theme and polling settings.
+- File Explorer now reads the shared preferred mode through File Service and
+  uses the same local browser fallback.
+- File Service creates the profile directory as the verified Unix user, and
+  file-writer can publish the fixed avatar with mode `0644`.
+
+### RL-0.3.0 Fixed
+
+- Aligned File Service's restricted sudoers rule with its validated `mkdir -m`
+  invocation so a first profile write can create `.lite-nas`.
+- Profile save errors now expose the File Service HTTP status in the admin UI,
+  and directory setup failures are logged by File Service.
+
+### RL-0.3.0 Platform
+
+- Added the Nginx File Explorer mount and separate static-asset package to
+  local build, deployment, and package workflows. Both Debian packages use
+  the `0.3.0` base version.
+- Added local Vite `/f/` proxies for admin panel and File Explorer development,
+  preserving the browser Host for File Service's same-origin checks.
+
+### RL-0.3.0 Notes
+
+- Moments is not included in this release. The shared profile and settings
+  packages provide the browser contract for its later implementation.
+
+## 0.2.5 - File writer application
+
+### RL-0.2.5 Summary
+
+- Added the packaged `lite-nas-file-writer` command for user-owned upload
+  staging. File Service integration is still planned; the command does not
+  expose an HTTP endpoint or authorize uploads on its own.
+
+### RL-0.2.5 Added
+
+- Added exclusive stage creation, bounded writes, identity and size inspection,
+  SHA-256 checksums, recovery truncation, publication, and cleanup through a
+  JSON CLI contract.
+- Added a dedicated AppArmor profile, restricted sudoers rule, local build and
+  deploy scripts, Go unit tests, and installed-system CLI tests.
+
+### RL-0.2.5 Platform
+
+- Included the writer binary, `/usr/bin` convenience symlink, profile, and
+  sudoers rule in the single LiteNAS package and deployment flows.
+- Added writer builds and tests to local and CI checks for supported Linux
+  architectures.
+
+### RL-0.2.5 Notes
+
+- File Service must supply the verified non-root identity, enforce RBAC and
+  path policy, and control concurrent changes to upload directories before it
+  can use this writer for end-to-end uploads. Additional ZFS write roots also
+  require an AppArmor local include and profile reload.
+
 ## 0.2.1 - Email notification delivery
 
 ### RL-0.2.1 Summary

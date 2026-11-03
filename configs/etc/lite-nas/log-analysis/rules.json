@@ -1,0 +1,529 @@
+{
+  "event_id_prefix": "secauth",
+  "sources": [
+    { "id": "auth", "format": "auth", "facilities": ["auth", "authpriv"] },
+    { "id": "kernel", "format": "kernel", "inputs": ["imklog"] },
+    {
+      "id": "file_access",
+      "format": "access",
+      "facilities": ["local0"],
+      "inputs": ["imfile"],
+      "programs": ["file-service", "stream-service"]
+    }
+  ],
+  "instances": [
+    {
+      "id": "single_failure",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048
+    },
+    {
+      "id": "account_retry",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 3,
+      "window": "2m",
+      "cooldown": "3m",
+      "idle": "30m",
+      "key_by": "account",
+      "max_keys": 2048
+    },
+    {
+      "id": "web_api_account_source_retry",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 3,
+      "window": "5m",
+      "cooldown": "5m",
+      "idle": "30m",
+      "key_by": "account_source",
+      "max_keys": 2048,
+      "event_id_prefix": "secweb"
+    },
+    {
+      "id": "file_access_probing",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 51,
+      "window": "5m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "account",
+      "max_keys": 2048,
+      "event_id_prefix": "secfile"
+    },
+    {
+      "id": "unknown_account_retry",
+      "enabled": true,
+      "type": "threshold",
+      "threshold": 3,
+      "window": "2m",
+      "cooldown": "3m",
+      "idle": "30m",
+      "key_by": "global",
+      "max_keys": 2048
+    },
+    {
+      "id": "source_probing",
+      "enabled": false,
+      "type": "keyed_threshold",
+      "threshold": 12,
+      "window": "5m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "source",
+      "max_keys": 2048
+    },
+    {
+      "id": "usb_device_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1s",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secusb"
+    },
+    {
+      "id": "privilege_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secpriv"
+    },
+    {
+      "id": "sudo_policy_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1s",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secpriv"
+    },
+    {
+      "id": "account_change_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secacct"
+    },
+    {
+      "id": "ssh_source_probing",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 10,
+      "window": "5m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "source",
+      "max_keys": 2048,
+      "event_id_prefix": "secssh"
+    },
+    {
+      "id": "ssh_root_login_event",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "source",
+      "max_keys": 2048,
+      "event_id_prefix": "secssh"
+    },
+    {
+      "id": "sudo_policy_retry",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 3,
+      "window": "5m",
+      "cooldown": "30m",
+      "idle": "1h",
+      "key_by": "account",
+      "max_keys": 2048,
+      "event_id_prefix": "secpriv"
+    },
+    {
+      "id": "su_root_event",
+      "enabled": true,
+      "type": "immediate",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1m",
+      "idle": "2m",
+      "key_by": "global",
+      "max_keys": 2048,
+      "event_id_prefix": "secpriv"
+    },
+    {
+      "id": "account_password_change_event",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 1,
+      "window": "1m",
+      "cooldown": "1h",
+      "idle": "2h",
+      "key_by": "account",
+      "max_keys": 2048,
+      "event_id_prefix": "secacct"
+    },
+    {
+      "id": "account_lockout_event",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 1,
+      "window": "75m",
+      "cooldown": "75m",
+      "idle": "2h",
+      "key_by": "account",
+      "max_keys": 2048
+    },
+    {
+      "id": "repeated_account_lockout",
+      "enabled": true,
+      "type": "keyed_threshold",
+      "threshold": 5,
+      "window": "75m",
+      "cooldown": "75m",
+      "idle": "2h",
+      "key_by": "account",
+      "max_keys": 2048
+    }
+  ],
+  "rules": [
+    {
+      "id": "pam_auth_failure",
+      "enabled": true,
+      "source": "auth",
+      "category": "auth_failure",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
+      "instance": "single_failure",
+      "severity": "warning",
+      "lockdown": false,
+      "name": "Authentication failure",
+      "explanation": "Records a single failed PAM authentication attempt.",
+      "possible_reactions": [
+        "Check whether the account and login source are expected.",
+        "Review nearby authentication events for repeated failures."
+      ]
+    },
+    {
+      "id": "file_access_denied",
+      "enabled": true,
+      "source": "file_access",
+      "category": "file_access_probing",
+      "pattern": "(?:^| )access_denied user=[^ ]+",
+      "account_pattern": "(?:^| )access_denied user=([^ ]+)",
+      "instance": "file_access_probing",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Repeated file access denials",
+      "explanation": "Detects repeated denied file access by one account within five minutes.",
+      "possible_reactions": [
+        "Review the account and requested files for unauthorized probing.",
+        "Correct permissions only after confirming the access is legitimate."
+      ]
+    },
+    {
+      "id": "pam_password_guessing",
+      "enabled": true,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
+      "require": ["(^|\\s)user=\\S+"],
+      "instance": "account_retry",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Repeated password failures",
+      "explanation": "Detects repeated PAM authentication failures for one account within two minutes.",
+      "possible_reactions": [
+        "Review recent login attempts for the affected account.",
+        "Reset credentials or restrict access if the attempts are unauthorized."
+      ]
+    },
+    {
+      "id": "pam_web_api_password_guessing",
+      "enabled": true,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "pam_unix\\(litenas-auth:auth\\): authentication failure",
+      "require": ["(^|\\s)user=\\S+", "(^|\\s)rhost=[0-9A-Fa-f:.]+"],
+      "instance": "web_api_account_source_retry",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Web/API password guessing",
+      "explanation": "Detects repeated Web/API password failures from the same source for one account within five minutes.",
+      "possible_reactions": [
+        "Review the source address and account activity.",
+        "Block the source or rotate the account password if abuse is confirmed."
+      ]
+    },
+    {
+      "id": "pam_unknown_account_guessing",
+      "enabled": true,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
+      "exclude": ["(^|\\s)user=\\S+"],
+      "instance": "unknown_account_retry",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Unknown account guessing",
+      "explanation": "Detects repeated authentication failures without a known account name within two minutes.",
+      "possible_reactions": [
+        "Review authentication logs for the attempted names and origin.",
+        "Restrict the source if enumeration is confirmed."
+      ]
+    },
+    {
+      "id": "pam_source_probing",
+      "enabled": false,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "pam_unix\\((litenas-auth|sshd|login|su|su-l|sudo):auth\\): authentication failure",
+      "instance": "source_probing",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Authentication source probing",
+      "explanation": "Detects many authentication failures from one source within five minutes when enabled.",
+      "possible_reactions": [
+        "Review the source address and targeted accounts.",
+        "Restrict the source if probing is confirmed."
+      ]
+    },
+    {
+      "id": "usb_device_connected",
+      "enabled": true,
+      "source": "kernel",
+      "category": "usb_device",
+      "pattern": "^usb [0-9]+-[0-9.]+: New USB device found, idVendor=[0-9a-f]{4}, idProduct=[0-9a-f]{4}",
+      "exclude": ["idVendor=1d6b,"],
+      "instance": "usb_device_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "USB device connected",
+      "explanation": "Records a new physical USB device reported by the kernel, excluding root hubs.",
+      "possible_reactions": [
+        "Identify the device and confirm that its connection was authorized.",
+        "Disconnect or block an unapproved device."
+      ]
+    },
+    {
+      "id": "sudo_policy_violation",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^[a-z_][a-z0-9_.-]* : +(user NOT in sudoers|user NOT authorized on host|command not allowed) ;",
+      "instance": "sudo_policy_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Sudo policy violation",
+      "explanation": "Records one denied sudo command or unauthorized sudo policy attempt.",
+      "possible_reactions": [
+        "Review the user and attempted command.",
+        "Investigate unexpected privilege requests."
+      ]
+    },
+    {
+      "id": "privileged_group_membership",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^(add '[^']+' to group '(sudo|admin|adm|root|wheel|shadow|disk|docker|lxd)'|user \\S+ added by \\S+ to group (sudo|admin|adm|root|wheel|shadow|disk|docker|lxd))$",
+      "instance": "privilege_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Privileged group membership changed",
+      "explanation": "Records an account added to a privileged system group.",
+      "possible_reactions": [
+        "Verify the group change against an approved administrator action.",
+        "Remove unauthorized membership and review the account."
+      ]
+    },
+    {
+      "id": "login_account_created",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_change",
+      "pattern": "^new user: name=[^,]+, UID=[0-9]+, GID=[0-9]+, home=[^,]*, shell=/",
+      "exclude": ["shell=/(usr/)?s?bin/(nologin|false),"],
+      "instance": "account_change_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Login account created",
+      "explanation": "Records a newly created login capable account.",
+      "possible_reactions": [
+        "Confirm that the new account was approved.",
+        "Disable an unauthorized account and review its activity."
+      ]
+    },
+    {
+      "id": "root_password_changed",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_change",
+      "pattern": "pam_unix\\([a-z-]+:chauthtok\\): password changed for root$",
+      "instance": "account_change_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Root password changed",
+      "explanation": "Records a root password change.",
+      "possible_reactions": [
+        "Confirm the change with the responsible administrator.",
+        "Rotate credentials and investigate if the change was unexpected."
+      ]
+    },
+    {
+      "id": "nonroot_password_changed",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_change",
+      "pattern": "^pam_unix\\([a-z-]+:chauthtok\\): password changed for \\S+$",
+      "exclude": ["password changed for root$"],
+      "instance": "account_password_change_event",
+      "severity": "warning",
+      "lockdown": false,
+      "name": "User password changed",
+      "explanation": "Records a password change for an account other than root.",
+      "possible_reactions": [
+        "Confirm the account owner requested the change.",
+        "Investigate unexpected changes and reset the password if needed."
+      ]
+    },
+    {
+      "id": "ssh_root_login",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^Accepted (publickey|password|keyboard-interactive/pam) for root from [0-9A-Fa-f:.]+ port [0-9]+",
+      "instance": "ssh_root_login_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Root SSH login",
+      "explanation": "Records a successful root login over SSH.",
+      "possible_reactions": [
+        "Confirm the source address and administrator activity.",
+        "Disable direct root SSH access if it is not approved."
+      ]
+    },
+    {
+      "id": "su_root_session",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^pam_unix\\(su(-l)?:session\\): session opened for user root\\(",
+      "instance": "su_root_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Root su session opened",
+      "explanation": "Records a session opened as root through su.",
+      "possible_reactions": [
+        "Review the originating account and session activity.",
+        "Investigate an unapproved privilege escalation."
+      ]
+    },
+    {
+      "id": "repeated_sudo_policy_violation",
+      "enabled": true,
+      "source": "auth",
+      "category": "privilege_escalation",
+      "pattern": "^[a-z_][a-z0-9_.-]* : +(user NOT in sudoers|user NOT authorized on host|command not allowed) ;",
+      "instance": "sudo_policy_retry",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Repeated sudo denials",
+      "explanation": "Detects repeated denied sudo requests by one account within five minutes.",
+      "possible_reactions": [
+        "Review the account and attempted commands.",
+        "Restrict the account if privilege probing is confirmed."
+      ]
+    },
+    {
+      "id": "ssh_preauth_probing",
+      "enabled": true,
+      "source": "auth",
+      "category": "password_guessing",
+      "pattern": "^(Invalid user \\S* from|Failed [a-z/-]+ for \\S+ from) ",
+      "instance": "ssh_source_probing",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "SSH login probing",
+      "explanation": "Detects repeated SSH invalid user or failed login attempts from one source within five minutes.",
+      "possible_reactions": [
+        "Review the source address and affected accounts.",
+        "Block the source if the activity is hostile."
+      ]
+    },
+    {
+      "id": "pam_account_lockout",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_lockout",
+      "pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user \\S+ account temporarily locked$",
+      "account_pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user (\\S+) account temporarily locked$",
+      "instance": "account_lockout_event",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Account locked after failed logins",
+      "explanation": "Records an account lockout caused by consecutive failed login attempts.",
+      "possible_reactions": [
+        "Confirm whether the account owner caused the failures.",
+        "Reset credentials or investigate the source before unlocking."
+      ]
+    },
+    {
+      "id": "pam_repeated_account_lockout",
+      "enabled": true,
+      "source": "auth",
+      "category": "account_lockout",
+      "pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user \\S+ account temporarily locked$",
+      "account_pattern": "^pam_faillock\\([a-z-]+:auth\\): Consecutive login failures for user (\\S+) account temporarily locked$",
+      "instance": "repeated_account_lockout",
+      "severity": "critical",
+      "email_on_critical": true,
+      "lockdown": false,
+      "name": "Repeated account lockouts",
+      "explanation": "Detects repeated lockouts of one account within 75 minutes.",
+      "possible_reactions": [
+        "Investigate the affected account and login sources.",
+        "Protect the account and restrict abusive sources."
+      ]
+    }
+  ]
+}

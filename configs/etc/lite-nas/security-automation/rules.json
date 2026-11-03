@@ -1,0 +1,491 @@
+{
+  "rules": [
+    {
+      "id": "ssh_brute_force",
+      "name": "SSH brute force",
+      "description": "Aggregated SSH failures from one source address.",
+      "explanation": "Detects SSH failures from one source address within five minutes. An operator can request a 30-minute direct HTTPS block for that IP, but it does not block SSH. Automatic blocking is not enrolled. Manual UFW, on each physical interface: apply `sudo ufw insert 1 deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`; remove `sudo ufw delete deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`. Replace IFACE and SOURCE_IP, and remove only the matching manual rule. These commands do not remove an automation-owned incident rule.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 1,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secssh",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: ssh_preauth_probing(?: for account [A-Za-z0-9_.-]+)? from (?P<requester_ip_address>[0-9a-fA-F:.]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "block_source_ip",
+        "required_operands": ["requester_ip_address"]
+      }
+    },
+    {
+      "id": "account_enumeration",
+      "name": "Account enumeration",
+      "description": "Distinct account probes from one source address.",
+      "explanation": "Counts SSH account probes from one source address within five minutes. An operator can request a 30-minute direct HTTPS block for that IP, but it does not block SSH. Automatic blocking is not enrolled. Manual UFW, on each physical interface: apply `sudo ufw insert 1 deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`; remove `sudo ufw delete deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`. Replace IFACE and SOURCE_IP, and remove only the matching manual rule. These commands do not remove an automation-owned incident rule.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 5,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secssh",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: ssh_preauth_probing(?: for account [A-Za-z0-9_.-]+)? from (?P<requester_ip_address>[0-9a-fA-F:.]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "block_source_ip",
+        "required_operands": ["requester_ip_address"]
+      }
+    },
+    {
+      "id": "account_under_attack",
+      "name": "Account under attack",
+      "description": "Authentication failures followed by account lockout.",
+      "explanation": "Matches an authentication failure followed by an account lockout for one username within ten minutes. Reports the pattern only; it does not change the account or host.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "username",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secauth",
+          "category": "password_guessing",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: pam_password_guessing(?: via [A-Za-z/ ]+)? for account (?P<username>[A-Za-z0-9_.-]+)(?: from [0-9A-Fa-f:.]+)?$"
+          }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secauth",
+          "category": "account_lockout",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: pam_account_lockout(?: via [A-Za-z/ ]+)? for account (?P<username>[A-Za-z0-9_.-]+)(?: from [0-9A-Fa-f:.]+)?$"
+          }
+        }
+      ],
+      "action": { "kind": "alert_only" }
+    },
+    {
+      "id": "recon_then_ssh",
+      "name": "Reconnaissance then SSH attack",
+      "description": "Network scan followed by SSH failures from one address.",
+      "explanation": "Matches a network scan followed by SSH failures from one address within ten minutes. An operator can request a 30-minute direct HTTPS block for that IP, but it does not block SSH. Automatic blocking is not enrolled. Manual UFW, on each physical interface: apply `sudo ufw insert 1 deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`; remove `sudo ufw delete deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`. Replace IFACE and SOURCE_IP, and remove only the matching manual rule. These commands do not remove an automation-owned incident rule.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secnet",
+          "message": { "regex": "from (?P<requester_ip_address>[0-9a-fA-F:.]+)" }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secssh",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: ssh_preauth_probing(?: for account [A-Za-z0-9_.-]+)? from (?P<requester_ip_address>[0-9a-fA-F:.]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "block_source_ip",
+        "required_operands": ["requester_ip_address"]
+      }
+    },
+    {
+      "id": "network_reconnaissance",
+      "name": "Network reconnaissance",
+      "description": "Counts multiple network alerts from one source address within five minutes.",
+      "explanation": "Counts network alerts from one source address within five minutes. An operator can request a 30-minute direct HTTPS block on verified physical interfaces. Automatic blocking is not enrolled until ingress provenance is verified. Manual UFW, on each physical interface: apply `sudo ufw insert 1 deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`; remove `sudo ufw delete deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`. Replace IFACE and SOURCE_IP, and remove only the matching manual rule. These commands do not remove an automation-owned incident rule.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 2,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secnet",
+          "message": { "regex": "from (?P<requester_ip_address>[0-9a-fA-F:.]+)" }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "block_source_ip",
+        "required_operands": ["requester_ip_address"]
+      }
+    },
+    {
+      "id": "network_scan_sequence",
+      "name": "Horizontal then vertical scan",
+      "description": "Horizontal and vertical blocked TCP scans from one source IP within ten minutes.",
+      "explanation": "After a horizontal scan and then a vertical port scan from the same IP, automatically deny all inbound traffic from that IP on verified physical interfaces for 30 minutes. Manual UFW, on each physical interface: apply `sudo ufw insert 1 deny in on IFACE from SOURCE_IP to any comment 'manual-scan-block'`; remove `sudo ufw delete deny in on IFACE from SOURCE_IP to any comment 'manual-scan-block'`. Replace IFACE and SOURCE_IP, and remove only the matching manual rule. These commands do not remove an automation-owned incident rule.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secnet",
+          "category": "horizontal_scan",
+          "source": "network-security",
+          "message": {
+            "regex": "^Blocked TCP horizontal scan from (?P<requester_ip_address>[0-9A-Fa-f:.]+) on port [0-9]+:"
+          }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secnet",
+          "category": "port_scan",
+          "source": "network-security",
+          "message": {
+            "regex": "^Blocked TCP port scan from (?P<requester_ip_address>[0-9A-Fa-f:.]+) to [0-9A-Fa-f:.]+:"
+          }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "block_scan_source_ip",
+        "required_operands": ["requester_ip_address"]
+      }
+    },
+    {
+      "id": "repeated_sudo_denial",
+      "name": "Repeated unauthorized sudo",
+      "description": "Repeated sudo denial alerts for one account and terminal.",
+      "explanation": "Three sudo denials for the same account and TTY within five minutes terminate one active loginctl session only when Session Manager confirms both match uniquely. Termination is one-way.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 3,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "account_tty",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secpriv",
+          "source": "log-analysis",
+          "category": "privilege_escalation",
+          "message": {
+            "regex": "^Security rule triggered: sudo_policy_violation for account (?P<username>[A-Za-z0-9_.-]+) tty (?P<tty>[A-Za-z0-9_./-]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "command_profile",
+        "name": "login_terminate_session",
+        "required_operands": ["session_id"]
+      }
+    },
+    {
+      "id": "web_password_guessing",
+      "name": "Web password guessing",
+      "description": "Three Web/API password failures for one account and direct HTTPS source within five minutes.",
+      "explanation": "A Log Analysis account-and-source alert revokes active Admin Panel sessions matching that exact account and verified direct HTTPS client IP. Cloudflare Tunnel and Tailscale requests are excluded; revocation is one-way.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 1,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "event_id",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secweb",
+          "category": "password_guessing",
+          "source": "log-analysis",
+          "severity": "critical",
+          "message": {
+            "regex": "^Security rule triggered: pam_web_api_password_guessing via Web/API for account [A-Za-z0-9_][A-Za-z0-9_.-]{0,127} from [0-9A-Fa-f:.]+$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "revoke_web_sessions",
+        "required_operands": ["username", "requester_ip_address"]
+      }
+    },
+    {
+      "id": "web_https_source_block",
+      "name": "Direct HTTPS password attack",
+      "description": "Three Web/API password failures for one account and direct HTTPS source within five minutes.",
+      "explanation": "A verified direct HTTPS source is blocked on physical interfaces for 30 minutes. Cloudflare Tunnel and Tailscale traffic are outside this UFW rule. Manual UFW, on each physical interface: apply `sudo ufw insert 1 deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`; remove `sudo ufw delete deny in on IFACE proto tcp from SOURCE_IP to any port 443 comment 'manual-https-block'`. Replace IFACE and SOURCE_IP, and remove only the matching manual rule. These commands do not remove an automation-owned incident rule.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 1,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secweb",
+          "category": "password_guessing",
+          "source": "log-analysis",
+          "severity": "critical",
+          "message": {
+            "regex": "^Security rule triggered: pam_web_api_password_guessing via Web/API for account [A-Za-z0-9_][A-Za-z0-9_.-]{0,127} from (?P<requester_ip_address>[0-9A-Fa-f:.]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "builtin",
+        "name": "block_source_ip",
+        "required_operands": ["requester_ip_address"]
+      }
+    },
+    {
+      "id": "ssh_probe_then_root_login",
+      "name": "SSH probing followed by root login",
+      "description": "SSH probing and a later successful root login from the same source address.",
+      "explanation": "Correlates an aggregated SSH probing alert with a later root login from the same IP within ten minutes. The shared IP warrants investigation but does not prove both events came from one person.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "requester_ip_address",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secssh",
+          "category": "password_guessing",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: ssh_preauth_probing(?: for account [A-Za-z0-9_.-]+)? from (?P<requester_ip_address>[0-9A-Fa-f:.]+)$"
+          }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secssh",
+          "category": "privilege_escalation",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: ssh_root_login from (?P<requester_ip_address>[0-9A-Fa-f:.]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "alert",
+        "severity": "critical",
+        "email": true,
+        "mitigate": "Verify whether the root login was authorized. Review the source alerts and nearby SSH activity for the same address. If the login was unauthorized, secure the root account and restrict the source."
+      }
+    },
+    {
+      "id": "sudo_denial_then_group_addition",
+      "name": "Sudo denials followed by privileged group membership",
+      "description": "Repeated sudo denials followed by privileged group membership for the same account.",
+      "explanation": "Correlates repeated denied sudo attempts with a later privileged group addition for that account within ten minutes. The source alerts do not identify who changed the membership.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "username",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secpriv",
+          "category": "privilege_escalation",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: repeated_sudo_policy_violation for account (?P<username>[A-Za-z0-9_.-]+)$"
+          }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secpriv",
+          "category": "privilege_escalation",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: privileged_group_membership for account (?P<username>[A-Za-z0-9_.-]+)$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "alert",
+        "severity": "critical",
+        "email": true,
+        "mitigate": "Verify who added the privileged group membership and whether the change was approved. Review the account's sudo denials and recent activity. Remove unauthorized membership and secure the account if compromise is confirmed."
+      }
+    },
+    {
+      "id": "ssh_privilege_probing",
+      "name": "SSH attack and privilege probing",
+      "description": "SSH attack followed by sudo probing for one account.",
+      "explanation": "Matches an SSH attack followed by sudo probing for one username within ten minutes. Reports possible privilege probing only; it does not modify the account or host.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "username",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secssh",
+          "message": { "regex": "account (?P<username>[A-Za-z0-9_.-]+)" }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secpriv",
+          "message": { "regex": "account (?P<username>[A-Za-z0-9_.-]+)" }
+        }
+      ],
+      "action": { "kind": "alert_only" }
+    },
+    {
+      "id": "privilege_persistence",
+      "name": "Privilege escalation or persistence",
+      "description": "Privileged group and account changes by one actor.",
+      "explanation": "Matches privileged group or account change alerts for one actor within ten minutes. Reports possible persistence activity only; it does not reverse account changes.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "username",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secpriv",
+          "message": { "regex": "account (?P<username>[A-Za-z0-9_.-]+)" }
+        },
+        {
+          "type": "security",
+          "id_prefix": "secacct",
+          "message": { "regex": "account (?P<username>[A-Za-z0-9_.-]+)" }
+        }
+      ],
+      "action": { "kind": "alert_only" }
+    },
+    {
+      "id": "file_access_denial",
+      "name": "Repeated file access denial",
+      "description": "Aggregated access denials for one account.",
+      "explanation": "Detects a file access denial alert for one username within five minutes. Reports the denial only; it does not change permissions or block the user.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 1,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "username",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secfile",
+          "message": { "regex": "account (?P<username>[A-Za-z0-9_.-]+)" }
+        }
+      ],
+      "action": { "kind": "alert_only" }
+    },
+    {
+      "id": "usb_suspicious_activity",
+      "name": "Repeated USB connection",
+      "description": "Two connection alerts for the same USB port and vendor/product within ten minutes.",
+      "explanation": "Resolves the repeated connection to one currently allowed USBGuard device, records its hash, and applies a permanent block. Restoration is manual and verifies the recorded identity before allowing it again.",
+      "enabled": true,
+      "fsm": {
+        "type": "count_within_window",
+        "window": "10m",
+        "threshold": 2,
+        "max_keys": 4096,
+        "max_idle": "1h"
+      },
+      "correlate_by": "device_identity",
+      "steps": [
+        {
+          "type": "security",
+          "id_prefix": "secusb",
+          "category": "usb_device",
+          "source": "log-analysis",
+          "message": {
+            "regex": "^Security rule triggered: usb_device_connected device (?P<device_port>[0-9]{1,3}-[0-9.]{1,32}) (?P<device_product>[0-9a-f]{4}:[0-9a-f]{4})$"
+          }
+        }
+      ],
+      "action": {
+        "kind": "command_profile",
+        "name": "usb_block_device",
+        "required_operands": ["device_id"]
+      }
+    },
+    {
+      "id": "integrity_service_disruption",
+      "name": "Integrity change and service disruption",
+      "description": "Integrity alert followed by a related service failure.",
+      "explanation": "Disabled: the current AIDE alert does not identify a service unit, so the proposed sequence cannot be correlated reliably. No host action is taken.",
+      "enabled": false,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "unit_name",
+      "steps": [
+        {
+          "type": "system",
+          "id_prefix": "integrity_",
+          "message": { "regex": "unit (?P<unit_name>[A-Za-z0-9_.-]+)" }
+        },
+        {
+          "type": "system",
+          "id_prefix": "syssvc",
+          "message": { "regex": "unit (?P<unit_name>[A-Za-z0-9_.-]+)" }
+        }
+      ],
+      "action": { "kind": "alert_only" }
+    },
+    {
+      "id": "service_recovery_failure",
+      "name": "Repeated service recovery failure",
+      "description": "Watchdog and service availability alerts for one unit.",
+      "explanation": "Matches watchdog and service availability alerts for one unit within ten minutes. Reports failed recovery only; it does not stop or restart the service.",
+      "enabled": true,
+      "fsm": { "type": "sequence", "window": "10m", "max_keys": 4096, "max_idle": "1h" },
+      "correlate_by": "unit_name",
+      "steps": [
+        {
+          "type": "system",
+          "id_prefix": "watchdog",
+          "message": { "regex": "unit (?P<unit_name>[A-Za-z0-9_.-]+)" }
+        },
+        {
+          "type": "system",
+          "id_prefix": "syssvc",
+          "message": { "regex": "unit (?P<unit_name>[A-Za-z0-9_.-]+)" }
+        }
+      ],
+      "action": { "kind": "alert_only" }
+    }
+  ]
+}

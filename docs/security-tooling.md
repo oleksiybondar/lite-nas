@@ -1,67 +1,51 @@
 # Security Tooling
 
-## Purpose
+LiteNAS ships host controls and runtime security monitoring. Compliance review
+uses OpenSCAP with a profile selected by the operator. OpenSCAP is not a LiteNAS
+package dependency and LiteNAS does not ship its own assessment or remediation
+engine.
 
-This document tracks the security-related tools that LiteNAS installs, configures,
-or plans to provide as part of its hardening model.
+| Tool or service | Current role | Operator action |
+| --- | --- | --- |
+| AIDE and LiteNAS Integrity | Package dependency, LiteNAS rules, scheduled integrity checks, and authorized baseline regeneration | Initialize and review the baseline after installation and planned changes |
+| ClamAV and Antivirus | Package dependency and scan service for eligible mounts and authorized on-demand scans | Review findings and scan scope |
+| USBGuard and USB Manager | Package dependency, device policy enforcement, and managed operations | Review and enroll the host's required devices |
+| `logrotate` | Packaged rotation policy for LiteNAS logs | Review retention against available storage |
+| rsyslog and Log Analysis | Selected host records forwarded to a validated socket and evaluated by configured detection plugins | Review active rules after package updates |
+| Network Security | Correlates validated blocked TCP attempts from Log Analysis | Keep UFW blocked-packet logging enabled for scan detection |
+| Security Logging Manager and Security Email Notifier | Persist security alert lifecycles and deliver selected alerts | Review incidents and configure mail delivery |
+| OpenSCAP | External compliance assessment using selected benchmark content | Install separately, choose a suitable profile, review results, and apply host-specific changes |
 
-It should answer:
+## Release OpenSCAP comparison
 
-- why the tool exists in the LiteNAS baseline
-- whether it is installed by default
-- what LiteNAS configures automatically
-- what operator action is still required
-- whether remediation is automatic, manual, or mixed
+The main release workflow runs a paired assessment on a fresh GitHub-hosted
+Ubuntu 24.04 amd64 VM. It evaluates the ComplianceAsCode Ubuntu 24.04 CIS Level
+2 Server profile before and after installing the validated LiteNAS Debian
+package. Neither scan applies remediation. Package system tests run in a
+separate job after the same package build, so their setup cannot affect the
+comparison.
 
-## Tool Inventory
+The `openscap-release-delta-amd64` workflow artifact is retained for 30 days.
+It contains both OpenSCAP XCCDF results, ARF results, and HTML reports; the
+benchmark data stream and SHA-512 download digest; installation and scan logs;
+and `delta.json` plus `delta.html`. The delta report groups rules by the
+benchmark's top-level categories and counts pass/fail improvements, regressions,
+remaining failures, and outcomes that need review. The benchmark SHA-256,
+profile, content version, package SHA-256, and runner image version identify the
+inputs. Benchmark IEC 62443 references are shown where present, but the CIS
+profile and this VM assessment do not establish an IEC 62443 security level or
+certify a deployed host. Rules that need hardware, a particular environment,
+or manual evidence may remain unassessed.
 
-| Tool | Purpose | Installed By Default | Preconfigured By LiteNAS | Primary Phase | Operator Follow-Up |
-| --- | --- | --- | --- | --- | --- |
-| `aide` | Filesystem integrity monitoring | Planned | Planned | Baseline and runtime review | Review reports and handle findings manually |
-| `clamav` | Malware scanning | Planned | Planned | Baseline and runtime review | Review findings and tune scans as needed |
-| `usbguard` | USB device control baseline | Planned | Planned | Baseline and runtime review | Review and adapt policy for attached hardware |
-| `logrotate` | Managed log retention for LiteNAS services and apps | Planned | Planned | Baseline | Validate retention policy fits storage constraints |
-| LiteNAS hardening linter | Host hardening assessment | Planned | N/A | Post-installation | Review findings and decide remediation |
-| LiteNAS remediation tooling | Assisted or automatic remediation | Planned | N/A | Post-installation | Confirm proposed changes before or after execution |
+AIDE checks file integrity against its database; it does not determine whether a
+host passes a compliance profile. LiteNAS's AIDE rules cover system and service
+paths while excluding mutable and virtual data. Regenerate the baseline after
+changing the rules or installing software. See [Preinstalled Hardened
+Configs](./preinstalled-hardened-configs.md) and [Security
+Monitoring](./security-monitoring.md) for deployed behavior.
 
-## Tool Roles
-
-### `aide`
-
-`aide` is intended to provide filesystem integrity monitoring for important
-system and LiteNAS-managed paths. LiteNAS should define a baseline config that
-fits the appliance profile without pretending that all deployments share the
-same acceptable file-change patterns.
-
-### `clamav`
-
-`clamav` is intended to provide a malware scanning capability within the
-preinstalled baseline. LiteNAS should document whether signature updates, scan
-scheduling, and scan targets are fully configured by default or require
-additional operator decisions.
-
-### `usbguard`
-
-`usbguard` is intended to provide a USB device control baseline. Because
-LiteNAS may run on Raspberry Pi systems with USB-attached storage, the baseline
-must distinguish between generic removable-device restrictions and the actual
-device model required by a NAS host.
-
-### `logrotate`
-
-`logrotate` is intended to bound retained log volume and reduce uncontrolled
-growth of LiteNAS-managed logs. The default policy should reflect storage
-constraints typical of Raspberry Pi deployments, including SD-card wear
-considerations.
-
-## Future LiteNAS Tooling
-
-LiteNAS is expected to add its own host assessment and remediation tooling.
-
-That future tooling should:
-
-- check the applied baseline against LiteNAS policy
-- identify missing or drifted controls
-- separate findings from intentional policy exceptions
-- support safe automatic remediation where the change is deterministic
-- leave environment-sensitive decisions to explicit operator review
+The active Log Analysis rules are under `/etc/lite-nas/log-analysis/rules.json`.
+The package ships a default file but preserves local changes on upgrade. Compare
+the packaged and active rules before adopting new detections. More rules and
+compiled plugin types can be added in later releases; only the documented
+current set is deployed today.

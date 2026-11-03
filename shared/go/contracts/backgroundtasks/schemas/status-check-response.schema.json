@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lite-nas.local/contracts/backgroundtasks/status-check-response.schema.json",
+  "title": "Background task status check response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "state", "started_at", "updated_at", "output", "output_truncated"],
+  "properties": {
+    "task_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "state": {
+      "type": "string",
+      "enum": ["queued", "running", "succeeded", "failed", "cancelled"]
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "exit_code": { "type": "integer" },
+    "error": { "type": "string", "maxLength": 2048 },
+    "output": { "type": "string", "maxLength": 1048576 },
+    "output_truncated": { "type": "boolean" },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "message": { "type": "string", "maxLength": 512 }
+      }
+    }
+  }
+}

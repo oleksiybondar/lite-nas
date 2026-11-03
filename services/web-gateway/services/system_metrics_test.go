@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -50,30 +49,4 @@ func TestSystemMetricsServiceRequestsHistorySubject(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("GetHistory() = %#v, want %#v", got, want)
 	}
-}
-
-func mustGetSnapshot(t *testing.T, service SystemMetricsService) metrics.SystemSnapshot {
-	t.Helper()
-
-	got, err := service.GetSnapshot(context.Background())
-	if err != nil {
-		t.Fatalf("GetSnapshot() error = %v", err)
-	}
-
-	return got
-}
-
-func mustGetHistory(t *testing.T, service SystemMetricsService) []metrics.SystemSnapshot {
-	t.Helper()
-
-	got, err := service.GetHistory(context.Background())
-	if err != nil {
-		t.Fatalf("GetHistory() error = %v", err)
-	}
-
-	return got
-}
-
-func unixFromSeconds(unixSeconds int64) time.Time {
-	return time.Unix(unixSeconds, 0)
 }

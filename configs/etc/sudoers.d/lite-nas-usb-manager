@@ -1,0 +1,2 @@
+# The service validates device IDs and only invokes its supported USBGuard operations.
+lite-nas-usb-manager ALL=(root) NOPASSWD: /usr/bin/usbguard

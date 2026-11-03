@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -151,14 +152,29 @@ func (c *client) resolveTimeout(ctx context.Context) (time.Duration, error) {
 }
 
 func (c *client) decodeRPCError(data []byte) error {
-	var payload rpcErrorPayload
-	if err := c.codec.Unmarshal(data, &payload); err == nil {
-		if payload.Error == "" {
+	var envelope map[string]json.RawMessage
+	if err := c.codec.Unmarshal(data, &envelope); err != nil {
+		return nil
+	}
+	errorData, hasError := envelope["error"]
+	if !hasError {
+		return nil
+	}
+	if marker, hasMarker := envelope["_rpc_error"]; hasMarker {
+		var isRPCError bool
+		if err := c.codec.Unmarshal(marker, &isRPCError); err != nil || !isRPCError {
 			return nil
 		}
-		return fmt.Errorf("%w: %s", ErrHandlerFailed, payload.Error)
+	} else if len(envelope) != 1 {
+		// Older servers used a one-field error object without a marker. Keep
+		// accepting that shape while allowing successful DTOs to carry errors.
+		return nil
 	}
-	return nil
+	var message string
+	if err := c.codec.Unmarshal(errorData, &message); err != nil || message == "" {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrHandlerFailed, message)
 }
 
 func (c *client) requestReply(subject string, request any, timeout time.Duration) (*nats.Msg, error) {

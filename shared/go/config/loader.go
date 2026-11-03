@@ -42,6 +42,28 @@ func LoadINI(reader fileio.Reader) (*ini.File, error) {
 	return ini.Load(data)
 }
 
+// LoadConfigWithSharedSections parses an INI document, loads the shared
+// runtime sections, and delegates service-specific parsing to the supplied
+// builder.
+func LoadConfigWithSharedSections[T any](
+	reader fileio.Reader,
+	build func(cfgFile *ini.File, sharedCfg SharedConfig) (T, error),
+) (T, error) {
+	cfgFile, err := LoadINI(reader)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+
+	sharedCfg, err := LoadSharedConfig(cfgFile)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+
+	return build(cfgFile, sharedCfg)
+}
+
 // LoadSharedConfig extracts shared bootstrap sections from
 // a parsed INI document.
 func LoadSharedConfig(cfgFile *ini.File) (SharedConfig, error) {

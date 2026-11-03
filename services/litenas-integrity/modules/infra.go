@@ -1,0 +1,87 @@
+package modules
+
+import (
+	"time"
+
+	"lite-nas/shared/loggingmanagerauth"
+
+	serviceconfig "lite-nas/services/litenas-integrity/config"
+	sharedfileio "lite-nas/shared/fileio"
+	"lite-nas/shared/messaging"
+	sharedmodules "lite-nas/shared/modules"
+)
+
+const defaultAuthRefreshInterval = 24 * time.Hour
+
+// Infra groups runtime infrastructure dependencies for the integrity service.
+type Infra struct {
+	sharedmodules.CoreClientAuthInfra
+	Config serviceconfig.Config
+}
+
+// NewInfraModule loads service config and constructs shared runtime
+// infrastructure.
+func NewInfraModule(configPath string, serviceName string) (Infra, error) {
+	cfg, err := loadConfigWithDefaultAuthService(configPath, serviceName)
+	if err != nil {
+		return Infra{}, err
+	}
+
+	core, err := buildCoreAuthInfra(serviceName, cfg)
+	if err != nil {
+		return Infra{}, err
+	}
+
+	return Infra{
+		CoreClientAuthInfra: core,
+		Config:              cfg,
+	}, nil
+}
+
+// loadConfigWithDefaultAuthService ensures service-token login defaults to the
+// current service identity when the config omits an override.
+func loadConfigWithDefaultAuthService(configPath string, serviceName string) (serviceconfig.Config, error) {
+	cfgReader, err := sharedfileio.NewFileReader(configPath)
+	if err != nil {
+		return serviceconfig.Config{}, err
+	}
+
+	cfg, err := serviceconfig.LoadConfig(cfgReader)
+	if err != nil {
+		return serviceconfig.Config{}, err
+	}
+
+	authServiceName := cfg.Auth.ServiceName
+	if authServiceName == "" {
+		authServiceName = serviceName
+	}
+	cfg.Auth.ServiceName = authServiceName
+
+	return cfg, nil
+}
+
+// buildCoreAuthInfra wires the shared logger, messaging client/server, and
+// service-token manager for the integrity service.
+func buildCoreAuthInfra(serviceName string, cfg serviceconfig.Config) (sharedmodules.CoreClientAuthInfra, error) {
+	core, err := sharedmodules.NewCoreClientAuthInfra(
+		serviceName,
+		cfg.Logging,
+		cfg.Messaging,
+		cfg.Auth,
+		defaultAuthRefreshInterval,
+	)
+	if err != nil {
+		return sharedmodules.CoreClientAuthInfra{}, err
+	}
+
+	server, err := messaging.NewServer(cfg.Messaging, core.Logger, messaging.NewJSONCodec())
+	if err != nil {
+		core.Close()
+		return sharedmodules.CoreClientAuthInfra{}, err
+	}
+
+	core.Server = server
+	core.Client = loggingmanagerauth.NewClient(core.Client, core.AuthTokenManager, loggingmanagerauth.InjectAlertAccessToken)
+
+	return core, nil
+}

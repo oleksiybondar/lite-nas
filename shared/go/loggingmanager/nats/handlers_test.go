@@ -36,6 +36,7 @@ func TestRegisterRPCHandlersRegistersAllSubjects(t *testing.T) {
 	subjects := Subjects{
 		GetAlertsRPCSubject:                     "getAlerts",
 		GetAlertRPCSubject:                      "getAlert",
+		GetAlertOccurrencesRPCSubject:           "getAlertOccurrences",
 		GetActiveAlertsRPCSubject:               "getActive",
 		GetUnacknowledgedActiveAlertsRPCSubject: "getUnacknowledged",
 		UpdateAlertStateRPCSubject:              "update",
@@ -46,8 +47,8 @@ func TestRegisterRPCHandlersRegistersAllSubjects(t *testing.T) {
 	if err := RegisterRPCHandlers(server, core, subjects); err != nil {
 		t.Fatalf("RegisterRPCHandlers() error = %v", err)
 	}
-	if len(server.rpcHandlers) != 7 {
-		t.Fatalf("rpc handlers count = %d, want 7", len(server.rpcHandlers))
+	if len(server.rpcHandlers) != 8 {
+		t.Fatalf("rpc handlers count = %d, want 8", len(server.rpcHandlers))
 	}
 }
 
@@ -100,12 +101,19 @@ func TestReadRPCHandlersReturnSuccessResponses(t *testing.T) {
 		AccessToken: "token",
 		EventID:     "event_1",
 	})}
+	occurrencesEnv := sharedmessaging.Envelope{Payload: mustMarshal(t, loggingmanagercontract.GetAlertOccurrencesInput{
+		AccessToken: "token",
+		EventID:     "event_1",
+	})}
 
 	if _, err := handleGetAlertsRPC(core)(context.Background(), listEnv); err != nil {
 		t.Fatalf("handleGetAlertsRPC() error = %v", err)
 	}
 	if _, err := handleGetAlertRPC(core)(context.Background(), getEnv); err != nil {
 		t.Fatalf("handleGetAlertRPC() error = %v", err)
+	}
+	if _, err := handleGetAlertOccurrencesRPC(core)(context.Background(), occurrencesEnv); err != nil {
+		t.Fatalf("handleGetAlertOccurrencesRPC() error = %v", err)
 	}
 	if _, err := handleGetActiveAlertsRPC(core)(context.Background(), listEnv); err != nil {
 		t.Fatalf("handleGetActiveAlertsRPC() error = %v", err)

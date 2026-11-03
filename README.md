@@ -8,7 +8,8 @@ The repository already contains an implemented platform slice:
 - shared Go modules for logging, configuration, messaging, and metrics support
 - backend services for system metrics, ZFS metrics, auth, RBAC, stateful
   alert management, resource monitoring, and email notification delivery
-- CLI apps for system metrics, ZFS metrics, and logging-manager operations
+- CLI apps for system metrics, ZFS metrics, and logging-manager operations,
+  plus a user-scoped file writer used by File Service uploads
 - a browser-facing admin panel and gateway for alerts and telemetry
 - NATS-based internal communication between services and consumers
 - a web gateway that serves packaged frontend assets and adapts browser API
@@ -16,7 +17,7 @@ The repository already contains an implemented platform slice:
 - Debian packaging, deployment scripts, and CI/CD validation
 
 The broader platform vision still extends beyond what is implemented today. Storage management,
-configuration validation, deeper administration flows, and further hardening are being added
+deeper administration flows, and further hardening are being added
 incrementally on top of this working skeleton.
 
 ## Table of Contents
@@ -24,9 +25,10 @@ incrementally on top of this working skeleton.
 - [Overview](#overview)
 - [Goals & Philosophy](#goals--philosophy)
 - [Architecture Overview](#architecture-overview)
+- [Moments and Media Architecture](#moments-and-media-architecture)
 - [Monorepo Structure](#monorepo-structure)
 - [Core Features](#core-features)
-- [Configuration Validation Engine](#configuration-validation-engine)
+- [Security Monitoring](#security-monitoring)
 - [Event-Driven Design](#event-driven-design)
 - [Technology Choices](#technology-choices)
   - [Go](#go)
@@ -66,7 +68,7 @@ LiteNAS is built around a set of practical design principles:
   as well as larger environments.
 
 - **Secure by default**
-  Reduce attack surface, enforce least privilege, and validate system configuration continuously.
+  Reduce attack surface, enforce least privilege, and review deployed controls regularly.
 
 - **Self-hosted first**
   Full control over data, services, and infrastructure without reliance on external platforms.
@@ -74,9 +76,8 @@ LiteNAS is built around a set of practical design principles:
 - **Modular and extensible**
   Built as a collection of independent services that can evolve and scale over time.
 
-- **Automation and validation**
-  System configuration should be verifiable, reproducible, and enforceable through policy-based
-  validation.
+- **Reproducible configuration**
+  Ship reviewable host and service configuration with repeatable deployment.
 
 - **Security aligned with best practices**
   Design decisions are guided by established security principles and industry-standard frameworks,
@@ -116,6 +117,19 @@ and packaging flow.
 
 A dedicated auth authority keeps PAM-backed host authentication, token
 issuance, and emergency auth-state control out of the browser gateway.
+
+## Moments and Media Architecture
+
+Moments is the family-facing personal media application. Its authenticated
+browser shell, profile settings, embedded and standalone hosts, fixture-backed
+gallery, and browser-only thumbnail maker are implemented. The gallery uses
+authorized File and Stream Service routes with bounded requests and a
+virtualized wall. Gallery metadata APIs and persistence are implemented. The current boundaries and demo scope are in the
+[Moments architecture](docs/moments-architecture.md).
+
+Moments is prioritized for practical family use in this development slice. It
+is adjacent to the security and platform skeleton work, not a requirement of
+that skeleton.
 
 ## Monorepo Structure
 
@@ -166,6 +180,13 @@ Current implemented focus:
   System and security email notifier services extend that path into operator
   email delivery through local Postfix.
 
+- **Security monitoring (SIEM)**
+  Log Analysis consumes validated rsyslog records and runs configured detection
+  plugins. Network Security correlates blocked TCP attempts. Mount, service,
+  antivirus, integrity, and watchdog services contribute observations and alerts.
+  Security Logging Manager stores alert state and occurrences, while Security
+  Email Notifier delivers selected alerts. See [Security Monitoring](docs/security-monitoring.md).
+
 - **Authentication authority**
   `auth-service` owns PAM-backed host authentication, token issuance, and
   auth-state events behind the internal messaging boundary.
@@ -184,6 +205,11 @@ Current implemented focus:
   `system-email-notifier` and `security-email-notifier` consume alert events,
   render packaged HTML email templates, and deliver through local Postfix with
   support for authenticated upstream SMTP relay configuration.
+
+- **User-scoped upload staging**
+  `lite-nas-file-writer` performs bounded stage operations under a non-root
+  Unix identity. It is built and packaged with a restricted sudoers rule and
+  dedicated AppArmor profile. File Service uses it for resumable upload staging and publication.
 
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
@@ -205,6 +231,12 @@ Current implemented focus:
 
 Planned expansion areas:
 
+- **Authorized file transfer and media delivery**
+  Planned File and Stream Services will provide RBAC-checked, resumable file
+  transfers and original-format media delivery, including Apple Live Photo
+  still/movie pairs. Both services are specified but are not yet part of the
+  installed runtime.
+
 - **ZFS-based storage management**
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient
   use of resources.
@@ -213,13 +245,10 @@ Planned expansion areas:
   Broader monitoring domains, richer alert sources, and deeper operator-facing
   supervision beyond the current system and ZFS resource slice.
 
-- **Configuration validation**
-  Policy-based validation of system configuration, allowing detection of misconfigurations and drift
-  from expected states.
-
 - **Security and hardening**
-  Emphasis on reducing attack surface, enforcing least privilege, and maintaining a secure baseline
-  configuration.
+  Continue reducing attack surface, enforcing least privilege, and maintaining
+  a secure baseline. Operators can use OpenSCAP for compliance assessment.
+  LiteNAS does not plan a separate host assessment or remediation engine.
 
 - **Event-driven service coordination**
   Internal components are designed to communicate through an event-driven model, enabling loose
@@ -233,87 +262,22 @@ Planned expansion areas:
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
 
-- **Media services (planned)**
-  Support for media storage and browsing, including a gallery-style experience for personal content.
+- **Moments album and metadata workflows (next product priority)**
+  Connect the existing gallery and thumbnail maker demos to authorized albums,
+  tags, uploads, and persistent cover descriptors through separately defined
+  service contracts. See the [Moments architecture](docs/moments-architecture.md).
 
-## Configuration Validation Engine
+## Security Monitoring
 
-A central component in the LiteNAS design is the configuration validation engine, intended to
-provide a consistent and automated way to verify system state against expected policies.
-
-The engine is intended to operate on structured rules, allowing system configuration to be
-described, validated, and reasoned about in a reproducible way. Rather than relying on manual checks
-or ad-hoc scripts, LiteNAS aims to treat configuration validation as a first-class capability once
-implemented.
-
-### Rule-Based Validation
-
-Validation is based on declarative rules that define expected system state. These rules may
-evaluate:
-
-- Configuration files
-- Command outputs
-- System parameters
-- Service states
-
-Each rule is designed to be both machine-readable and human-understandable, enabling transparency
-and maintainability.
-
-### Validation States
-
-Each validation produces one of three outcomes:
-
-- **Pass**
-  The system matches the expected configuration.
-
-- **Pass with warning**
-  The configuration is acceptable but not optimal, often involving trade-offs.
-
-- **Error**
-  The configuration does not meet the expected requirements and may require remediation.
-
-This allows the system to distinguish between strict failures and acceptable deviations.
-
-### Context and Rationale
-
-Rules may include additional context describing:
-
-- Why a configuration is considered correct
-- What alternatives are acceptable
-- Trade-offs between different configurations
-
-This makes validation results more actionable and easier to interpret.
-
-### Remediation (Planned)
-
-In addition to validation, the engine is intended to support remediation workflows. Where possible,
-rules may define how to adjust the system toward a compliant state.
-
-The goal is to move from passive validation toward active configuration management, while
-maintaining transparency and control.
-
-### Integration with the Platform
-
-The validation engine is designed to integrate with other components of LiteNAS:
-
-- Monitoring services can trigger validation checks
-- Event-driven workflows can react to validation results
-- The web interface can present validation status and insights to the user
-
-This allows configuration validation to become part of the overall system lifecycle rather than a
-standalone tool.
-
-### Design Approach
-
-The validation engine is planned to be developed incrementally, with a focus on:
-
-- Simplicity of rule definition
-- Clear and interpretable results
-- Extensibility for new validation types
-- Practical applicability in real environments
-
-The long-term goal is to provide a flexible foundation for enforcing system configuration policies
-in a lightweight and transparent way.
+The implemented SIEM path receives selected host records through rsyslog,
+evaluates the shipped Log Analysis rules and Network Security detectors, and
+records alert lifecycles in Security Logging Manager. The current rules cover
+authentication failures, account and privilege changes, SSH probing, USB
+connections, and blocked TCP scan patterns. Additional rules and compiled
+plugins may be added in later releases; the current set is documented in
+[Security Monitoring](docs/security-monitoring.md). Compliance assessment is
+an operator workflow using OpenSCAP and a selected profile, separate from
+runtime detection.
 
 ## Event-Driven Design
 
@@ -339,7 +303,6 @@ Events enable asynchronous processing, allowing the system to react to changes w
 execution. This is particularly useful for:
 
 - Monitoring and alerting
-- Configuration validation
 - Automation tasks
 - Background processing
 
@@ -351,15 +314,15 @@ components. The focus is on simplicity, reliability, and minimal operational ove
 The messaging layer acts as the backbone of the platform, enabling services to publish and consume
 events without tight coupling.
 
-### Integration with Validation and Monitoring
+### Integration with Monitoring
 
 The event-driven model integrates naturally with other parts of the system:
 
 - Monitoring components can emit events when system state changes
-- The validation engine can react to events and evaluate configuration
-- Automation workflows can be triggered based on validation results or system conditions
+- Services can react to validated observations and publish alert lifecycles
+- Automation workflows can be triggered by defined service conditions
 
-This creates a feedback loop where system state, validation, and automation continuously interact.
+This lets services report changes in host state through explicit contracts.
 
 ### Event Design Approach
 
@@ -449,7 +412,7 @@ backup use cases.
 LiteNAS is intended to build on top of this working foundation. The goal is to evolve the setup into
 a more structured, secure, and reusable platform by introducing:
 
-- Configuration validation instead of manual tuning
+- OpenSCAP-based compliance review
 - Improved access methods (e.g. NFS alongside CIFS)
 - Better usability through a web-based interface
 - Stronger security and controlled access patterns
@@ -466,8 +429,8 @@ efficient while still being practical for everyday use.
 Security is a core aspect of the LiteNAS design and is treated as an ongoing process rather than a
 one-time configuration.
 
-The intended system is designed to minimize exposure, enforce least privilege, and continuously
-validate its configuration to reduce the risk of misconfiguration and unintended access.
+The intended system is designed to minimize exposure and enforce least privilege.
+Operators review host compliance with OpenSCAP and selected benchmark content.
 
 ### Minimal Exposure
 
@@ -495,15 +458,12 @@ allowing services to remain private while still being accessible when needed.
 
 This avoids the need for direct WAN exposure and simplifies the overall security model.
 
-### Configuration Validation
+### Compliance Review
 
-Security is intended to be reinforced through the configuration validation engine:
-
-- System state can be continuously checked against defined policies
-- Misconfigurations can be detected early
-- Security-related settings can be verified automatically
-
-This helps maintain a consistent and auditable system state over time.
+Operators can use OpenSCAP with a selected benchmark profile to assess host
+configuration. LiteNAS ships hardened service defaults and runtime security
+monitoring; OpenSCAP assessment and host-specific follow-up remain operator
+workflows.
 
 ### Principle of Least Privilege
 
@@ -595,12 +555,9 @@ requiring major architectural changes.
 The top-level repository now acts as both:
 
 - the high-level platform overview
-- the entry point to implemented subprojects and planning documents
+- the entry point to implemented subprojects and project documentation
 
 Useful starting points:
-
-- [`docs/development-notes.md`](docs/development-notes.md)
-  Why early slices are intentionally infrastructure-heavy and low immediate business value.
 
 - [`docs/email-notifiers.md`](docs/email-notifiers.md)
   Operator-facing setup, relay configuration, and CLI testing flow for the
@@ -626,6 +583,18 @@ Useful starting points:
 
 - [`requirements/rbac-service.md`](requirements/rbac-service.md)
   Requirements for the internal authorization decision service.
+
+- [`services/file-service/requirements.md`](services/file-service/requirements.md)
+  File Service requirements for RBAC-checked, resumable uploads and
+  downloads.
+
+- [`apps/file-writer/requirements.md`](apps/file-writer/requirements.md) and
+  [`apps/file-writer/README.md`](apps/file-writer/README.md)
+  Requirements and CLI/deployment contract for the packaged upload-stage writer.
+
+- [`services/stream-service/requirements.md`](services/stream-service/requirements.md)
+  Stream Service requirements for authorized media delivery, seeking,
+  and Live Photo support.
 
 - [`requirements/resources-monitor.md`](requirements/resources-monitor.md)
   Requirements for the rule-based alert source that consumes system and ZFS

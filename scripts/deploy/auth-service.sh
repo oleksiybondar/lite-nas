@@ -14,6 +14,8 @@ readonly LITE_NAS_AUTH_UNIT_TEMPLATE="${LITE_NAS_AUTH_UNIT_TEMPLATE:-$LITE_NAS_R
 readonly LITE_NAS_AUTH_UNIT_TARGET="${LITE_NAS_AUTH_UNIT_TARGET:-/etc/systemd/system/lite-nas-auth.service}"
 readonly LITE_NAS_AUTH_PAM_TEMPLATE="${LITE_NAS_AUTH_PAM_TEMPLATE:-$LITE_NAS_REPO_ROOT/configs/etc/pam.d/litenas-auth}"
 readonly LITE_NAS_AUTH_PAM_TARGET="${LITE_NAS_AUTH_PAM_TARGET:-/etc/pam.d/litenas-auth}"
+readonly LITE_NAS_AUTH_PAM_PROFILE_DIR="${LITE_NAS_AUTH_PAM_PROFILE_DIR:-/usr/share/pam-configs}"
+readonly LITE_NAS_AUTH_SECURITY_DIR="${LITE_NAS_AUTH_SECURITY_DIR:-/etc/security}"
 readonly LITE_NAS_AUTH_LOG_DIR="${LITE_NAS_AUTH_LOG_DIR:-/var/log/lite-nas}"
 readonly LITE_NAS_AUTH_LOG_FILE="${LITE_NAS_AUTH_LOG_FILE:-$LITE_NAS_AUTH_LOG_DIR/auth-service.log}"
 readonly LITE_NAS_AUTH_LEGACY_LOG_FILE="/var/lib/lite-nas/auth-service.log"
@@ -34,8 +36,10 @@ deploy.authService.requireTools() {
 	local tool
 	local tools=(
 		getent
+		grep
 		groupadd
 		install
+		pam-auth-update
 		cat
 		chmod
 		chown
@@ -86,9 +90,7 @@ deploy.authService.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" "$LITE_NAS_AUTH_CONFIG_DIR"
-	install -m 0640 -o root -g "$LITE_NAS_AUTH_CONFIG_GROUP" \
-		"$LITE_NAS_AUTH_CONFIG_SOURCE" \
-		"$LITE_NAS_AUTH_CONFIG_TARGET"
+	deploy.installMergedConfig "$LITE_NAS_AUTH_CONFIG_SOURCE" "$LITE_NAS_AUTH_CONFIG_TARGET" root "$LITE_NAS_AUTH_CONFIG_GROUP"
 }
 
 deploy.authService.installLogTarget() {
@@ -130,6 +132,29 @@ deploy.authService.installPAMService() {
 	install -D -m 0644 "$LITE_NAS_AUTH_PAM_TEMPLATE" "$LITE_NAS_AUTH_PAM_TARGET"
 }
 
+# installPAMPolicy enables the host-wide faillock stack through Debian's
+# managed PAM profiles and installs the shared password and lockout settings.
+deploy.authService.installPAMPolicy() {
+	local profile
+	for profile in lite-nas-faillock-preauth lite-nas-faillock-authfail; do
+		install -D -m 0644 "$LITE_NAS_REPO_ROOT/configs/usr/share/pam-configs/$profile" \
+			"$LITE_NAS_AUTH_PAM_PROFILE_DIR/$profile"
+	done
+	install -D -m 0644 "$LITE_NAS_REPO_ROOT/configs/etc/security/pwquality.conf" \
+		"$LITE_NAS_AUTH_SECURITY_DIR/pwquality.conf"
+	install -D -m 0644 "$LITE_NAS_REPO_ROOT/configs/etc/security/faillock.conf" \
+		"$LITE_NAS_AUTH_SECURITY_DIR/faillock.conf"
+	install -d -o root -g root -m 0755 /var/lib/faillock
+	pam-auth-update --package --enable lite-nas-faillock-preauth lite-nas-faillock-authfail
+	if ! grep -Fq 'pam_faillock.so preauth' /etc/pam.d/common-auth ||
+		! grep -Fq 'pam_faillock.so authfail' /etc/pam.d/common-auth ||
+		! grep -Fq 'pam_faillock.so' /etc/pam.d/common-account ||
+		! grep -Fq 'pam_pwquality.so' /etc/pam.d/common-password; then
+		log.error "PAM policy was not installed in the host common stacks"
+		exit 1
+	fi
+}
+
 deploy.authService.enableAndStart() {
 	deploy.enableAndRefreshService "$LITE_NAS_AUTH_SERVICE_NAME.service"
 }
@@ -144,6 +169,7 @@ deploy.authService.deploy() {
 	deploy.authService.installLogTarget
 	deploy.authService.installUnitFile
 	deploy.authService.installPAMService
+	deploy.authService.installPAMPolicy
 
 	if [ "$should_start" = "1" ]; then
 		deploy.authService.enableAndStart

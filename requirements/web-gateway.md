@@ -90,6 +90,9 @@ requests to internal services over the messaging layer.
 #### FR-003 Acceptance Criteria
 
 - Supported browser-facing API calls are mapped to internal service interactions
+- Security-authorized USBGuard device inventory, allow, and block API calls map
+  to the corresponding `usb-manager` RPCs; callers can request a persistent
+  device decision.
 - The gateway does not embed the underlying domain logic it forwards to
 - Transport and payload adaptation are encapsulated within the gateway layer
 
@@ -122,6 +125,21 @@ policy.
 - The gateway does not issue authorization policy decisions itself
 - The gateway does not evaluate PAM-backed auth outcomes itself
 - Token transport handling remains separate from domain service logic
+
+### FR-005 Expose authenticated security task operations
+
+#### FR-005 Description
+
+The gateway MUST provide browser-facing endpoints to start, poll, and retry
+antivirus scans and AIDE integrity checks.
+
+#### FR-005 Acceptance Criteria
+
+- Starting an antivirus scan accepts a folder and returns a task ID
+- Starting an AIDE check returns a task ID
+- Status and retry operations identify the target attempt by task ID
+- Every operation uses the existing security-role authentication middleware
+- The gateway maps HTTP DTO values into service-owned NATS request contracts
 
 ---
 
@@ -203,6 +221,20 @@ contract without JavaScript token access.
   from a client cookie jar
 - Tests can exercise BFF auth flows without reading token values from JSON
   response bodies
+
+### IR-004 Integrate with antivirus and integrity task RPCs
+
+#### IR-004 Description
+
+The gateway MUST map security task endpoints to service-qualified antivirus
+and integrity NATS request/reply subjects.
+
+#### IR-004 Acceptance Criteria
+
+- Antivirus start, status, and retry requests use antivirus-owned subjects
+- Integrity start, status, and retry requests use integrity-owned subjects
+- The gateway uses its authorized NATS client for request/reply traffic
+- Service task IDs and snapshots are mapped into documented HTTP responses
 
 ---
 

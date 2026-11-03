@@ -40,6 +40,34 @@ repository working style after explicit user instructions.
 - If a design choice is uncertain, stop and ask a focused question instead of
   filling the gap with assumptions.
 
+## Go Service Workers and Messaging
+
+- Deploy each Go service as one OS process. Run independently scheduled work as
+  goroutine workers in that process, using `lite-nas/shared/workers` for its
+  existing lifecycle and polling primitives. Connect independent workers with
+  typed, bounded Go channels. Ordinary synchronous calls within a worker are
+  appropriate for parsing, validation, and state evaluation.
+- Use `lite-nas/shared/messaging` for communication between processes. Bridge
+  NATS subscriptions into local worker channels with a validated handler, and
+  have an outbound worker consume typed intents before calling the shared
+  messaging client. The existing example is
+  `shared/go/emailnotifier/subscription.go`; there is no general shared NATS
+  channel adapter today. Add shared adapter code only for demonstrated reuse.
+- Specify the owner, producer, consumer, capacity, and close policy for each
+  channel. One channel with multiple receivers is a work queue, not broadcast;
+  explicitly send a copy to each destination when all consumers need an event.
+  Bound queues and define backpressure and cancellation at every send. Do not
+  silently discard security observations or effects. Route errors to an
+  observable, handled path. On shutdown, stop producers, finish or explicitly
+  account for pending effects, then drain NATS where possible. Only a producer
+  that owns a channel may close it; do not close a channel while a NATS callback
+  can still send to it.
+- Construct compiled Log Analysis plugin types and all configured instances at
+  startup. Inject the initialized instance collection into listener/dispatcher
+  workers. Listeners must not load code, resolve constructors, or create plugin
+  instances. Detection plugins use the shared table-driven FSM package. Inspect current
+  contracts before adding abstractions.
+
 ## Git and Repository Operations
 
 Agents may:
@@ -77,6 +105,13 @@ branch or otherwise provides a pushed source branch.
 - Report validation performed and any commands that could not be run.
 - Validate every user-facing or service-facing input boundary before doing
   further message processing or invoking business logic.
+- Before adding or changing an external command invocation, review whether it
+  invokes a shell and whether any executable or argument is influenced by
+  external input. Pass arguments separately without a shell. Validate each
+  variable argument against the invoked program's specific operand and option
+  rules before execution, and use an end-of-options delimiter where supported.
+  Do not rely on shell-character filtering or argument counts as validation;
+  test option-shaped and malformed inputs for commands that accept them.
 - Use Huma DTO validation for HTTP and HTTPS routes. Use
   `go-playground/validator/v10` by default for non-HTTP Go boundaries such as
   CLI inputs, NATS RPC handlers, NATS subscription handlers, and other
@@ -91,6 +126,10 @@ branch or otherwise provides a pushed source branch.
   service-owned request structs into lower-level services.
 - When tests repeat the same setup within a package, prefer package-local
   fixtures and helper files instead of copying the setup into each test.
+- Keep each unit test to one verification point and one assertion. Use
+  separate parameterized cases when checking several inputs against the same
+  rule, and move shared preparation and expected successful actions into
+  fixtures or `must...` helpers.
 - Treat test duplication as repository-wide maintenance debt, not as a
   package-local issue only. Reuse that crosses Go module boundaries should move
   into shared test helpers instead of being copied.
@@ -131,6 +170,28 @@ branch or otherwise provides a pushed source branch.
 - Keep each system test focused on one verification point. Use parametrization,
   fixtures, helpers, or shared test-case steps instead of asserting unrelated
   outcomes or duplicating setup.
+
+## TypeScript Application Languages
+
+- Support English (`en`), Ukrainian (`uk`), and Danish (`da`) in every TypeScript
+  app. English is the default.
+- Use the shared `@lite-nas/language` package, its `LanguageProvider`, and its
+  static JSON dictionaries under `shared/ts/language/locales`. Add matching
+  keys and real translations to all three dictionaries when adding or changing
+  user-facing text. Resolve labels through `useLanguage().getLabel("section.key")`.
+- Localize all visible application text, including navigation, forms, dialogs,
+  validation feedback, errors, empty and loading states, tooltips, and
+  accessibility labels. Keep brand names and technical identifiers unchanged
+  where translation would alter their meaning.
+- Give each app a visible `LanguageSelector` where users can reach it before
+  sign-in and after sign-in. Use the shared browser preference before
+  authentication. After authentication, load `preferredLanguage` from the
+  existing `/f/profile/ui` document when present; otherwise keep the language
+  selected on the login screen or stored in the browser. Save authenticated
+  changes to that document without dropping `preferredMode`.
+- Validate language values at storage and profile boundaries with the shared
+  schema. Test the default, switching, stored user preference, and missing-file
+  fallback for a new app's integration.
 
 ## Tooling Conventions
 

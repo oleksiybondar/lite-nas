@@ -22,11 +22,17 @@ type runtimeAuthenticatorStub struct {
 	err    error
 }
 
-func (a runtimeAuthenticatorStub) Authenticate(pamauth.AuthenticateRequest) (pamauth.Result, error) {
-	return a.result, a.err
+// TestRevokeMatchedSessionsRPCRejectsOptionShapedIP validates the service
+// boundary before any active browser session is touched.
+func TestRevokeMatchedSessionsRPCRejectsOptionShapedIP(t *testing.T) {
+	runtimeDeps, _ := loginRPCFixture(t)
+	response, err := handleRevokeMatchedSessionsRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeMatchedSessionsRequest{Login: "alice", ClientIP: "--all"}))
+	if err != nil || response.Revoked != 0 {
+		t.Fatalf("malformed target accepted: %+v, %v", response, err)
+	}
 }
 
-func (a runtimeAuthenticatorStub) ChangePassword(pamauth.PasswordChangeRequest) (pamauth.Result, error) {
+func (a runtimeAuthenticatorStub) Authenticate(pamauth.AuthenticateRequest) (pamauth.Result, error) {
 	return a.result, a.err
 }
 
@@ -209,7 +215,7 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
-	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil)
+	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil, "")
 	if !issued {
 		t.Fatal("issueAccessToken() failed")
 	}
@@ -226,6 +232,93 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	}
 	if response.Username != "testuser" {
 		t.Fatalf("Username = %q, want testuser", response.Username)
+	}
+}
+
+// TestRevokeSessionRejectsItsAccessToken covers live session revocation.
+func TestRevokeSessionRejectsItsAccessToken(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, issued := issueAccessToken(runtimeDeps, "admin", "admin", []string{"admin"}, "")
+	if !issued {
+		t.Fatal("admin token issuance failed")
+	}
+	response, err := handleRevokeSessionRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeSessionRequest{AccessToken: adminToken, SessionID: claims.SessionID}))
+	if err != nil || !response.Revoked {
+		t.Fatalf("revoke = %#v, %v", response, err)
+	}
+	validated, err := handleValidateAccessTokenRPC(runtimeDeps, rpcEnvelope(t, authcontract.ValidateAccessTokenRequest{AccessToken: login.AccessToken}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if validated.Valid {
+		t.Fatal("revoked access token accepted")
+	}
+}
+
+// TestListSessionsReturnsLoginSession covers administrator session discovery.
+func TestListSessionsReturnsLoginSession(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, issued := issueAccessToken(runtimeDeps, "admin", "admin", []string{"admin"}, "")
+	if !issued {
+		t.Fatal("admin token issuance failed")
+	}
+	response, err := handleListSessionsRPC(runtimeDeps, rpcEnvelope(t, authcontract.ListSessionsRequest{AccessToken: adminToken}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Sessions) != 1 || response.Sessions[0].SessionID != claims.SessionID {
+		t.Fatalf("sessions = %#v, want login session", response.Sessions)
+	}
+	if response.Sessions[0].Source != "admin-panel" {
+		t.Fatalf("source = %q, want admin-panel", response.Sessions[0].Source)
+	}
+}
+
+// TestRevokeSessionRequiresAdministrator covers the revocation RPC authorization boundary.
+func TestRevokeSessionRequiresAdministrator(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := handleRevokeSessionRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeSessionRequest{AccessToken: login.AccessToken, SessionID: claims.SessionID}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Revoked {
+		t.Fatal("non-administrator revoked session")
+	}
+}
+
+// TestRevokeSessionRejectsRefreshToken covers refresh credential invalidation.
+func TestRevokeSessionRejectsRefreshToken(t *testing.T) {
+	runtimeDeps, login := loginRPCFixture(t)
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(login.AccessToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adminToken, issued := issueAccessToken(runtimeDeps, "admin", "admin", []string{"admin"}, "")
+	if !issued {
+		t.Fatal("admin token issuance failed")
+	}
+	response, err := handleRevokeSessionRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeSessionRequest{AccessToken: adminToken, SessionID: claims.SessionID}))
+	if err != nil || !response.Revoked {
+		t.Fatalf("revoke = %#v, %v", response, err)
+	}
+	refreshed, err := handleRefreshRPC(runtimeDeps, rpcEnvelope(t, authcontract.RefreshRequest{RefreshToken: login.RefreshToken, UserAgent: "lite-nas-test"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.AccessToken != "" {
+		t.Fatal("revoked refresh token accepted")
 	}
 }
 
@@ -525,6 +618,47 @@ func TestRegisterRPCHandlersReturnsRegistrationError(t *testing.T) {
 	}
 }
 
+// TestRegisterRPCHandlersStopsAtEachFailedSubject checks startup error propagation.
+func TestRegisterRPCHandlersStopsAtEachFailedSubject(t *testing.T) {
+	for _, subject := range []string{
+		authcontract.PasswordChangeStartRPCSubject,
+		authcontract.PasswordChangeReplyRPCSubject,
+		authcontract.RefreshRPCSubject,
+		authcontract.LogoutRPCSubject,
+		authcontract.ValidateAccessTokenRPCSubject,
+		authcontract.CaptionGrantIssueRPCSubject,
+		authcontract.CaptionGrantValidateRPCSubject,
+		authcontract.CaptionGrantRevokeRPCSubject,
+		authcontract.ServiceTokenLoginRPCSubject,
+		authcontract.ServiceTokenRefreshRPCSubject,
+		authcontract.SetLockdownRPCSubject,
+	} {
+		t.Run(subject, func(t *testing.T) {
+			failure := errors.New("registration failed")
+			server := &runtimeRecordingServer{errs: map[string]error{subject: failure}}
+			if err := registerRPCHandlers(server, authRuntimeFixture(t, pamauth.Result{})); !errors.Is(err, failure) {
+				t.Fatalf("registration error = %v, want %v", err, failure)
+			}
+		})
+	}
+}
+
+// TestRegisteredRPCHandlersRejectMalformedPayloads checks every NATS adapter boundary.
+func TestRegisteredRPCHandlersRejectMalformedPayloads(t *testing.T) {
+	server := &runtimeRecordingServer{}
+	if err := registerRPCHandlers(server, authRuntimeFixture(t, pamauth.Result{})); err != nil {
+		t.Fatalf("register handlers: %v", err)
+	}
+	for subject, handler := range server.handlers {
+		t.Run(subject, func(t *testing.T) {
+			_, err := handler(t.Context(), messaging.Envelope{Payload: []byte("{")})
+			if (err != nil) != (subject == authcontract.SetLockdownRPCSubject) {
+				t.Fatalf("malformed payload error = %v for %s", err, subject)
+			}
+		})
+	}
+}
+
 func TestResolvePrincipalRolesReturnsFallbackOnRPCFailure(t *testing.T) {
 	t.Parallel()
 
@@ -558,6 +692,7 @@ func TestHandleLoginRPCUsesRBACUIDAndGroupsInToken(t *testing.T) {
 		Username:  "testuser",
 		Password:  "testpassword",
 		UserAgent: "lite-nas-test",
+		Source:    "admin-panel",
 	}))
 	assertLoginIssued(t, response, err)
 	assertAccessTokenClaims(t, runtimeDeps, response.AccessToken, "1002", 2)
@@ -683,6 +818,7 @@ func loginRPCFixture(t *testing.T) (authRuntime, authcontract.LoginResponse) {
 		Username:  "testuser",
 		Password:  "testpassword",
 		UserAgent: "lite-nas-test",
+		Source:    "admin-panel",
 	}))
 	if err != nil {
 		t.Fatalf("handleLoginRPC() error = %v", err)

@@ -1,0 +1,3 @@
+# Protect service executables, including LiteNAS services.
+/usr/libexec(/.*)?$ LiteNASIntegrity
+/usr/local/libexec(/.*)?$ LiteNASIntegrity

@@ -8,6 +8,8 @@
       "!**/.build",
       "!**/dist",
       "!**/build",
+      "!services/file-service/swagger-ui",
+      "!shared/go/swaggerui/assets",
       "!configs/etc/lite-nas/*-email-notifier/*.html",
       "!**/coverage",
       "!**/.claude",

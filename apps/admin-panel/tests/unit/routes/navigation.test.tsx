@@ -11,8 +11,16 @@ describe("resolveSelectedNavigationPath", () => {
     { pathname: "/", selectedPath: "/" },
     { pathname: "/system", selectedPath: "/system" },
     { pathname: "/system/performance", selectedPath: "/system/performance" },
+    { pathname: "/system/processes", selectedPath: "/system/processes" },
+    {
+      pathname: "/security/sessions",
+      selectedPath: "/security/sessions",
+      items: buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }),
+    },
     { pathname: "/system/sensors", selectedPath: "/system/sensors" },
     { pathname: "/system/performance/network", selectedPath: "/system/performance/network" },
+    { pathname: "/system/processes/processes", selectedPath: "/system/processes/processes" },
+    { pathname: "/system/processes/services/logs", selectedPath: "/system/processes/services" },
     { pathname: "/system/sensors/temperature", selectedPath: "/system/sensors/temperature" },
     {
       pathname: "/system/sensors/temperature/history",
@@ -25,6 +33,11 @@ describe("resolveSelectedNavigationPath", () => {
     },
     {
       pathname: "/preferences/application/monitoring",
+      selectedPath: "/preferences/application/monitoring",
+      items: preferencesNavigationItems,
+    },
+    {
+      pathname: "/preferences/application/monitoring/processes",
       selectedPath: "/preferences/application/monitoring",
       items: preferencesNavigationItems,
     },
@@ -56,6 +69,8 @@ describe("appNavigationItems", () => {
   test("contains Raspberry Pi sensor routes", () => {
     const routePaths = JSON.stringify(appNavigationItems);
 
+    expect(routePaths).toContain("/system/processes/processes");
+    expect(routePaths).toContain("/system/processes/services");
     expect(routePaths).toContain("/system/sensors/temperature");
     expect(routePaths).toContain("/system/sensors/voltage");
     expect(routePaths).toContain("/system/sensors/clock");
@@ -89,5 +104,79 @@ describe("buildAppNavigationItems", () => {
     expect(routePaths).toContain("/alerts/security/active");
     expect(routePaths).toContain("/alerts/system/all");
     expect(routePaths).toContain("/alerts/security/all");
+  });
+});
+
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Each case checks one role-specific navigation rule.
+describe("sessions navigation", () => {
+  test("places automated audit under Security and Logs for security officers", () => {
+    const security = buildAppNavigationItems({
+      requireOperator: () => false,
+      requireSecurity: () => true,
+    }).find((item) => item.path === "/security");
+    const logs = security?.children?.find((item) => item.path === "/security/logs");
+    expect(logs?.children?.map((item) => item.path)).toContain("/security/logs/automated-audit");
+  });
+
+  test("shows sessions to security officers", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
+    );
+    expect(paths).toContain('"path":"/security/sessions"');
+  });
+
+  test("shows loginctl sessions to security officers", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
+    );
+    expect(paths).toContain('"path":"/security/sessions/loginctl"');
+  });
+
+  test("hides LiteNAS Auth sessions from security officers", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),
+    );
+    expect(paths).not.toContain("/security/sessions/litenas-auth");
+  });
+
+  test("shows sessions to administrators", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems(
+        {
+          requireOperator: () => false,
+          requireSecurity: () => false,
+          requireAdmin: () => true,
+        },
+        false,
+      ),
+    );
+    expect(paths).toContain('"path":"/security/sessions"');
+  });
+
+  test("shows LiteNAS Auth sessions to administrators", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems(
+        { requireOperator: () => false, requireSecurity: () => false, requireAdmin: () => true },
+        false,
+      ),
+    );
+    expect(paths).toContain('"path":"/security/sessions/litenas-auth"');
+  });
+
+  test("hides sessions from users without security access", () => {
+    const paths = JSON.stringify(
+      buildAppNavigationItems({ requireOperator: () => true, requireSecurity: () => false }, false),
+    );
+    expect(paths).not.toContain("/security/sessions");
+  });
+
+  test("places sessions under the top-level Security section", () => {
+    const items = buildAppNavigationItems({
+      requireOperator: () => false,
+      requireSecurity: () => true,
+    });
+    expect(items.find((item) => item.path === "/security")?.children?.[0]?.path).toBe(
+      "/security/sessions",
+    );
   });
 });

@@ -25,6 +25,7 @@ func TestStoreCreateReturnsRefreshTokenAndRecord(t *testing.T) {
 		{Name: "session id", Got: func(record RefreshRecord) any { return record.SessionID }, Want: "session-id"},
 		{Name: "subject", Got: func(record RefreshRecord) any { return record.Subject }, Want: "1000"},
 		{Name: "login", Got: func(record RefreshRecord) any { return record.Login }, Want: "alice"},
+		{Name: "source", Got: func(record RefreshRecord) any { return record.Source }, Want: "admin-panel"},
 		{Name: "client ip", Got: func(record RefreshRecord) any { return record.ClientIP }, Want: "192.168.1.10"},
 		{Name: "user agent", Got: func(record RefreshRecord) any { return record.UserAgent }, Want: "browser"},
 	}
@@ -57,6 +58,9 @@ func TestStoreRotateReplacesTokenAndPreservesExpiry(t *testing.T) {
 	}
 	if rotatedRecord.TokenHash == created.TokenHash {
 		t.Fatal("rotated record reused the previous token hash")
+	}
+	if rotatedRecord.Source != created.Source {
+		t.Fatalf("rotated source = %q, want %q", rotatedRecord.Source, created.Source)
 	}
 	if rotatedRecord.ExpiresAt != created.ExpiresAt {
 		t.Fatalf("rotated ExpiresAt = %v, want %v", rotatedRecord.ExpiresAt, created.ExpiresAt)
@@ -145,6 +149,47 @@ func TestStoreRevokeDeletesToken(t *testing.T) {
 	}
 }
 
+// TestListReturnsActiveSession lets administrators discover a revocation target.
+func TestListReturnsActiveSession(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	_, record := mustCreate(t, store)
+	listed := store.List()
+	if len(listed) != 1 || listed[0].SessionID != record.SessionID || listed[0].Source != record.Source {
+		t.Fatalf("sessions = %#v", listed)
+	}
+}
+
+// TestRevokeSessionDeniesAccessTokens covers the session denial state.
+func TestRevokeSessionDeniesAccessTokens(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	_, record := mustCreate(t, store)
+	store.RevokeSession(record.SessionID)
+	if !store.IsRevoked(record.SessionID) {
+		t.Fatal("revoked session remains valid")
+	}
+}
+
+// TestRevokeSessionRemovesRefreshToken covers credential invalidation.
+func TestRevokeSessionRemovesRefreshToken(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	token, record := mustCreate(t, store)
+	store.RevokeSession(record.SessionID)
+	_, _, err := store.Rotate(token.Value, refreshContextFixture())
+	if !errors.Is(err, ErrUnknownRefreshToken) {
+		t.Fatalf("Rotate() error = %v", err)
+	}
+}
+
+// TestClearDeniesAccessTokens covers bulk session invalidation.
+func TestClearDeniesAccessTokens(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	_, record := mustCreate(t, store)
+	store.Clear()
+	if !store.IsRevoked(record.SessionID) {
+		t.Fatal("cleared session remains valid")
+	}
+}
+
 func TestStoreClearRemovesAllRecords(t *testing.T) {
 	t.Parallel()
 
@@ -203,11 +248,32 @@ func mustCreate(t *testing.T, store *Store) (RefreshToken, RefreshRecord) {
 	return token, record
 }
 
+// TestRevokeMatchedBrowserSessionsUsesAccountAndIP verifies that the service
+// action can affect only the exact browser session target.
+func TestRevokeMatchedBrowserSessionsUsesAccountAndIP(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	mustCreate(t, store)
+	if got := store.RevokeMatchedBrowserSessions("alice", "192.168.1.11"); got != 0 {
+		t.Fatalf("revoked wrong source sessions = %d", got)
+	}
+}
+
+// TestRevokeMatchedBrowserSessionsRevokesExactSession checks the matched
+// session is revoked in the same locked store operation.
+func TestRevokeMatchedBrowserSessionsRevokesExactSession(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	mustCreate(t, store)
+	if got := store.RevokeMatchedBrowserSessions("alice", "192.168.1.10"); got != 1 {
+		t.Fatalf("revoked matching sessions = %d", got)
+	}
+}
+
 func createInputFixture() CreateInput {
 	return CreateInput{
 		SessionID: "session-id",
 		Subject:   "1000",
 		Login:     "alice",
+		Source:    "admin-panel",
 		Context:   refreshContextFixture(),
 		TTL:       30 * 24 * time.Hour,
 	}

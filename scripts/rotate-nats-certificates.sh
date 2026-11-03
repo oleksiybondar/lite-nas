@@ -14,20 +14,26 @@ litenas_config_dir="${LITE_NAS_CONFIG_DIR:-/etc/lite-nas}"
 litenas_certificates_dir="${LITE_NAS_CERTIFICATES_DIR:-$litenas_config_dir/certificates}"
 litenas_transport_certificates_dir="${LITE_NAS_TRANSPORT_CERTIFICATE_DIR:-$litenas_certificates_dir/transport}"
 litenas_group="${LITE_NAS_GROUP:-lite-nas}"
+service_admin_group="${LITE_NAS_SERVICE_ADMIN_GROUP:-lite-nas-svc-adm}"
+zfs_admin_group="${LITE_NAS_ZFS_ADMIN_GROUP:-zfs-adm}"
 cli_certificate_user="${LITE_NAS_SYSTEM_METRICS_CLI_CERT_USER:-lite-nas-system-metrics-cli}"
 cli_access_group="${LITE_NAS_SYSTEM_METRICS_CLI_ACCESS_GROUP:-users}"
+network_cli_certificate_user="${LITE_NAS_NETWORK_METRICS_CLI_CERT_USER:-lite-nas-network-metrics-cli}"
+network_cli_access_group="${LITE_NAS_NETWORK_METRICS_CLI_ACCESS_GROUP:-users}"
 zfs_cli_certificate_user="${LITE_NAS_ZFS_METRICS_CLI_CERT_USER:-lite-nas-zfs-metrics-cli}"
 zfs_cli_access_group="${LITE_NAS_ZFS_METRICS_CLI_ACCESS_GROUP:-users}"
 system_logging_manager_cli_certificate_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sys-log-mgr-cli}"
 system_logging_manager_cli_access_group="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-operator}"
 security_logging_manager_cli_certificate_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sec-log-mgr-cli}"
 security_logging_manager_cli_access_group="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-security}"
+security_automation_cli_certificate_user="${LITE_NAS_SECURITY_AUTOMATION_CLI_CERT_USER:-lite-nas-security-automation-cli}"
+security_automation_cli_access_group="${LITE_NAS_SECURITY_AUTOMATION_CLI_ACCESS_GROUP:-lite-nas-security}"
 certificate_days="${LITE_NAS_CERTIFICATE_DAYS:-825}"
 root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
 server_alt_names="${LITE_NAS_NATS_SERVER_ALT_NAMES:-DNS:localhost,DNS:lite-nas,DNS:lite-nas.local,IP:127.0.0.1}"
 
-read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-system-metrics lite-nas-zfs-metrics lite-nas-zfs-metrics-cli lite-nas-system-metrics-cli lite-nas-sys-log-mgr lite-nas-sec-log-mgr lite-nas-sys-log-mgr-cli lite-nas-sec-log-mgr-cli lite-nas-sys-email-notifier lite-nas-sec-email-notifier lite-nas-web-gateway lite-nas-auth-service lite-nas-resources-monitor lite-nas-rbac-service}"
+read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-backup-restore lite-nas-backup-restore-cli lite-nas-system-metrics lite-nas-network-metrics lite-nas-process-metrics lite-nas-disk-metrics lite-nas-service-metrics lite-nas-zfs-metrics lite-nas-zfs-metrics-cli lite-nas-system-metrics-cli lite-nas-network-metrics-cli lite-nas-sys-log-mgr lite-nas-sec-log-mgr lite-nas-sys-log-mgr-cli lite-nas-sec-log-mgr-cli lite-nas-sys-email-notifier lite-nas-sec-email-notifier lite-nas-web-gateway lite-nas-moments lite-nas-auth-service lite-nas-resources-monitor lite-nas-integrity lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis lite-nas-network-security lite-nas-security-automation lite-nas-security-automation-cli lite-nas-rbac-service lite-nas-file-service lite-nas-stream-service lite-nas-journal-manager}"
 rotate_only_if_missing=0
 
 usage() {
@@ -95,33 +101,18 @@ done
 ensure_litenas_groups() {
 	local certificate_user
 
-	if ! getent group "$litenas_group" >/dev/null 2>&1; then
-		log.info "Creating system group: $litenas_group"
-		groupadd --system "$litenas_group"
-	fi
-
-	if ! getent group "$cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $cli_access_group"
-		groupadd --system "$cli_access_group"
-	fi
-	if ! getent group "$zfs_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $zfs_cli_access_group"
-		groupadd --system "$zfs_cli_access_group"
-	fi
-	if ! getent group "$system_logging_manager_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $system_logging_manager_cli_access_group"
-		groupadd --system "$system_logging_manager_cli_access_group"
-	fi
-	if ! getent group "$security_logging_manager_cli_access_group" >/dev/null 2>&1; then
-		log.info "Creating CLI access group: $security_logging_manager_cli_access_group"
-		groupadd --system "$security_logging_manager_cli_access_group"
-	fi
+	deploy.ensureSystemGroup "$litenas_group" "system group"
+	deploy.ensureSystemGroup "$service_admin_group" "LiteNAS service admin group"
+	deploy.ensureSystemGroup "$zfs_admin_group" "ZFS admin group"
+	deploy.ensureSystemGroup "$cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$network_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$zfs_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$system_logging_manager_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$security_logging_manager_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$security_automation_cli_access_group" "CLI access group"
 
 	for certificate_user in "${certificate_users[@]}"; do
-		if ! getent group "$certificate_user" >/dev/null 2>&1; then
-			log.info "Creating service group: $certificate_user"
-			groupadd --system "$certificate_user"
-		fi
+		deploy.ensureSystemGroup "$certificate_user" "service group"
 	done
 }
 
@@ -195,7 +186,7 @@ create_root_ca_if_missing() {
 	fi
 
 	log.info "Creating NATS root CA certificate."
-	openssl req \
+	command.quietStderrUnlessFailure openssl req \
 		-x509 \
 		-newkey rsa:4096 \
 		-sha256 \
@@ -224,14 +215,14 @@ create_signed_certificate() {
 	local csr_file="$certificate_dir/$basename.csr"
 	local certificate_file="$certificate_dir/$basename.crt"
 
-	openssl req \
+	command.quietStderrUnlessFailure openssl req \
 		-newkey rsa:4096 \
 		-nodes \
 		-keyout "$key_file" \
 		-out "$csr_file" \
 		-subj "/CN=$common_name"
 
-	openssl x509 \
+	command.quietStderrUnlessFailure openssl x509 \
 		-req \
 		-in "$csr_file" \
 		-CA "$ca_certificate" \
@@ -275,6 +266,9 @@ subjectAltName = DNS:${ENV::LITE_NAS_CERTIFICATE_USER}
 EOF
 
 	for certificate_user in "${certificate_users[@]}"; do
+		if [ "$rotate_only_if_missing" -eq 1 ] && [ -f "$litenas_transport_certificates_dir/$certificate_user/client.key" ] && client_certificate_matches_identity "$certificate_user"; then
+			continue
+		fi
 		log.info "Rotating NATS client certificate: $certificate_user"
 		LITE_NAS_CERTIFICATE_USER="$certificate_user" \
 			create_signed_certificate "$certificate_user" "$litenas_transport_certificates_dir/$certificate_user" "client" "$extension_file"
@@ -307,12 +301,24 @@ normalize_certificate_permissions() {
 		find "$litenas_transport_certificates_dir/$certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
 		find "$litenas_transport_certificates_dir/$certificate_user" -type f -name '*.csr' -exec chmod 0600 {} +
 	done
+	if [ -d "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" ]; then
+		chown -R root:root "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli"
+		chmod 0755 "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli"
+		find "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" -type f -name '*.key' -exec chmod 0644 {} +
+		find "$litenas_transport_certificates_dir/lite-nas-backup-restore-cli" -type f -name '*.crt' -exec chmod 0644 {} +
+	fi
 
 	if [ -d "$litenas_transport_certificates_dir/$cli_certificate_user" ]; then
 		chown -R root:root "$litenas_transport_certificates_dir/$cli_certificate_user"
 		chmod 0755 "$litenas_transport_certificates_dir/$cli_certificate_user"
 		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.crt' -exec chmod 0644 {} +
 		find "$litenas_transport_certificates_dir/$cli_certificate_user" -type f -name '*.key' -exec chmod 0644 {} +
+	fi
+	if [ -d "$litenas_transport_certificates_dir/$network_cli_certificate_user" ]; then
+		chown -R root:root "$litenas_transport_certificates_dir/$network_cli_certificate_user"
+		chmod 0755 "$litenas_transport_certificates_dir/$network_cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$network_cli_certificate_user" -type f -name '*.crt' -exec chmod 0644 {} +
+		find "$litenas_transport_certificates_dir/$network_cli_certificate_user" -type f -name '*.key' -exec chmod 0644 {} +
 	fi
 	if [ -d "$litenas_transport_certificates_dir/$zfs_cli_certificate_user" ]; then
 		chown -R root:root "$litenas_transport_certificates_dir/$zfs_cli_certificate_user"
@@ -332,6 +338,12 @@ normalize_certificate_permissions() {
 		find "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
 		find "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
 	fi
+	if [ -d "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user" ]; then
+		chown -R "root:$security_automation_cli_access_group" "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user"
+		chmod 0750 "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
+		find "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
+	fi
 }
 
 log.pushTask "Preparing LiteNAS certificate identity"
@@ -347,7 +359,9 @@ fi
 log.pushTask "Rotating NATS certificates"
 create_root_ca_if_missing
 publish_client_ca_certificate
-rotate_server_certificate
+if [ "$rotate_only_if_missing" -eq 0 ] || [ ! -f "$nats_certificate_dir/server.key" ] || [ ! -f "$nats_certificate_dir/server.crt" ]; then
+	rotate_server_certificate
+fi
 rotate_client_certificates
 log.popTask
 

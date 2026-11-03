@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,7 +174,7 @@ func TestRequireAuthenticationAllowsRequestWithToken(t *testing.T) {
 	}
 }
 
-func TestRequireAuthenticationClearsCookiesForExpiredToken(t *testing.T) {
+func TestRequireAuthenticationPreservesRefreshCookieForExpiredToken(t *testing.T) {
 	t.Parallel()
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -190,8 +191,8 @@ func TestRequireAuthenticationClearsCookiesForExpiredToken(t *testing.T) {
 	})
 
 	cookies := baseCtx.headers.Values("Set-Cookie")
-	if len(cookies) != 2 {
-		t.Fatalf("Set-Cookie count = %d, want 2", len(cookies))
+	if len(cookies) != 1 || !strings.HasPrefix(cookies[0], "lite-nas-at=") {
+		t.Fatalf("expired token cookies = %q, want only access cookie", cookies)
 	}
 }
 

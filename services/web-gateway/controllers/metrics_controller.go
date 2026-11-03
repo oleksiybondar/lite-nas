@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	diskmetricsdto "lite-nas/services/web-gateway/dto/disk_metrics"
+	networkmetricsdto "lite-nas/services/web-gateway/dto/network_metrics"
+	servicemetricsdto "lite-nas/services/web-gateway/dto/service_metrics"
 	systemmetricsdto "lite-nas/services/web-gateway/dto/system_metrics"
 	zfsmetricsdto "lite-nas/services/web-gateway/dto/zfs_metrics"
 	"lite-nas/shared/metrics"
@@ -16,11 +19,32 @@ type SystemMetricsService interface {
 	GetHistory(ctx context.Context) ([]metrics.SystemSnapshot, error)
 }
 
+// ServiceMetricsService defines the service metrics behavior required by the
+// browser-facing controller.
+type ServiceMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.ServiceMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.ServiceMetricsSnapshot, error)
+}
+
 // ZFSMetricsService defines the ZFS metrics behavior required by the
 // browser-facing controller.
 type ZFSMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.ZFSSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.ZFSSnapshot, error)
+}
+
+// DiskMetricsService defines the disk metrics behavior required by the
+// browser-facing controller.
+type DiskMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.DiskMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.DiskMetricsSnapshot, error)
+}
+
+// NetworkMetricsService defines the network metrics behavior required by the
+// browser-facing controller.
+type NetworkMetricsService interface {
+	GetSnapshot(ctx context.Context) (metrics.NetworkMetricsSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.NetworkMetricsSnapshot, error)
 }
 
 type metricsController[T any, SnapshotOutput any, HistoryOutput any] struct {
@@ -39,6 +63,13 @@ type SystemMetricsController = metricsController[
 	systemmetricsdto.HistoryOutput,
 ]
 
+// ServiceMetricsController exposes browser-facing service metrics endpoints.
+type ServiceMetricsController = metricsController[
+	metrics.ServiceMetricsSnapshot,
+	servicemetricsdto.ServiceSnapshotOutput,
+	servicemetricsdto.ServiceHistoryOutput,
+]
+
 // ZFSMetricsController exposes browser-facing ZFS metrics endpoints.
 type ZFSMetricsController = metricsController[
 	metrics.ZFSSnapshot,
@@ -46,9 +77,20 @@ type ZFSMetricsController = metricsController[
 	zfsmetricsdto.ZFSHistoryOutput,
 ]
 
-// newMetricsController wires the shared controller behavior for snapshot and
-// history endpoints while letting callers provide DTO mappers and endpoint-
-// specific error messages.
+// DiskMetricsController exposes browser-facing disk metrics endpoints.
+type DiskMetricsController = metricsController[
+	metrics.DiskMetricsSnapshot,
+	diskmetricsdto.DiskSnapshotOutput,
+	diskmetricsdto.DiskHistoryOutput,
+]
+
+// NetworkMetricsController exposes browser-facing network metrics endpoints.
+type NetworkMetricsController = metricsController[
+	metrics.NetworkMetricsSnapshot,
+	networkmetricsdto.NetworkSnapshotOutput,
+	networkmetricsdto.NetworkHistoryOutput,
+]
+
 func newMetricsController[T any, SnapshotOutput any, HistoryOutput any](
 	getSnapshot func(context.Context) (T, error),
 	getHistory func(context.Context) ([]T, error),
@@ -68,9 +110,6 @@ func newMetricsController[T any, SnapshotOutput any, HistoryOutput any](
 }
 
 // NewSystemMetricsController creates a SystemMetricsController.
-//
-// Parameters:
-//   - service: backend-facing system metrics service used by the controller
 func NewSystemMetricsController(service SystemMetricsService) SystemMetricsController {
 	return newMetricsController[
 		metrics.SystemSnapshot,
@@ -90,10 +129,27 @@ func NewSystemMetricsController(service SystemMetricsService) SystemMetricsContr
 	)
 }
 
+// NewServiceMetricsController creates a ServiceMetricsController.
+func NewServiceMetricsController(service ServiceMetricsService) ServiceMetricsController {
+	return newMetricsController[
+		metrics.ServiceMetricsSnapshot,
+		servicemetricsdto.ServiceSnapshotOutput,
+		servicemetricsdto.ServiceHistoryOutput,
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.ServiceMetricsSnapshot) servicemetricsdto.ServiceSnapshotOutput {
+			return servicemetricsdto.ServiceSnapshotOutput{Body: servicemetricsdto.NewSnapshotBody(now, snapshot)}
+		},
+		func(now time.Time, history []metrics.ServiceMetricsSnapshot) servicemetricsdto.ServiceHistoryOutput {
+			return servicemetricsdto.ServiceHistoryOutput{Body: servicemetricsdto.NewHistoryBody(now, history)}
+		},
+		"failed to fetch latest service metrics snapshot",
+		"failed to fetch service metrics history",
+	)
+}
+
 // NewZFSMetricsController creates a ZFSMetricsController.
-//
-// Parameters:
-//   - service: backend-facing ZFS metrics service used by the controller
 func NewZFSMetricsController(service ZFSMetricsService) ZFSMetricsController {
 	return newMetricsController[
 		metrics.ZFSSnapshot,
@@ -110,6 +166,46 @@ func NewZFSMetricsController(service ZFSMetricsService) ZFSMetricsController {
 		},
 		"failed to fetch latest ZFS metrics snapshot",
 		"failed to fetch ZFS metrics history",
+	)
+}
+
+// NewDiskMetricsController creates a DiskMetricsController.
+func NewDiskMetricsController(service DiskMetricsService) DiskMetricsController {
+	return newMetricsController[
+		metrics.DiskMetricsSnapshot,
+		diskmetricsdto.DiskSnapshotOutput,
+		diskmetricsdto.DiskHistoryOutput,
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.DiskMetricsSnapshot) diskmetricsdto.DiskSnapshotOutput {
+			return diskmetricsdto.DiskSnapshotOutput{Body: diskmetricsdto.NewSnapshotBody(now, snapshot)}
+		},
+		func(now time.Time, history []metrics.DiskMetricsSnapshot) diskmetricsdto.DiskHistoryOutput {
+			return diskmetricsdto.DiskHistoryOutput{Body: diskmetricsdto.NewHistoryBody(now, history)}
+		},
+		"failed to fetch latest disk metrics snapshot",
+		"failed to fetch disk metrics history",
+	)
+}
+
+// NewNetworkMetricsController creates a NetworkMetricsController.
+func NewNetworkMetricsController(service NetworkMetricsService) NetworkMetricsController {
+	return newMetricsController[
+		metrics.NetworkMetricsSnapshot,
+		networkmetricsdto.NetworkSnapshotOutput,
+		networkmetricsdto.NetworkHistoryOutput,
+	](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.NetworkMetricsSnapshot) networkmetricsdto.NetworkSnapshotOutput {
+			return networkmetricsdto.NetworkSnapshotOutput{Body: networkmetricsdto.NewSnapshotBody(now, snapshot)}
+		},
+		func(now time.Time, history []metrics.NetworkMetricsSnapshot) networkmetricsdto.NetworkHistoryOutput {
+			return networkmetricsdto.NetworkHistoryOutput{Body: networkmetricsdto.NewHistoryBody(now, history)}
+		},
+		"failed to fetch latest network metrics snapshot",
+		"failed to fetch network metrics history",
 	)
 }
 

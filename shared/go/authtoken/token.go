@@ -10,6 +10,8 @@ import (
 // Principal contains the authenticated identity and optional authorization
 // labels copied into an access token.
 type Principal struct {
+	// SessionID identifies the browser authentication session, when present.
+	SessionID string
 	// Subject is the stable principal identifier written to the JWT "sub"
 	// claim. Prefer a stable host identity such as UID when available.
 	Subject string

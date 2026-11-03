@@ -40,7 +40,7 @@ func (w *stubOutputWriter) WriteHistory(_ io.Writer, history []metrics.SystemSna
 	return nil
 }
 
-// Requirements: system-metrics-cli/FR-001, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-001
 func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -53,7 +53,7 @@ func TestExecuteCommandRequestsCurrentSnapshot(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-001, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-003
 func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 	t.Parallel()
 
@@ -64,7 +64,7 @@ func TestExecuteCommandPassesCPUSelection(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-001, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-003
 func TestExecuteCommandPassesRAMSelection(t *testing.T) {
 	t.Parallel()
 
@@ -75,7 +75,7 @@ func TestExecuteCommandPassesRAMSelection(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-004, system-metrics-cli/IR-002
+// Requirements: system-metrics-cli/FR-004
 func TestExecuteCommandRequestsHistory(t *testing.T) {
 	t.Parallel()
 

@@ -85,7 +85,7 @@ errorsLine
     ;
 
 textLine
-    : textAtom* NL
+    : textAtom* NL (textAtom+ NL)*
     ;
 
 textAtom

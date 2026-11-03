@@ -14,6 +14,7 @@ type stubAlertsService struct {
 	listPage            services.AlertListPage
 	listErr             error
 	item                loggingmanagercontract.ListAlertItem
+	occurrences         []loggingmanagercontract.AlertOccurrenceItem
 	found               bool
 	getErr              error
 	actionErr           error
@@ -21,6 +22,7 @@ type stubAlertsService struct {
 	activeInput         services.AlertListInput
 	unacknowledgedInput services.AlertListInput
 	getInput            services.AlertGetInput
+	occurrencesInput    services.AlertGetInput
 	actionInput         services.AlertActionInput
 }
 
@@ -54,6 +56,14 @@ func (s *stubAlertsService) Get(_ context.Context, input services.AlertGetInput)
 		return loggingmanagercontract.ListAlertItem{}, false, s.getErr
 	}
 	return s.item, s.found, nil
+}
+
+func (s *stubAlertsService) GetOccurrences(_ context.Context, input services.AlertGetInput) ([]loggingmanagercontract.AlertOccurrenceItem, error) {
+	s.occurrencesInput = input
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	return s.occurrences, nil
 }
 
 func (s *stubAlertsService) Acknowledge(_ context.Context, input services.AlertActionInput) error {
@@ -175,6 +185,28 @@ func TestAlertsControllerGetWrapsFoundAlert(t *testing.T) {
 	if service.getInput.AccessToken != "AT" || service.getInput.ID != "evt-1" {
 		t.Fatalf("get input = %#v, want forwarded token and id", service.getInput)
 	}
+}
+
+func TestAlertsControllerGetOccurrencesWrapsFoundHistory(t *testing.T) {
+	t.Parallel()
+
+	service := &stubAlertsService{
+		occurrences: []loggingmanagercontract.AlertOccurrenceItem{{EventID: "evt-1", RecID: 11}},
+	}
+	controller := NewSystemAlertsController(service)
+	ctx := authenticatedAlertsContext()
+
+	output, err := controller.GetOccurrences(ctx, &alertsdto.OccurrencesInput{ID: "evt-1"})
+	if err != nil {
+		t.Fatalf("GetOccurrences() error = %v", err)
+	}
+	if len(output.Body.Data) != 1 || output.Body.Data[0].RecID != 11 {
+		t.Fatalf("GetOccurrences() data = %#v, want one forwarded occurrence", output.Body.Data)
+	}
+	if service.occurrencesInput.AccessToken != "AT" || service.occurrencesInput.ID != "evt-1" {
+		t.Fatalf("occurrences input = %#v, want forwarded token and id", service.occurrencesInput)
+	}
+	assertSuccessfulAlertResponse(t, output.Body.Success, output.Body.Timestamp.IsZero())
 }
 
 // Requirements: web-gateway/FR-005, web-gateway/TR-001

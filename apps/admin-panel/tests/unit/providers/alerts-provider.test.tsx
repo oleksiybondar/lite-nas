@@ -2,9 +2,26 @@ import { useAcknowledgeAlert } from "@domain/alerts/hooks/useAcknowledgeAlert";
 import { useAlertsList } from "@domain/alerts/hooks/useAlertsList";
 import { useAlerts } from "@hooks/useAlerts";
 import { AlertsProvider } from "@providers/AlertsProvider";
-import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  QueryClient,
+  QueryClientProvider,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
+
+let queryClient: QueryClient;
+
+beforeEach(() => {
+  queryClient = new QueryClient();
+});
+
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+  vi.restoreAllMocks();
+});
 
 vi.mock("@domain/alerts/hooks/useAlertsList", () => ({
   useAlertsList: vi.fn(),
@@ -46,8 +63,9 @@ describe("AlertsProvider", () => {
     });
   });
 
-  test("acknowledgeMany stops on first failure and refetches only after success", async () => {
+  test("acknowledgeMany invalidates alert queries after a successful acknowledgement", async () => {
     const refetch = vi.fn().mockResolvedValue({});
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
     const mutateAsync = vi
       .fn()
       .mockResolvedValueOnce(undefined)
@@ -65,7 +83,7 @@ describe("AlertsProvider", () => {
     expect(mutateAsync).toHaveBeenCalledTimes(2);
     expect(mutateAsync).toHaveBeenNthCalledWith(1, { id: "1" });
     expect(mutateAsync).toHaveBeenNthCalledWith(2, { id: "2" });
-    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["alerts", "system"] });
   });
 });
 
@@ -106,9 +124,11 @@ const AlertsContextProbe = (): ReactElement => {
  */
 const renderAlertsProvider = (): void => {
   render(
-    <AlertsProvider category="unacknowledged" domain="system">
-      <AlertsContextProbe />
-    </AlertsProvider>,
+    <QueryClientProvider client={queryClient}>
+      <AlertsProvider category="unacknowledged" domain="system">
+        <AlertsContextProbe />
+      </AlertsProvider>
+    </QueryClientProvider>,
   );
 };
 

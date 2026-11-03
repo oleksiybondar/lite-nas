@@ -17,4 +17,8 @@ type WriteRequest struct {
 	Query               query.Query
 	RuntimeStateUpdates []dto.RuntimeStateRow
 	TouchesOccurrences  bool
+	// Completion is optional. For lifecycle writes the Core owns a capacity-one
+	// channel and reads exactly one result; the Writer is the sole sender and
+	// never closes it. The result follows the transaction containing this query.
+	Completion chan<- error
 }

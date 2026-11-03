@@ -1,5 +1,6 @@
 import { formatAcknowledgedByValue } from "@components/alerts/AlertsTable/helpers";
 import { useAlerts } from "@hooks/useAlerts";
+import { useLanguage } from "@lite-nas/language";
 import Button from "@mui/material/Button";
 import TableCell from "@mui/material/TableCell";
 import type { ReactElement } from "react";
@@ -20,6 +21,7 @@ type AlertsTableAcknowledgeCellProps = {
 export const AlertsTableAcknowledgeCell = ({
   eventId,
 }: AlertsTableAcknowledgeCellProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const { acknowledge, isAcknowledging, items } = useAlerts();
   const item = items.find((currentItem) => currentItem.EventID === eventId);
 
@@ -47,7 +49,7 @@ export const AlertsTableAcknowledgeCell = ({
         size="small"
         variant="outlined"
       >
-        Acknowledge
+        {getLabel("admin.alertTable.acknowledge")}
       </Button>
     </TableCell>
   );

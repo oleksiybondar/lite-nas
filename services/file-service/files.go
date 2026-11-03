@@ -1,0 +1,457 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"os"
+	"os/user"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"lite-nas/services/file-service/filesystem"
+	rbaccontract "lite-nas/shared/contracts/rbac"
+	"lite-nas/shared/fileaccess"
+	"lite-nas/shared/httprange"
+)
+
+// rangeLimiter bounds simultaneous responses for each principal and file.
+type rangeLimiter struct {
+	mu     sync.Mutex
+	active map[string]int
+	limit  int
+}
+
+// newRangeLimiter constructs a request-scoped stream admission tracker.
+func newRangeLimiter(limit int) *rangeLimiter {
+	return &rangeLimiter{active: make(map[string]int), limit: limit}
+}
+
+// acquire reserves one response slot until its release callback is used.
+func (limiter *rangeLimiter) acquire(username string, path string) (func(), bool) {
+	key := username + "\x00" + path
+	limiter.mu.Lock()
+	if limiter.active[key] >= limiter.limit {
+		limiter.mu.Unlock()
+		return nil, false
+	}
+	limiter.active[key]++
+	limiter.mu.Unlock()
+	return func() {
+		limiter.mu.Lock()
+		limiter.active[key]--
+		if limiter.active[key] == 0 {
+			delete(limiter.active, key)
+		}
+		limiter.mu.Unlock()
+	}, true
+}
+
+// fileIdentity returns the stable host identity of a statted file.
+func fileIdentity(info os.FileInfo) (uint64, uint64) {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, 0
+	}
+	return uint64(stat.Dev), stat.Ino
+}
+
+// filePathInput bounds the decoded path at the HTTP adapter boundary.
+type filePathInput struct {
+	Path string `json:"path" minLength:"1" maxLength:"4096"`
+}
+
+// hostPath maps a decoded route suffix to one unambiguous absolute host path.
+func hostPath(request *http.Request, prefix string) (string, error) {
+	escaped := request.URL.EscapedPath()
+	if strings.Contains(strings.ToLower(escaped), "%2f") || strings.Contains(strings.ToLower(escaped), "%5c") {
+		return "", fileaccess.ErrInvalidPath
+	}
+	decoded, err := url.PathUnescape(escaped)
+	if err != nil || !strings.HasPrefix(decoded, prefix) {
+		return "", fileaccess.ErrInvalidPath
+	}
+	path := strings.TrimPrefix(decoded, prefix)
+	if !strings.HasPrefix(path, "/") || fileaccess.ValidateHostPath(path) != nil {
+		return "", fileaccess.ErrInvalidPath
+	}
+	registry := huma.NewMapRegistry("#/components/schemas/", huma.DefaultSchemaNamer)
+	schema := registry.Schema(reflect.TypeOf(filePathInput{}), true, "FilePathInput")
+	result := &huma.ValidateResult{}
+	huma.Validate(registry, schema, huma.NewPathBuffer(nil, 0), huma.ModeWriteToServer, map[string]any{"path": path}, result)
+	if len(result.Errors) != 0 {
+		return "", fileaccess.ErrInvalidPath
+	}
+	return path, nil
+}
+
+// resolveReadScope validates a requested path and obtains its caller-specific read scope.
+func (s *fileService) resolveReadScope(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject, prefix string) (string, filesystem.ReadScope, bool) {
+	requested, err := hostPath(request, prefix)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, "invalid_path")
+		return "", filesystem.ReadScope{}, false
+	}
+	resolved, err := fileaccess.ResolveExisting(requested)
+	if err != nil {
+		writeError(writer, http.StatusNotFound, "not_found")
+		return "", filesystem.ReadScope{}, false
+	}
+	scope, err := s.policy.ReadScope(subject.Groups)
+	if err != nil {
+		writeError(writer, http.StatusServiceUnavailable, "authorization_unavailable")
+		return "", filesystem.ReadScope{}, false
+	}
+	return resolved, scope, true
+}
+
+// download authenticates and authorizes a new full or one-range file response.
+func (s *fileService) download(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject, attachment bool) {
+	prefix := ""
+	if attachment {
+		prefix = "/download"
+	}
+	resolved, scope, ok := s.resolveReadScope(writer, request, subject, prefix)
+	if !ok {
+		return
+	}
+	if !scope.AllowsFile(resolved) {
+		decisionError(writer, fileaccess.ErrDenied)
+		return
+	}
+	if !attachment && s.serveSharedAvatar(writer, request, subject, resolved) {
+		return
+	}
+	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+		decisionError(writer, err)
+		return
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		writeError(writer, http.StatusNotFound, "not_found")
+		return
+	}
+	release, ok := s.ranges.acquire(subject.Username, resolved)
+	if !ok {
+		writeError(writer, http.StatusTooManyRequests, "download_limit")
+		return
+	}
+	defer release()
+	device, inode := fileIdentity(info)
+	etag := fmt.Sprintf("\"%x-%x-%x-%x\"", device, inode, info.Size(), info.ModTime().UnixNano())
+	start, end, partial, rangeErr := parseRange(request.Header.Get("Range"), info.Size())
+	if rangeErr != nil {
+		writer.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", info.Size()))
+		writeError(writer, http.StatusRequestedRangeNotSatisfiable, "invalid_range")
+		return
+	}
+	if request.Header.Get("If-Range") != "" && request.Header.Get("If-Range") != etag {
+		start, end, partial = 0, info.Size()-1, false
+	}
+	if request.Header.Get("If-Match") != "" && request.Header.Get("If-Match") != etag {
+		writeError(writer, http.StatusPreconditionFailed, "file_changed")
+		return
+	}
+	length := end - start + 1
+	if info.Size() == 0 {
+		length = 0
+	}
+	status := http.StatusOK
+	if partial {
+		status = http.StatusPartialContent
+	}
+	var stream io.ReadCloser
+	var first [1]byte
+	if request.Method == http.MethodGet {
+		stream, err = s.readerCommand(request.Context(), subject, resolved)
+		if err != nil {
+			if s.logger != nil {
+				s.logger.Warn("file reader start failed", "cause", err)
+			}
+			writeError(writer, http.StatusForbidden, "read_failed")
+			return
+		}
+		defer stream.Close()
+		if _, err := io.CopyN(io.Discard, stream, start); err != nil {
+			if s.logger != nil {
+				s.logger.Warn("file reader seek failed", "cause", err)
+			}
+			writeError(writer, http.StatusForbidden, "read_failed")
+			return
+		}
+		count, readErr := stream.Read(first[:])
+		if (length == 0 && (count != 0 || readErr != io.EOF)) ||
+			(length > 0 && count != 1) {
+			if s.logger != nil {
+				s.logger.Warn("file reader first byte failed", "cause", readErr)
+			}
+			writeError(writer, http.StatusForbidden, "read_failed")
+			return
+		}
+	}
+	writer.Header().Set("ETag", etag)
+	writer.Header().Set("Accept-Ranges", "bytes")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	writer.Header().Set("Content-Length", strconv.FormatInt(length, 10))
+	writer.Header().Set("Content-Type", safeContentType(resolved, attachment))
+	disposition := "inline"
+	if attachment || writer.Header().Get("Content-Type") == "application/octet-stream" {
+		disposition = "attachment"
+	}
+	writer.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": filepath.Base(resolved)}))
+	if partial {
+		writer.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, info.Size()))
+	}
+	if request.Method == http.MethodHead {
+		writer.WriteHeader(status)
+		return
+	}
+	if length == 0 {
+		writer.WriteHeader(status)
+		return
+	}
+	writer.WriteHeader(status)
+	_, _ = writer.Write(first[:])
+	_, _ = io.CopyN(writer, stream, length-1)
+}
+
+// parseRange accepts the supported byte range for File Service responses.
+func parseRange(header string, size int64) (int64, int64, bool, error) {
+	return httprange.ParseSingle(header, size)
+}
+
+// safeContentType permits a small passive inline set and attaches everything else.
+func safeContentType(path string, attachment bool) string {
+	if attachment {
+		return "application/octet-stream"
+	}
+	if filepath.Base(path) == "avatar.image" && filepath.Base(filepath.Dir(path)) == profileDirectoryName {
+		file, err := os.Open(path)
+		if err == nil {
+			defer file.Close()
+			var signature [512]byte
+			count, _ := file.Read(signature[:])
+			mediaType := http.DetectContentType(signature[:count])
+			if mediaType == "image/png" || mediaType == "image/jpeg" {
+				return mediaType
+			}
+		}
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".txt":
+		return "text/plain; charset=utf-8"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".pdf":
+		return "application/pdf"
+	case ".mp4":
+		return "video/mp4"
+	case ".m4v":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".webm":
+		return "video/webm"
+	case ".ogv":
+		return "video/ogg"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".wav":
+		return "audio/wav"
+	case ".m4a":
+		return "audio/mp4"
+	case ".aac":
+		return "audio/aac"
+	case ".flac":
+		return "audio/flac"
+	case ".ogg":
+		return "audio/ogg"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// listingEntry describes one authorized filesystem child with nullable metadata.
+type listingEntry struct {
+	Path         string  `json:"path"`
+	Name         string  `json:"name"`
+	Kind         string  `json:"kind"`
+	Size         *int64  `json:"size"`
+	Owner        *string `json:"owner"`
+	Group        *string `json:"group"`
+	Permissions  *string `json:"permissions"`
+	LastModified *string `json:"last_modified"`
+}
+
+// describeEntry reads ls-style metadata without changing listing authorization.
+func describeEntry(path string, kind string, entry os.DirEntry) listingEntry {
+	item := listingEntry{Path: path, Name: entry.Name(), Kind: kind}
+	info, err := entry.Info()
+	if err != nil {
+		return item
+	}
+	size := info.Size()
+	permissions := info.Mode().String()[1:]
+	modified := info.ModTime().UTC().Format(time.RFC3339)
+	item.Size, item.Permissions, item.LastModified = &size, &permissions, &modified
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		if owner, err := user.LookupId(strconv.FormatUint(uint64(stat.Uid), 10)); err == nil {
+			item.Owner = &owner.Username
+		}
+		if group, err := user.LookupGroupId(strconv.FormatUint(uint64(stat.Gid), 10)); err == nil {
+			item.Group = &group.Name
+		}
+	}
+	return item
+}
+
+// listingNameIgnored matches configured basename patterns without affecting direct file access.
+func listingNameIgnored(name string, patterns []string) bool {
+	for _, pattern := range patterns {
+		matched, _ := filepath.Match(pattern, strings.ToLower(name))
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
+// list returns only entries whose paths receive a fresh RBAC read allow.
+func (s *fileService) list(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject) {
+	resolved, scope, ok := s.resolveReadScope(writer, request, subject, "/ls")
+	if !ok {
+		return
+	}
+	if !scope.AllowsDirectory(resolved) {
+		decisionError(writer, fileaccess.ErrDenied)
+		return
+	}
+	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+		decisionError(writer, err)
+		return
+	}
+	listing := make([]listingEntry, 0)
+	recursive := request.URL.Query().Has("recursive")
+	filesOnly := request.URL.Query().Has("files-only")
+	var visit func(string) error
+	visit = func(directory string) error {
+		entries, err := os.ReadDir(directory)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if listingNameIgnored(entry.Name(), s.cfg.ListingIgnoredNames) {
+				continue
+			}
+			if entry.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			path := filepath.Join(directory, entry.Name())
+			if entry.IsDir() {
+				if !scope.AllowsDirectory(path) {
+					continue
+				}
+			} else if !scope.AllowsFile(path) {
+				continue
+			}
+			if err := s.auth.Read(request.Context(), subject, path); err != nil {
+				if errors.Is(err, fileaccess.ErrDenied) {
+					continue
+				}
+				return err
+			}
+			if entry.IsDir() {
+				if !filesOnly {
+					listing = append(listing, describeEntry(path, "directory", entry))
+				}
+				if recursive {
+					if err := visit(path); err != nil {
+						return err
+					}
+				}
+			} else if entry.Type().IsRegular() {
+				listing = append(listing, describeEntry(path, "file", entry))
+			}
+		}
+		return nil
+	}
+	if err := visit(resolved); err != nil {
+		writeError(writer, http.StatusServiceUnavailable, "listing_failed")
+		return
+	}
+	writeJSON(writer, http.StatusOK, listing)
+}
+
+// deleteFile checks policy and RBAC before one user-scoped regular-file removal.
+func (s *fileService) deleteFile(writer http.ResponseWriter, request *http.Request, subject fileaccess.Subject) {
+	requested, err := hostPath(request, "")
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, "invalid_path")
+		return
+	}
+	requestedInfo, err := os.Lstat(requested)
+	if err == nil && requestedInfo.Mode()&os.ModeSymlink != 0 {
+		writeError(writer, http.StatusBadRequest, "unsupported_target")
+		return
+	}
+	resolved, err := fileaccess.ResolveExisting(requested)
+	if err != nil {
+		writeError(writer, http.StatusNotFound, "not_found")
+		return
+	}
+	if err := s.policy.AllowMutation(resolved); err != nil {
+		writeError(writer, http.StatusForbidden, "protected_path")
+		return
+	}
+	if err := s.policy.AllowSubject(resolved, subject.Groups); err != nil {
+		decisionError(writer, err)
+		return
+	}
+	info, err := os.Lstat(resolved)
+	if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
+		writeError(writer, http.StatusBadRequest, "unsupported_target")
+		return
+	}
+	if err := s.auth.Operation(request.Context(), subject, resolved, rbaccontract.PathOperationDelete); err != nil {
+		decisionError(writer, err)
+		return
+	}
+	if info.IsDir() {
+		job, err := s.jobs.enqueue(subject, "delete", resolved, "")
+		if err != nil {
+			writeError(writer, http.StatusServiceUnavailable, "queue_unavailable")
+			return
+		}
+		writeJSON(writer, http.StatusAccepted, job)
+		return
+	}
+	if err := s.userCommand(request.Context(), subject, "/bin/rm", resolved); err != nil {
+		if errors.Is(err, filesystem.ErrUnixIdentityMismatch) {
+			writeError(writer, http.StatusForbidden, "identity_mismatch")
+			return
+		}
+		writeError(writer, http.StatusConflict, "delete_failed")
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}

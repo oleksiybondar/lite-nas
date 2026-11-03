@@ -8,6 +8,7 @@ const (
 	StatusAuthenticated          Status = "authenticated"
 	StatusDenied                 Status = "denied"
 	StatusPasswordChangeRequired Status = "password_change_required"
+	StatusServiceUnavailable     Status = "service_unavailable"
 )
 
 // MessageLevel identifies the severity or purpose of an auth message returned

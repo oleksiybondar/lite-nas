@@ -11,21 +11,98 @@ import (
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	"lite-nas/shared/eventmanager"
+	"lite-nas/shared/fsm"
 	sharedlogger "lite-nas/shared/logger"
 	sharedloggingenum "lite-nas/shared/loggingmanager/enum"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/ruleevaluator"
 )
 
-const maxEventCounter = uint64(99_999_999)
-
 // Processor orchestrates rule evaluation and alert lifecycle messaging.
 type Processor struct {
 	rules   []servicerules.Rule
 	manager *eventmanager.Manager
-	client  messaging.Client
+	sender  AlertSender
 	logger  sharedlogger.Logger
 	clock   func() time.Time
+}
+
+// AlertSender delivers one alert effect and reports its result before local
+// lifecycle state advances.
+type AlertSender interface {
+	Create(context.Context, loggingmanagercontract.AlertPayload) error
+	Occurrence(context.Context, loggingmanagercontract.AlertOccurrencePayload) error
+	Normalize(context.Context, loggingmanagercontract.UpdateAlertStateInput) (bool, error)
+}
+
+// messagingAlertSender preserves direct delivery for callers using New.
+type messagingAlertSender struct{ client messaging.Client }
+
+// Create publishes one alert through the injected messaging client.
+func (s messagingAlertSender) Create(ctx context.Context, payload loggingmanagercontract.AlertPayload) error {
+	return s.client.Publish(ctx, systemloggingmanagercontract.AlertSubject, payload)
+}
+
+// Occurrence publishes one occurrence through the injected messaging client.
+func (s messagingAlertSender) Occurrence(ctx context.Context, payload loggingmanagercontract.AlertOccurrencePayload) error {
+	return s.client.Publish(ctx, systemloggingmanagercontract.AlertOccurrenceSubject, payload)
+}
+
+// Normalize requests one state update through the injected messaging client.
+func (s messagingAlertSender) Normalize(ctx context.Context, request loggingmanagercontract.UpdateAlertStateInput) (bool, error) {
+	var response loggingmanagercontract.OKResponse
+	err := s.client.Request(ctx, systemloggingmanagercontract.UpdateAlertStateRPCSubject, request, &response)
+	return response.OK, err
+}
+
+// lifecycleState is derived from the event manager after each successful
+// external operation, so failed sends cannot advance the local lifecycle.
+type (
+	lifecycleState  string
+	lifecycleInput  string
+	lifecycleEffect string
+)
+
+const (
+	lifecycleNormal  lifecycleState  = "normal"
+	lifecycleActive  lifecycleState  = "active"
+	lifecycleMatched lifecycleInput  = "matched"
+	lifecycleCleared lifecycleInput  = "cleared"
+	effectCreate     lifecycleEffect = "create"
+	effectOccurrence lifecycleEffect = "occurrence"
+	effectNormalize  lifecycleEffect = "normalize"
+)
+
+// lifecycleMachine makes alert create, occurrence, and normalization paths
+// inspectable as one table while the event manager retains correlation data.
+var lifecycleMachine = newLifecycleMachine()
+
+func newLifecycleMachine() *fsm.Machine[lifecycleState, lifecycleInput, struct{}, lifecycleEffect] {
+	action := func(effect lifecycleEffect) fsm.Action[struct{}, lifecycleInput, lifecycleEffect] {
+		return func(_ context.Context, data struct{}, _ lifecycleInput) (struct{}, []lifecycleEffect, error) {
+			return data, []lifecycleEffect{effect}, nil
+		}
+	}
+	machine, err := fsm.New(fsm.Definition[lifecycleState, lifecycleInput, struct{}, lifecycleEffect]{
+		Initial: lifecycleNormal,
+		States:  []lifecycleState{lifecycleNormal, lifecycleActive},
+		Inputs:  []lifecycleInput{lifecycleMatched, lifecycleCleared},
+		Rows: []fsm.Row[lifecycleState, lifecycleInput]{
+			{From: lifecycleNormal, On: lifecycleMatched, To: lifecycleActive, Action: string(effectCreate)},
+			{From: lifecycleNormal, On: lifecycleCleared, To: lifecycleNormal},
+			{From: lifecycleActive, On: lifecycleMatched, To: lifecycleActive, Action: string(effectOccurrence)},
+			{From: lifecycleActive, On: lifecycleCleared, To: lifecycleNormal, Action: string(effectNormalize)},
+		},
+		Actions: map[string]fsm.Action[struct{}, lifecycleInput, lifecycleEffect]{
+			string(effectCreate):     action(effectCreate),
+			string(effectOccurrence): action(effectOccurrence),
+			string(effectNormalize):  action(effectNormalize),
+		},
+	})
+	if err != nil {
+		panic(err)
+	} // Static table failure is a programmer error.
+	return machine
 }
 
 // ActiveEvent stores in-memory state for one active alert rule key.
@@ -44,10 +121,20 @@ func New(
 	client messaging.Client,
 	log sharedlogger.Logger,
 ) *Processor {
+	return NewWithSender(rules, manager, messagingAlertSender{client: client}, log)
+}
+
+// NewWithSender injects the alert delivery boundary used by the runtime worker.
+func NewWithSender(
+	rules []servicerules.Rule,
+	manager *eventmanager.Manager,
+	sender AlertSender,
+	log sharedlogger.Logger,
+) *Processor {
 	return &Processor{
 		rules:   rules,
 		manager: manager,
-		client:  client,
+		sender:  sender,
 		logger:  log,
 		clock:   time.Now,
 	}
@@ -59,16 +146,19 @@ func (p *Processor) HandleEnvelope(ctx context.Context, envelope messaging.Envel
 	if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
 		return err
 	}
+	p.ProcessSnapshot(ctx, envelope.Subject, payload)
+	return nil
+}
 
+// ProcessSnapshot evaluates one validated metrics event from the local input worker.
+func (p *Processor) ProcessSnapshot(ctx context.Context, subject string, payload map[string]any) {
 	for _, rule := range p.rules {
-		if rule.Event != envelope.Subject {
+		if rule.Event != subject {
 			continue
 		}
 
 		p.processRule(ctx, rule, payload)
 	}
-
-	return nil
 }
 
 // processRule executes lifecycle transitions for one rule and one payload.
@@ -147,19 +237,29 @@ func (p *Processor) handleRuleTransition(
 	activeEvent ActiveEvent,
 	isActive bool,
 ) {
-	if !isActive {
-		if extractedValue.IsMatch {
-			p.handleNewToActive(ctx, rule, extractedValue)
-		}
-		return
+	state := lifecycleNormal
+	if isActive {
+		state = lifecycleActive
 	}
-
+	input := lifecycleCleared
 	if extractedValue.IsMatch {
-		p.handleActiveToActive(ctx, activeEvent, extractedValue.Value)
+		input = lifecycleMatched
+	}
+	transition, err := lifecycleMachine.Step(ctx, fsm.Instance[lifecycleState, struct{}]{State: state}, input)
+	if err != nil {
+		p.logger.Error("alert lifecycle transition failed", "state", state, "input", input, "error", err)
 		return
 	}
-
-	p.handleActiveToNormal(ctx, activeEvent)
+	for _, effect := range transition.Effects {
+		switch effect {
+		case effectCreate:
+			p.handleNewToActive(ctx, rule, extractedValue)
+		case effectOccurrence:
+			p.handleActiveToActive(ctx, activeEvent, extractedValue.Value)
+		case effectNormalize:
+			p.handleActiveToNormal(ctx, activeEvent)
+		}
+	}
 }
 
 // findActiveEvent looks up active event state for one rule key.
@@ -182,7 +282,7 @@ func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rul
 	eventID := p.nextEventID(rule.EventPrefix)
 	createInput := p.buildAlertCreateInput(rule, eventID, extractedValue)
 
-	if err := p.client.Publish(ctx, systemloggingmanagercontract.AlertSubject, createInput); err != nil {
+	if err := p.sender.Create(ctx, createInput); err != nil {
 		p.logger.Warn("failed to publish alert create", "subject", systemloggingmanagercontract.AlertSubject, "error", err)
 		return
 	}
@@ -260,7 +360,7 @@ func (p *Processor) handleActiveToActive(ctx context.Context, activeEvent Active
 
 	assignOccurrenceValue(&occurrence, extractedValue)
 
-	if err := p.client.Publish(ctx, systemloggingmanagercontract.AlertOccurrenceSubject, occurrence); err != nil {
+	if err := p.sender.Occurrence(ctx, occurrence); err != nil {
 		p.logger.Warn("failed to publish alert occurrence", "subject", systemloggingmanagercontract.AlertOccurrenceSubject, "event_id", activeEvent.EventID, "error", err)
 		return
 	}
@@ -299,13 +399,13 @@ func (p *Processor) handleActiveToNormal(ctx context.Context, activeEvent Active
 		Message: message,
 	}
 
-	var response loggingmanagercontract.OKResponse
-	if err := p.client.Request(ctx, systemloggingmanagercontract.UpdateAlertStateRPCSubject, request, &response); err != nil {
+	ok, err := p.sender.Normalize(ctx, request)
+	if err != nil {
 		p.logger.Warn("failed to normalize alert state", "subject", systemloggingmanagercontract.UpdateAlertStateRPCSubject, "event_id", activeEvent.EventID, "error", err)
 		return
 	}
 
-	if !response.OK {
+	if !ok {
 		p.logger.Warn("logging manager rejected normalize request", "event_id", activeEvent.EventID)
 		return
 	}
@@ -329,13 +429,7 @@ type evaluatedValue struct {
 
 // nextEventID generates the next event ID from prefix and in-memory counter.
 func (p *Processor) nextEventID(prefix string) string {
-	next := p.manager.NextCounter()
-	if next > maxEventCounter {
-		p.manager.SetCounter(1)
-		next = 1
-	}
-
-	return fmt.Sprintf("%s_%08d", prefix, next)
+	return p.manager.NextEventID(prefix)
 }
 
 // assignOccurrenceValue maps a dynamic value into typed occurrence fields.

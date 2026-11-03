@@ -21,6 +21,7 @@ type TimerConfig struct {
 //
 // The worker owns ticker lifecycle only; it does not own consumer logic.
 type TimerWorker struct {
+	BaseWorker
 	config TimerConfig
 	output chan<- struct{}
 }
@@ -34,15 +35,12 @@ func NewTimerWorker(config TimerConfig, output chan<- struct{}) (TimerWorker, er
 		return TimerWorker{}, errNilTimerOutput
 	}
 
-	return TimerWorker{
+	w := TimerWorker{
 		config: config,
 		output: output,
-	}, nil
-}
-
-// Start launches the timer worker in a separate goroutine.
-func (w TimerWorker) Start(ctx context.Context) {
-	go w.run(ctx)
+	}
+	w.BaseWorker = NewBaseWorker(w.run)
+	return w, nil
 }
 
 // run emits configured ticks until context cancellation.

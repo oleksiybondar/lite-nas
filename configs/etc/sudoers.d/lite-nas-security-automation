@@ -1,0 +1,2 @@
+# Only the fixed, root-validating UFW helper subcommand may run as root.
+lite-nas-security-automation ALL=(root) NOPASSWD: /usr/libexec/lite-nas/security-automation ufw-helper *

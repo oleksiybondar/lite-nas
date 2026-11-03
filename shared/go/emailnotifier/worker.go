@@ -75,6 +75,7 @@ type alertTemplateAlert struct {
 	CreatedAt     string
 	Source        string
 	Message       string
+	Mitigate      string
 	TriggerValue  string
 }
 
@@ -225,6 +226,11 @@ func buildAlertTemplateData(
 	hostname string,
 	alert loggingmanagercontract.AlertPayload,
 ) alertTemplateData {
+	createdAt := strings.TrimSpace(alert.CreatedAt)
+	if createdAt == "" {
+		createdAt = time.Now().UTC().Format(time.RFC3339)
+	}
+
 	return alertTemplateData{
 		Hostname: strings.TrimSpace(hostname),
 		Alert: alertTemplateAlert{
@@ -234,9 +240,10 @@ func buildAlertTemplateData(
 			SeverityBG:    severityBackground(alert.Severity),
 			SeverityColor: severityForeground(alert.Severity),
 			Priority:      formatPriority(alert.Priority),
-			CreatedAt:     strings.TrimSpace(alert.CreatedAt),
+			CreatedAt:     createdAt,
 			Source:        strings.TrimSpace(alert.Source),
 			Message:       strings.TrimSpace(alert.Message),
+			Mitigate:      strings.TrimSpace(alert.Mitigate),
 			TriggerValue:  strings.TrimSpace(alert.TriggerValue),
 		},
 	}

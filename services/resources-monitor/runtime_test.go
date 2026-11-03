@@ -9,7 +9,6 @@ import (
 
 	serviceconfig "lite-nas/services/resources-monitor/config"
 	servicemodules "lite-nas/services/resources-monitor/modules"
-	"lite-nas/services/resources-monitor/processor"
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedconfig "lite-nas/shared/config"
 	authcontract "lite-nas/shared/contracts/auth"
@@ -39,22 +38,27 @@ func TestRegisterSubscriptionsReturnsServerError(t *testing.T) {
 	wantErr := errors.New("subscribe failed")
 	server := &stubServer{subscribeErr: wantErr}
 
-	err := registerSubscriptions(server, &processor.Processor{})
+	err := registerSubscriptions(server, make(chan snapshotInput, 1), t.Context())
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("registerSubscriptions() error = %v, want %v", err, wantErr)
 	}
 }
 
-func TestRegisterSubscriptionsSubscribesToSystemAndZFSSnapshots(t *testing.T) {
+func TestRegisterSubscriptionsSubscribesToNetworkSystemDiskAndZFSSnapshots(t *testing.T) {
 	t.Parallel()
 
 	server := &stubServer{}
 
-	if err := registerSubscriptions(server, &processor.Processor{}); err != nil {
+	if err := registerSubscriptions(server, make(chan snapshotInput, 1), t.Context()); err != nil {
 		t.Fatalf("registerSubscriptions() error = %v", err)
 	}
 
-	want := []string{"system.metrics.events.stats", "zfs.metrics.events.snapshot"}
+	want := []string{
+		"network.metrics.events.snapshot",
+		"system.metrics.events.snapshot",
+		"disk.metrics.events.snapshot",
+		"zfs.metrics.events.snapshot",
+	}
 	if !slices.Equal(server.subscribedSubjects, want) {
 		t.Fatalf("subscribedSubjects = %v, want %v", server.subscribedSubjects, want)
 	}
@@ -89,6 +93,43 @@ func TestRunWithDependenciesReturnsRulesError(t *testing.T) {
 	)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("runWithDependencies() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestRunWithDependenciesLoadsConfiguredRulesFiles(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	wantFiles := []string{
+		"/etc/lite-nas/resources-monitor/rules/system-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/disk-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
+	}
+
+	var gotFiles []string
+	err := runWithDependencies(
+		ctx,
+		"/etc/lite-nas/resources-monitor.conf",
+		"resources-monitor",
+		func(string, string) (servicemodules.Infra, error) {
+			infra := buildTestInfra()
+			infra.Config.Rules.Files = append([]string(nil), wantFiles...)
+			return infra, nil
+		},
+		func(files []string) ([]servicerules.Rule, error) {
+			gotFiles = append([]string(nil), files...)
+			return []servicerules.Rule{}, nil
+		},
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("runWithDependencies() error = %v, want %v", err, context.Canceled)
+	}
+
+	if !slices.Equal(gotFiles, wantFiles) {
+		t.Fatalf("rules loader files = %v, want %v", gotFiles, wantFiles)
 	}
 }
 
@@ -182,10 +223,15 @@ func TestHandleAuthRefreshTickFallsBackToLoginOnRefreshError(t *testing.T) {
 type stubServer struct {
 	subscribeErr       error
 	subscribedSubjects []string
+	handlers           map[string]messaging.MessageHandler
 }
 
-func (server *stubServer) Subscribe(subject string, _ messaging.MessageHandler) error {
+func (server *stubServer) Subscribe(subject string, handler messaging.MessageHandler) error {
 	server.subscribedSubjects = append(server.subscribedSubjects, subject)
+	if server.handlers == nil {
+		server.handlers = make(map[string]messaging.MessageHandler)
+	}
+	server.handlers[subject] = handler
 	return server.subscribeErr
 }
 
@@ -230,9 +276,39 @@ func buildTestInfra() servicemodules.Infra {
 			AuthRefreshTicks: authRefreshTicks,
 		},
 		Config: serviceconfig.Config{
-			Rules: sharedconfig.RulesConfig{Files: []string{"/tmp/rules.json"}},
+			Messaging: sharedconfig.MessagingConfig{Timeout: time.Second},
+			Auth: sharedconfig.AuthConfig{
+				CA:           "/etc/lite-nas/certificates/identities/root-ca.crt",
+				Cert:         "/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.crt",
+				Key:          "/etc/lite-nas/certificates/identities/lite-nas-resources-monitor/client.key",
+				ServiceName:  "resources-monitor",
+				ServiceLogin: "lite-nas-resources-monitor",
+			},
+			Rules: sharedconfig.RulesConfig{Files: []string{
+				"/etc/lite-nas/resources-monitor/rules/system-metrics.json",
+				"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
+				"/etc/lite-nas/resources-monitor/rules/disk-metrics.json",
+				"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
+			}},
+			Logging: sharedconfig.LoggingConfig{Level: "info", Output: "stdout"},
 		},
 	}
+}
+
+func buildAuthInfraComponents(
+	client messaging.Client,
+) (*servicetoken.Manager, sharedworkers.TimerWorker, <-chan struct{}, error) {
+	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
+	if err != nil {
+		return nil, sharedworkers.TimerWorker{}, nil, err
+	}
+
+	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
+	if err != nil {
+		return nil, sharedworkers.TimerWorker{}, nil, err
+	}
+
+	return authTokenManager, authRefreshTimer, authRefreshTicks, nil
 }
 
 type authTickClientStub struct {
@@ -327,20 +403,4 @@ func buildAuthTickTestInfra(t *testing.T, client authTickClientStub) servicemodu
 			AuthRefreshTicks: authRefreshTicks,
 		},
 	}
-}
-
-func buildAuthInfraComponents(
-	client messaging.Client,
-) (*servicetoken.Manager, sharedworkers.TimerWorker, <-chan struct{}, error) {
-	authTokenManager, err := servicetoken.NewManager(client, servicetoken.Options{Service: "resources-monitor"})
-	if err != nil {
-		return nil, sharedworkers.TimerWorker{}, nil, err
-	}
-
-	authRefreshTimer, authRefreshTicks, err := sharedworkers.NewPollingTimerWorker(24*time.Hour, 1)
-	if err != nil {
-		return nil, sharedworkers.TimerWorker{}, nil, err
-	}
-
-	return authTokenManager, authRefreshTimer, authRefreshTicks, nil
 }
