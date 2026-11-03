@@ -21,6 +21,9 @@ func mustRuleCopy(t *testing.T, old, replacement string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(string(data), old) {
+		t.Fatalf("rule fixture does not contain %q", old)
+	}
 	path := filepath.Join(t.TempDir(), "rules.json")
 	if err := os.WriteFile(path, []byte(strings.Replace(string(data), old, replacement, 1)), 0o600); err != nil {
 		t.Fatal(err)
@@ -76,7 +79,7 @@ func TestEnabledRuleCreatesConfiguredFSM(t *testing.T) {
 func TestRuleLoaderRejectsMalformedDefinitions(t *testing.T) {
 	cases := []struct{ name, old, replacement string }{
 		{"unknown field", `"id": "ssh_brute_force"`, `"id": "ssh_brute_force", "unknown": true`},
-		{"missing enabled", `, "enabled": true`, ``},
+		{"missing enabled", "\"enabled\": true,\n", ``},
 		{"duplicate ID", `"id": "account_enumeration"`, `"id": "ssh_brute_force"`},
 		{"invalid regex", `"regex": "from (?P<requester_ip_address>[0-9a-fA-F:.]+)"`, `"regex": "["`},
 		{"missing capture", `"regex": "from (?P<requester_ip_address>[0-9a-fA-F:.]+)"`, `"regex": "from ([0-9.]+)"`},

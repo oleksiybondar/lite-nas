@@ -14,7 +14,7 @@ import (
 	authcontract "lite-nas/shared/contracts/auth"
 	rbaccontract "lite-nas/shared/contracts/rbac"
 	"lite-nas/shared/messaging"
-	"lite-nas/shared/testutil/authtokentest"
+	"lite-nas/shared/testutil/cryptotest"
 )
 
 type runtimeAuthenticatorStub struct {
@@ -727,7 +727,7 @@ func assertAccessTokenClaims(t *testing.T, runtimeDeps authRuntime, token string
 func authRuntimeFixture(t *testing.T, authResult pamauth.Result) authRuntime {
 	t.Helper()
 
-	publicKey, privateKey := authtokentest.MustGenerateEd25519Key(t)
+	publicKey, privateKey := cryptotest.MustGenerateEd25519Key(t)
 	issuer, err := authtoken.NewIssuer(authtoken.IssuerOptions{
 		Issuer:         "lite-nas-auth",
 		Audience:       "lite-nas-management-api",

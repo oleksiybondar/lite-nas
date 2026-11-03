@@ -33,12 +33,17 @@ func runVacuum(args []string) error {
 	if len(args) != 2 || args[0] != "vacuum" {
 		return fmt.Errorf("expected vacuum DAYS")
 	}
-	days, err := strconv.Atoi(args[1])
-	if err != nil || days < 1 || days > 365 || strconv.Itoa(days) != args[1] {
+	if !validVacuumDays(args[1]) {
 		return fmt.Errorf("invalid retention days")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	_, err = (execRunner{}).Output(ctx, journalctlBinary, "--rotate", "--vacuum-time="+args[1]+"days", "--no-pager")
+	_, err := (execRunner{}).Output(ctx, journalctlBinary, "--rotate", "--vacuum-time="+args[1]+"days", "--no-pager")
 	return err
+}
+
+// validVacuumDays accepts canonical decimal retention values within policy.
+func validVacuumDays(value string) bool {
+	days, err := strconv.Atoi(value)
+	return err == nil && days >= 1 && days <= 365 && strconv.Itoa(days) == value
 }

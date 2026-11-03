@@ -80,8 +80,7 @@ func TestAutomationWorkersStopOnRPCRegistrationFailure(t *testing.T) {
 // Requirements: security-automation/IR-002.
 // TestAutomationWorkersDetectSubscribedAlert checks subscription, listener, FSM, and outbound logging as one flow.
 func TestAutomationWorkersDetectSubscribedAlert(t *testing.T) {
-	path := mustRuleCopy(t, `"id": "ssh_brute_force", "name": "SSH brute force", "description": "Aggregated SSH failures from one source address.", "enabled": false`, `"id": "ssh_brute_force", "name": "SSH brute force", "description": "Aggregated SSH failures from one source address.", "enabled": true`)
-	rules, err := loadAutomationRules(path)
+	rules, err := loadAutomationRules(repositoryRules)
 	if err != nil {
 		t.Fatal(err)
 	}

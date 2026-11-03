@@ -12,16 +12,16 @@ import (
 	"lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/modules"
-	"lite-nas/shared/testutil/authtokentest"
+	"lite-nas/shared/testutil/cryptotest"
 )
 
 // MustConfig writes a valid manager config and token certificate into a test directory.
 func MustConfig(t *testing.T) string {
 	t.Helper()
-	public, private := authtokentest.MustGenerateEd25519Key(t)
+	public, private := cryptotest.MustGenerateEd25519Key(t)
 	directory := t.TempDir()
 	certificatePath := filepath.Join(directory, "token.crt")
-	certificate := authtokentest.MustCreateEd25519CertificatePEM(t, public, private)
+	certificate := cryptotest.MustCreateEd25519CertificatePEM(t, public, private)
 	if err := os.WriteFile(certificatePath, certificate, 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -55,7 +55,16 @@ type execRunner struct{}
 
 // Output runs one validated argument vector with bounded standard output.
 func (execRunner) Output(ctx context.Context, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	var cmd *exec.Cmd
+	switch name {
+	case journalctlBinary:
+		cmd = exec.CommandContext(ctx, journalctlBinary)
+	case "/usr/bin/sudo":
+		cmd = exec.CommandContext(ctx, "/usr/bin/sudo")
+	default:
+		return nil, fmt.Errorf("unsupported journal command %q", name)
+	}
+	cmd.Args = append(cmd.Args, args...)
 	var output bytes.Buffer
 	cmd.Stdout = &limitedWriter{writer: &output, remaining: maxOutputBytes}
 	var stderr bytes.Buffer
@@ -116,15 +125,7 @@ func run(ctx context.Context) error {
 
 // runWithDependencies keeps configuration, messaging, and command execution explicit for lifecycle tests.
 func runWithDependencies(ctx context.Context, configPath string, infraFactory modules.CoreInfraConstructor, runner commandRunner) error {
-	reader, err := fileio.NewFileReader(configPath)
-	if err != nil {
-		return err
-	}
-	ini, err := config.LoadINI(reader)
-	if err != nil {
-		return err
-	}
-	cfg, err := config.LoadSharedAuthTokenConfig(ini)
+	cfg, err := loadJournalConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -150,6 +151,19 @@ func runWithDependencies(ctx context.Context, configPath string, infraFactory mo
 	}
 	<-done
 	return ctx.Err()
+}
+
+// loadJournalConfig reads the shared authentication and messaging settings.
+func loadJournalConfig(configPath string) (config.SharedAuthTokenConfig, error) {
+	reader, err := fileio.NewFileReader(configPath)
+	if err != nil {
+		return config.SharedAuthTokenConfig{}, err
+	}
+	ini, err := config.LoadINI(reader)
+	if err != nil {
+		return config.SharedAuthTokenConfig{}, err
+	}
+	return config.LoadSharedAuthTokenConfig(ini)
 }
 
 // loadVerifier constructs the access-token verifier from packaged certificate settings.
@@ -178,19 +192,8 @@ func (m *manager) register(server messaging.Server) error {
 
 // decode checks complete JSON, schema, and security authorization before work.
 func decode[T any](ctx context.Context, m *manager, envelope messaging.Envelope, token func(T) string) (T, string, error) {
-	var request T
-	if len(envelope.Payload) > 16*1024 {
-		return request, "", fmt.Errorf("request too large")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(envelope.Payload))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&request); err != nil {
-		return request, "", err
-	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		return request, "", fmt.Errorf("unexpected trailing JSON")
-	}
-	if err := m.validator.Struct(request); err != nil {
+	request, err := decodePayload[T](envelope.Payload, m.validator)
+	if err != nil {
 		return request, "", err
 	}
 	claims, err := authtoken.VerifyLive(ctx, m.client, m.verifier, token(request))
@@ -198,6 +201,26 @@ func decode[T any](ctx context.Context, m *manager, envelope messaging.Envelope,
 		return request, "", fmt.Errorf("security authorization required")
 	}
 	return request, claims.Login, nil
+}
+
+// decodePayload validates a complete bounded JSON request before authorization.
+func decodePayload[T any](payload []byte, schema *validator.Validate) (T, error) {
+	var request T
+	if len(payload) > 16*1024 {
+		return request, fmt.Errorf("request too large")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		return request, err
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return request, fmt.Errorf("unexpected trailing JSON")
+	}
+	if err := schema.Struct(request); err != nil {
+		return request, err
+	}
+	return request, nil
 }
 
 // query validates filters, then returns one newest-first journal chunk.
@@ -229,7 +252,12 @@ func (m *manager) units(ctx context.Context, envelope messaging.Envelope) (any, 
 	if err != nil {
 		return nil, err
 	}
-	return parseUnits(result, request.Message != "" || request.Since != "" || request.Until != "" || request.Priority != nil)
+	return parseUnits(result, hasUnitsFilters(request))
+}
+
+// hasUnitsFilters selects JSON journal output when a unit list requires search filters.
+func hasUnitsFilters(request contract.UnitsRequest) bool {
+	return request.Message != "" || request.Since != "" || request.Until != "" || request.Priority != nil
 }
 
 // validateQuery rejects malformed or option-shaped filter values.
@@ -237,18 +265,29 @@ func validateQuery(request contract.QueryRequest) error {
 	if request.Unit != "" && !unitPattern.MatchString(request.Unit) {
 		return fmt.Errorf("invalid unit")
 	}
-	if request.Cursor != "" && (strings.HasPrefix(request.Cursor, "-") || !cursorPattern.MatchString(request.Cursor)) {
+	if request.Cursor != "" && !validCursor(request.Cursor) {
 		return fmt.Errorf("invalid cursor")
 	}
 	if strings.ContainsAny(request.Message, "\x00\r\n") {
 		return fmt.Errorf("invalid message search")
 	}
-	if request.Since != "" && request.Until != "" {
-		since, _ := time.Parse(time.RFC3339, request.Since)
-		until, _ := time.Parse(time.RFC3339, request.Until)
-		if since.After(until) {
-			return fmt.Errorf("since must precede until")
-		}
+	return validateTimeRange(request.Since, request.Until)
+}
+
+// validCursor accepts only journal cursor characters without an option prefix.
+func validCursor(value string) bool {
+	return !strings.HasPrefix(value, "-") && cursorPattern.MatchString(value)
+}
+
+// validateTimeRange rejects a reversed pair of already schema-validated timestamps.
+func validateTimeRange(sinceText, untilText string) error {
+	if sinceText == "" || untilText == "" {
+		return nil
+	}
+	since, _ := time.Parse(time.RFC3339, sinceText)
+	until, _ := time.Parse(time.RFC3339, untilText)
+	if since.After(until) {
+		return fmt.Errorf("since must precede until")
 	}
 	return nil
 }
@@ -340,35 +379,33 @@ func (m *manager) execute(job commandJob) commandResult {
 		return commandResult{output: output, err: err}
 	}
 	if job.units != nil {
-		q := job.units
-		if q.Message == "" && q.Since == "" && q.Until == "" && q.Priority == nil {
-			output, err := m.runner.Output(ctx, journalctlBinary, "--no-pager", "--quiet", "--field=_SYSTEMD_UNIT")
-			return commandResult{output: output, err: err}
-		}
-		args := []string{"--no-pager", "--quiet", "--output=json", "--output-fields=_SYSTEMD_UNIT"}
-		if q.Since != "" {
-			args = append(args, "--since="+q.Since)
-		}
-		if q.Until != "" {
-			args = append(args, "--until="+q.Until)
-		}
-		if q.Priority != nil {
-			args = append(args, "--priority="+strconv.Itoa(*q.Priority))
-		}
-		if q.Message != "" {
-			args = append(args, "--grep="+regexp.QuoteMeta(q.Message), "--case-sensitive=no")
-		}
-		output, err := m.journalOutput(ctx, args, q.Message != "")
+		return m.executeUnits(ctx, *job.units)
+	}
+	return m.executeQuery(ctx, *job.query)
+}
+
+// executeUnits runs a bounded unit listing using validated filter fields.
+func (m *manager) executeUnits(ctx context.Context, q contract.UnitsRequest) commandResult {
+	if !hasUnitsFilters(q) {
+		output, err := m.runner.Output(ctx, journalctlBinary, "--no-pager", "--quiet", "--field=_SYSTEMD_UNIT")
 		return commandResult{output: output, err: err}
 	}
-	q := job.query
+	args := []string{"--no-pager", "--quiet", "--output=json", "--output-fields=_SYSTEMD_UNIT"}
+	args = appendTimeArgs(args, q.Since, q.Until)
+	if q.Priority != nil {
+		args = append(args, "--priority="+strconv.Itoa(*q.Priority))
+	}
+	if q.Message != "" {
+		args = append(args, "--grep="+regexp.QuoteMeta(q.Message), "--case-sensitive=no")
+	}
+	output, err := m.journalOutput(ctx, args, q.Message != "")
+	return commandResult{output: output, err: err}
+}
+
+// executeQuery runs a bounded newest-first query with validated journal operands.
+func (m *manager) executeQuery(ctx context.Context, q contract.QueryRequest) commandResult {
 	args := []string{"--no-pager", "--quiet", "--utc", "--output=json", "--reverse", "--lines=" + strconv.Itoa(q.Limit+1)}
-	if q.Since != "" {
-		args = append(args, "--since="+q.Since)
-	}
-	if q.Until != "" {
-		args = append(args, "--until="+q.Until)
-	}
+	args = appendTimeArgs(args, q.Since, q.Until)
 	if q.Unit != "" {
 		args = append(args, "--unit="+q.Unit)
 	}
@@ -385,6 +422,17 @@ func (m *manager) execute(job commandJob) commandResult {
 	return commandResult{output: output, err: err}
 }
 
+// appendTimeArgs adds schema-validated journal timestamps as named options.
+func appendTimeArgs(args []string, since, until string) []string {
+	if since != "" {
+		args = append(args, "--since="+since)
+	}
+	if until != "" {
+		args = append(args, "--until="+until)
+	}
+	return args
+}
+
 // journalOutput distinguishes no grep matches from journalctl access failures.
 func (m *manager) journalOutput(ctx context.Context, args []string, hasGrep bool) ([]byte, error) {
 	output, err := m.runner.Output(ctx, journalctlBinary, args...)
@@ -395,35 +443,43 @@ func (m *manager) journalOutput(ctx context.Context, args []string, hasGrep bool
 	if !errors.As(err, &exitError) || exitError.ExitCode() != 1 {
 		return nil, err
 	}
-	probe := make([]string, 0, len(args))
-	for _, arg := range args {
-		if !strings.HasPrefix(arg, "--grep=") && !strings.HasPrefix(arg, "--case-sensitive=") && !strings.HasPrefix(arg, "--lines=") {
-			probe = append(probe, arg)
-		}
-	}
-	probe = append(probe, "--lines=1")
+	probe := journalProbeArgs(args)
 	if _, probeErr := m.runner.Output(ctx, journalctlBinary, probe...); probeErr != nil {
 		return nil, err
 	}
 	return []byte{}, nil
 }
 
+// journalProbeArgs removes grep and result limits before checking journal access.
+func journalProbeArgs(args []string) []string {
+	probe := make([]string, 0, len(args))
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "--grep=") && !strings.HasPrefix(arg, "--case-sensitive=") && !strings.HasPrefix(arg, "--lines=") {
+			probe = append(probe, arg)
+		}
+	}
+	return append(probe, "--lines=1")
+}
+
+// journalLines excludes empty records from either supported journal output format.
+func journalLines(output []byte) [][]byte {
+	lines := bytes.Split(bytes.TrimSpace(output), []byte{'\n'})
+	result := make([][]byte, 0, len(lines))
+	for _, line := range lines {
+		if len(line) != 0 {
+			result = append(result, line)
+		}
+	}
+	return result
+}
+
 // parseUnits returns sorted service units from a journal field list or JSON records.
 func parseUnits(output []byte, filtered bool) (contract.UnitsResponse, error) {
 	seen := make(map[string]struct{})
-	for _, line := range bytes.Split(bytes.TrimSpace(output), []byte{'\n'}) {
-		if len(line) == 0 {
-			continue
-		}
-		unit := string(line)
-		if filtered {
-			var raw struct {
-				Unit string `json:"_SYSTEMD_UNIT"`
-			}
-			if err := json.Unmarshal(line, &raw); err != nil {
-				return contract.UnitsResponse{}, fmt.Errorf("decode journal unit: %w", err)
-			}
-			unit = raw.Unit
+	for _, line := range journalLines(output) {
+		unit, err := parseUnitLine(line, filtered)
+		if err != nil {
+			return contract.UnitsResponse{}, err
 		}
 		if unitPattern.MatchString(unit) {
 			seen[unit] = struct{}{}
@@ -437,21 +493,27 @@ func parseUnits(output []byte, filtered bool) (contract.UnitsResponse, error) {
 	return contract.UnitsResponse{Units: units}, nil
 }
 
+// parseUnitLine decodes one journal unit from field or JSON output.
+func parseUnitLine(line []byte, filtered bool) (string, error) {
+	if !filtered {
+		return string(line), nil
+	}
+	var raw struct {
+		Unit string `json:"_SYSTEMD_UNIT"`
+	}
+	if err := json.Unmarshal(line, &raw); err != nil {
+		return "", fmt.Errorf("decode journal unit: %w", err)
+	}
+	return raw.Unit, nil
+}
+
 // parseEntries maps journal JSON lines to text fields and a continuation cursor.
 func parseEntries(output []byte, limit int) (contract.QueryResponse, error) {
 	response := contract.QueryResponse{Entries: make([]contract.Entry, 0, limit)}
-	for _, line := range bytes.Split(bytes.TrimSpace(output), []byte{'\n'}) {
-		if len(line) == 0 {
-			continue
-		}
-		var raw map[string]json.RawMessage
-		if err := json.Unmarshal(line, &raw); err != nil {
-			return response, fmt.Errorf("decode journal entry: %w", err)
-		}
-		field := func(key string) string { var value string; _ = json.Unmarshal(raw[key], &value); return value }
-		entry := contract.Entry{Cursor: field("__CURSOR"), Timestamp: field("__REALTIME_TIMESTAMP"), Message: field("MESSAGE"), Unit: field("_SYSTEMD_UNIT"), Priority: field("PRIORITY"), Identifier: field("SYSLOG_IDENTIFIER"), PID: field("_PID")}
-		if entry.Cursor == "" {
-			return response, fmt.Errorf("journal entry has no cursor")
+	for _, line := range journalLines(output) {
+		entry, err := parseEntryLine(line)
+		if err != nil {
+			return response, err
 		}
 		if len(response.Entries) == limit {
 			response.HasMore = true
@@ -461,4 +523,18 @@ func parseEntries(output []byte, limit int) (contract.QueryResponse, error) {
 		response.NextCursor = entry.Cursor
 	}
 	return response, nil
+}
+
+// parseEntryLine decodes one structured journal record with a mandatory cursor.
+func parseEntryLine(line []byte) (contract.Entry, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(line, &raw); err != nil {
+		return contract.Entry{}, fmt.Errorf("decode journal entry: %w", err)
+	}
+	field := func(key string) string { var value string; _ = json.Unmarshal(raw[key], &value); return value }
+	entry := contract.Entry{Cursor: field("__CURSOR"), Timestamp: field("__REALTIME_TIMESTAMP"), Message: field("MESSAGE"), Unit: field("_SYSTEMD_UNIT"), Priority: field("PRIORITY"), Identifier: field("SYSLOG_IDENTIFIER"), PID: field("_PID")}
+	if entry.Cursor == "" {
+		return contract.Entry{}, fmt.Errorf("journal entry has no cursor")
+	}
+	return entry, nil
 }

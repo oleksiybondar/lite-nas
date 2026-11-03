@@ -12,7 +12,7 @@ import (
 // Requirements: security-automation/IR-002.
 // TestListenerRoutesSecurityEventsAndTicks checks the bounded listener feeds its two dispatcher inputs.
 func TestListenerRoutesSecurityEventsAndTicks(t *testing.T) {
-	rules, err := loadAutomationRules(mustRuleCopy(t, `"id": "ssh_brute_force", "name": "SSH brute force", "description": "Aggregated SSH failures from one source address.", "enabled": false`, `"id": "ssh_brute_force", "name": "SSH brute force", "description": "Aggregated SSH failures from one source address.", "enabled": true`))
+	rules, err := loadAutomationRules(repositoryRules)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -213,8 +213,7 @@ func TestDisableLeavesOneWayIncidentOpen(t *testing.T) {
 // TestTemporaryRuleReenableStartsFreshFSM checks an RPC override clears incomplete detection state.
 func TestTemporaryRuleReenableStartsFreshFSM(t *testing.T) {
 	runtime, token := mustOperatorRuntime(t, []string{"lite-nas-security"})
-	path := mustRuleCopy(t, `"id": "account_enumeration", "name": "Account enumeration", "description": "Distinct account probes from one source address.", "enabled": false`, `"id": "account_enumeration", "name": "Account enumeration", "description": "Distinct account probes from one source address.", "enabled": true`)
-	rules, err := loadAutomationRules(path)
+	rules, err := loadAutomationRules(repositoryRules)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,8 +271,7 @@ func TestCooldownResetClearsOnlyDetectionState(t *testing.T) {
 // TestConfiguredEnablementRestoresOnReload checks temporary state never changes rules.json.
 func TestConfiguredEnablementRestoresOnReload(t *testing.T) {
 	runtime, token := mustOperatorRuntime(t, []string{"lite-nas-security"})
-	path := mustRuleCopy(t, `"id": "ssh_brute_force", "name": "SSH brute force", "description": "Aggregated SSH failures from one source address.", "enabled": false`, `"id": "ssh_brute_force", "name": "SSH brute force", "description": "Aggregated SSH failures from one source address.", "enabled": true`)
-	rules, err := loadAutomationRules(path)
+	rules, err := loadAutomationRules(repositoryRules)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +282,7 @@ func TestConfiguredEnablementRestoresOnReload(t *testing.T) {
 	if _, err := runtime.setEnabled(context.Background(), mustRPCEnvelope(t, contract.RuleSetEnabledRequest{AccessToken: token, RuleID: "ssh_brute_force", Enabled: false})); err != nil {
 		t.Fatal(err)
 	}
-	reloaded, err := loadAutomationRules(path)
+	reloaded, err := loadAutomationRules(repositoryRules)
 	if err != nil {
 		t.Fatal(err)
 	}

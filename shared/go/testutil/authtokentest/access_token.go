@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"lite-nas/shared/authtoken"
+	"lite-nas/shared/testutil/cryptotest"
 )
 
 // MustIssueAccessToken returns a signed test token and its verifier for the supplied roles.
 func MustIssueAccessToken(t *testing.T, roles []string) (authtoken.Verifier, string) {
 	t.Helper()
-	public, private := MustGenerateEd25519Key(t)
+	public, private := cryptotest.MustGenerateEd25519Key(t)
 	issuer, err := authtoken.NewIssuer(authtoken.IssuerOptions{Issuer: "test", Audience: "test", AccessLifetime: time.Minute}, private)
 	if err != nil {
 		t.Fatal(err)

@@ -10,7 +10,7 @@ import (
 	"lite-nas/services/auth/sessions"
 	"lite-nas/shared/authtoken"
 	sharedconfig "lite-nas/shared/config"
-	"lite-nas/shared/testutil/authtokentest"
+	"lite-nas/shared/testutil/cryptotest"
 )
 
 func TestNewAuthTokenRuntimeLoadsConfiguredKeys(t *testing.T) {
@@ -137,12 +137,12 @@ func TestNewRefreshStoreUsesConfiguredClientIPPolicy(t *testing.T) {
 func authTokenConfigFixture(t *testing.T) sharedconfig.AuthTokenConfig {
 	t.Helper()
 
-	publicKey, privateKey := authtokentest.MustGenerateEd25519Key(t)
+	publicKey, privateKey := cryptotest.MustGenerateEd25519Key(t)
 	tempDir := t.TempDir()
 	signingKeyPath := filepath.Join(tempDir, "token-signing.key")
 	verificationCertPath := filepath.Join(tempDir, "token-signing.crt")
-	writeRuntimeTestFile(t, signingKeyPath, authtokentest.MustMarshalEd25519PrivateKeyPEM(t, privateKey))
-	writeRuntimeTestFile(t, verificationCertPath, authtokentest.MustCreateEd25519CertificatePEM(t, publicKey, privateKey))
+	writeRuntimeTestFile(t, signingKeyPath, cryptotest.MustMarshalEd25519PrivateKeyPEM(t, privateKey))
+	writeRuntimeTestFile(t, verificationCertPath, cryptotest.MustCreateEd25519CertificatePEM(t, publicKey, privateKey))
 
 	return sharedconfig.AuthTokenConfig{
 		Issuer:           "lite-nas-auth",

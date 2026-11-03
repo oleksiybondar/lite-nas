@@ -28,8 +28,8 @@ func TestLimitedWriterRejectsExcessCommandOutput(t *testing.T) {
 
 // Requirements: journal-manager/IR-001.
 func TestExecRunnerCapturesFixedCommandOutput(t *testing.T) {
-	output, err := (execRunner{}).Output(context.Background(), "/usr/bin/printf", "ready")
-	if err != nil || string(output) != "ready" {
+	output, err := (execRunner{}).Output(context.Background(), journalctlBinary, "--version")
+	if err != nil || !strings.Contains(string(output), "systemd") {
 		t.Fatalf("output = %q, %v", output, err)
 	}
 }
