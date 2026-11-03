@@ -76,25 +76,36 @@ def find_security_event(
             command,
         )
         for event in as_event_items(payload):
-            is_recent = True
-            if created_after is not None:
-                event_time_value = event.get("LastTimestamp") or event.get("CreatedAt")
-                if not isinstance(event_time_value, str):
-                    continue
-                try:
-                    event_time = datetime.fromisoformat(event_time_value.replace("Z", "+00:00"))
-                except ValueError:
-                    continue
-                is_recent = event_time >= created_after
-            if (
-                event.get("Source") == "log-analysis"
-                and event.get("Category") == category
-                and is_recent
-                and (status is None or event.get("Status") == status)
-            ):
+            if is_matching_security_event(event, category, status, created_after):
                 return event
         time.sleep(0.5)
     return None
+
+
+def is_matching_security_event(
+    event: dict[str, object], category: str, status: str | None, created_after: datetime | None
+) -> bool:
+    """Match the Log Analysis source, category, status, and optional event age."""
+    return (
+        event.get("Source") == "log-analysis"
+        and event.get("Category") == category
+        and is_recent_security_event(event, created_after)
+        and (status is None or event.get("Status") == status)
+    )
+
+
+def is_recent_security_event(event: dict[str, object], created_after: datetime | None) -> bool:
+    """Accept an event when its timestamp meets the optional lower bound."""
+    if created_after is None:
+        return True
+    event_time_value = event.get("LastTimestamp") or event.get("CreatedAt")
+    if not isinstance(event_time_value, str):
+        return False
+    try:
+        event_time = datetime.fromisoformat(event_time_value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return event_time >= created_after
 
 
 def get_security_alert_items(

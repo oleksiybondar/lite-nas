@@ -48,6 +48,7 @@ def must_create_gallery(  # noqa: PLR0913
     gallery_ids: list[str],
     kind: str,
     name: str,
+    *,
     directory: str | None = None,
 ) -> str:
     """Create an album or collection and register its metadata for cleanup."""

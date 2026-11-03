@@ -23,6 +23,7 @@ def test_add_collection_reference(  # noqa: PLR0913
     moments_source: tuple[str, str],
     gallery_ids: list[str],
     kind: str,
+    *,
     source_index: int,
 ) -> None:
     """Test case: an owner can add an authorized source to a collection.
@@ -65,6 +66,7 @@ def test_remove_collection_reference(  # noqa: PLR0913
     moments_source: tuple[str, str],
     gallery_ids: list[str],
     kind: str,
+    *,
     source_index: int,
 ) -> None:
     """Test case: removing membership leaves the collection without that source.

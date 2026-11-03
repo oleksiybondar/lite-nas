@@ -216,6 +216,7 @@ def test_uploaded_file_has_operator_permissions(  # noqa: PLR0913
     operator_cookie: str,
     upload_target: str,
     upload_mode: str,
+    *,
     private: bool,
 ) -> None:
     """Test case: both upload protocols publish the selected shared or private mode.

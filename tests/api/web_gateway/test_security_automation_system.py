@@ -13,6 +13,20 @@ pytestmark = [pytest.mark.api, pytest.mark.SecurityAutomation, pytest.mark.WebGa
 BASE = "/api/security/automations"
 
 
+def has_new_automation_alert(items: list[object], latest: int, source_ip: str) -> bool:
+    """Find a newer Security Automation alert for the test source address."""
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if int(str(item.get("RecID", 0))) <= latest:
+            continue
+        if item.get("Source") != "security-automation":
+            continue
+        if source_ip in str(item.get("Message", "")):
+            return True
+    return False
+
+
 @pytest.mark.parametrize("identity", ["operator_cookie", "testsudo_cookie"])
 @pytest.mark.parametrize("path", [f"{BASE}/rules", f"{BASE}/active"])
 def test_operator_cannot_read_automation_api(
@@ -150,13 +164,7 @@ def test_force_mitigation_is_visible_in_security_alert_api(
         if response.status != HTTPStatus.OK:
             pytest.fail(f"security alert list returned HTTP {response.status}")
         items = response.body.get("data", {}).get("items", [])
-        found = any(
-            isinstance(item, dict)
-            and int(str(item.get("RecID", 0))) > latest
-            and item.get("Source") == "security-automation"
-            and source_ip_cleanup in str(item.get("Message", ""))
-            for item in items
-        )
+        found = has_new_automation_alert(items, latest, source_ip_cleanup)
         if found:
             break
         time.sleep(0.5)

@@ -40,7 +40,7 @@ def test_create_and_read_gallery(
         gallery_ids,
         kind,
         f"test-{uuid4().hex}",
-        directory,
+        directory=directory,
     )
     response = moments_client.get(
         path=f"/api/galleries/{gallery_id}", cookies={ACCESS_COOKIE: moments_cookie}
@@ -75,7 +75,7 @@ def test_new_gallery_defaults_to_public(
         gallery_ids,
         kind,
         f"default-public-{uuid4().hex}",
-        directory,
+        directory=directory,
     )
     response = moments_client.get(
         path=f"/api/galleries/{gallery_id}", cookies={ACCESS_COOKIE: moments_cookie}
@@ -106,7 +106,7 @@ def test_search_finds_gallery_by_name(
     name = f"search-{uuid4().hex}"
     directory = moments_source[0] if kind == "ALBUM" else None
     gallery_id = must_create_gallery(
-        moments_client, moments_cookie, gallery_ids, kind, name, directory
+        moments_client, moments_cookie, gallery_ids, kind, name, directory=directory
     )
     query = urlencode({"q": name, "type": kind})
     response = moments_client.get(
@@ -142,7 +142,7 @@ def test_owner_can_rename_gallery(
         gallery_ids,
         kind,
         f"old-{uuid4().hex}",
-        directory,
+        directory=directory,
     )
     new_name = f"renamed-{uuid4().hex}"
     response = moments_client.patch(
@@ -213,7 +213,7 @@ def test_owner_can_delete_gallery(
         gallery_ids,
         kind,
         f"delete-{uuid4().hex}",
-        directory,
+        directory=directory,
     )
     deleted = moments_client.delete(
         path=f"/api/galleries/{gallery_id}", cookies={ACCESS_COOKIE: moments_cookie}

@@ -157,6 +157,7 @@ def test_other_user_cannot_read_private_profile_document(  # noqa: PLR0913
     operator_cookie: str,
     testsudo_cookie: str,
     profile_workspace: str,
+    *,
     name: str,
 ) -> None:
     """Test case: the avatar exception does not expose private profile JSON.

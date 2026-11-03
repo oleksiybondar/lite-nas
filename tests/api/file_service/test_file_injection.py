@@ -54,6 +54,7 @@ def test_download_url_treats_shell_syntax_as_filename(  # noqa: PLR0913
     operator_cookie: str,
     injection_tree: tuple[str, str],
     mount: str,
+    *,
     method: str,
 ) -> None:
     """Test case: download URL syntax stays a literal file operand.
@@ -158,6 +159,7 @@ def test_resource_id_url_rejects_shell_syntax_before_lookup(  # noqa: PLR0913
     operator_cookie: str,
     injection_tree: tuple[str, str],
     prefix: str,
+    *,
     expected: HTTPStatus,
 ) -> None:
     """Test case: an operation or upload ID cannot become a command operand.
@@ -220,6 +222,7 @@ def test_transfer_json_path_treats_shell_syntax_as_filename(  # noqa: PLR0913
     operator_cookie: str,
     injection_tree: tuple[str, str],
     operation: str,
+    *,
     field: str,
 ) -> None:
     """Test case: a transfer JSON path stays literal throughout its queued job.
