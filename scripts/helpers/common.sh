@@ -30,6 +30,38 @@ source "$COMMON_DIR/packaging.sh"
 # shellcheck disable=SC1091
 source "$COMMON_DIR/package-version.sh"
 
+# Install an executable without ever touching an existing target on failure.
+#
+# Usage: deploy.installExecutable SOURCE TARGET [OWNER GROUP]
+#
+# When SOURCE and TARGET resolve to the same file (running from an installed
+# .deb, where PACKAGE_ROOT is /usr/libexec/lite-nas) only ownership and mode are
+# normalized. Otherwise the file is staged next to TARGET and renamed into
+# place, so a failed copy never truncates or removes a working executable.
+deploy.installExecutable() {
+	local source_file="$1"
+	local target_file="$2"
+	local owner="${3:-root}"
+	local group="${4:-root}"
+	local staged_file=""
+
+	if [ ! -f "$source_file" ]; then
+		log.error "Missing executable: $source_file"
+		return 1
+	fi
+	if [ -e "$target_file" ] && [ "$(realpath -- "$source_file")" = "$(realpath -m -- "$target_file")" ]; then
+		chown "$owner:$group" "$target_file" && chmod 0755 "$target_file"
+		return $?
+	fi
+	install -d -m 0755 "$(dirname -- "$target_file")" || return 1
+	staged_file="$(mktemp "$target_file.XXXXXX")" || return 1
+	if ! install -m 0755 -o "$owner" -g "$group" -- "$source_file" "$staged_file" ||
+		! mv -f -- "$staged_file" "$target_file"; then
+		rm -f -- "$staged_file"
+		return 1
+	fi
+}
+
 # Install an INI service config, retaining local values and adding new keys.
 deploy.installMergedConfig() {
 	local source_file="$1"

@@ -113,7 +113,7 @@ deploy_runtime_files_without_start() {
 	deploy.webGateway.deploy "$PACKAGE_ROOT/web-gateway" 0
 	deploy.moments.deploy "$PACKAGE_ROOT/moments" "$PACKAGE_ROOT/moments-assets" 0
 	deploy.backupRestore.deploy "$PACKAGE_ROOT/backup-restore" 0
-	install -D -m 0755 "$PACKAGE_ROOT/backup-restore-cli" /usr/libexec/lite-nas/backup-restore-cli
+	deploy.installExecutable "$PACKAGE_ROOT/backup-restore-cli" /usr/libexec/lite-nas/backup-restore-cli root root
 	ln -sfn /usr/libexec/lite-nas/backup-restore-cli /usr/bin/backup-restore-cli
 	apparmor_parser -r /etc/apparmor.d/usr.libexec.lite-nas.backup-restore-cli
 	deploy.resourcesMonitor.deploy "$PACKAGE_ROOT/resources-monitor" 0

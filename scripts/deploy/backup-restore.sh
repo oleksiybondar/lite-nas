@@ -6,7 +6,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 
 deploy.backupRestore.requireTools() {
 	local tool
-	for tool in install systemctl apparmor_parser touch chown chmod ln; do
+	for tool in install mktemp mv realpath systemctl apparmor_parser touch chown chmod ln; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
 }
@@ -15,11 +15,7 @@ deploy.backupRestore.deploy() {
 	local binary="$1"
 	local should_start="${2:-1}"
 	local target=/usr/libexec/lite-nas/backup-restore
-	if [ ! -f "$binary" ]; then
-		log.error "Missing backup-restore binary: $binary"
-		return 1
-	fi
-	install -D -o root -g root -m 0755 "$binary" "$target"
+	deploy.installExecutable "$binary" "$target" root root || return 1
 	install -d -o root -g root -m 0700 /var/lib/lite-nas/backup
 	install -d -o root -g root -m 0751 /var/log/lite-nas
 	if [ ! -f /var/log/lite-nas/backup-restore.log ]; then

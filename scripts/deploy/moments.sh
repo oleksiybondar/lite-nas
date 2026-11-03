@@ -121,13 +121,43 @@ deploy.moments.installEmbeddingModel() {
 		"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check 'transformers==4.57.6' || return 1
 	fi
 	if ! "$venv_dir/bin/python3" -c 'import onnxruntime, numpy' >/dev/null 2>&1; then
-		"$venv_dir/bin/python3" -c 'import onnxruntime, numpy' >/dev/null 2>&1 ||
-			"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check 'onnxruntime==1.23.2' || return 1
+		local onnxruntime_version
+		onnxruntime_version="$(deploy.moments.onnxRuntimeVersion "$venv_dir/bin/python3")" || return 1
+		"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check "onnxruntime==$onnxruntime_version" || return 1
 	fi
 	"$venv_dir/bin/python3" "$model_installer" "$model_dir" || return 1
 	chown -R root:lite-nas-moments "$model_dir" || return 1
 	find "$model_dir" -type d -exec chmod 0750 {} + || return 1
 	find "$model_dir" -type f -exec chmod 0640 {} + || return 1
+	deploy.moments.smokeTestEmbedding "$venv_dir/bin/python3" || return 1
+}
+
+# Prints the ONNX Runtime version to install for the given interpreter.
+# 1.23.2 has no wheels for CPython 3.14 (first available is 1.24.1, verified on
+# aarch64); older interpreters keep the previously tested 1.23.2.
+deploy.moments.onnxRuntimeVersion() {
+	local python_bin="$1"
+	if "$python_bin" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 14) else 1)'; then
+		echo "1.24.1"
+	else
+		echo "1.23.2"
+	fi
+}
+
+# Runs real inference through the service's embed_text.py so a bare import
+# success cannot hide a model that fails to load. Failure is reported to the
+# caller, which downgrades it to a warning and keeps text search.
+deploy.moments.smokeTestEmbedding() {
+	local python_bin="$1"
+	local response
+	response="$(printf '{"texts":["query: LiteNAS smoke test"]}\n' |
+		"$python_bin" /usr/share/lite-nas/moments/embed_text.py)" || return 1
+	printf '%s' "$response" | "$python_bin" -c '
+import base64, json, math, struct, sys
+raw = base64.b64decode(json.load(sys.stdin)["vectors"][0])
+vec = struct.unpack("<%df" % (len(raw) // 4), raw)
+assert len(vec) > 0 and abs(math.sqrt(sum(v * v for v in vec)) - 1.0) < 1e-3
+' || return 1
 }
 
 # Enables the Moments service after all system dependencies are ready.
