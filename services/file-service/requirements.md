@@ -199,7 +199,7 @@ resending bytes already accepted by the service.
   - `PATCH /proprietary/upload/{upload-id}` to append the next chunk.
   - `PUT /proprietary/upload/{upload-id}/completion` to complete it.
   - `DELETE /proprietary/upload/{upload-id}` to cancel it.
-  Nginx exposes these under `/f/` by preserving the suffix after `/f`.
+    Nginx exposes these under `/f/` by preserving the suffix after `/f`.
 - `POST /proprietary/upload` creates an upload resource using destination, original
   filename, total size, whole-file SHA-256, supported file metadata, an optional
   `chunk_size` in bytes from 1 MiB through 16 MiB, and a

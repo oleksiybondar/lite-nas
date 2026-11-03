@@ -11,7 +11,7 @@ selection dialogs.
   initialDirectory="/home/oleksiybondar"
   extensionFilter={{ include: ["jpg", "jpeg", "png"], exclude: ["png"] }}
   onSelect={(path) => setSelectedPath(path)}
-/>
+/>;
 ```
 
 Use `FolderSelectionDialog` for folder picking. `FileSelectionDialog` is the file

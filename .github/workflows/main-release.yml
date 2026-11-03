@@ -1246,7 +1246,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 15
 
-
   release-compliance:
     name: LiteNAS before and after OpenSCAP assessment (amd64)
     runs-on: ubuntu-24.04

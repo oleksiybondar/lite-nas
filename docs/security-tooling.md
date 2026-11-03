@@ -5,17 +5,17 @@ uses OpenSCAP with a profile selected by the operator. OpenSCAP is not a LiteNAS
 package dependency and LiteNAS does not ship its own assessment or remediation
 engine.
 
-| Tool or service | Current role | Operator action |
-| --- | --- | --- |
-| AIDE and LiteNAS Integrity | Package dependency, LiteNAS rules, scheduled integrity checks, and authorized baseline regeneration | Initialize and review the baseline after installation and planned changes |
-| ClamAV and Antivirus | Package dependency and scan service for eligible mounts and authorized on-demand scans | Review findings and scan scope |
-| USBGuard and USB Manager | Package dependency, device policy enforcement, and managed operations | Review and enroll the host's required devices |
-| `logrotate` | Packaged rotation policy for LiteNAS logs | Review retention against available storage |
-| rsyslog and Log Analysis | Selected host records forwarded to a validated socket and evaluated by configured detection plugins | Review active rules after package updates |
-| Network Security | Correlates validated blocked TCP attempts from Log Analysis | Keep UFW blocked-packet logging enabled for scan detection |
-| Security Logging Manager and Security Email Notifier | Persist security alert lifecycles and deliver selected alerts | Review incidents and configure mail delivery |
-| Backup and Restore | Versioned snapshots and controlled restore of selected LiteNAS and host security configuration; a recovery control adjacent to the SIEM path | Review selected targets, protect archives containing secrets, and validate restored configuration before activating it |
-| OpenSCAP | External compliance assessment using selected benchmark content | Install separately, choose a suitable profile, review results, and apply host-specific changes |
+| Tool or service                                      | Current role                                                                                                                                 | Operator action                                                                                                        |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| AIDE and LiteNAS Integrity                           | Package dependency, LiteNAS rules, scheduled integrity checks, and authorized baseline regeneration                                          | Initialize and review the baseline after installation and planned changes                                              |
+| ClamAV and Antivirus                                 | Package dependency and scan service for eligible mounts and authorized on-demand scans                                                       | Review findings and scan scope                                                                                         |
+| USBGuard and USB Manager                             | Package dependency, device policy enforcement, and managed operations                                                                        | Review and enroll the host's required devices                                                                          |
+| `logrotate`                                          | Packaged rotation policy for LiteNAS logs                                                                                                    | Review retention against available storage                                                                             |
+| rsyslog and Log Analysis                             | Selected host records forwarded to a validated socket and evaluated by configured detection plugins                                          | Review active rules after package updates                                                                              |
+| Network Security                                     | Correlates validated blocked TCP attempts from Log Analysis                                                                                  | Keep UFW blocked-packet logging enabled for scan detection                                                             |
+| Security Logging Manager and Security Email Notifier | Persist security alert lifecycles and deliver selected alerts                                                                                | Review incidents and configure mail delivery                                                                           |
+| Backup and Restore                                   | Versioned snapshots and controlled restore of selected LiteNAS and host security configuration; a recovery control adjacent to the SIEM path | Review selected targets, protect archives containing secrets, and validate restored configuration before activating it |
+| OpenSCAP                                             | External compliance assessment using selected benchmark content                                                                              | Install separately, choose a suitable profile, review results, and apply host-specific changes                         |
 
 ## Release OpenSCAP comparison
 

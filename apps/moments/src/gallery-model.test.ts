@@ -13,13 +13,12 @@ test("originals are classified in their existing order", () => {
   expect(galleryItemsFromPaths(paths).map((item) => item.kind)).toEqual(["image", "video"]);
 });
 
-test.each([
-  "https://example.com/photo.jpg",
-  "/f/home/test/../secret.jpg",
-  "/f/home/test/%GG.jpg",
-])("unsafe original URL is rejected: %s", (path) => {
-  expect(galleryFileUrlSchema.safeParse(path).success).toBe(false);
-});
+test.each(["https://example.com/photo.jpg", "/f/home/test/../secret.jpg", "/f/home/test/%GG.jpg"])(
+  "unsafe original URL is rejected: %s",
+  (path) => {
+    expect(galleryFileUrlSchema.safeParse(path).success).toBe(false);
+  },
+);
 
 test.each([1000, 3000, 5000])("slideshow accepts the %i ms image delay", (delay) => {
   expect(imageDelaySchema.safeParse(delay).success).toBe(true);

@@ -14,12 +14,12 @@ supports operator review, and performs selected bounded responses. The
 references below identify related control areas and the scope of the shipped
 capabilities.
 
-| Reference area | LiteNAS capability | Scope and limit |
-| --- | --- | --- |
-| [IEC 62443-3-3 FR 6, SR 6.1 and SR 6.2](https://webstore.iec.ch/en/iec_catalog/product/preview/?id=L3B1Yi9wZGYvcHJldmlldy9pbmZvX2llYzYyNDQzLTMtM3tlZDEuMH1iLnBkZg%3D%3D): audit log accessibility and continuous monitoring | Security Logging Manager exposes alerts and occurrences to the CLI and admin panel; Log Analysis and Network Security continuously evaluate selected inputs. | Implemented for the configured host sources; no claim of complete IACS monitoring or an achieved IEC security level. |
-| [CIS Controls v8.1 Control 8](https://cas.docs.cisecurity.org/en/latest/source/Controls8/): collect, alert, review, and retain audit information | Selected rsyslog records feed detections; alert occurrences are persisted with bounded retention and selected alerts are emailed. | Substantial local capability. Retention policy, storage adequacy, time synchronization, and review cadence require host-specific operation and evidence. |
-| [CIS Controls v8.1 Control 13](https://cas.docs.cisecurity.org/en/latest/source/Controls13/): centralize security event alerting and monitor network activity | Several LiteNAS producers feed Security Logging Manager; Network Security correlates UFW blocked attempts and network snapshots. | Implemented for this host, not an enterprise-wide asset or network coverage measure. |
-| [NIST SP 800-53 Rev. 5 AU-6, SI-4, and IR-4](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final): audit review, system monitoring, and incident handling | Rules create actionable alerts; operators can inspect and acknowledge them; Security Automation can block selected sources, revoke matched sessions, or terminate verified sessions. | Technical support for these activities exists. An organizational review process, incident procedure, and measured response effectiveness are outside the repository evidence. |
+| Reference area                                                                                                                                                                                                              | LiteNAS capability                                                                                                                                                                   | Scope and limit                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [IEC 62443-3-3 FR 6, SR 6.1 and SR 6.2](https://webstore.iec.ch/en/iec_catalog/product/preview/?id=L3B1Yi9wZGYvcHJldmlldy9pbmZvX2llYzYyNDQzLTMtM3tlZDEuMH1iLnBkZg%3D%3D): audit log accessibility and continuous monitoring | Security Logging Manager exposes alerts and occurrences to the CLI and admin panel; Log Analysis and Network Security continuously evaluate selected inputs.                         | Implemented for the configured host sources; no claim of complete IACS monitoring or an achieved IEC security level.                                                          |
+| [CIS Controls v8.1 Control 8](https://cas.docs.cisecurity.org/en/latest/source/Controls8/): collect, alert, review, and retain audit information                                                                            | Selected rsyslog records feed detections; alert occurrences are persisted with bounded retention and selected alerts are emailed.                                                    | Substantial local capability. Retention policy, storage adequacy, time synchronization, and review cadence require host-specific operation and evidence.                      |
+| [CIS Controls v8.1 Control 13](https://cas.docs.cisecurity.org/en/latest/source/Controls13/): centralize security event alerting and monitor network activity                                                               | Several LiteNAS producers feed Security Logging Manager; Network Security correlates UFW blocked attempts and network snapshots.                                                     | Implemented for this host, not an enterprise-wide asset or network coverage measure.                                                                                          |
+| [NIST SP 800-53 Rev. 5 AU-6, SI-4, and IR-4](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final): audit review, system monitoring, and incident handling                                                                    | Rules create actionable alerts; operators can inspect and acknowledge them; Security Automation can block selected sources, revoke matched sessions, or terminate verified sessions. | Technical support for these activities exists. An organizational review process, incident procedure, and measured response effectiveness are outside the repository evidence. |
 
 The comparison is a capability crosswalk, not a control compliance assessment.
 IEC 62443-3-3 assigns system security levels in an industrial automation and
@@ -33,14 +33,14 @@ or evaluation, and reporting run as bounded workers. `shared/go/fsm` supplies ty
 bounded keyed memory store; Resources Monitor and LiteNAS Integrity use it for their existing incident
 lifecycles. Snapshot collection in metrics services is stateless and was not migrated.
 
-| Service | Input and output | Default |
-| --- | --- | --- |
-| Log Analysis | Receives rsyslog records on a socket-activated Unix datagram socket; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set` | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; account lockout and fifth-lockout alerts; one critical, emailed alert per newly connected USB device; source probing and lockdown disabled |
-| Network Security | Subscribes to Log Analysis UFW blocked TCP attempt events and Network Metrics snapshots; reports port scans, horizontal scans, and repeated blocked attempts | Each detector defaults to 12 attempts in 2 minutes with a 30 minute cooldown |
-| Mount Monitor | Reads `/proc/self/mountinfo`; publishes `mount.events.lifecycle` and system alerts | 5 second poll; first snapshot is a baseline |
-| Antivirus | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; reports clean scans as normal info events, incomplete scans as warnings, and malware as error events in Security Logging Manager; cancels scans when mounts disappear | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout |
-| System Service Monitor | Probes configured systemd units; publishes `service.monitor.events.state` and system alert lifecycle | 10 second poll; units in `system-service-monitor.conf` |
-| Service Watchdog | Subscribes to service events and independently probes its own protected list; publishes security alert lifecycle and starts allowlisted units | 10 second poll, 30 second recovery delay, 1 minute exponential backoff, at most 3 attempts |
+| Service                | Input and output                                                                                                                                                                                                                                  | Default                                                                                                                                                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Log Analysis           | Receives rsyslog records on a socket-activated Unix datagram socket; publishes security alert lifecycle and optionally calls `auth.rpc.lockdown.set`                                                                                              | One-shot auth-failure alerts; 3 known-account failures or 3 unknown-account failures in 2 minutes with a 3 minute cooldown; account lockout and fifth-lockout alerts; one critical, emailed alert per newly connected USB device; source probing and lockdown disabled |
+| Network Security       | Subscribes to Log Analysis UFW blocked TCP attempt events and Network Metrics snapshots; reports port scans, horizontal scans, and repeated blocked attempts                                                                                      | Each detector defaults to 12 attempts in 2 minutes with a 30 minute cooldown                                                                                                                                                                                           |
+| Mount Monitor          | Reads `/proc/self/mountinfo`; publishes `mount.events.lifecycle` and system alerts                                                                                                                                                                | 5 second poll; first snapshot is a baseline                                                                                                                                                                                                                            |
+| Antivirus              | Subscribes to mount events and reconciles existing mounts; runs `clamscan`; reports clean scans as normal info events, incomplete scans as warnings, and malware as error events in Security Logging Manager; cancels scans when mounts disappear | One scan at a time; `vfat,exfat,ntfs,ntfs3,ext4` under `/media` or `/mnt`; 30 minute timeout                                                                                                                                                                           |
+| System Service Monitor | Probes configured systemd units; publishes `service.monitor.events.state` and system alert lifecycle                                                                                                                                              | 10 second poll; units in `system-service-monitor.conf`                                                                                                                                                                                                                 |
+| Service Watchdog       | Subscribes to service events and independently probes its own protected list; publishes security alert lifecycle and starts allowlisted units                                                                                                     | 10 second poll, 30 second recovery delay, 1 minute exponential backoff, at most 3 attempts                                                                                                                                                                             |
 
 The Watchdog's protected list is independent of the Service Monitor list. It includes
 `systemd-journald.service`, AppArmor, USBGuard, UFW, and the LiteNAS security and monitoring units in
@@ -105,10 +105,10 @@ plugin logs an error and cannot track a new rule/key combination until an
 inactive entry expires. Give rules separate instances when they need separate
 capacity or queue limits, even if their timing and key policy are identical.
 
-| Plugin `type` | `threshold` | `key_by` | First alert |
-| --- | --- | --- | --- |
-| `immediate` | Always one | `global` | First matching record for the rule |
-| `threshold` | Configured count | `global` | Count reached for the rule |
+| Plugin `type`     | `threshold`                     | `key_by`              | First alert                             |
+| ----------------- | ------------------------------- | --------------------- | --------------------------------------- |
+| `immediate`       | Always one                      | `global`              | First matching record for the rule      |
+| `threshold`       | Configured count                | `global`              | Count reached for the rule              |
 | `keyed_threshold` | Configured count, including one | `account` or `source` | Count reached for one account or source |
 
 For a per-account alert on the first record, use `keyed_threshold` with
@@ -123,31 +123,31 @@ is not reached in that window, the count resets. Cooldown changes alert
 correlation, not PAM's account lock time. State is held in memory and resets
 when Log Analysis restarts.
 
-| Instance key | Meaning |
-| --- | --- |
-| `id` | Unique instance name referenced by rules |
-| `enabled` | Construct this instance at startup |
-| `type` | One of the compiled types above |
-| `threshold` | Count needed before the first alert; forced to one for `immediate` |
-| `window` | Fixed counting interval before detection |
-| `cooldown` | Quiet period for grouping later records as occurrences |
-| `idle` | Maximum inactive state lifetime; must exceed `cooldown` |
-| `key_by` | `global`, `account`, or `source` as allowed by the plugin type |
-| `max_keys` | Bound on tracked rule/key combinations across all rules using this instance |
-| `event_id_prefix` | Optional override of the file's default event ID prefix |
+| Instance key      | Meaning                                                                     |
+| ----------------- | --------------------------------------------------------------------------- |
+| `id`              | Unique instance name referenced by rules                                    |
+| `enabled`         | Construct this instance at startup                                          |
+| `type`            | One of the compiled types above                                             |
+| `threshold`       | Count needed before the first alert; forced to one for `immediate`          |
+| `window`          | Fixed counting interval before detection                                    |
+| `cooldown`        | Quiet period for grouping later records as occurrences                      |
+| `idle`            | Maximum inactive state lifetime; must exceed `cooldown`                     |
+| `key_by`          | `global`, `account`, or `source` as allowed by the plugin type              |
+| `max_keys`        | Bound on tracked rule/key combinations across all rules using this instance |
+| `event_id_prefix` | Optional override of the file's default event ID prefix                     |
 
-| Rule key | Meaning |
-| --- | --- |
-| `id`, `enabled` | Unique rule name and whether it runs |
-| `source` | ID of the selected rsyslog source |
-| `category` | Alert category |
-| `pattern` | Required RE2 match against the message |
-| `require`, `exclude` | Additional matches that must be present or absent |
-| `account_pattern` | Optional RE2 pattern with one capture for the account key |
-| `instance` | ID of the plugin instance that receives matches |
-| `severity` | `info`, `warning`, `error`, or `critical` |
-| `email_on_critical` | Request email for a critical alert |
-| `lockdown` | Request Auth lockdown after a critical alert is created |
+| Rule key             | Meaning                                                   |
+| -------------------- | --------------------------------------------------------- |
+| `id`, `enabled`      | Unique rule name and whether it runs                      |
+| `source`             | ID of the selected rsyslog source                         |
+| `category`           | Alert category                                            |
+| `pattern`            | Required RE2 match against the message                    |
+| `require`, `exclude` | Additional matches that must be present or absent         |
+| `account_pattern`    | Optional RE2 pattern with one capture for the account key |
+| `instance`           | ID of the plugin instance that receives matches           |
+| `severity`           | `info`, `warning`, `error`, or `critical`                 |
+| `email_on_critical`  | Request email for a critical alert                        |
+| `lockdown`           | Request Auth lockdown after a critical alert is created   |
 
 The file also defines `event_id_prefix` and `sources`. Each source has an `id`,
 an `auth` or `kernel` `format`, and at least one selector from `facilities`,
@@ -171,16 +171,16 @@ rsyslog. Active rules that still use the removed `rsyslog_auth` file source are 
 
 The shipped authentication rules, all critical and emailed unless noted:
 
-| Rule | Selects | Instance and IDs |
-| --- | --- | --- |
-| `pam_*` (existing) | PAM `auth` failures for `litenas-auth`, `sshd`, `login`, `su`, `su-l` and `sudo` | Existing thresholds, `secauth` |
-| `pam_account_lockout` | The `pam_faillock` record emitted when an account first reaches five failures | Per-account alert; later lockouts are occurrences until 75 minutes pass without another lockout, `secauth` |
-| `pam_repeated_account_lockout` | Five lockout records for one account within 75 minutes | Critical emailed alert with a 75-minute quiet-period cooldown; no extra account action, `secauth` |
-| `sudo_policy_violation` | Classic sudo `user NOT in sudoers`, `user NOT authorized on host`, `command not allowed` | Immediate, `secpriv` |
-| `privileged_group_membership` | shadow-utils adds to `sudo`, `admin`, `adm`, `root`, `wheel`, `shadow`, `disk`, `docker`, `lxd` | Immediate, `secpriv` |
-| `login_account_created` | `useradd` accounts whose shell is not `nologin` or `false` | Immediate, `secacct` |
-| `root_password_changed` | PAM `chauthtok` password change for `root` | Immediate, `secacct` |
-| `ssh_preauth_probing` | OpenSSH `Invalid user` and `Failed … for <valid user>` records | 10 per source in 5 minutes, `secssh` |
+| Rule                           | Selects                                                                                         | Instance and IDs                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `pam_*` (existing)             | PAM `auth` failures for `litenas-auth`, `sshd`, `login`, `su`, `su-l` and `sudo`                | Existing thresholds, `secauth`                                                                             |
+| `pam_account_lockout`          | The `pam_faillock` record emitted when an account first reaches five failures                   | Per-account alert; later lockouts are occurrences until 75 minutes pass without another lockout, `secauth` |
+| `pam_repeated_account_lockout` | Five lockout records for one account within 75 minutes                                          | Critical emailed alert with a 75-minute quiet-period cooldown; no extra account action, `secauth`          |
+| `sudo_policy_violation`        | Classic sudo `user NOT in sudoers`, `user NOT authorized on host`, `command not allowed`        | Immediate, `secpriv`                                                                                       |
+| `privileged_group_membership`  | shadow-utils adds to `sudo`, `admin`, `adm`, `root`, `wheel`, `shadow`, `disk`, `docker`, `lxd` | Immediate, `secpriv`                                                                                       |
+| `login_account_created`        | `useradd` accounts whose shell is not `nologin` or `false`                                      | Immediate, `secacct`                                                                                       |
+| `root_password_changed`        | PAM `chauthtok` password change for `root`                                                      | Immediate, `secacct`                                                                                       |
+| `ssh_preauth_probing`          | OpenSSH `Invalid user` and `Failed … for <valid user>` records                                  | 10 per source in 5 minutes, `secssh`                                                                       |
 
 `sudo` is not part of the PAM success pattern: sudo opens a session for the target account on every allowed
 service-account command, which would otherwise reset guessing state. The sudo denial reasons match classic sudo

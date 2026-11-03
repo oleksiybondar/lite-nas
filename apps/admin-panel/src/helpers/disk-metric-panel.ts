@@ -91,6 +91,12 @@ type DiskSeriesExtractor = (
   previousIo: DiskMetricDeviceIOCountersDTO | null,
 ) => number;
 
+/** Extracts cumulative sector totals for disk throughput series. */
+const readWriteExtractors: Record<string, DiskSeriesExtractor> = {
+  Read: (io) => io.sectors_read * sectorSizeBytes,
+  Write: (io) => io.sectors_written * sectorSizeBytes,
+};
+
 type DiskSeriesContext = {
   currentIo: DiskMetricDeviceIOCountersDTO | null;
   elapsedMs: number;
@@ -285,10 +291,7 @@ const buildReadWriteSeries = (
   items: DiskMetricSnapshotDTO[],
   node: string,
 ): MetricMultiChartSeries => {
-  return buildDiskDeltaSeries(items, node, {
-    Read: (io) => io.sectors_read * sectorSizeBytes,
-    Write: (io) => io.sectors_written * sectorSizeBytes,
-  });
+  return buildDiskDeltaSeries(items, node, readWriteExtractors);
 };
 
 /**

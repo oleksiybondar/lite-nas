@@ -49,9 +49,12 @@ test.each([
   ["root", "/", null],
   ["top-level child", "/some", "/"],
   ["nested child", "/some/thing.txt", "/some"],
-] as const)("file-explorer-app/IR-001 resolves the parent of a %s path", (_case, path, expected) => {
-  expect(parentPath(path)).toBe(expected);
-});
+] as const)(
+  "file-explorer-app/IR-001 resolves the parent of a %s path",
+  (_case, path, expected) => {
+    expect(parentPath(path)).toBe(expected);
+  },
+);
 
 test("file-explorer-app/IR-001 escapes a File Service resource path", () => {
   expect(fileServicePath("/f", "/some/a #.txt")).toBe("/f/some/a%20%23.txt");
@@ -65,26 +68,22 @@ test.each([
   [{ include: [".JPG"] }, ["/root/photo.jpg", "/root/folder"]],
   [{ exclude: ["jpg"] }, ["/root/notes.txt", "/root/folder"]],
   [{ include: ["jpg", "txt"], exclude: ["txt"] }, ["/root/photo.jpg", "/root/folder"]],
-])("file-explorer-app/FR-001 filters file extensions while retaining directories", (filter, expected) => {
-  const entries = [
-    listingEntry("/root/photo.jpg", "file"),
-    listingEntry("/root/notes.txt", "file"),
-    listingEntry("/root/folder", "directory"),
-  ];
-  expect(filterFileEntries(entries, filter).map((entry) => entry.path)).toEqual(expected);
-});
+])(
+  "file-explorer-app/FR-001 filters file extensions while retaining directories",
+  (filter, expected) => {
+    const entries = [
+      listingEntry("/root/photo.jpg", "file"),
+      listingEntry("/root/notes.txt", "file"),
+      listingEntry("/root/folder", "directory"),
+    ];
+    expect(filterFileEntries(entries, filter).map((entry) => entry.path)).toEqual(expected);
+  },
+);
 
-test.each([
-  "",
-  "relative",
-  "/trailing/",
-  "/a//b",
-  "/a/../b",
-  "/a/./b",
-  "/a\\b",
-  "/a\0b",
-])("file-explorer-app/IR-001 rejects malformed host path %j", (path) =>
-  expect(hostPathSchema.safeParse(path).success).toBe(false));
+test.each(["", "relative", "/trailing/", "/a//b", "/a/../b", "/a/./b", "/a\\b", "/a\0b"])(
+  "file-explorer-app/IR-001 rejects malformed host path %j",
+  (path) => expect(hostPathSchema.safeParse(path).success).toBe(false),
+);
 
 test("file-explorer-app/FR-001 sorts listing children and retains metadata", async () => {
   const fileWithMetadata = {
@@ -122,10 +121,13 @@ test("file-explorer-app/FR-001 sorts listing children and retains metadata", asy
 test.each([
   ["unrelated child", [listingEntry("/elsewhere/file", "file")], 200, "invalid directory listing"],
   ["service denial", { error: { code: "permission_denied" } }, 403, "permission denied"],
-] as const)("file-explorer-app/FR-001 reports a %s listing failure", async (_case, body, status, message) => {
-  stubFetchResponse(new Response(JSON.stringify(body), { status }));
-  await expect(listDirectory("/root", new AbortController().signal)).rejects.toThrow(message);
-});
+] as const)(
+  "file-explorer-app/FR-001 reports a %s listing failure",
+  async (_case, body, status, message) => {
+    stubFetchResponse(new Response(JSON.stringify(body), { status }));
+    await expect(listDirectory("/root", new AbortController().signal)).rejects.toThrow(message);
+  },
+);
 
 test("file-explorer-app/IR-001 rejects malformed listing metadata", async () => {
   stubFetchResponse(
@@ -174,14 +176,17 @@ test("file-explorer-app/FR-006 submits a transfer with source and destination", 
 test.each([
   ["file", new Response(null, { status: 204 }), null],
   ["directory", new Response(JSON.stringify(job), { status: 202 }), job],
-] as const)("file-explorer-app/FR-007 deletes a %s and returns its completion result", async (kind, response, result) => {
-  const fetchMock = stubFetchResponse(response);
-  const deletion = await deleteEntry({ kind, path: "/root/a" });
-  expect({ result: deletion, url: fetchMock.mock.calls[0][0] }).toEqual({
-    result,
-    url: "/f/root/a",
-  });
-});
+] as const)(
+  "file-explorer-app/FR-007 deletes a %s and returns its completion result",
+  async (kind, response, result) => {
+    const fetchMock = stubFetchResponse(response);
+    const deletion = await deleteEntry({ kind, path: "/root/a" });
+    expect({ result: deletion, url: fetchMock.mock.calls[0][0] }).toEqual({
+      result,
+      url: "/f/root/a",
+    });
+  },
+);
 
 test("file-explorer-app/FR-009 retrieves a server operation job", async () => {
   const fetchMock = stubFetchResponse(new Response(JSON.stringify(job), { status: 200 }));
@@ -231,15 +236,13 @@ test.each([
     body: null,
     message: "HTTP 500",
   },
-])("file-explorer-app/IR-001 reports a failed $caseName response", async ({
-  action,
-  status,
-  body,
-  message,
-}) => {
-  stubFetchResponse(new Response(JSON.stringify(body), { status }));
-  await expect(action()).rejects.toThrow(message);
-});
+])(
+  "file-explorer-app/IR-001 reports a failed $caseName response",
+  async ({ action, status, body, message }) => {
+    stubFetchResponse(new Response(JSON.stringify(body), { status }));
+    await expect(action()).rejects.toThrow(message);
+  },
+);
 
 test.each([
   ["/a.PDF", "file", true],

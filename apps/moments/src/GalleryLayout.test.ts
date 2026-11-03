@@ -9,15 +9,13 @@ const items: GalleryItem[] = Array.from({ length: 1000 }, (_, index) => ({
   kind: "image",
 }));
 
-test.each([
-  "mosaic",
-  "justified",
-  "masonry",
-  "grid",
-] as const)("%s layout keeps every tile within wall width", (mode) => {
-  const { tiles } = planGallery(items, 960, mode);
-  expect(tiles.every((tile) => tile.x >= 0 && tile.x + tile.width <= 960.01)).toBe(true);
-});
+test.each(["mosaic", "justified", "masonry", "grid"] as const)(
+  "%s layout keeps every tile within wall width",
+  (mode) => {
+    const { tiles } = planGallery(items, 960, mode);
+    expect(tiles.every((tile) => tile.x >= 0 && tile.x + tile.width <= 960.01)).toBe(true);
+  },
+);
 
 test("narrow walls retain one tile for every media item", () => {
   expect(planGallery(items, 320, "mosaic").tiles).toHaveLength(items.length);

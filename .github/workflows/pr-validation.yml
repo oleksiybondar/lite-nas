@@ -163,6 +163,8 @@ jobs:
             dir: ./apps/zfs-metrics-cli
           - name: File writer app
             dir: ./apps/file-writer
+          - name: Security automation CLI app
+            dir: ./apps/security-automation-cli
           - name: Backup restore
             dir: ./services/backup-restore
           - name: Moments service

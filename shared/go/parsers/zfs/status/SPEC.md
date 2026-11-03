@@ -3,7 +3,7 @@
 ## Purpose
 
 This document defines the grammar and AST contract for parsing `zpool status`
- output in LiteNAS.
+output in LiteNAS.
 
 It is the implementation blueprint for ANTLR4-based parsing in the ZFS parser
 domain.

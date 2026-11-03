@@ -19,11 +19,11 @@ not a deployed LiteNAS instance.
 ## Scroll behavior with tiny images
 
 | Wall position | Mounted tiles | Image elements | Cumulative media requests | DOM nodes | Renderer PSS |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Top | 7 | 5 | 5 | 145 | 109 MiB |
-| Middle | 10 | 5 | 10 | 178 | 111 MiB |
-| Bottom | 6 | 4 | 14 | 134 | 111 MiB |
-| Back to top | 7 | 5 | 19 | 145 | 111 MiB |
+| ------------- | ------------: | -------------: | ------------------------: | --------: | -----------: |
+| Top           |             7 |              5 |                         5 |       145 |      109 MiB |
+| Middle        |            10 |              5 |                        10 |       178 |      111 MiB |
+| Bottom        |             6 |              4 |                        14 |       134 |      111 MiB |
+| Back to top   |             7 |              5 |                        19 |       145 |      111 MiB |
 
 Only the visible group of images was requested at each stop. Returning to the
 top restored the original tile and DOM node counts. The five top images were
@@ -32,10 +32,10 @@ requested again because the mock server disabled caching.
 ## Scroll behavior with original JPEGs
 
 | Wall position | Mounted tiles | Loaded originals | Cumulative bytes served | Renderer PSS | JS heap |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Top | 7 | 5 | 83.2 MiB | 634 MiB | 5.5 MiB |
-| Bottom | 6 | 4 | 108.4 MiB | 496 MiB | 5.5 MiB |
-| Back to top | 7 | 5 | 191.5 MiB | 658 MiB | 5.6 MiB |
+| ------------- | ------------: | ---------------: | ----------------------: | -----------: | ------: |
+| Top           |             7 |                5 |                83.2 MiB |      634 MiB | 5.5 MiB |
+| Bottom        |             6 |                4 |               108.4 MiB |      496 MiB | 5.5 MiB |
+| Back to top   |             7 |                5 |               191.5 MiB |      658 MiB | 5.6 MiB |
 
 The first five originals contain about 463 MiB of pixels at four bytes per
 pixel before any browser-specific image overhead. Their compressed files total

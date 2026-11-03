@@ -5,10 +5,10 @@ multilingual E5 ranks photo search results from text already attached to those
 images. Both run on demand in separate Python processes. Missing dependencies or
 weights do not prevent Moments from serving galleries.
 
-| Model | Used when | Input | Saved result |
-| --- | --- | --- | --- |
-| BLIP base (`Salesforce/blip-image-captioning-base`) | An owner starts a caption scan | One authorized still image at a time | A caption keyed by source path |
-| E5 small (`intfloat/multilingual-e5-small`) | A visible gallery search needs semantic ranking | Search text, captions, source tags, and person names | A 384-value vector keyed by source path and text hash |
+| Model                                               | Used when                                       | Input                                                | Saved result                                          |
+| --------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| BLIP base (`Salesforce/blip-image-captioning-base`) | An owner starts a caption scan                  | One authorized still image at a time                 | A caption keyed by source path                        |
+| E5 small (`intfloat/multilingual-e5-small`)         | A visible gallery search needs semantic ranking | Search text, captions, source tags, and person names | A 384-value vector keyed by source path and text hash |
 
 ## Installation and offline use
 

@@ -476,27 +476,27 @@ source. The service should prefer systemd D-Bus properties for manager-owned
 state and use cgroup data only for fields that are inherently cgroup-scoped or
 not consistently surfaced as unit properties.
 
-| Field | Expected primary source | Notes |
-| --- | --- | --- |
-| `timestamp` | service runtime clock | Same polling-cycle timestamp model as other metrics services |
-| `services[].name` | systemd unit identity | Unit name such as `smbd.service` |
-| `services[].manager` | constant | Expected value: `systemd` |
-| `services[].unit_type` | systemd unit identity | Expected value for initial scope: `service` |
-| `services[].description` | systemd unit property | Factual unit description when available |
-| `services[].load_state` | systemd unit property | Runtime property |
-| `services[].active_state` | systemd unit property | Runtime property |
-| `services[].sub_state` | systemd unit property | Runtime property |
-| `services[].enabled_state` | systemd unit-file state | Enablement state is not the same as runtime activity |
-| `services[].result` | systemd unit property | Runtime outcome/failure-adjacent property |
-| `services[].main_pid` | systemd unit property | Unit-scoped PID relationship |
-| `services[].control_pid` | systemd unit property | Unit-scoped PID relationship |
-| `services[].pids` | unit cgroup membership | Unit-owned PID list only, not global process inventory |
-| `services[].cgroup` | systemd unit property | Unit cgroup path when available |
-| `services[].slice` | systemd unit property | Ownership context such as `system.slice` |
-| `services[].fragment_path` | systemd unit property | Unit definition path when available |
-| `services[].started_at` | systemd unit property | Normalized timestamp derived from systemd runtime timestamps when available |
-| `services[].resources.memory_bytes` | systemd unit property or cgroup memory file | Prefer systemd-exposed unit accounting; otherwise read unit cgroup value |
-| `services[].resources.cpu_usage_usec` | systemd unit property or cgroup CPU stat | Prefer systemd-exposed unit accounting; otherwise read unit cgroup value |
+| Field                                 | Expected primary source                     | Notes                                                                       |
+| ------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
+| `timestamp`                           | service runtime clock                       | Same polling-cycle timestamp model as other metrics services                |
+| `services[].name`                     | systemd unit identity                       | Unit name such as `smbd.service`                                            |
+| `services[].manager`                  | constant                                    | Expected value: `systemd`                                                   |
+| `services[].unit_type`                | systemd unit identity                       | Expected value for initial scope: `service`                                 |
+| `services[].description`              | systemd unit property                       | Factual unit description when available                                     |
+| `services[].load_state`               | systemd unit property                       | Runtime property                                                            |
+| `services[].active_state`             | systemd unit property                       | Runtime property                                                            |
+| `services[].sub_state`                | systemd unit property                       | Runtime property                                                            |
+| `services[].enabled_state`            | systemd unit-file state                     | Enablement state is not the same as runtime activity                        |
+| `services[].result`                   | systemd unit property                       | Runtime outcome/failure-adjacent property                                   |
+| `services[].main_pid`                 | systemd unit property                       | Unit-scoped PID relationship                                                |
+| `services[].control_pid`              | systemd unit property                       | Unit-scoped PID relationship                                                |
+| `services[].pids`                     | unit cgroup membership                      | Unit-owned PID list only, not global process inventory                      |
+| `services[].cgroup`                   | systemd unit property                       | Unit cgroup path when available                                             |
+| `services[].slice`                    | systemd unit property                       | Ownership context such as `system.slice`                                    |
+| `services[].fragment_path`            | systemd unit property                       | Unit definition path when available                                         |
+| `services[].started_at`               | systemd unit property                       | Normalized timestamp derived from systemd runtime timestamps when available |
+| `services[].resources.memory_bytes`   | systemd unit property or cgroup memory file | Prefer systemd-exposed unit accounting; otherwise read unit cgroup value    |
+| `services[].resources.cpu_usage_usec` | systemd unit property or cgroup CPU stat    | Prefer systemd-exposed unit accounting; otherwise read unit cgroup value    |
 
 ---
 
