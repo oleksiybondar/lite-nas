@@ -38,7 +38,10 @@ export const backupAllResponseSchema = envelope(
     z.object({
       application: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
       status: z.enum(["completed", "skipped", "failed"]),
-      version: z.string().optional(),
+      version: z
+        .string()
+        .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/)
+        .optional(),
       error: z.string().optional(),
     }),
   ),
@@ -87,6 +90,39 @@ export const mergeWriteResponseSchema = envelope(
 /** Validates a completed restore. */
 export const restoreResponseSchema = envelope(
   z.object({ restored: z.literal(true), warnings: z.array(z.string()).optional() }),
+);
+
+/** Validates the exact name and mode submitted for a named restore. */
+export const restoreByNameRequestSchema = z.object({
+  name: z.string().min(1).max(128),
+  mode: z.enum(["replace", "merge"]),
+});
+
+/** Validates the selected version returned by a named restore. */
+export const restoreByNameResponseSchema = envelope(
+  z.object({
+    version: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/),
+    restored: z.literal(true),
+    warnings: z.array(z.string()).optional(),
+  }),
+);
+
+/** Validates every outcome of a restore-all-by-name request. */
+export const restoreAllByNameResponseSchema = envelope(
+  z.object({
+    results: z.array(
+      z.object({
+        application: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+        status: z.enum(["completed", "skipped", "failed"]),
+        version: z
+          .string()
+          .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/)
+          .optional(),
+        warnings: z.array(z.string()).optional(),
+        error: z.string().optional(),
+      }),
+    ),
+  }),
 );
 
 /** Validates a completed apply or discard. */

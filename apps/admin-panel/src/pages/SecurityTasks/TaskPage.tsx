@@ -316,12 +316,8 @@ async function startTask(
   folder?: string,
 ): Promise<Task> {
   const endpoint = endpointForKind(kind);
-  const validatedFolder = folder === undefined ? undefined : hostPathSchema.parse(folder);
-  const url =
-    kind === "antivirus" && validatedFolder !== undefined
-      ? `/api/security/tasks/${endpoint}?${new URLSearchParams({ folder: validatedFolder })}`
-      : `/api/security/tasks/${endpoint}`;
-  const response = await post(url).execute();
+  const payload = kind === "antivirus" ? { folder: hostPathSchema.parse(folder) } : undefined;
+  const response = await post(`/api/security/tasks/${endpoint}`, payload).execute();
   if (!response.ok) throw new Error(await readResponseError(response));
   const envelope = z
     .object({

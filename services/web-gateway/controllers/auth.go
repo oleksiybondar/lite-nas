@@ -57,7 +57,7 @@ func (c AuthController) Login(
 	input *authdto.LoginInput,
 ) (*authdto.SessionOutput, error) {
 	now := time.Now()
-	result, err := c.service.BeginLogin(ctx, now, input.Body.Login, input.Body.Password, authRequestContext(input.UserAgent))
+	result, err := c.service.BeginLogin(ctx, now, input.Body.Login, input.Body.Password, authRequestContext(input.UserAgent, input.Ingress, input.RealIP, input.LocalIP))
 	if err != nil {
 		return nil, mapAuthError(err, "invalid login or password")
 	}
@@ -113,7 +113,7 @@ func (c AuthController) Refresh(
 		return nil, huma.Error401Unauthorized("missing refresh token")
 	}
 
-	session, err := c.service.Refresh(ctx, now, refreshToken, authRequestContext(input.UserAgent))
+	session, err := c.service.Refresh(ctx, now, refreshToken, authRequestContext(input.UserAgent, input.Ingress, input.RealIP, input.LocalIP))
 	if err != nil {
 		return nil, mapAuthError(err, "invalid refresh token")
 	}
@@ -141,7 +141,7 @@ func (c AuthController) Logout(
 		return c.logoutOutput(now), nil
 	}
 
-	_, err := c.service.Logout(ctx, now, refreshToken, authRequestContext(input.UserAgent))
+	_, err := c.service.Logout(ctx, now, refreshToken, authRequestContext(input.UserAgent, input.Ingress, input.RealIP, input.LocalIP))
 	if err != nil {
 		if errors.Is(err, services.ErrUnauthorized) || errors.Is(err, services.ErrMissingRefreshToken()) {
 			return c.logoutOutput(now), nil
@@ -201,8 +201,8 @@ func buildSessionBody(now time.Time, session services.Session, redirectTo string
 	})
 }
 
-func authRequestContext(userAgent string) services.AuthRequestContext {
-	return services.AuthRequestContext{UserAgent: strings.TrimSpace(userAgent)}
+func authRequestContext(userAgent, ingress, realIP, localIP string) services.AuthRequestContext {
+	return services.AuthRequestContext{ClientIP: verifiedDirectClientIP(ingress, realIP, localIP), UserAgent: strings.TrimSpace(userAgent)}
 }
 
 func resolveAccessToken(authorization string, cookieValue string) string {

@@ -69,6 +69,27 @@ func TestStoreBackupCreatesListedVersion(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-012.
+// TestVersionByNameRequiresExactMatch prevents a case-insensitive name lookup.
+func TestVersionByNameRequiresExactMatch(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(source, []byte("settings"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	if _, err := store.BackupWithMetadata(Spec{Application: "example", Selections: []Selection{{Path: source}}}, "Release", "", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	version, err := store.VersionByName("example", "release")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version != "" {
+		t.Fatalf("case-mismatched version = %q, want none", version)
+	}
+}
+
 // Requirements: backup-restore/FR-009.
 func TestBackedUpApplicationsListsStoredHistory(t *testing.T) {
 	root := t.TempDir()

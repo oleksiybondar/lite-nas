@@ -42,6 +42,16 @@ func TestParserExtractsUSBDeviceIdentity(t *testing.T) {
 	}
 }
 
+// TestParserExtractsSudoTTY preserves the terminal needed to verify an exact
+// account-and-session mitigation target.
+func TestParserExtractsSudoTTY(t *testing.T) {
+	record := &logRecord{Message: "alice : user NOT in sudoers ; TTY=pts/2 ; PWD=/ ; USER=root ; COMMAND=/usr/bin/id"}
+	extractAuthFields(record)
+	if record.TTY != "pts/2" {
+		t.Fatalf("sudo terminal = %q", record.TTY)
+	}
+}
+
 // Requirements: security-monitoring/FR-001.
 func TestParserRejectsInvalidDatagram(t *testing.T) {
 	t.Parallel()

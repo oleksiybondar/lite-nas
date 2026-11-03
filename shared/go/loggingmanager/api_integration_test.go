@@ -39,6 +39,24 @@ func TestListEventsReturnsCreatedEvent(t *testing.T) {
 	}
 }
 
+// TestCreateEventStoresMitigationGuidance verifies that alert guidance reaches the existing metadata read model.
+func TestCreateEventStoresMitigationGuidance(t *testing.T) {
+	t.Parallel()
+	rig := newRunningCoreRig(t)
+	eventID, err := rig.core.CreateEvent(dto.CreateEventInput{Category: "security", Mitigate: "Review the affected account."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rig.flush(t)
+	item, found, err := rig.core.GetEvent(dto.GetEventHistoryInput{EventID: eventID})
+	if err != nil || !found {
+		t.Fatalf("GetEvent() = %v, %v", found, err)
+	}
+	if len(item.Meta) != 1 || item.Meta[0].MetaKey != "mitigate" || item.Meta[0].MetaValue != "Review the affected account." {
+		t.Fatalf("event metadata = %+v", item.Meta)
+	}
+}
+
 // TestListEventsTreatsSQLSyntaxAsCategoryData verifies that a browser-reachable filter cannot alter the SQLite predicate.
 func TestListEventsTreatsSQLSyntaxAsCategoryData(t *testing.T) {
 	t.Parallel()

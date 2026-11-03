@@ -27,6 +27,14 @@ func TestSampleRulesSelectSecurityRecords(t *testing.T) {
 			message: "pam_unix(sudo:auth): authentication failure; logname=alice uid=1001 euid=0 tty=/dev/pts/1 ruser=alice rhost=  user=alice",
 		},
 		{
+			name: "web API password failure with source", rule: "pam_web_api_password_guessing", want: true,
+			message: "pam_unix(litenas-auth:auth): authentication failure; logname= uid=0 rhost=198.51.100.10 user=alice",
+		},
+		{
+			name: "web API password failure without source", rule: "pam_web_api_password_guessing", want: false,
+			message: "pam_unix(litenas-auth:auth): authentication failure; logname= uid=0 rhost= user=alice",
+		},
+		{
 			name: "sudo session does not reset guessing", rule: "pam_password_guessing", want: false,
 			message: "pam_unix(sudo:session): session opened for user alice(uid=1001) by (uid=969)",
 		},
@@ -179,6 +187,8 @@ func TestRulesFileRejectsInvalidConfiguredBoundaries(t *testing.T) {
 		{name: "missing source", mutate: func(spec *rulesFile) { spec.Rules[0].Source = "missing" }},
 		{name: "missing instance", mutate: func(spec *rulesFile) { spec.Rules[0].Instance = "missing" }},
 		{name: "bad severity", mutate: func(spec *rulesFile) { spec.Rules[0].Severity = "urgent" }},
+		{name: "partial metadata", mutate: func(spec *rulesFile) { spec.Rules[0].Explanation = "" }},
+		{name: "control character in guidance", mutate: func(spec *rulesFile) { spec.Rules[0].PossibleReactions[0] = "review\nlogs" }},
 		{name: "missing category", mutate: func(spec *rulesFile) { spec.Rules[0].Category = "" }},
 		{name: "noncritical lockdown", mutate: func(spec *rulesFile) { spec.Rules[0].Lockdown = true }},
 		{name: "noncritical email", mutate: func(spec *rulesFile) { spec.Rules[0].EmailOnCritical = true }},

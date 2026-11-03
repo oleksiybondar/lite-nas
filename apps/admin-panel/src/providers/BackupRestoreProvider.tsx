@@ -20,6 +20,9 @@ import {
   type MergeSession,
   mergeActionResponseSchema,
   mergeSessionResponseSchema,
+  restoreAllByNameResponseSchema,
+  restoreByNameRequestSchema,
+  restoreByNameResponseSchema,
   restoreModeSchema,
   restoreResponseSchema,
   validateUFWMergeText,
@@ -64,6 +67,8 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [restoreMode, setRestoreMode] = useState<"replace" | "merge">("replace");
+  const [namedRestoreTarget, setNamedRestoreTarget] = useState<string | "all" | null>(null);
+  const [namedRestoreName, setNamedRestoreName] = useState("");
   const [pendingRestore, setPendingRestore] = useState<BackupVersionTarget | null>(null);
   const [pendingDelete, setPendingDelete] = useState<BackupVersionTarget | null>(null);
   const [pendingApply, setPendingApply] = useState(false);
@@ -392,13 +397,72 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     try {
       const mode = restoreModeSchema.parse(restoreMode);
       const outcome = await readData(
-        await post(
-          `${backupPath(targetApplication, targetVersion)}/restore?mode=${encodeURIComponent(mode)}`,
-        ).execute(),
+        await post(`${backupPath(targetApplication, targetVersion)}/restore`, { mode }).execute(),
         restoreResponseSchema,
       );
       setMessage([getLabel("admin.backup.restored"), ...(outcome.warnings ?? [])].join(" "));
       setPendingRestore(null);
+    } catch (caught) {
+      setError(getLabel("admin.backup.restoreFailed"));
+      throw caught;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Opens a named restore for one application or every configured application. */
+  const openNamedRestore = (target: string | "all"): void => {
+    setNamedRestoreName("");
+    setNamedRestoreTarget(target);
+  };
+
+  /** Sends the exact backup name and selected mode to the matching restore RPC. */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The provider keeps the single-target and all-target request outcomes together.
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The named restore flow handles both request results in one user action.
+  const restoreByName = async (): Promise<void> => {
+    if (!namedRestoreTarget) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const payload = restoreByNameRequestSchema.parse({
+        name: namedRestoreName,
+        mode: restoreMode,
+      });
+      if (namedRestoreTarget === "all") {
+        const outcome = await readData(
+          await post("/api/backup-restore/restore-by-name", payload).execute(),
+          restoreAllByNameResponseSchema,
+        );
+        const completed = outcome.results.filter((item) => item.status === "completed");
+        const skipped = outcome.results.filter((item) => item.status === "skipped");
+        const failed = outcome.results.filter((item) => item.status === "failed");
+        setMessage(
+          getLabel("admin.backup.namedRestoreAllDone")
+            .replace("{completed}", String(completed.length))
+            .replace("{skipped}", String(skipped.length))
+            .replace("{failed}", String(failed.length)),
+        );
+        if (failed.length > 0 || completed.some((item) => (item.warnings?.length ?? 0) > 0)) {
+          setError(
+            outcome.results
+              // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Each result can carry both an operation error and restart warnings.
+              .flatMap((item) => [
+                ...(item.error ? [`${item.application}: ${item.error}`] : []),
+                ...(item.warnings ?? []).map((warning) => `${item.application}: ${warning}`),
+              ])
+              .join("\n"),
+          );
+        }
+      } else {
+        const outcome = await readData(
+          await post(`${backupPath(namedRestoreTarget)}/restore-by-name`, payload).execute(),
+          restoreByNameResponseSchema,
+        );
+        setMessage(getLabel("admin.backup.namedRestoreDone").replace("{version}", outcome.version));
+        if (outcome.warnings?.length) setError(outcome.warnings.join("\n"));
+      }
+      setNamedRestoreTarget(null);
     } catch (caught) {
       setError(getLabel("admin.backup.restoreFailed"));
       throw caught;
@@ -622,6 +686,12 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     openCreate,
     createBackup,
     restoreBackup,
+    namedRestoreTarget,
+    namedRestoreName,
+    setNamedRestoreTarget,
+    setNamedRestoreName,
+    openNamedRestore,
+    restoreByName,
     deleteBackup,
     startMerge,
     finishMerge,

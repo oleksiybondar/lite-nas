@@ -204,6 +204,7 @@ func (m *manager) action(ctx context.Context, envelope messaging.Envelope, actio
 		Severity:    sharedloggingenum.SeverityInfo,
 		Source:      sharedcontracts.ServiceUSBManager,
 		Message:     message,
+		Mitigate:    "Confirm this USBGuard change was authorized. Review the device identity and reverse the policy change if it was unexpected.",
 		TriggerValue: fmt.Sprintf("action=%s device_id=%s permanence=%s actor=%s", strings.TrimSuffix(action, "-device"),
 			request.DeviceID, permanence, claims.Login),
 	}

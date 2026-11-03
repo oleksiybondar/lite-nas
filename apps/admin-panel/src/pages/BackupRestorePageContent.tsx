@@ -6,6 +6,7 @@ import { useLanguage } from "@lite-nas/language";
 import BackupIcon from "@mui/icons-material/Backup";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import RestoreIcon from "@mui/icons-material/Restore";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -17,6 +18,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { restoreModeSchema } from "@schemas/backup-restore";
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
@@ -64,6 +66,14 @@ export const BackupRestorePageContent = (): ReactElement => {
     openCreate,
     createBackup,
     restoreBackup,
+    namedRestoreTarget,
+    namedRestoreName,
+    setNamedRestoreTarget,
+    setNamedRestoreName,
+    restoreMode,
+    setRestoreMode,
+    openNamedRestore,
+    restoreByName,
     deleteBackup,
     finishMerge,
     refresh,
@@ -136,6 +146,19 @@ export const BackupRestorePageContent = (): ReactElement => {
             </IconButton>
           </span>
         </Tooltip>
+        <Tooltip title={getLabel("admin.backup.restoreAllByName")}>
+          <span>
+            <IconButton
+              data-testid="backup-restore-all-by-name"
+              aria-label={getLabel("admin.backup.restoreAllByName")}
+              disabled={busy || !!session || applications.length === 0}
+              onClick={() => openNamedRestore("all")}
+              color="primary"
+            >
+              <RestoreIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Stack>
       {applications.length === 0 && (
         <Typography>{getLabel("admin.backup.noApplications")}</Typography>
@@ -198,12 +221,71 @@ export const BackupRestorePageContent = (): ReactElement => {
                     </IconButton>
                   </span>
                 </Tooltip>
+                <Tooltip title={getLabel("admin.backup.restoreByName")}>
+                  <span>
+                    <IconButton
+                      data-testid={`backup-restore-by-name-${app}`}
+                      aria-label={getLabel("admin.backup.restoreByName")}
+                      disabled={busy || !!session}
+                      onClick={() => openNamedRestore(app)}
+                    >
+                      <RestoreIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Stack>
             </Stack>
           </Paper>
         ))}
       </Stack>
       <BackupVersionsDialog />
+      <StandardDialog
+        open={namedRestoreTarget !== null}
+        fullWidth
+        maxWidth="sm"
+        title={
+          namedRestoreTarget === "all"
+            ? getLabel("admin.backup.restoreAllByName")
+            : getLabel("admin.backup.restoreByName")
+        }
+        closeLabel={getLabel("dialogs.close")}
+        closeDisabled={busy}
+        onClose={() => !busy && setNamedRestoreTarget(null)}
+      >
+        <Stack spacing={2}>
+          <Typography>
+            {namedRestoreTarget === "all"
+              ? getLabel("admin.backup.restoreAllByNameHint")
+              : namedRestoreTarget}
+          </Typography>
+          <TextField
+            data-testid="backup-restore-name"
+            label={getLabel("admin.backup.name")}
+            value={namedRestoreName}
+            onChange={(event) => setNamedRestoreName(event.target.value)}
+            inputProps={{ maxLength: 128 }}
+            fullWidth
+          />
+          <TextField
+            select
+            data-testid="backup-named-restore-mode"
+            label={getLabel("admin.backup.restoreMode")}
+            value={restoreMode}
+            onChange={(event) => setRestoreMode(restoreModeSchema.parse(event.target.value))}
+          >
+            <MenuItem value="merge">{getLabel("admin.backup.mergeMode")}</MenuItem>
+            <MenuItem value="replace">{getLabel("admin.backup.replaceMode")}</MenuItem>
+          </TextField>
+          <Button
+            data-testid="backup-restore-name-confirm"
+            variant="contained"
+            disabled={busy || namedRestoreName.length === 0}
+            onClick={() => void restoreByName()}
+          >
+            {getLabel("admin.backup.restore")}
+          </Button>
+        </Stack>
+      </StandardDialog>
       <ConfirmActionDialog
         open={pendingRestore !== null}
         title={getLabel("admin.backup.restore")}

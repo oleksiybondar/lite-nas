@@ -248,6 +248,26 @@ func mustCreate(t *testing.T, store *Store) (RefreshToken, RefreshRecord) {
 	return token, record
 }
 
+// TestRevokeMatchedBrowserSessionsUsesAccountAndIP verifies that the service
+// action can affect only the exact browser session target.
+func TestRevokeMatchedBrowserSessionsUsesAccountAndIP(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	mustCreate(t, store)
+	if got := store.RevokeMatchedBrowserSessions("alice", "192.168.1.11"); got != 0 {
+		t.Fatalf("revoked wrong source sessions = %d", got)
+	}
+}
+
+// TestRevokeMatchedBrowserSessionsRevokesExactSession checks the matched
+// session is revoked in the same locked store operation.
+func TestRevokeMatchedBrowserSessionsRevokesExactSession(t *testing.T) {
+	store := NewStore(time.Now, StoreOptions{})
+	mustCreate(t, store)
+	if got := store.RevokeMatchedBrowserSessions("alice", "192.168.1.10"); got != 1 {
+		t.Fatalf("revoked matching sessions = %d", got)
+	}
+}
+
 func createInputFixture() CreateInput {
 	return CreateInput{
 		SessionID: "session-id",

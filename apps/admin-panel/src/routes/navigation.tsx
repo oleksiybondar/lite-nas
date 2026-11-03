@@ -1,10 +1,12 @@
 import type { RbacContextValue } from "@dto/rbac/rbac";
 import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
 import BackupRoundedIcon from "@mui/icons-material/BackupRounded";
+import CoronavirusIcon from "@mui/icons-material/Coronavirus";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MemoryIcon from "@mui/icons-material/Memory";
@@ -15,6 +17,7 @@ import NotificationImportantIcon from "@mui/icons-material/NotificationImportant
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import PaletteRoundedIcon from "@mui/icons-material/PaletteRounded";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
 import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
@@ -76,6 +79,7 @@ const denyAllNavigationRbac: AppNavigationRbac = {
  * Material-only draft can be replaced by `DashboardLayout` later without
  * changing route ownership.
  */
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The navigation tree is kept together so its role gates remain visible.
 export const buildAppNavigationItems = (
   rbac: AppNavigationRbac,
   momentsAvailable = false,
@@ -111,10 +115,27 @@ export const buildAppNavigationItems = (
                     : []),
                 ],
               },
-              { icon: <TableRowsIcon />, path: "/security/journal", title: "Journal" },
+              {
+                icon: <TableRowsIcon />,
+                path: "/security/logs",
+                title: "Logs",
+                children: [
+                  { icon: <TableRowsIcon />, path: "/security/logs/journal", title: "Journal" },
+                  {
+                    icon: <FactCheckIcon />,
+                    path: "/security/logs/automated-audit",
+                    title: "Automated Audit",
+                  },
+                ],
+              },
               { icon: <UsbIcon />, path: "/security/usb-devices", title: "USBDevices" },
               { icon: <SecurityIcon />, path: "/security/integrity", title: "Integrity" },
-              { icon: <SecurityIcon />, path: "/security/antivirus", title: "Antivirus" },
+              { icon: <CoronavirusIcon />, path: "/security/antivirus", title: "Antivirus" },
+              {
+                icon: <PrecisionManufacturingIcon />,
+                path: "/security/automation",
+                title: "Automation",
+              },
             ],
             icon: <SecurityIcon />,
             path: "/security",

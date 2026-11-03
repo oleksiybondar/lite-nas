@@ -133,19 +133,22 @@ type instanceSpec struct {
 
 // ruleSpec selects observations for one initialized plugin instance.
 type ruleSpec struct {
-	ID              string   `json:"id"`
-	Enabled         bool     `json:"enabled"`
-	Source          string   `json:"source"`
-	Category        string   `json:"category"`
-	Pattern         string   `json:"pattern"`
-	AccountPattern  string   `json:"account_pattern,omitempty"`
-	SuccessPattern  string   `json:"success_pattern,omitempty"`
-	Require         []string `json:"require,omitempty"`
-	Exclude         []string `json:"exclude,omitempty"`
-	Instance        string   `json:"instance"`
-	Severity        string   `json:"severity"`
-	EmailOnCritical bool     `json:"email_on_critical"`
-	Lockdown        bool     `json:"lockdown"`
+	ID                string   `json:"id"`
+	Name              string   `json:"name"`
+	Explanation       string   `json:"explanation"`
+	PossibleReactions []string `json:"possible_reactions"`
+	Enabled           bool     `json:"enabled"`
+	Source            string   `json:"source"`
+	Category          string   `json:"category"`
+	Pattern           string   `json:"pattern"`
+	AccountPattern    string   `json:"account_pattern,omitempty"`
+	SuccessPattern    string   `json:"success_pattern,omitempty"`
+	Require           []string `json:"require,omitempty"`
+	Exclude           []string `json:"exclude,omitempty"`
+	Instance          string   `json:"instance"`
+	Severity          string   `json:"severity"`
+	EmailOnCritical   bool     `json:"email_on_critical"`
+	Lockdown          bool     `json:"lockdown"`
 }
 
 // rulesFile is the complete startup construction plan. Nothing in this file
@@ -225,6 +228,15 @@ func loadRulesFile(path string) (rulesFile, error) {
 			return rulesFile{}, fmt.Errorf("invalid rule %q", rule.ID)
 		}
 		rules[rule.ID] = true
+		legacyMetadata := rule.Name == "" && rule.Explanation == "" && len(rule.PossibleReactions) == 0
+		if !legacyMetadata && (!validRuleText(rule.Name, 100) || !validRuleText(rule.Explanation, 500) || len(rule.PossibleReactions) == 0 || len(rule.PossibleReactions) > 8) {
+			return rulesFile{}, fmt.Errorf("rule %s has invalid operator metadata", rule.ID)
+		}
+		for _, reaction := range rule.PossibleReactions {
+			if !validRuleText(reaction, 200) {
+				return rulesFile{}, fmt.Errorf("rule %s has invalid possible reaction", rule.ID)
+			}
+		}
 		if !rule.Enabled {
 			continue
 		}
@@ -245,6 +257,19 @@ func loadRulesFile(path string) (rulesFile, error) {
 		}
 	}
 	return spec, nil
+}
+
+// validRuleText bounds visible rule metadata and excludes control characters.
+func validRuleText(value string, limit int) bool {
+	if value == "" || len(value) > limit || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, char := range value {
+		if char < 32 || char == 127 {
+			return false
+		}
+	}
+	return true
 }
 
 func validAnalysisID(value string) bool {

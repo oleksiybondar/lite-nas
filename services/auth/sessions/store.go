@@ -162,6 +162,24 @@ func (s *Store) RevokeSession(sessionID string) bool {
 	return found
 }
 
+// RevokeMatchedBrowserSessions atomically revokes active Admin Panel sessions
+// whose recorded login and client address both match verified evidence.
+func (s *Store) RevokeMatchedBrowserSessions(login, clientIP string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids := make(map[string]struct{})
+	for hash, record := range s.records {
+		if record.Source == "admin-panel" && record.Login == login && record.ClientIP == clientIP && s.now().UTC().Before(record.ExpiresAt) {
+			delete(s.records, hash)
+			ids[record.SessionID] = struct{}{}
+		}
+	}
+	for id := range ids {
+		s.revokeLocked(id)
+	}
+	return len(ids)
+}
+
 // IsRevoked reports whether an access token's session remains in the deny list.
 func (s *Store) IsRevoked(sessionID string) bool {
 	s.mu.Lock()

@@ -13,6 +13,7 @@ import (
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	networksecuritycontract "lite-nas/shared/contracts/networksecurity"
+	"lite-nas/shared/fileio"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 )
@@ -73,7 +74,7 @@ func TestReportAlertsAccountsForFailedShutdownDelivery(t *testing.T) {
 	effects := make(chan alertIntent, 1)
 	effects <- alertIntent{ID: "secnet_12345678", Detection: scanDetection{At: time.Now()}}
 	close(effects)
-	reportAlerts(ctx, effects, client, sharedlogger.NewNop())
+	reportAlerts(ctx, effects, client, securityConfig{}, sharedlogger.NewNop())
 	if client.calls != 1 {
 		t.Fatalf("publication attempts = %d", client.calls)
 	}
@@ -195,7 +196,7 @@ func TestPublishAlertUsesSecurityManagerContract(t *testing.T) {
 	effect := alertIntent{ID: "secnet_12345678", Detection: scanDetection{
 		SourceIP: "192.0.2.4", DestinationIP: "192.0.2.10", PortCount: 12, At: time.Now(),
 	}, Window: 2 * time.Minute}
-	if err := publishAlert(context.Background(), client, effect); err != nil {
+	if err := publishAlert(context.Background(), client, effect, securityConfig{}); err != nil {
 		t.Fatalf("publish alert: %v", err)
 	}
 	if client.subject != "security-alert" || client.payload.Category != "port_scan" || !strings.Contains(client.payload.Message, "12 distinct ports") {
@@ -213,11 +214,42 @@ func TestAdditionalAlertsUseTheirCategories(t *testing.T) {
 				Kind: kind, SourceIP: "192.0.2.4", DestinationIP: "192.0.2.10",
 				DestinationPort: 80, PortCount: 12, At: time.Now(),
 			}, Window: 2 * time.Minute}
-			if err := publishAlert(context.Background(), client, effect); err != nil {
+			if err := publishAlert(context.Background(), client, effect, securityConfig{}); err != nil {
 				t.Fatalf("publish alert: %v", err)
 			}
 			if client.payload.Category != kind {
 				t.Fatalf("alert category = %q", client.payload.Category)
+			}
+		})
+	}
+}
+
+// TestNetworkAlertsPublishConfiguredMitigation verifies each detector uses its own operator guidance.
+func TestNetworkAlertsPublishConfiguredMitigation(t *testing.T) {
+	reader, err := fileio.NewFileReader("../../configs/etc/lite-nas/network-security.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadSecurityConfig(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		kind string
+		want string
+	}{
+		{kind: "port_scan", want: cfg.Mitigate},
+		{kind: "horizontal_scan", want: cfg.Horizontal.Mitigate},
+		{kind: "repeated_attempts", want: cfg.Repeated.Mitigate},
+	} {
+		t.Run(test.kind, func(t *testing.T) {
+			client := &alertRecordingClient{}
+			effect := alertIntent{ID: "secnet_12345678", Detection: scanDetection{Kind: test.kind, At: time.Now()}}
+			if err := publishAlert(context.Background(), client, effect, cfg); err != nil {
+				t.Fatal(err)
+			}
+			if client.payload.Mitigate != test.want {
+				t.Fatalf("mitigation = %q, want %q", client.payload.Mitigate, test.want)
 			}
 		})
 	}
@@ -297,7 +329,7 @@ func TestReportAlertsPublishesQueuedEffect(t *testing.T) {
 		PortCount: 12, At: time.Now(),
 	}, Window: time.Minute}
 	close(effects)
-	reportAlerts(context.Background(), effects, client, sharedlogger.NewNop())
+	reportAlerts(context.Background(), effects, client, securityConfig{}, sharedlogger.NewNop())
 	if client.payload.EventID != "secnet_12345678" {
 		t.Fatalf("reported event = %q", client.payload.EventID)
 	}

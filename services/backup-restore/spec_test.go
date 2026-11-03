@@ -25,6 +25,26 @@ func TestPackagedBeforeStartupSpecSelectsHostScript(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-002, security-automation/BR-001.
+func TestPackagedSecurityAutomationCLISpecIncludesTransportTrust(t *testing.T) {
+	path := "../../configs/etc/lite-nas/backup.d/security-automation-cli.conf"
+	got, err := LoadSpec(path, "security-automation-cli")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Spec{
+		Application: "security-automation-cli", SourcePath: path, Plugin: "file",
+		Selections: []Selection{
+			{Path: "/etc/lite-nas/security-automation-cli.conf"},
+			{Path: "/etc/lite-nas/certificates/transport/root-ca.crt"},
+			{Path: "/etc/lite-nas/certificates/transport/lite-nas-security-automation-cli", Directory: true},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("security automation CLI spec = %#v, want %#v", got, want)
+	}
+}
+
 // Requirements: backup-restore/FR-002, journal-manager/BR-001.
 func TestPackagedJournalManagerSpecSelectsConfigurationAndRestart(t *testing.T) {
 	path := "../../configs/etc/lite-nas/backup.d/journal-manager.conf"

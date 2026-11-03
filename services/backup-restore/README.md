@@ -136,10 +136,16 @@ backup-restore-cli versions lite-nas
 backup-restore-cli diff lite-nas VERSION
 backup-restore-cli restore lite-nas VERSION replace
 backup-restore-cli restore lite-nas VERSION merge
+backup-restore-cli restore-by-name lite-nas "release name" replace
+backup-restore-cli restore-by-name all "release name" merge
 backup-restore-cli merge lite-nas VERSION
 backup-restore-cli merge resume SESSION_ID
 backup-restore-cli merge discard SESSION_ID
 ```
+
+`restore-by-name` uses an exact name match and selects the newest matching
+version for each application. The `all` form skips configured applications
+without a match and reports each completed, skipped, or failed restore.
 
 `diff` reports changed paths without their contents. `replace` removes live
 entries absent from selected directory snapshots; individual file selections

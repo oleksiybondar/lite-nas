@@ -44,6 +44,8 @@ func NewRouter(
 	mountUSBManagerRouter(api, controllerModule, authentication)
 	mountBackupRestoreRouter(api, controllerModule, authentication)
 	mountSecurityTasksRouter(api, controllerModule, authentication)
+	mountSecurityAutomationRouter(api, controllerModule, authentication)
+	mountLogAuditRouter(api, controllerModule, authentication)
 	mountMetricsRouters(api, controllerModule, authentication)
 	root.Mount("/api", apiRouter)
 	mountIndexRouter(root, controllerModule)

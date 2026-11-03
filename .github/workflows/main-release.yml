@@ -13,6 +13,46 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  security-automation-test:
+    name: Security automation tests and build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/security-automation/go.mod
+          cache-dependency-path: services/security-automation/go.sum
+      - name: Test security automation module
+        run: scripts/test-security-automation.sh --with-coverage --minimum-coverage=75
+      - name: Test security automation CLI
+        run: scripts/ci/go-test-module.sh ./apps/security-automation-cli --with-coverage --minimum-coverage=75
+      - name: Build security automation daemon
+        run: scripts/build-security-automation-binary.sh --output=.build/security-automation/linux-${{ matrix.arch }}/security-automation
+      - name: Build security automation CLI
+        run: scripts/build-security-automation-cli-binary.sh --output=.build/security-automation-cli/linux-${{ matrix.arch }}/security-automation-cli
+      - name: Upload security automation daemon
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-automation-linux-${{ matrix.arch }}
+          path: .build/security-automation/linux-${{ matrix.arch }}/security-automation
+          if-no-files-found: error
+      - name: Upload security automation CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-automation-cli-linux-${{ matrix.arch }}
+          path: .build/security-automation-cli/linux-${{ matrix.arch }}/security-automation-cli
+          if-no-files-found: error
+
   shared-go-build:
     name: Shared Go build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
@@ -739,6 +779,7 @@ jobs:
     name: LiteNAS package build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     needs:
+      - security-automation-test
       - service-build
       - app-build
       - js-ts-build
@@ -972,6 +1013,18 @@ jobs:
           name: network-security-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/network-security
 
+      - name: Download Security Automation build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-automation-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-automation
+
+      - name: Download Security Automation CLI build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: security-automation-cli-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/security-automation-cli
+
       - name: Download Backup restore CLI build artifact
         uses: actions/download-artifact@v4
         with:
@@ -1141,8 +1194,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

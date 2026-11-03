@@ -12,7 +12,9 @@ import (
 
 // StartAntivirusInput selects a folder for a configured eligible mount scan.
 type StartAntivirusInput struct {
-	Folder string `query:"folder" required:"true" minLength:"1" maxLength:"4096" doc:"Absolute folder path to scan."`
+	Body struct {
+		Folder string `json:"folder" required:"true" minLength:"1" maxLength:"4096" doc:"Absolute folder path to scan."`
+	}
 }
 
 // EmptyInput represents a bodyless task-start request.

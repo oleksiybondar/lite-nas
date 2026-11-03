@@ -26,12 +26,14 @@ system_logging_manager_cli_certificate_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_C
 system_logging_manager_cli_access_group="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-operator}"
 security_logging_manager_cli_certificate_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sec-log-mgr-cli}"
 security_logging_manager_cli_access_group="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-security}"
+security_automation_cli_certificate_user="${LITE_NAS_SECURITY_AUTOMATION_CLI_CERT_USER:-lite-nas-security-automation-cli}"
+security_automation_cli_access_group="${LITE_NAS_SECURITY_AUTOMATION_CLI_ACCESS_GROUP:-lite-nas-security}"
 certificate_days="${LITE_NAS_CERTIFICATE_DAYS:-825}"
 root_ca_days="${LITE_NAS_ROOT_CA_DAYS:-3650}"
 server_common_name="${LITE_NAS_NATS_SERVER_COMMON_NAME:-lite-nas-nats-server}"
 server_alt_names="${LITE_NAS_NATS_SERVER_ALT_NAMES:-DNS:localhost,DNS:lite-nas,DNS:lite-nas.local,IP:127.0.0.1}"
 
-read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-backup-restore lite-nas-backup-restore-cli lite-nas-system-metrics lite-nas-network-metrics lite-nas-process-metrics lite-nas-disk-metrics lite-nas-service-metrics lite-nas-zfs-metrics lite-nas-zfs-metrics-cli lite-nas-system-metrics-cli lite-nas-network-metrics-cli lite-nas-sys-log-mgr lite-nas-sec-log-mgr lite-nas-sys-log-mgr-cli lite-nas-sec-log-mgr-cli lite-nas-sys-email-notifier lite-nas-sec-email-notifier lite-nas-web-gateway lite-nas-moments lite-nas-auth-service lite-nas-resources-monitor lite-nas-integrity lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis lite-nas-network-security lite-nas-rbac-service lite-nas-file-service lite-nas-stream-service lite-nas-journal-manager}"
+read -r -a certificate_users <<<"${LITE_NAS_NATS_CERT_USERS:-lite-nas-backup-restore lite-nas-backup-restore-cli lite-nas-system-metrics lite-nas-network-metrics lite-nas-process-metrics lite-nas-disk-metrics lite-nas-service-metrics lite-nas-zfs-metrics lite-nas-zfs-metrics-cli lite-nas-system-metrics-cli lite-nas-network-metrics-cli lite-nas-sys-log-mgr lite-nas-sec-log-mgr lite-nas-sys-log-mgr-cli lite-nas-sec-log-mgr-cli lite-nas-sys-email-notifier lite-nas-sec-email-notifier lite-nas-web-gateway lite-nas-moments lite-nas-auth-service lite-nas-resources-monitor lite-nas-integrity lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-log-analysis lite-nas-network-security lite-nas-security-automation lite-nas-security-automation-cli lite-nas-rbac-service lite-nas-file-service lite-nas-stream-service lite-nas-journal-manager}"
 rotate_only_if_missing=0
 
 usage() {
@@ -107,6 +109,7 @@ ensure_litenas_groups() {
 	deploy.ensureSystemGroup "$zfs_cli_access_group" "CLI access group"
 	deploy.ensureSystemGroup "$system_logging_manager_cli_access_group" "CLI access group"
 	deploy.ensureSystemGroup "$security_logging_manager_cli_access_group" "CLI access group"
+	deploy.ensureSystemGroup "$security_automation_cli_access_group" "CLI access group"
 
 	for certificate_user in "${certificate_users[@]}"; do
 		deploy.ensureSystemGroup "$certificate_user" "service group"
@@ -334,6 +337,12 @@ normalize_certificate_permissions() {
 		chmod 0750 "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user"
 		find "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
 		find "$litenas_transport_certificates_dir/$security_logging_manager_cli_certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
+	fi
+	if [ -d "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user" ]; then
+		chown -R "root:$security_automation_cli_access_group" "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user"
+		chmod 0750 "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user"
+		find "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user" -type f -name '*.crt' -exec chmod 0640 {} +
+		find "$litenas_transport_certificates_dir/$security_automation_cli_certificate_user" -type f -name '*.key' -exec chmod 0640 {} +
 	fi
 }
 

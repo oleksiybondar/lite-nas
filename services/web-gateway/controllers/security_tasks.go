@@ -25,7 +25,7 @@ func (controller SecurityTasksController) StartAntivirusScan(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	result, err := controller.service.StartAntivirusScan(ctx, token, input.Folder)
+	result, err := controller.service.StartAntivirusScan(ctx, token, input.Body.Folder)
 	if err != nil {
 		slog.Error("antivirus scan start RPC failed", "error", err)
 		return nil, huma.Error502BadGateway("failed to start antivirus scan: " + err.Error())

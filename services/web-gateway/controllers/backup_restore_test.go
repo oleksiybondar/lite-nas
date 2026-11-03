@@ -49,6 +49,16 @@ func (s backupRestoreStub) Restore(context.Context, string, string, string, stri
 	return contract.RestoreResponse{Restored: true}, s.err
 }
 
+// RestoreByName supplies one selected named version to controller tests.
+func (s backupRestoreStub) RestoreByName(context.Context, string, string, string, string) (contract.RestoreByNameResponse, error) {
+	return contract.RestoreByNameResponse{Version: "v1", Restored: true}, s.err
+}
+
+// RestoreAllByName supplies per-application outcomes to controller tests.
+func (s backupRestoreStub) RestoreAllByName(context.Context, string, string, string) (contract.RestoreAllByNameResponse, error) {
+	return contract.RestoreAllByNameResponse{Results: []contract.RestoreAllByNameResult{{Application: "app", Status: "completed", Version: "v1"}}}, s.err
+}
+
 func (s backupRestoreStub) MergeStart(context.Context, string, string, string) (contract.MergeStartResponse, error) {
 	return contract.MergeStartResponse{SessionID: "0123456789abcdef0123456789abcdef"}, s.err
 }
@@ -111,6 +121,20 @@ func TestBackupRestoreControllerMapsSuccessfulRPCResults(t *testing.T) {
 			}
 			return e
 		}},
+		{"metadata", func() error {
+			o, e := c.Metadata(ctx, &brdto.VersionInput{Application: "app", Version: "v1"})
+			if e == nil && o.Body.Data.Version != "v1" {
+				t.Fatal("archive metadata missing")
+			}
+			return e
+		}},
+		{"delete", func() error {
+			o, e := c.Delete(ctx, &brdto.VersionInput{Application: "app", Version: "v1"})
+			if e == nil && !o.Body.Data.Deleted {
+				t.Fatal("archive deletion not confirmed")
+			}
+			return e
+		}},
 		{"backup", func() error {
 			o, e := c.Backup(ctx, &brdto.BackupInput{Application: "app"})
 			if e == nil && o.Body.Data["version"] != "v2" {
@@ -121,7 +145,9 @@ func TestBackupRestoreControllerMapsSuccessfulRPCResults(t *testing.T) {
 		{"backup-all", func() error { _, e := c.BackupAll(ctx, &brdto.BackupAllInput{}); return e }},
 		{"diff", func() error { _, e := c.Diff(ctx, &brdto.VersionInput{Application: "app", Version: "v1"}); return e }},
 		{"restore", func() error {
-			_, e := c.Restore(ctx, &brdto.RestoreInput{Application: "app", Version: "v1", Mode: "merge"})
+			input := &brdto.RestoreInput{Application: "app", Version: "v1"}
+			input.Body.Mode = "merge"
+			_, e := c.Restore(ctx, input)
 			return e
 		}},
 		{"merge-start", func() error {

@@ -99,6 +99,28 @@ func (s *MemoryStore[S, I, D, E]) ApplyWith(ctx context.Context, key string, inp
 	return result, nil
 }
 
+// ResetKey clears one existing volatile instance without creating a new one.
+// It serializes with ApplyWith for the same key and never emits effects.
+func (s *MemoryStore[S, I, D, E]) ResetKey(ctx context.Context, key string) (bool, error) {
+	if key == "" {
+		return false, errors.New("fsm instance key is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	entry := s.entries[key]
+	if entry == nil {
+		return false, nil
+	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	entry.instance = s.machine.Initial(s.newData(key))
+	entry.lastUsed = s.clock()
+	return true, nil
+}
+
 // Due enumerates timeout inputs for instances whose deadlines are at or
 // before the injected clock. It does not alter state: callers pass each item
 // to Apply, which re-evaluates the transition under that key's lock.

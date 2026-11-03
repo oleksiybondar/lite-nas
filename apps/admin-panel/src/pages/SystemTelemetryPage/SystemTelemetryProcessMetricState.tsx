@@ -20,8 +20,12 @@ import type { ReactElement } from "react";
 import { SystemTelemetrySnapshotScaffold } from "./SystemTelemetrySnapshotScaffold";
 
 const processTableScrollableSx = createMonitoringScrollableTableSx(720);
-const processCompactColumnSx = { whiteSpace: "nowrap", width: 1 } as const;
-const processNameColumnSx = { minWidth: 360 } as const;
+const processCompactColumnSx = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+} as const;
+const processNameColumnSx = { width: 320, maxWidth: 320 } as const;
 const processStartedColumnSx = { minWidth: 180, whiteSpace: "nowrap" } as const;
 
 type SortableHeaderCellOptions = {
@@ -101,8 +105,11 @@ const renderProcessMetricTable = (
   getLabel: (key: string) => string,
 ): ReactElement => {
   return (
-    <TableContainer data-testid="process-metric-table" sx={processTableScrollableSx}>
-      <Table size="small" stickyHeader sx={{ minWidth: 1200 }}>
+    <TableContainer
+      data-testid="process-metric-table"
+      sx={{ ...processTableScrollableSx, maxWidth: "100%", overflowX: "auto" }}
+    >
+      <Table size="small" stickyHeader sx={{ minWidth: 1260, tableLayout: "fixed" }}>
         <TableHead>
           <TableRow>
             {renderSortableProcessHeaderCell(state, {
@@ -220,17 +227,17 @@ const renderProcessMetricRows = (
           {process.pid}
         </TableCell>
         <TableCell sx={processNameColumnSx}>
-          <Stack spacing={0.25}>
-            <Typography
-              data-testid={`process-metric-name-${process.pid}`}
-              variant="body2"
-              sx={{
-                fontWeight: 600,
-                overflowWrap: "anywhere",
-              }}
-            >
-              {process.name}
-            </Typography>
+          <Stack minWidth={0} spacing={0.25}>
+            <Tooltip arrow placement="top-start" title={process.name}>
+              <Typography
+                data-testid={`process-metric-name-${process.pid}`}
+                noWrap
+                sx={{ display: "block", fontWeight: 600, maxWidth: "100%" }}
+                variant="body2"
+              >
+                {process.name}
+              </Typography>
+            </Tooltip>
             {renderProcessCommandLine(process)}
           </Stack>
         </TableCell>
@@ -294,6 +301,7 @@ const renderProcessCommandLine = (process: ProcessMetricProcessDTO): ReactElemen
         color="text.secondary"
         data-testid={`process-metric-cmdline-${process.pid}`}
         noWrap
+        sx={{ display: "block", maxWidth: "100%" }}
         variant="caption"
       >
         {process.cmdline}

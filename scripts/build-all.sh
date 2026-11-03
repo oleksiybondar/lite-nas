@@ -81,6 +81,8 @@ log.pushTask "Building deployable binaries for linux/${target_arch}"
 "$SCRIPT_DIR/build-usb-manager-binary.sh" --output="$output_dir/usb-manager"
 "$SCRIPT_DIR/build-log-analysis-binary.sh" --output="$output_dir/log-analysis"
 "$SCRIPT_DIR/build-network-security-binary.sh" --output="$output_dir/network-security"
+"$SCRIPT_DIR/build-security-automation-binary.sh" --output="$output_dir/security-automation"
+"$SCRIPT_DIR/build-security-automation-cli-binary.sh" --output="$output_dir/security-automation-cli"
 "$SCRIPT_DIR/build-web-gateway-binary.sh" --output="$output_dir/web-gateway"
 "$SCRIPT_DIR/build-moments-binary.sh" --output="$output_dir/moments"
 log.popTask

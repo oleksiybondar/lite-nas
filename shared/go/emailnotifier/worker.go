@@ -75,6 +75,7 @@ type alertTemplateAlert struct {
 	CreatedAt     string
 	Source        string
 	Message       string
+	Mitigate      string
 	TriggerValue  string
 }
 
@@ -242,6 +243,7 @@ func buildAlertTemplateData(
 			CreatedAt:     createdAt,
 			Source:        strings.TrimSpace(alert.Source),
 			Message:       strings.TrimSpace(alert.Message),
+			Mitigate:      strings.TrimSpace(alert.Mitigate),
 			TriggerValue:  strings.TrimSpace(alert.TriggerValue),
 		},
 	}

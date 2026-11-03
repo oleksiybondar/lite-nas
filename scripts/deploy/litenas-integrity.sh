@@ -139,6 +139,26 @@ deploy.liteNASIntegrity.ensureAideMetadataAccess() {
 	install -d -m 0710 -o root -g "$LITE_NAS_INTEGRITY_RUNTIME_GROUP" /var/lib/aide
 }
 
+# AIDE is the integrity engine used by LiteNAS. Disable the Debian package's
+# independent scheduled check so only lite-nas-integrity runs AIDE checks.
+deploy.liteNASIntegrity.disableStandaloneAideChecks() {
+	local unit
+	local units=(dailyaidecheck.timer dailyaidecheck.service aidecheck.timer aidecheck.service)
+	local present_units=()
+
+	for unit in "${units[@]}"; do
+		if systemctl cat "$unit" >/dev/null 2>&1; then
+			present_units+=("$unit")
+		fi
+	done
+
+	if [ "${#present_units[@]}" -eq 0 ]; then
+		return 0
+	fi
+
+	systemctl disable --now "${present_units[@]}"
+}
+
 deploy.liteNASIntegrity.installUnitFile() {
 	if [ ! -f "$LITE_NAS_INTEGRITY_UNIT_TEMPLATE" ]; then
 		log.error "Missing litenas-integrity systemd unit template: $LITE_NAS_INTEGRITY_UNIT_TEMPLATE"
@@ -170,6 +190,7 @@ deploy.liteNASIntegrity.deploy() {
 	deploy.liteNASIntegrity.installLogTarget
 	deploy.liteNASIntegrity.ensureAideMetadataAccess
 	deploy.liteNASIntegrity.installUnitFile
+	deploy.liteNASIntegrity.disableStandaloneAideChecks
 
 	if [ "$should_start" = "1" ]; then
 		deploy.liteNASIntegrity.enableAndStart

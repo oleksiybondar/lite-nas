@@ -129,6 +129,24 @@ func (store Store) Versions(application string) ([]string, error) {
 	return versions, nil
 }
 
+// VersionByName finds the newest stored version whose metadata name matches exactly.
+func (store Store) VersionByName(application, name string) (string, error) {
+	versions, err := store.Versions(application)
+	if err != nil {
+		return "", err
+	}
+	for _, version := range versions {
+		metadata, err := store.Metadata(application, version)
+		if err != nil {
+			return "", err
+		}
+		if metadata.Name == name {
+			return version, nil
+		}
+	}
+	return "", nil
+}
+
 // Metadata reads the validated metadata header embedded in a completed archive.
 func (store Store) Metadata(application, version string) (Metadata, error) {
 	archive, err := store.OpenVersion(application, version)

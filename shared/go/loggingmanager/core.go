@@ -209,6 +209,11 @@ func (core *Core) CreateEvent(input dto.CreateEventInput) (string, error) {
 	})
 
 	core.enqueueCreateEventWrites(recID, seq, eventID, createdAt, input.Message, eventQuery)
+	if input.Mitigate != "" {
+		core.writerInputCh <- WriteRequest{Query: query.UpsertEventMeta(dto.EventMetaRow{
+			EventID: eventID, MetaKey: "mitigate", MetaValue: input.Mitigate,
+		})}
+	}
 
 	return eventID, nil
 }

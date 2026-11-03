@@ -133,6 +133,34 @@ func TestKeyedPluginKeepsAccountsIndependent(t *testing.T) {
 	}
 }
 
+// Requirements: security-automation/IR-004.
+// TestAccountSourceKeyKeepsClientIPsIndependent checks one account's sources cannot share a threshold.
+func TestAccountSourceKeyKeepsClientIPsIndependent(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 3, "account_source")
+	first := authObservation("alice")
+	first.SourceAddress = "192.0.2.4"
+	second := first
+	second.SourceAddress = "192.0.2.5"
+	plugin.process(context.Background(), first)
+	plugin.process(context.Background(), first)
+	plugin.process(context.Background(), second)
+	if len(output) != 0 {
+		t.Fatalf("cross-source detections = %d", len(output))
+	}
+}
+
+// Requirements: security-automation/IR-004.
+// TestAccountSourceKeyRejectsMissingAddress checks unproven sources cannot form a keyed incident.
+func TestAccountSourceKeyRejectsMissingAddress(t *testing.T) {
+	t.Parallel()
+	plugin, output := pluginFixture(t, "keyed_threshold", 1, "account_source")
+	plugin.process(context.Background(), authObservation("alice"))
+	if len(output) != 0 {
+		t.Fatalf("detections without source = %d", len(output))
+	}
+}
+
 // Requirements: security-monitoring/IR-004.
 func TestSharedInstanceKeepsRulesIndependent(t *testing.T) {
 	t.Parallel()

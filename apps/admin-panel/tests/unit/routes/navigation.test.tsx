@@ -109,6 +109,15 @@ describe("buildAppNavigationItems", () => {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Each case checks one role-specific navigation rule.
 describe("sessions navigation", () => {
+  test("places automated audit under Security and Logs for security officers", () => {
+    const security = buildAppNavigationItems({
+      requireOperator: () => false,
+      requireSecurity: () => true,
+    }).find((item) => item.path === "/security");
+    const logs = security?.children?.find((item) => item.path === "/security/logs");
+    expect(logs?.children?.map((item) => item.path)).toContain("/security/logs/automated-audit");
+  });
+
   test("shows sessions to security officers", () => {
     const paths = JSON.stringify(
       buildAppNavigationItems({ requireOperator: () => false, requireSecurity: () => true }, false),

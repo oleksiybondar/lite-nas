@@ -37,6 +37,7 @@ type Message struct {
 type AuthenticateRequest struct {
 	Username string
 	Password string
+	ClientIP string
 }
 
 // Result captures the normalized auth outcome returned by the PAM adapter.

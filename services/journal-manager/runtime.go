@@ -262,7 +262,7 @@ func (m *manager) vacuum(ctx context.Context, envelope messaging.Envelope) (any,
 	if _, err := m.submit(ctx, nil, request.Days); err != nil {
 		return nil, err
 	}
-	payload := loggingcontract.AlertPayload{AccessToken: request.AccessToken, EventID: alertIDs.NextEventID("secjrn"), Category: "journal_vacuum", Severity: enum.SeverityWarning, Source: sharedcontracts.ServiceJournalManager, Message: fmt.Sprintf("Journal vacuum retained %d days, requested by %s", request.Days, actor), TriggerValue: fmt.Sprintf("days=%d actor=%s", request.Days, actor)}
+	payload := loggingcontract.AlertPayload{AccessToken: request.AccessToken, EventID: alertIDs.NextEventID("secjrn"), Category: "journal_vacuum", Severity: enum.SeverityWarning, Source: sharedcontracts.ServiceJournalManager, Message: fmt.Sprintf("Journal vacuum retained %d days, requested by %s", request.Days, actor), TriggerValue: fmt.Sprintf("days=%d actor=%s", request.Days, actor), Mitigate: "Confirm the journal vacuum was authorized. Review logging policy and available backups if it was unexpected."}
 	if err := m.client.Publish(ctx, securitycontract.AlertSubject, payload); err != nil {
 		return nil, fmt.Errorf("journal vacuum completed but security alert publication failed: %w", err)
 	}

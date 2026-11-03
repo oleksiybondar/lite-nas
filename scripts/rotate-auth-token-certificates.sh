@@ -25,10 +25,11 @@ system_service_monitor_identity_user="${LITE_NAS_SYSTEM_SERVICE_MONITOR_IDENTITY
 service_watchdog_identity_user="${LITE_NAS_SERVICE_WATCHDOG_IDENTITY_USER:-lite-nas-service-watchdog}"
 log_analysis_identity_user="${LITE_NAS_LOG_ANALYSIS_IDENTITY_USER:-lite-nas-log-analysis}"
 network_security_identity_user="${LITE_NAS_NETWORK_SECURITY_IDENTITY_USER:-lite-nas-network-security}"
+security_automation_identity_user="${LITE_NAS_SECURITY_AUTOMATION_IDENTITY_USER:-lite-nas-security-automation}"
 system_logging_manager_cli_identity_user="${LITE_NAS_SYSTEM_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sys-log-mgr-cli}"
 security_logging_manager_cli_identity_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sec-log-mgr-cli}"
 rotate_only_if_missing=0
-identity_users=("$auth_identity_owner_user" "$resources_monitor_identity_user" "$integrity_identity_user" "$mount_monitor_identity_user" "$antivirus_identity_user" "$system_service_monitor_identity_user" "$service_watchdog_identity_user" "$log_analysis_identity_user" "$network_security_identity_user" "$system_logging_manager_cli_identity_user" "$security_logging_manager_cli_identity_user")
+identity_users=("$auth_identity_owner_user" "$resources_monitor_identity_user" "$integrity_identity_user" "$mount_monitor_identity_user" "$antivirus_identity_user" "$system_service_monitor_identity_user" "$service_watchdog_identity_user" "$log_analysis_identity_user" "$network_security_identity_user" "$security_automation_identity_user" "$system_logging_manager_cli_identity_user" "$security_logging_manager_cli_identity_user")
 
 usage() {
 	cat <<'MSG'

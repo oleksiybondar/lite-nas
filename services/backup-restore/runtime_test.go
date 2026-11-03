@@ -86,6 +86,94 @@ func TestRestoreReportsRestartFailureAsWarning(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-012.
+// TestRestoreByNameSelectsNewestMatchingVersion checks exact names and version order.
+func TestRestoreByNameSelectsNewestMatchingVersion(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(path, []byte("first"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: path}}}
+	store := Store{Root: filepath.Join(root, "backups")}
+	if _, err := store.BackupWithMetadata(spec, "named", "", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("second"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	want, err := store.BackupWithMetadata(spec, "named", "", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("live"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
+	runtime := &Runtime{specs: map[string]Spec{"example": spec}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
+	result, err := runtime.restoreByName(context.Background(), messagingtest.MustEnvelope(t, contract.RestoreByNameRequest{AccessToken: token, Application: "example", Name: "named", Mode: "replace"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(contract.RestoreByNameResponse).Version; got != want {
+		t.Fatalf("restored version = %q, want %q", got, want)
+	}
+}
+
+// Requirements: backup-restore/FR-012.
+// TestRestoreAllByNameSkipsUnmatchedApplications checks all-target outcome reporting.
+func TestRestoreAllByNameSkipsUnmatchedApplications(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(path, []byte("stored"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{Application: "matched", Selections: []Selection{{Path: path}}}
+	store := Store{Root: filepath.Join(root, "backups")}
+	if _, err := store.BackupWithMetadata(spec, "release", "", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
+	runtime := &Runtime{specs: map[string]Spec{"matched": spec, "unmatched": {Application: "unmatched", Selections: []Selection{{Path: path}}}}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
+	result, err := runtime.restoreAllByName(context.Background(), messagingtest.MustEnvelope(t, contract.RestoreAllByNameRequest{AccessToken: token, Name: "release", Mode: "replace"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := result.(contract.RestoreAllByNameResponse).Results
+	if len(results) != 2 || results[0].Application != "matched" || results[0].Status != "completed" || results[1].Application != "unmatched" || results[1].Status != "skipped" {
+		t.Fatalf("restore results = %+v", results)
+	}
+}
+
+// Requirements: backup-restore/FR-012.
+// TestRestoreAllByNameContinuesAfterFailure checks that later targets are still visited.
+func TestRestoreAllByNameContinuesAfterFailure(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(path, []byte("stored"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	bad := Spec{Application: "bad", Selections: []Selection{{Path: path}}}
+	good := Spec{Application: "good", Selections: []Selection{{Path: path}}}
+	for _, spec := range []Spec{bad, good} {
+		if _, err := store.BackupWithMetadata(spec, "release", "", "admin"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bad.Selections[0].Path = filepath.Join(root, "different.conf")
+	verifier, token := authtokentest.MustIssueAccessToken(t, []string{"admin"})
+	runtime := &Runtime{specs: map[string]Spec{"bad": bad, "good": good}, store: store, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: &messagingtest.RecordingClient{AuthUsername: "tester"}}
+	result, err := runtime.restoreAllByName(context.Background(), messagingtest.MustEnvelope(t, contract.RestoreAllByNameRequest{AccessToken: token, Name: "release", Mode: "replace"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := result.(contract.RestoreAllByNameResponse).Results
+	if len(results) != 2 || results[0].Status != "failed" || results[1].Status != "completed" {
+		t.Fatalf("restore results = %+v", results)
+	}
+}
+
 // Requirements: backup-restore/FR-009.
 func TestApplicationsRPCListsConfiguredTarget(t *testing.T) {
 	runtime, token, _, _ := mergeFixture(t)
@@ -262,6 +350,8 @@ func TestRegisterPropagatesRPCRegistrationFailures(t *testing.T) {
 		contract.BackupAllSubject,
 		contract.DiffSubject,
 		contract.RestoreSubject,
+		contract.RestoreByNameSubject,
+		contract.RestoreAllByNameSubject,
 	}
 	for _, subject := range subjects {
 		t.Run(subject, func(t *testing.T) {

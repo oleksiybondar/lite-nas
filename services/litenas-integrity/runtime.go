@@ -326,6 +326,7 @@ func (service *integrityService) handleStartBaselineTask(ctx context.Context, en
 		EventID: service.nextEventID(), Category: eventCategory,
 		Severity: sharedloggingenum.SeverityWarning, Source: serviceName,
 		Message: message, TriggerValue: message, CreatedAt: service.clock().UTC().Format(time.RFC3339),
+		Mitigate: "Confirm this baseline generation was authorized. Review integrity changes before trusting the new baseline.",
 	}
 	if err := service.client.Publish(ctx, securityloggingmanagercontract.AlertSubject, payload); err != nil {
 		service.logger.Error("failed to publish baseline generation warning", "username", username, "task_id", snapshot.ID, "error", err)
@@ -650,6 +651,7 @@ func (service *integrityService) recordIntegrityFailure(ctx context.Context, out
 			Message:      trimText(output, maxAlertMessageLen, aideAlertMessage),
 			TriggerValue: trimText(output, maxTriggerValueLen, output),
 			CreatedAt:    service.clock().UTC().Format(time.RFC3339),
+			Mitigate:     "Review the AIDE report and verify each changed file against an approved change. Investigate unexpected changes before updating the baseline.",
 		}
 		if err := service.client.Publish(ctx, securityloggingmanagercontract.AlertSubject, payload); err != nil {
 			return err

@@ -3,6 +3,7 @@ module lite-nas/apps/backup-restore-cli
 go 1.25.0
 
 require (
+	github.com/go-playground/validator/v10 v10.30.2
 	golang.org/x/term v0.41.0
 	lite-nas/shared v0.4.1
 )
@@ -12,7 +13,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.30.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect

@@ -188,6 +188,8 @@ journal_manager_binary_path="$(resolve_binary_path journal-manager journal-manag
 usb_manager_binary_path="$(resolve_binary_path usb-manager usb-manager)"
 log_analysis_binary_path="$(resolve_binary_path log-analysis log-analysis)"
 network_security_binary_path="$(resolve_binary_path network-security network-security)"
+security_automation_binary_path="$(resolve_binary_path security-automation security-automation)"
+security_automation_cli_binary_path="$(resolve_binary_path security-automation-cli security-automation-cli)"
 admin_panel_assets_path="$(resolve_admin_panel_assets_path)"
 file_explorer_assets_path="$(resolve_file_explorer_assets_path)"
 if [ "$source_layout" = "build-all" ]; then
@@ -235,6 +237,8 @@ require_input_path "journal-manager binary" "$journal_manager_binary_path"
 require_input_path "usb-manager binary" "$usb_manager_binary_path"
 require_input_path "log-analysis binary" "$log_analysis_binary_path"
 require_input_path "network-security binary" "$network_security_binary_path"
+require_input_path "security-automation binary" "$security_automation_binary_path"
+require_input_path "security-automation CLI binary" "$security_automation_cli_binary_path"
 require_input_path "admin-panel assets" "$admin_panel_assets_path"
 require_input_path "File Explorer assets" "$file_explorer_assets_path"
 
@@ -276,6 +280,8 @@ package_args=(
 	--usb-manager-binary="$usb_manager_binary_path"
 	--log-analysis-binary="$log_analysis_binary_path"
 	--network-security-binary="$network_security_binary_path"
+	--security-automation-binary="$security_automation_binary_path"
+	--security-automation-cli-binary="$security_automation_cli_binary_path"
 	--admin-panel-assets="$admin_panel_assets_path"
 	--file-explorer-assets="$file_explorer_assets_path"
 )

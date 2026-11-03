@@ -25,8 +25,10 @@ type SessionActionInput struct {
 
 // USBDeviceActionInput identifies a USBGuard device and optional persistent policy change.
 type USBDeviceActionInput struct {
-	DeviceID  string `path:"device_id" minLength:"1" maxLength:"10" pattern:"^[0-9]{1,10}$" doc:"Numeric USBGuard device ID returned by the inventory."`
-	Permanent bool   `json:"permanent,omitempty" doc:"Persist this authorization decision in USBGuard policy."`
+	DeviceID string `path:"device_id" minLength:"1" maxLength:"10" pattern:"^[0-9]{1,10}$" doc:"Numeric USBGuard device ID returned by the inventory."`
+	Body     struct {
+		Permanent bool `json:"permanent,omitempty" doc:"Persist this authorization decision in USBGuard policy."`
+	}
 }
 
 // Service describes one systemd system unit in the browser API.

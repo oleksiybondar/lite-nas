@@ -52,7 +52,7 @@ export const AppSidebarFlyout = ({
       data-testid="app-sidebar-flyout"
       flexShrink={0}
       width={72}
-      sx={{ display }}
+      sx={{ display, height: "100%", minHeight: 0, overflowY: "auto" }}
     >
       <List
         data-testid="app-sidebar-flyout-list"

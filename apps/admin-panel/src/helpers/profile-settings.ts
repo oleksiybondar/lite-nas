@@ -48,7 +48,15 @@ export const loadProfileSettings = async (
   const admin = await readProfileDocument(request, "admin-panel", adminSettingsSchema).catch(
     () => null,
   );
-  if (admin) replicateAdminSettings(admin);
+  if (admin) {
+    replicateAdminSettings(admin);
+    if (admin.dashboard && typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "lite-nas.admin-panel.dashboard",
+        JSON.stringify(admin.dashboard),
+      );
+    }
+  }
   return admin;
 };
 

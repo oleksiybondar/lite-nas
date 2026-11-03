@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"lite-nas/services/log-analysis/plugins"
 	sharedcontracts "lite-nas/shared/contracts"
 	authcontract "lite-nas/shared/contracts/auth"
+	logcontract "lite-nas/shared/contracts/loganalysis"
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	networksecuritycontract "lite-nas/shared/contracts/networksecurity"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"
@@ -56,6 +58,19 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer infra.Close()
+	server, err := messaging.NewServer(cfg.Messaging, infra.Logger, messaging.NewJSONCodec())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = server.Drain()
+		server.Close()
+	}()
+	if err := server.RegisterRPC(logcontract.RulesListSubject, func(requestCtx context.Context, envelope messaging.Envelope) (any, error) {
+		return listRules(requestCtx, envelope, spec, infra.Client)
+	}); err != nil {
+		return err
+	}
 	effects := make(chan plugins.Detection, 64)
 	instances, err := constructInstances(spec.Instances, spec.EventIDPrefix, effects, infra.Logger)
 	if err != nil {
@@ -210,6 +225,7 @@ func deliverDetection(ctx context.Context, effect plugins.Detection, alertSent *
 				EventID: effect.EventID, Category: effect.Category, Severity: enum.Severity(effect.Severity),
 				CreatedAt: effect.At.UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceLogAnalysis,
 				Message: message, Email: &email,
+				Mitigate: strings.Join(effect.PossibleReactions, "\n"),
 			})
 			if err != nil {
 				return err
@@ -267,6 +283,9 @@ func detectionMessage(prefix string, effect plugins.Detection) string {
 	}
 	if effect.Device != "" {
 		message += " device " + effect.Device
+	}
+	if effect.RuleID == "sudo_policy_violation" && effect.TTY != "" {
+		message += " tty " + effect.TTY
 	}
 	if len(message) > 256 {
 		message = message[:256]

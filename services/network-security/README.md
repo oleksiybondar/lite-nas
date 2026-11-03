@@ -9,7 +9,8 @@ publishes a warning security alert; the latest snapshot timestamp is included
 as context when available.
 
 `/etc/lite-nas/network-security.conf` controls each detector's threshold, window,
-cooldown, and maximum tracked keys. Configuration is
+cooldown, maximum tracked keys, and operator guidance (`mitigate`). Each finding
+publishes that guidance in the security alert. Configuration is
 read at startup. The in-memory FSM resets on restart. Network snapshots alone
 cannot identify scans because they do not contain source-to-port attempts.
 

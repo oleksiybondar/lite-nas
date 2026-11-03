@@ -20,6 +20,8 @@ type BackupRestoreService interface {
 	BackupAll(context.Context, string, string, string) ([]contract.BackupAllResult, error)
 	Diff(context.Context, string, string, string) ([]contract.Difference, error)
 	Restore(context.Context, string, string, string, string) (contract.RestoreResponse, error)
+	RestoreByName(context.Context, string, string, string, string) (contract.RestoreByNameResponse, error)
+	RestoreAllByName(context.Context, string, string, string) (contract.RestoreAllByNameResponse, error)
 	MergeStart(context.Context, string, string, string) (contract.MergeStartResponse, error)
 	MergeRead(context.Context, contract.MergeReadRequest) (contract.MergeReadResponse, error)
 	MergeStatus(context.Context, contract.MergeActionRequest) (contract.MergeStartResponse, error)
@@ -33,6 +35,9 @@ type backupRestoreService struct{ client messaging.Client }
 
 // Restore can stage a complete archive and restart its configured services.
 const restoreRPCTimeout = 5 * time.Minute
+
+// An all-application restore can include many sequential archive writes and restarts.
+const restoreAllRPCTimeout = 30 * time.Minute
 
 // NewBackupRestoreService binds backup operations to the shared NATS client.
 func NewBackupRestoreService(client messaging.Client) BackupRestoreService {
@@ -101,6 +106,24 @@ func (s backupRestoreService) Restore(ctx context.Context, token, app, version, 
 	ctx, cancel := context.WithTimeout(ctx, restoreRPCTimeout)
 	defer cancel()
 	err := s.request(ctx, contract.RestoreSubject, contract.RestoreRequest{AccessToken: token, Application: app, Version: version, Mode: mode}, &out)
+	return out, err
+}
+
+// RestoreByName resolves and applies one named backup through the owning service.
+func (s backupRestoreService) RestoreByName(ctx context.Context, token, app, name, mode string) (contract.RestoreByNameResponse, error) {
+	var out contract.RestoreByNameResponse
+	ctx, cancel := context.WithTimeout(ctx, restoreRPCTimeout)
+	defer cancel()
+	err := s.request(ctx, contract.RestoreByNameSubject, contract.RestoreByNameRequest{AccessToken: token, Application: app, Name: name, Mode: mode}, &out)
+	return out, err
+}
+
+// RestoreAllByName resolves and applies matching backups through the owning service.
+func (s backupRestoreService) RestoreAllByName(ctx context.Context, token, name, mode string) (contract.RestoreAllByNameResponse, error) {
+	var out contract.RestoreAllByNameResponse
+	ctx, cancel := context.WithTimeout(ctx, restoreAllRPCTimeout)
+	defer cancel()
+	err := s.request(ctx, contract.RestoreAllByNameSubject, contract.RestoreAllByNameRequest{AccessToken: token, Name: name, Mode: mode}, &out)
 	return out, err
 }
 

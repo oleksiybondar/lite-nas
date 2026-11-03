@@ -129,7 +129,7 @@ func runWorkers(ctx context.Context, cfg securityConfig, server messaging.Server
 		close(coordinatorDone)
 	}).Start(ctx)
 	workers.NewBaseWorker(func(workerCtx context.Context) {
-		reportAlerts(workerCtx, effects, operatorClient, log)
+		reportAlerts(workerCtx, effects, operatorClient, cfg, log)
 		close(reporterDone)
 	}).Start(ctx)
 	timer.Start(ctx)
@@ -255,7 +255,7 @@ func coordinate(ctx context.Context, plugins []*portScanPlugin, attempts <-chan 
 
 // reportAlerts retries each alert with its stable ID. Failed shutdown delivery
 // is logged with the ID so an operator can account for the pending finding.
-func reportAlerts(ctx context.Context, effects <-chan alertIntent, client messaging.Client, log sharedlogger.Logger) {
+func reportAlerts(ctx context.Context, effects <-chan alertIntent, client messaging.Client, cfg securityConfig, log sharedlogger.Logger) {
 	for effect := range effects {
 		for {
 			publishCtx := ctx
@@ -263,7 +263,7 @@ func reportAlerts(ctx context.Context, effects <-chan alertIntent, client messag
 			if ctx.Err() != nil {
 				publishCtx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 			}
-			err := publishAlert(publishCtx, client, effect)
+			err := publishAlert(publishCtx, client, effect, cfg)
 			if cancel != nil {
 				cancel()
 			}
@@ -284,12 +284,15 @@ func reportAlerts(ctx context.Context, effects <-chan alertIntent, client messag
 }
 
 // publishAlert uses the existing Security Logging Manager create contract.
-func publishAlert(ctx context.Context, client messaging.Client, effect alertIntent) error {
+func publishAlert(ctx context.Context, client messaging.Client, effect alertIntent, cfg securityConfig) error {
 	var message string
+	mitigate := cfg.Mitigate
 	switch effect.Detection.Kind {
 	case "horizontal_scan":
+		mitigate = cfg.Horizontal.Mitigate
 		message = fmt.Sprintf("Blocked TCP horizontal scan from %s on port %d: %d distinct destinations in %s", effect.Detection.SourceIP, effect.Detection.DestinationPort, effect.Detection.PortCount, effect.Window)
 	case "repeated_attempts":
+		mitigate = cfg.Repeated.Mitigate
 		message = fmt.Sprintf("Repeated blocked TCP attempts from %s to %s port %d: %d attempts in %s", effect.Detection.SourceIP, effect.Detection.DestinationIP, effect.Detection.DestinationPort, effect.Detection.PortCount, effect.Window)
 	default:
 		message = fmt.Sprintf("Blocked TCP port scan from %s to %s: %d distinct ports in %s", effect.Detection.SourceIP, effect.Detection.DestinationIP, effect.Detection.PortCount, effect.Window)
@@ -301,7 +304,7 @@ func publishAlert(ctx context.Context, client messaging.Client, effect alertInte
 	return client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
 		EventID: effect.ID, Category: detectionCategory(effect.Detection.Kind), Severity: enum.SeverityWarning,
 		CreatedAt: effect.Detection.At.UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceNetworkSecurity,
-		Message: message, Email: &email,
+		Message: message, Email: &email, Mitigate: mitigate,
 	})
 }
 

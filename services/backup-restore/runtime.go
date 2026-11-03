@@ -152,6 +152,10 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 		token = value.AccessToken
 	case contract.RestoreRequest:
 		token = value.AccessToken
+	case contract.RestoreByNameRequest:
+		token = value.AccessToken
+	case contract.RestoreAllByNameRequest:
+		token = value.AccessToken
 	case contract.VersionRequest:
 		token = value.AccessToken
 	case contract.MergeStartRequest:
@@ -216,7 +220,13 @@ func (runtime *Runtime) register(server messaging.Server) error {
 	if err := server.RegisterRPC(contract.DiffSubject, runtime.diff); err != nil {
 		return err
 	}
-	return server.RegisterRPC(contract.RestoreSubject, runtime.restore)
+	if err := server.RegisterRPC(contract.RestoreSubject, runtime.restore); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(contract.RestoreByNameSubject, runtime.restoreByName); err != nil {
+		return err
+	}
+	return server.RegisterRPC(contract.RestoreAllByNameSubject, runtime.restoreAllByName)
 }
 
 // backedUp returns applications with stored history, including removed specs.
@@ -407,19 +417,86 @@ func (runtime *Runtime) restore(ctx context.Context, envelope messaging.Envelope
 	mode := RestoreMode(request.Mode)
 	runtime.mutex.Lock()
 	defer runtime.mutex.Unlock()
-	if err := runtime.store.Restore(spec, request.Version, mode); err != nil {
-		return nil, err
+	return runtime.restoreVersion(ctx, spec, request.Version, mode, request.AccessToken)
+}
+
+// restoreVersion applies one selected archive and reports service restart warnings.
+// Callers hold runtime.mutex while this operation runs.
+func (runtime *Runtime) restoreVersion(ctx context.Context, spec Spec, version string, mode RestoreMode, token string) (contract.RestoreResponse, error) {
+	if err := runtime.store.Restore(spec, version, mode); err != nil {
+		return contract.RestoreResponse{}, err
 	}
 	response := contract.RestoreResponse{Restored: true}
 	for _, unit := range spec.RestartUnits {
 		var result managercontract.ActionResponse
-		err := runtime.client.Request(ctx, managercontract.RestartSubject, managercontract.ActionRequest{AccessToken: request.AccessToken, Unit: unit}, &result)
+		err := runtime.client.Request(ctx, managercontract.RestartSubject, managercontract.ActionRequest{AccessToken: token, Unit: unit}, &result)
 		if err != nil || !result.Completed {
 			if err == nil {
 				err = fmt.Errorf("restart was not confirmed")
 			}
 			response.Warnings = append(response.Warnings, fmt.Sprintf("%s: %v", unit, err))
 		}
+	}
+	return response, nil
+}
+
+// restoreByName applies the newest matching version for one configured application.
+func (runtime *Runtime) restoreByName(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.RestoreByNameRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	spec, ok := runtime.specs[request.Application]
+	if !ok {
+		return nil, fmt.Errorf("unknown application")
+	}
+	runtime.mutex.Lock()
+	defer runtime.mutex.Unlock()
+	version, err := runtime.store.VersionByName(request.Application, request.Name)
+	if err != nil {
+		return nil, err
+	}
+	if version == "" {
+		return nil, fmt.Errorf("no backup named %q for %s", request.Name, request.Application)
+	}
+	result, err := runtime.restoreVersion(ctx, spec, version, RestoreMode(request.Mode), request.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	return contract.RestoreByNameResponse{Version: version, Restored: result.Restored, Warnings: result.Warnings}, nil
+}
+
+// restoreAllByName visits configured applications in stable order and skips missing names.
+func (runtime *Runtime) restoreAllByName(ctx context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.RestoreAllByNameRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	runtime.mutex.Lock()
+	defer runtime.mutex.Unlock()
+	applications := make([]string, 0, len(runtime.specs))
+	for application := range runtime.specs {
+		applications = append(applications, application)
+	}
+	sort.Strings(applications)
+	response := contract.RestoreAllByNameResponse{Results: make([]contract.RestoreAllByNameResult, 0, len(applications))}
+	for _, application := range applications {
+		result := contract.RestoreAllByNameResult{Application: application}
+		version, err := runtime.store.VersionByName(application, request.Name)
+		if err != nil {
+			result.Status, result.Error = "failed", err.Error()
+		} else if version == "" {
+			result.Status = "skipped"
+		} else {
+			result.Version = version
+			restored, restoreErr := runtime.restoreVersion(ctx, runtime.specs[application], version, RestoreMode(request.Mode), request.AccessToken)
+			if restoreErr != nil {
+				result.Status, result.Error = "failed", restoreErr.Error()
+			} else {
+				result.Status, result.Warnings = "completed", restored.Warnings
+			}
+		}
+		response.Results = append(response.Results, result)
 	}
 	return response, nil
 }

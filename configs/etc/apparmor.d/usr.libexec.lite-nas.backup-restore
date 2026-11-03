@@ -40,6 +40,8 @@ profile /usr/libexec/lite-nas/backup-restore flags=(attach_disconnected,mediate_
   /etc/lite-nas/log-analysis/** rwk,
   /etc/lite-nas/resources-monitor/ r,
   /etc/lite-nas/resources-monitor/** rwk,
+  /etc/lite-nas/security-automation/ r,
+  /etc/lite-nas/security-automation/** rwk,
   /etc/lite-nas/security-email-notifier/ r,
   /etc/lite-nas/security-email-notifier/** rwk,
   /etc/lite-nas/system-email-notifier/ r,

@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"net/netip"
 	"os"
+	"strings"
 	"time"
 
 	"lite-nas/services/auth/modules"
@@ -268,6 +272,11 @@ func registerUserRPCHandlers(server messaging.Server, runtimeDeps authRuntime) e
 }
 
 func registerServiceRPCHandlers(server messaging.Server, runtimeDeps authRuntime) error {
+	if err := server.RegisterRPC(authcontract.RevokeMatchedSessionsRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
+		return handleRevokeMatchedSessionsRPC(runtimeDeps, envelope)
+	}); err != nil {
+		return err
+	}
 	if err := server.RegisterRPC(authcontract.CaptionGrantIssueRPCSubject, func(_ context.Context, envelope messaging.Envelope) (any, error) {
 		return handleCaptionGrantIssueRPC(runtimeDeps, envelope)
 	}); err != nil {
@@ -300,6 +309,25 @@ func registerServiceRPCHandlers(server messaging.Server, runtimeDeps authRuntime
 	}
 
 	return nil
+}
+
+// handleRevokeMatchedSessionsRPC accepts only exact, bounded account and IP
+// evidence from the NATS identity allowed to publish this service subject.
+func handleRevokeMatchedSessionsRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.RevokeMatchedSessionsResponse, error) {
+	var request authcontract.RevokeMatchedSessionsRequest
+	if len(envelope.Payload) == 0 || len(envelope.Payload) > 1024 {
+		return authcontract.RevokeMatchedSessionsResponse{}, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(envelope.Payload))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF || !validateRPCRequest(runtimeDeps.Validator, request) || strings.TrimSpace(request.Login) != request.Login || strings.ContainsAny(request.Login, " \t\r\n\x00") {
+		return authcontract.RevokeMatchedSessionsResponse{}, nil
+	}
+	address, err := netip.ParseAddr(request.ClientIP)
+	if err != nil || !address.IsGlobalUnicast() || address.Zone() != "" || address.Unmap().String() != request.ClientIP {
+		return authcontract.RevokeMatchedSessionsResponse{}, nil
+	}
+	return authcontract.RevokeMatchedSessionsResponse{Revoked: runtimeDeps.RefreshStore.RevokeMatchedBrowserSessions(request.Login, request.ClientIP)}, nil
 }
 
 func handleLoginRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (authcontract.LoginResponse, error) {
@@ -379,6 +407,7 @@ func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRe
 	result, err := runtimeDeps.Auth.Authenticator.Authenticate(pamauth.AuthenticateRequest{
 		Username: request.Username,
 		Password: request.Password,
+		ClientIP: request.ClientIP,
 	})
 	if err != nil {
 		return result, false

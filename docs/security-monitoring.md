@@ -68,6 +68,15 @@ that rule; `source` does the same per source address. For `global`, there is
 one state entry per rule. An observation for one entry cannot advance or reset
 another entry.
 
+Each rule also has a human-readable `name`, an `explanation` of what it detects,
+and `possible_reactions` containing operator response guidance. These fields
+are provided for the packaged rules. Older custom rules without metadata
+continue to load; operators can add all three fields to those rules. The security-role-protected
+`GET /api/security/log-audit/rules` endpoint returns that metadata with each
+rule's configured detection and alert settings. The gateway requests the
+catalog from Log Analysis on `log-analysis.rpc.rules.list`; Log Analysis checks
+the operator's current access token and security role before returning it.
+
 Rules assigned to the same instance also share that instance's `max_keys`
 capacity and 32-observation input queue. If the shared capacity fills, the
 plugin logs an error and cannot track a new rule/key combination until an

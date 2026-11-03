@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/go-playground/validator/v10"
 
 	"lite-nas/shared/config"
 	contract "lite-nas/shared/contracts/backuprestore"
@@ -16,6 +19,11 @@ import (
 )
 
 const configPath = "/etc/lite-nas/backup-restore-cli.conf"
+
+const (
+	restoreByNameTimeout    = 5 * time.Minute
+	restoreAllByNameTimeout = 30 * time.Minute
+)
 
 // main runs one authenticated backup request and exits.
 func main() {
@@ -30,7 +38,7 @@ func main() {
 // run uses the current user's short-lived access token for every request.
 func run(ctx context.Context, arguments []string) error {
 	if len(arguments) == 0 {
-		return fmt.Errorf("usage: backup-restore-cli applications|backed-up|versions APP|backup APP|backup all|diff APP VERSION|restore APP VERSION [replace|merge]|merge APP VERSION|merge resume ID|merge discard ID; backup accepts --name TEXT and --description TEXT")
+		return fmt.Errorf("usage: backup-restore-cli applications|backed-up|versions APP|backup APP|backup all|diff APP VERSION|restore APP VERSION [replace|merge]|restore-by-name APP|all NAME [replace|merge]|merge APP VERSION|merge resume ID|merge discard ID; backup accepts --name TEXT and --description TEXT")
 	}
 	reader, err := fileio.NewFileReader(configPath)
 	if err != nil {
@@ -159,6 +167,58 @@ func executeCommand(ctx context.Context, client messaging.Client, token string, 
 			return fmt.Errorf("files restored, but service restart failed: %v", response.Warnings)
 		}
 		fmt.Fprintln(os.Stdout, "restored", arguments[1], arguments[2])
+	case "restore-by-name":
+		if len(arguments) < 3 || len(arguments) > 4 || len(arguments[2]) == 0 || len(arguments[2]) > 128 || arguments[1] != "all" && !validApplication(arguments[1]) {
+			return fmt.Errorf("expected application ID or all, backup name, and optional replace|merge mode")
+		}
+		mode := "replace"
+		if len(arguments) == 4 {
+			mode = arguments[3]
+		}
+		if mode != "replace" && mode != "merge" {
+			return fmt.Errorf("invalid restore mode")
+		}
+		if arguments[1] == "all" {
+			var response contract.RestoreAllByNameResponse
+			request := contract.RestoreAllByNameRequest{AccessToken: token, Name: arguments[2], Mode: mode}
+			if err := validator.New().Struct(request); err != nil {
+				return err
+			}
+			requestCtx, cancel := context.WithTimeout(ctx, restoreAllByNameTimeout)
+			defer cancel()
+			if err := client.Request(requestCtx, contract.RestoreAllByNameSubject, request, &response); err != nil {
+				return err
+			}
+			failed := false
+			for _, result := range response.Results {
+				fmt.Fprintln(os.Stdout, result.Application, result.Status, result.Version, result.Error)
+				for _, warning := range result.Warnings {
+					fmt.Fprintln(os.Stdout, result.Application, "warning", warning)
+				}
+				failed = failed || result.Status == "failed" || len(result.Warnings) > 0
+			}
+			if failed {
+				return fmt.Errorf("some application restores failed or require attention")
+			}
+			return nil
+		}
+		var response contract.RestoreByNameResponse
+		request := contract.RestoreByNameRequest{AccessToken: token, Application: arguments[1], Name: arguments[2], Mode: mode}
+		if err := validator.New().Struct(request); err != nil {
+			return err
+		}
+		requestCtx, cancel := context.WithTimeout(ctx, restoreByNameTimeout)
+		defer cancel()
+		if err := client.Request(requestCtx, contract.RestoreByNameSubject, request, &response); err != nil {
+			return err
+		}
+		if !response.Restored {
+			return fmt.Errorf("restore was not confirmed")
+		}
+		if len(response.Warnings) > 0 {
+			return fmt.Errorf("files restored, but service restart failed: %v", response.Warnings)
+		}
+		fmt.Fprintln(os.Stdout, "restored", arguments[1], response.Version)
 	case "merge":
 		return runMerge(ctx, client, token, arguments[1:])
 	default:

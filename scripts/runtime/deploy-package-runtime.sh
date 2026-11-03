@@ -39,6 +39,8 @@ source "$PACKAGE_ROOT/scripts/deploy/system-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/security-logging-manager-cli.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/security-automation-cli.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/system-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/network-metrics-cli.sh"
@@ -101,6 +103,7 @@ deploy_runtime_files_without_start() {
 	deploy.zfsMetrics.deploy "$PACKAGE_ROOT/zfs-metrics" 0
 	deploy.systemLoggingManagerCLI.deploy "$PACKAGE_ROOT/system-logging-manager-cli"
 	deploy.securityLoggingManagerCLI.deploy "$PACKAGE_ROOT/security-logging-manager-cli"
+	deploy.securityAutomationCLI.deploy "$PACKAGE_ROOT/security-automation-cli"
 	deploy.systemMetricsCLI.deploy "$PACKAGE_ROOT/system-metrics-cli"
 	deploy.networkMetricsCLI.deploy "$PACKAGE_ROOT/network-metrics-cli"
 	deploy.zfsMetricsCLI.deploy "$PACKAGE_ROOT/zfs-metrics-cli"
@@ -125,6 +128,7 @@ deploy_runtime_files_without_start() {
 	deploy.hostManager.deploy "usb-manager" "$PACKAGE_ROOT/usb-manager" 0
 	deploy.securityMonitor.deploy "log-analysis" "$PACKAGE_ROOT/log-analysis" 0
 	deploy.securityMonitor.deploy "network-security" "$PACKAGE_ROOT/network-security" 0
+	deploy.securityMonitor.deploy "security-automation" "$PACKAGE_ROOT/security-automation" 0
 }
 
 while [ "$#" -gt 0 ]; do
@@ -180,6 +184,9 @@ deploy.systemMetrics.requireTools
 deploy.zfsMetrics.requireTools
 deploy.systemLoggingManagerCLI.requireTools
 deploy.securityLoggingManagerCLI.requireTools
+for tool in getent groupadd id useradd usermod install ln chmod realpath; do
+	log.requireCommand "$tool" "Install the required security automation CLI tooling and retry."
+done
 deploy.systemMetricsCLI.requireTools
 deploy.networkMetricsCLI.requireTools
 deploy.zfsMetricsCLI.requireTools
@@ -256,6 +263,7 @@ deploy.enableAndRefreshService "lite-nas-journal-manager.service"
 deploy.enableAndRefreshService "lite-nas-usb-manager.service"
 deploy.securityMonitor.refreshLogAnalysis
 deploy.enableAndRefreshService "lite-nas-network-security.service"
+deploy.enableAndRefreshService "lite-nas-security-automation.service"
 deploy.enableAndRefreshService "lite-nas-service-watchdog.service"
 log.popTask
 

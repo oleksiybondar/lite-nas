@@ -150,7 +150,7 @@ func (m *passwordConversations) run(ctx context.Context, flow *passwordFlow) {
 	// PAM owns thread-local state in some modules. Keep this transaction on one OS thread.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	result, _ := pamauth.RunConversation(m.serviceName, pamauth.AuthenticateRequest{Username: flow.login.Username, Password: flow.login.Password}, flow.onDemand, func(prompt pamauth.Prompt) (string, error) {
+	result, _ := pamauth.RunConversation(m.serviceName, pamauth.AuthenticateRequest{Username: flow.login.Username, Password: flow.login.Password, ClientIP: flow.login.ClientIP}, flow.onDemand, func(prompt pamauth.Prompt) (string, error) {
 		flow.sequence.Add(1)
 		if m.log != nil {
 			if flow.traced.CompareAndSwap(false, true) {

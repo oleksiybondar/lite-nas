@@ -16,6 +16,7 @@ const (
 	ServiceSecurityEmailNotifier  = "security-email-notifier"
 	ServiceSystemLoggingManager   = "system-logging-manager"
 	ServiceSecurityLoggingManager = "security-logging-manager"
+	ServiceSecurityAutomation     = "security-automation"
 	ServiceWebGateway             = "web-gateway"
 	ServiceRBAC                   = "rbac-service"
 	ServiceMountMonitor           = "mount-monitor"

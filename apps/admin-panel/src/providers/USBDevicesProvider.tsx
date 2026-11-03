@@ -6,7 +6,11 @@ import { useRbac } from "@hooks/useRbac";
 import { useLanguage } from "@lite-nas/language";
 import { PollingResourceProvider } from "@providers/PollingResourceProvider";
 import { managementActionResponseSchema } from "@schemas/management/management-action";
-import { parseUSBDevices, type USBDevice } from "@schemas/management/usb-devices";
+import {
+  parseUSBDevices,
+  type USBDevice,
+  usbDeviceActionSchema,
+} from "@schemas/management/usb-devices";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useMemo, useState } from "react";
@@ -32,9 +36,7 @@ export const USBDevicesProvider = ({ children }: PropsWithChildren): ReactElemen
       try {
         const response = await post(
           `/api/usbguard/devices/${encodeURIComponent(device.id)}/${action}`,
-          {
-            permanent,
-          },
+          usbDeviceActionSchema.parse({ permanent }),
         ).execute();
         if (!response.ok) throw new Error(getLabel("admin.usbDevices.actionFailed"));
         managementActionResponseSchema.parse(await response.json());

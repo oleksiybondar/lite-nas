@@ -28,6 +28,10 @@ const (
 	DiffSubject = "backup-restore.diff"
 	// RestoreSubject restores a selected version.
 	RestoreSubject = "backup-restore.restore"
+	// RestoreByNameSubject restores the newest version with a name for one application.
+	RestoreByNameSubject = "backup-restore.restore-by-name"
+	// RestoreAllByNameSubject restores every configured application with a matching name.
+	RestoreAllByNameSubject = "backup-restore.restore-all-by-name"
 )
 
 // MergeStartRequest selects a snapshot to compare against current files.
@@ -134,6 +138,21 @@ type RestoreRequest struct {
 	Mode        string `json:"mode" validate:"required,oneof=replace merge"`
 }
 
+// RestoreByNameRequest selects one application's newest matching archive.
+type RestoreByNameRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Application string `json:"application" validate:"required,max=64"`
+	Name        string `json:"name" validate:"required,max=128"`
+	Mode        string `json:"mode" validate:"required,oneof=replace merge"`
+}
+
+// RestoreAllByNameRequest selects matching archives across configured applications.
+type RestoreAllByNameRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Name        string `json:"name" validate:"required,max=128"`
+	Mode        string `json:"mode" validate:"required,oneof=replace merge"`
+}
+
 // VersionRequest selects one stored version for read-only comparison.
 type VersionRequest struct {
 	AccessToken string `json:"access_token" validate:"required,max=8192"`
@@ -205,4 +224,25 @@ type BackupAllResponse struct {
 type RestoreResponse struct {
 	Restored bool     `json:"restored"`
 	Warnings []string `json:"warnings,omitempty"`
+}
+
+// RestoreByNameResponse identifies the version chosen by a name-based restore.
+type RestoreByNameResponse struct {
+	Version  string   `json:"version"`
+	Restored bool     `json:"restored"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+// RestoreAllByNameResult reports one configured application's outcome.
+type RestoreAllByNameResult struct {
+	Application string   `json:"application"`
+	Status      string   `json:"status"`
+	Version     string   `json:"version,omitempty"`
+	Warnings    []string `json:"warnings,omitempty"`
+	Error       string   `json:"error,omitempty"`
+}
+
+// RestoreAllByNameResponse includes completed, skipped, and failed applications.
+type RestoreAllByNameResponse struct {
+	Results []RestoreAllByNameResult `json:"results"`
 }

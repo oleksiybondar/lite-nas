@@ -17,6 +17,11 @@ export const usbDeviceSchema = z.object({
   attributes: z.string(),
 });
 
+/** Validates a USBGuard policy decision before the provider sends it. */
+export const usbDeviceActionSchema = z.object({
+  permanent: z.boolean(),
+});
+
 export type USBDevice = z.infer<typeof usbDeviceSchema>;
 
 /** Converts USBGuard's line-oriented inventory into validated device records. */

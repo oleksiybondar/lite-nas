@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"gopkg.in/ini.v1"
@@ -32,7 +33,7 @@ func TestPatternConfigRejectsInvalidPolicy(t *testing.T) {
 		"[repeated_attempts]\ncooldown=bad\n",
 	} {
 		t.Run(section, func(t *testing.T) {
-			file, err := ini.Load([]byte(section))
+			file, err := ini.Load([]byte(section + "mitigate=Review blocked attempts.\n"))
 			if err != nil {
 				t.Fatalf("load fixture: %v", err)
 			}
@@ -42,6 +43,21 @@ func TestPatternConfigRejectsInvalidPolicy(t *testing.T) {
 			}
 			if _, err := loadPatternConfig(file, name); err == nil {
 				t.Fatal("invalid detector policy was accepted")
+			}
+		})
+	}
+}
+
+// TestMitigationTextRejectsMissingOrMalformedGuidance checks the configuration boundary.
+func TestMitigationTextRejectsMissingOrMalformedGuidance(t *testing.T) {
+	for _, value := range []string{"", strings.Repeat("x", 4097)} {
+		t.Run(value, func(t *testing.T) {
+			file, err := ini.Load([]byte("[port_scan]\nmitigate=" + value + "\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := mitigationText(file.Section("port_scan")); err == nil {
+				t.Fatal("invalid mitigation guidance was accepted")
 			}
 		})
 	}

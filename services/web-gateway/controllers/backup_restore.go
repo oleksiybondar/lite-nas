@@ -93,7 +93,7 @@ func (c BackupRestoreController) Backup(ctx context.Context, i *brdto.BackupInpu
 	if e != nil {
 		return nil, e
 	}
-	v, e := c.service.Backup(ctx, t, i.Application, i.Name, i.Description)
+	v, e := c.service.Backup(ctx, t, i.Application, i.Body.Name, i.Body.Description)
 	if e != nil {
 		return nil, huma.Error502BadGateway("failed to create backup")
 	}
@@ -105,7 +105,7 @@ func (c BackupRestoreController) BackupAll(ctx context.Context, i *brdto.BackupA
 	if e != nil {
 		return nil, e
 	}
-	v, e := c.service.BackupAll(ctx, t, i.Name, i.Description)
+	v, e := c.service.BackupAll(ctx, t, i.Body.Name, i.Body.Description)
 	if e != nil {
 		return nil, huma.Error502BadGateway("failed to create backups")
 	}
@@ -129,9 +129,35 @@ func (c BackupRestoreController) Restore(ctx context.Context, i *brdto.RestoreIn
 	if e != nil {
 		return nil, e
 	}
-	v, e := c.service.Restore(ctx, t, i.Application, i.Version, i.Mode)
+	v, e := c.service.Restore(ctx, t, i.Application, i.Version, i.Body.Mode)
 	if e != nil {
 		return nil, huma.Error502BadGateway("failed to restore backup")
+	}
+	return brdto.NewOutput(v), nil
+}
+
+// RestoreByName applies the newest named version of one application.
+func (c BackupRestoreController) RestoreByName(ctx context.Context, i *brdto.RestoreByNameInput) (*brdto.Output[contract.RestoreByNameResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.RestoreByName(ctx, t, i.Application, i.Body.Name, i.Body.Mode)
+	if e != nil {
+		return nil, huma.Error502BadGateway("failed to restore named backup")
+	}
+	return brdto.NewOutput(v), nil
+}
+
+// RestoreAllByName applies a named backup wherever a configured application has one.
+func (c BackupRestoreController) RestoreAllByName(ctx context.Context, i *brdto.RestoreAllByNameInput) (*brdto.Output[contract.RestoreAllByNameResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.RestoreAllByName(ctx, t, i.Body.Name, i.Body.Mode)
+	if e != nil {
+		return nil, huma.Error502BadGateway("failed to restore named backups")
 	}
 	return brdto.NewOutput(v), nil
 }
@@ -177,7 +203,7 @@ func (c BackupRestoreController) MergeWrite(ctx context.Context, i *brdto.MergeW
 	if e != nil {
 		return nil, e
 	}
-	v, e := c.service.MergeWrite(ctx, contract.MergeWriteRequest{AccessToken: t, SessionID: i.SessionID, Path: i.Path, Offset: i.Offset, Data: i.Data, Final: i.Final, SHA256: i.SHA256})
+	v, e := c.service.MergeWrite(ctx, contract.MergeWriteRequest{AccessToken: t, SessionID: i.SessionID, Path: i.Body.Path, Offset: i.Body.Offset, Data: i.Body.Data, Final: i.Body.Final, SHA256: i.Body.SHA256})
 	if e != nil {
 		return nil, huma.Error502BadGateway("failed to write merge content")
 	}
@@ -215,7 +241,7 @@ func (c BackupRestoreController) MergeSave(ctx context.Context, i *brdto.MergeSa
 	if e != nil {
 		return nil, e
 	}
-	v, e := c.service.MergeSave(ctx, contract.MergeSaveRequest{AccessToken: t, SessionID: i.SessionID, Name: i.Name, Description: i.Description})
+	v, e := c.service.MergeSave(ctx, contract.MergeSaveRequest{AccessToken: t, SessionID: i.SessionID, Name: i.Body.Name, Description: i.Body.Description})
 	if e != nil {
 		return nil, huma.Error502BadGateway("failed to save merged backup")
 	}

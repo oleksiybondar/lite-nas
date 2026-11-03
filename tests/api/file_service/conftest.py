@@ -1,6 +1,5 @@
 """Shared installed-system File Service account and file fixtures."""
 
-import os
 import shlex
 import time
 from collections.abc import Generator
@@ -67,19 +66,6 @@ def operator_cookie(api_client: RESTClient) -> str:
 def testsudo_cookie(api_client: RESTClient) -> str:
     """Log in as the installed restricted sudo test user through the browser API."""
     return login_cookie(api_client, TEST_SUDO_LOGIN, TEST_SUDO_PASSWORD)
-
-
-@pytest.fixture
-def admin_cookie(api_client: RESTClient) -> str:
-    """Require and log in as the explicitly configured File Service admin."""
-    login = os.getenv("LITENAS_FILE_SERVICE_ADMIN_LOGIN")
-    password = os.getenv("LITENAS_FILE_SERVICE_ADMIN_PASSWORD")
-    if not login or not password:
-        pytest.fail(
-            "Set LITENAS_FILE_SERVICE_ADMIN_LOGIN and "
-            "LITENAS_FILE_SERVICE_ADMIN_PASSWORD for File Service admin tests"
-        )
-    return login_cookie(api_client, login, password)
 
 
 @pytest.fixture

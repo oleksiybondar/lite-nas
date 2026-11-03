@@ -1,145 +1,172 @@
-import { useLanguage } from "@lite-nas/language";
-import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
-import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
-import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
-import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
-import Box from "@mui/material/Box";
+import { collectAdminSettings } from "@helpers/profile-settings";
+import { useApi } from "@hooks/useApi";
 import Grid from "@mui/material/Grid";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
-import type { ReactElement } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { DashboardEditor } from "@pages/DashboardPage/DashboardEditor";
+import { DashboardHeader } from "@pages/DashboardPage/DashboardHeader";
+import { DashboardWidgetTile } from "@pages/DashboardPage/DashboardWidgetTile";
+import { adminSettingsSchema, dashboardSchema } from "@schemas/profile/admin-settings";
+import { type ReactElement, useEffect, useState } from "react";
+import { z } from "zod";
 
-type DashboardSection = {
-  description: string;
-  icon: ReactElement;
-  path: string;
-  title: string;
+const widgetKindSchema = z.enum([
+  "cpu",
+  "cpu-cores",
+  "ram",
+  "zfs-io",
+  "zfs-errors",
+  "network",
+  "disk",
+  "processes",
+  "services",
+]);
+type Widget = z.infer<typeof dashboardSchema>["widgets"][number];
+const defaults: z.infer<typeof dashboardSchema> = {
+  version: 2,
+  widgets: [
+    { id: "cpu", kind: "cpu", width: 3, height: 1 },
+    { id: "ram", kind: "ram", width: 3, height: 1 },
+    { id: "zfs-io", kind: "zfs-io", width: 3, height: 1 },
+    { id: "zfs-errors", kind: "zfs-errors", width: 3, height: 1 },
+  ],
 };
 
-/** Presents direct navigation to the main admin panel areas. */
-export const DashboardPage = (): ReactElement => {
-  const { getLabel } = useLanguage();
-  const dashboardSections: DashboardSection[] = [
-    {
-      description: getLabel("admin.landing.dashboardSystemDesc"),
-      icon: <InsightsRoundedIcon color="primary" />,
-      path: "/system/performance",
-      title: getLabel("admin.landing.dashboardSystemTitle"),
-    },
-    {
-      description: getLabel("admin.landing.dashboardServicesDesc"),
-      icon: <DnsRoundedIcon color="primary" />,
-      path: "/system/processes/services",
-      title: getLabel("navigation.Services"),
-    },
-    {
-      description: getLabel("admin.landing.dashboardApplicationsDesc"),
-      icon: <AppsRoundedIcon color="primary" />,
-      path: "/applications",
-      title: getLabel("navigation.Applications"),
-    },
-    {
-      description: getLabel("admin.landing.dashboardPreferencesDesc"),
-      icon: <SettingsRoundedIcon color="primary" />,
-      path: "/preferences",
-      title: getLabel("navigation.Preferences"),
-    },
-  ];
-  return (
-    <Stack data-testid="dashboard-page" spacing={4}>
-      <Stack data-testid="dashboard-page-header" maxWidth="760px" spacing={1}>
-        <Typography color="primary" data-testid="dashboard-page-overline" variant="overline">
-          {getLabel("admin.landing.dashboardOverline")}
-        </Typography>
-        <Typography data-testid="dashboard-page-title" variant="h1">
-          {getLabel("admin.landing.dashboardTitle")}
-        </Typography>
-        <Typography color="text.secondary" data-testid="dashboard-page-summary" variant="body1">
-          {getLabel("admin.landing.dashboardSummary")}
-        </Typography>
-      </Stack>
+/** Keeps one dashboard tile per metric kind when loading older saved layouts. */
+const uniqueWidgets = (widgets: Widget[]): Widget[] =>
+  widgets.filter(
+    (widget, index) => widgets.findIndex((candidate) => candidate.kind === widget.kind) === index,
+  );
 
-      <Grid container data-testid="dashboard-section-list" spacing={2}>
-        {dashboardSections.map(renderDashboardSection)}
+/** Applies a validated add request from telemetry navigation to the loaded layout. */
+const addRequestedWidget = (
+  current: Widget[],
+  setEditing: (editing: boolean) => void,
+): Widget[] => {
+  const requested = widgetKindSchema.safeParse(
+    new URLSearchParams(window.location.search).get("add"),
+  );
+  if (!requested.success) return current;
+  window.history.replaceState(window.history.state, "", window.location.pathname);
+  if (current.length >= 16) return current;
+  if (current.some((widget) => widget.kind === requested.data)) return current;
+  setEditing(true);
+  return [...current, { id: crypto.randomUUID(), kind: requested.data, width: 3, height: 1 }];
+};
+
+/** Reads the saved dashboard, falling back to defaults for missing or invalid profiles. */
+const readDashboard = async (get: ReturnType<typeof useApi>["get"]): Promise<Widget[]> => {
+  const response = await get("/f/profile/admin-panel").execute();
+  if (!response.ok) return defaults.widgets;
+  const parsed = adminSettingsSchema.safeParse(await response.json());
+  if (!parsed.success || !parsed.data.dashboard) return defaults.widgets;
+  window.localStorage.setItem(
+    "lite-nas.admin-panel.dashboard",
+    JSON.stringify(parsed.data.dashboard),
+  );
+  return uniqueWidgets(parsed.data.dashboard.widgets);
+};
+
+/** Saves the dashboard while preserving the rest of the current profile document. */
+const persistDashboard = async (
+  get: ReturnType<typeof useApi>["get"],
+  put: ReturnType<typeof useApi>["put"],
+  widgets: Widget[],
+): Promise<void> => {
+  const dashboard = dashboardSchema.parse({ version: 2, widgets });
+  const response = await get("/f/profile/admin-panel").execute();
+  const current = response.ok ? adminSettingsSchema.safeParse(await response.json()) : null;
+  if (current && !current.success) throw new Error("Invalid profile document");
+  const document = adminSettingsSchema.parse({
+    ...(current?.success ? current.data : collectAdminSettings()),
+    dashboard,
+  });
+  const saved = await put("/f/profile/admin-panel", { document }).execute();
+  if (!saved.ok) throw new Error("Profile save failed");
+  window.localStorage.setItem("lite-nas.admin-panel.dashboard", JSON.stringify(dashboard));
+};
+
+/** Downloads the validated dashboard layout as JSON. */
+const downloadDashboard = (widgets: Widget[]): void => {
+  const blob = new Blob([JSON.stringify(dashboardSchema.parse({ version: 2, widgets }), null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "dashboard.json";
+  anchor.click();
+  URL.revokeObjectURL(url);
+};
+
+/** Loads the saved layout and applies any tile request from telemetry navigation. */
+const useLoadedDashboard = (
+  get: ReturnType<typeof useApi>["get"],
+  setWidgets: (widgets: Widget[]) => void,
+  setEditing: (editing: boolean) => void,
+): void => {
+  useEffect(() => {
+    let active = true;
+    void readDashboard(get)
+      .then((loaded) => {
+        if (active) setWidgets(addRequestedWidget(loaded, setEditing));
+      })
+      .catch(() => {
+        if (active) setWidgets(addRequestedWidget(defaults.widgets, setEditing));
+      });
+    return () => {
+      active = false;
+    };
+  }, [get, setEditing, setWidgets]);
+};
+
+/** Renders a configurable six-column telemetry dashboard and persists its JSON profile. */
+export const DashboardPage = (): ReactElement => {
+  const { get, put } = useApi();
+  const [widgets, setWidgets] = useState<Widget[]>(defaults.widgets);
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  useLoadedDashboard(get, setWidgets, setEditing);
+  const save = async (): Promise<void> => {
+    try {
+      await persistDashboard(get, put, widgets);
+      setSaved(true);
+      setSaveFailed(false);
+    } catch {
+      setSaved(false);
+      setSaveFailed(true);
+    }
+  };
+  return (
+    <Stack data-testid="dashboard-page" spacing={3}>
+      <DashboardHeader
+        editing={editing}
+        onToggleEditing={() => {
+          setEditing(!editing);
+          setSaved(false);
+        }}
+        onDownload={() => downloadDashboard(widgets)}
+      />
+      {editing && (
+        <DashboardEditor
+          widgets={widgets}
+          setWidgets={setWidgets}
+          save={save}
+          saved={saved}
+          saveFailed={saveFailed}
+        />
+      )}
+      <Grid columns={{ xs: 1, md: 6 }} container data-testid="dashboard-widget-grid" spacing={2}>
+        {widgets.map((widget) => (
+          <DashboardWidgetTile
+            editing={editing}
+            key={widget.id}
+            setWidgets={setWidgets}
+            widget={widget}
+            widgets={widgets}
+          />
+        ))}
       </Grid>
     </Stack>
   );
-};
-
-/** Renders one whole-card link to an admin area. */
-const renderDashboardSection = (section: DashboardSection): ReactElement => (
-  <Grid
-    data-test-class="dashboard-section-grid-item"
-    data-test-name={section.title}
-    data-test-path={section.path}
-    key={section.title}
-    size={{ md: 4, xs: 12 }}
-  >
-    <Box
-      component={RouterLink}
-      data-test-class="dashboard-section-link"
-      data-test-name={section.title}
-      data-test-path={section.path}
-      sx={dashboardSectionLinkSx}
-      to={section.path}
-    >
-      <Paper
-        className="DashboardSection-surface"
-        data-test-class="dashboard-section-card"
-        data-test-name={section.title}
-        data-test-path={section.path}
-        sx={{
-          height: "100%",
-          p: 3,
-          transition: (theme) =>
-            theme.transitions.create(["border-color", "box-shadow", "transform"], {
-              duration: theme.transitions.duration.short,
-            }),
-        }}
-      >
-        <Stack spacing={2}>
-          <Box data-test-class="dashboard-section-icon" data-test-name={section.title}>
-            {section.icon}
-          </Box>
-          <Stack spacing={0.75}>
-            <Typography
-              data-test-class="dashboard-section-title"
-              data-test-name={section.title}
-              variant="h2"
-            >
-              {section.title}
-            </Typography>
-            <Typography
-              color="text.secondary"
-              data-test-class="dashboard-section-description"
-              data-test-name={section.title}
-              variant="body2"
-            >
-              {section.description}
-            </Typography>
-          </Stack>
-        </Stack>
-      </Paper>
-    </Box>
-  </Grid>
-);
-
-/** Gives dashboard links the same whole-card interaction as category pages. */
-const dashboardSectionLinkSx = {
-  color: "inherit",
-  display: "block",
-  height: "100%",
-  textDecoration: "none",
-  "&:focus-visible .DashboardSection-surface": {
-    outline: "2px solid",
-    outlineColor: "primary.main",
-    outlineOffset: 2,
-  },
-  "&:hover .DashboardSection-surface": {
-    borderColor: "primary.main",
-    boxShadow: 4,
-    transform: "translateY(-2px)",
-  },
 };

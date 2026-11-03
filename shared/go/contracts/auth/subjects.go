@@ -22,6 +22,9 @@ const (
 	ValidateAccessTokenRPCSubject = "auth.rpc.token.validate"
 	// RevokeSessionRPCSubject invalidates one browser login session.
 	RevokeSessionRPCSubject = "auth.rpc.session.revoke"
+	// RevokeMatchedSessionsRPCSubject is restricted to Security Automation's
+	// NATS identity and revokes only exact account-and-address matches.
+	RevokeMatchedSessionsRPCSubject = "auth.rpc.session.revoke-matched"
 	// ListSessionsRPCSubject lists active login sessions for administrators.
 	ListSessionsRPCSubject      = "auth.rpc.session.list"
 	SetLockdownRPCSubject       = "auth.rpc.lockdown.set"

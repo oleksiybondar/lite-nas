@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	authcontract "lite-nas/shared/contracts/auth"
@@ -168,5 +170,149 @@ func TestTokenPathRejectsSymlinkRuntimeDirectory(t *testing.T) {
 	_, err := tokenPathInRuntime(link, os.Geteuid())
 	if err == nil {
 		t.Fatal("symlink runtime directory accepted")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestCachedTokenRejectsUnsafeCache checks that shared or linked credentials are ignored.
+func TestCachedTokenRejectsUnsafeCache(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		setup func(*testing.T, string)
+	}{
+		{"world readable", func(t *testing.T, path string) {
+			if err := os.WriteFile(path, []byte("secret"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(path, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"symlink", func(t *testing.T, path string) {
+			if err := os.Symlink(filepath.Join(t.TempDir(), "target"), path); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"directory", func(t *testing.T, path string) {
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "token")
+			testCase.setup(t, path)
+			_, err := cachedToken(context.Background(), &tokenValidationClient{}, path)
+			if err == nil {
+				t.Fatal("unsafe cache accepted")
+			}
+		})
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestAccessTokenUsesValidCache avoids an unnecessary interactive authentication.
+func TestAccessTokenUsesValidCache(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(path, []byte("cached"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := accessTokenAtPath(context.Background(), &tokenValidationClient{valid: true}, path, func(context.Context, messaging.Client) (string, error) {
+		return "", errors.New("login must not run")
+	})
+	if err != nil || got != "cached" {
+		t.Fatalf("cached access token = %q, %v", got, err)
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestAccessTokenPropagatesLoginFailure leaves the cache unchanged on failure.
+func TestAccessTokenPropagatesLoginFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "token")
+	_, err := accessTokenAtPath(context.Background(), &tokenValidationClient{}, path, func(context.Context, messaging.Client) (string, error) {
+		return "", errors.New("login failed")
+	})
+	if err == nil {
+		t.Fatal("login failure was ignored")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestWriteTokenRejectsInvalidTokens prevents empty and unbounded credentials.
+func TestWriteTokenRejectsInvalidTokens(t *testing.T) {
+	for _, testCase := range []struct {
+		name, token string
+	}{{"empty", ""}, {"oversized", strings.Repeat("x", 8193)}} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := writeToken(filepath.Join(t.TempDir(), "token"), testCase.token); err == nil {
+				t.Fatal("invalid token accepted")
+			}
+		})
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestTokenPathRejectsPublicRuntimeDirectory checks ownership confinement.
+func TestTokenPathRejectsPublicRuntimeDirectory(t *testing.T) {
+	runtimeDir := t.TempDir()
+	if err := os.Chmod(runtimeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := tokenPathInRuntime(runtimeDir, os.Geteuid())
+	if err == nil {
+		t.Fatal("public runtime directory accepted")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestCachedTokenTreatsEmptyFileAsMissing avoids validating an empty credential.
+func TestCachedTokenTreatsEmptyFileAsMissing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cachedToken(context.Background(), &tokenValidationClient{}, path)
+	if err != nil || got != "" {
+		t.Fatalf("empty cache = %q, %v", got, err)
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestAccessTokenRejectsEmptyLoginResult refuses to cache an invalid login response.
+func TestAccessTokenRejectsEmptyLoginResult(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "token")
+	_, err := accessTokenAtPath(context.Background(), &tokenValidationClient{}, path, func(context.Context, messaging.Client) (string, error) {
+		return "", nil
+	})
+	if err == nil {
+		t.Fatal("empty login token accepted")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestTokenPathRejectsMissingRuntimeDirectory prevents fallback to another cache.
+func TestTokenPathRejectsMissingRuntimeDirectory(t *testing.T) {
+	_, err := tokenPathInRuntime(filepath.Join(t.TempDir(), "missing"), os.Geteuid())
+	if err == nil {
+		t.Fatal("missing runtime directory accepted")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestTokenPathRejectsPublicCacheDirectory prevents shared token storage.
+func TestTokenPathRejectsPublicCacheDirectory(t *testing.T) {
+	runtimeDir := t.TempDir()
+	if err := os.Chmod(runtimeDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(runtimeDir, "lite-nas"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(runtimeDir, "lite-nas"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := tokenPathInRuntime(runtimeDir, os.Geteuid())
+	if err == nil {
+		t.Fatal("public cache directory accepted")
 	}
 }

@@ -22,6 +22,16 @@ type runtimeAuthenticatorStub struct {
 	err    error
 }
 
+// TestRevokeMatchedSessionsRPCRejectsOptionShapedIP validates the service
+// boundary before any active browser session is touched.
+func TestRevokeMatchedSessionsRPCRejectsOptionShapedIP(t *testing.T) {
+	runtimeDeps, _ := loginRPCFixture(t)
+	response, err := handleRevokeMatchedSessionsRPC(runtimeDeps, rpcEnvelope(t, authcontract.RevokeMatchedSessionsRequest{Login: "alice", ClientIP: "--all"}))
+	if err != nil || response.Revoked != 0 {
+		t.Fatalf("malformed target accepted: %+v, %v", response, err)
+	}
+}
+
 func (a runtimeAuthenticatorStub) Authenticate(pamauth.AuthenticateRequest) (pamauth.Result, error) {
 	return a.result, a.err
 }

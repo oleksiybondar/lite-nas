@@ -194,10 +194,12 @@ func buildBaseListEventsSQL() string {
 		"e.rec_id, e.event_id, e.category, e.severity, e.priority, e.created_at, e.source, " +
 		"l.acknowledged, l.acknowledged_by, l.acknowledged_at, l.muted, l.muted_by, l.muted_at, " +
 		"s.status, s.message, " +
-		"o.ts AS last_value_ts, o.value_type AS last_value_type, o.value_num AS last_value_num, o.value_text AS last_value_text, o.value_bool AS last_value_bool, o.value_unit AS last_value_unit " +
+		"o.ts AS last_value_ts, o.value_type AS last_value_type, o.value_num AS last_value_num, o.value_text AS last_value_text, o.value_bool AS last_value_bool, o.value_unit AS last_value_unit, " +
+		"mitigation.value AS mitigate " +
 		"FROM events e " +
 		"JOIN lifecycle l ON l.event_rec_id = e.rec_id " +
 		"JOIN event_state s ON s.event_rec_id = e.rec_id " +
+		"LEFT JOIN event_meta mitigation ON mitigation.event_id = e.event_id AND mitigation.key = 'mitigate' " +
 		"LEFT JOIN occurrences o ON o.rec_id = (" +
 		"SELECT rec_id FROM occurrences oo WHERE oo.event_id = e.event_id ORDER BY oo.rec_id DESC LIMIT 1" +
 		")"

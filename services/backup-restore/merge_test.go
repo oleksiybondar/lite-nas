@@ -241,6 +241,27 @@ func TestMergeSaveUsesStagedContentWithoutApplyingLive(t *testing.T) {
 	t.Fatal("saved path missing")
 }
 
+// Requirements: backup-restore/FR-001, backup-restore/FR-006.
+// TestMergeSaveStoresLabels verifies a saved merge retains its human-readable metadata.
+func TestMergeSaveStoresLabels(t *testing.T) {
+	runtime, token, version, path := mergeFixture(t)
+	id := mustStartMerge(t, runtime, token, version)
+	mustStageMerge(t, runtime, token, id, path, "resolved\n")
+	result, err := runtime.mergeSave(context.Background(), messagingtest.MustEnvelope(t, contract.MergeSaveRequest{
+		AccessToken: token, SessionID: id, Name: "merged", Description: "reviewed changes",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := runtime.store.Metadata("example", result.(contract.BackupResponse).Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Name != "merged" || metadata.Description != "reviewed changes" {
+		t.Fatalf("saved labels = %q, %q", metadata.Name, metadata.Description)
+	}
+}
+
 // Requirements: backup-restore/FR-006.
 func TestMergeSaveLeavesCurrentFileUnchanged(t *testing.T) {
 	runtime, token, version, path := mergeFixture(t)

@@ -4,4 +4,5 @@ pytest_plugins = (
     "fixtures.api_client",
     "fixtures.cli_client",
     "fixtures.loopback_mount",
+    "fixtures.security_automation",
 )

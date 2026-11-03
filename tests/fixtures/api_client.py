@@ -1,7 +1,9 @@
 import logging
+import os
 import re
 
 import pytest
+from api.file_service.conftest import login_cookie
 from constants import API_BASE_URL
 from hyperiontf import RESTClient
 
@@ -29,6 +31,21 @@ class RedactSessionCookies(logging.Filter):
         return True
 
 
+class RedactTestPassword(logging.Filter):
+    """Remove one configured test password from Hyperion action logs."""
+
+    def __init__(self, password: str) -> None:
+        """Bind the test credential used by an interactive or API login."""
+        super().__init__()
+        self.password = password
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Replace the credential before the log record reaches its handlers."""
+        record.msg = record.getMessage().replace(self.password, "[REDACTED]")
+        record.args = ()
+        return True
+
+
 SESSION_COOKIE_FILTER = RedactSessionCookies()
 
 
@@ -43,3 +60,21 @@ def api_client() -> RESTClient:
     if SESSION_COOKIE_FILTER not in client.logger.filters:
         client.logger.addFilter(SESSION_COOKIE_FILTER)
     return client
+
+
+@pytest.fixture
+def admin_cookie(api_client: RESTClient) -> str:
+    """Authenticate the configured administrator for installed API and CLI tests."""
+    login = os.getenv("LITENAS_FILE_SERVICE_ADMIN_LOGIN")
+    password = os.getenv("LITENAS_FILE_SERVICE_ADMIN_PASSWORD")
+    if not login or not password:
+        pytest.fail(
+            "Set LITENAS_FILE_SERVICE_ADMIN_LOGIN and "
+            "LITENAS_FILE_SERVICE_ADMIN_PASSWORD for administrator system tests"
+        )
+    redactor = RedactTestPassword(password)
+    api_client.logger.addFilter(redactor)
+    try:
+        return login_cookie(api_client, login, password)
+    finally:
+        api_client.logger.removeFilter(redactor)

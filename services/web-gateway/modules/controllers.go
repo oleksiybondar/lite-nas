@@ -27,6 +27,8 @@ type Controllers struct {
 	ZFSMetrics         controllers.ZFSMetricsController
 	BackupRestore      controllers.BackupRestoreController
 	SecurityTasks      controllers.SecurityTasksController
+	SecurityAutomation controllers.SecurityAutomationController
+	LogAudit           controllers.LogAuditController
 }
 
 // NewControllersModule assembles the HTTP controllers used by the route layer.
@@ -63,5 +65,7 @@ func NewControllersModule(
 		ZFSMetrics:         controllers.NewZFSMetricsController(services.ZFSMetrics),
 		BackupRestore:      controllers.NewBackupRestoreController(services.BackupRestore),
 		SecurityTasks:      controllers.NewSecurityTasksController(services.SecurityTasks),
+		SecurityAutomation: controllers.NewSecurityAutomationController(services.SecurityAutomation),
+		LogAudit:           controllers.NewLogAuditController(services.LogAudit),
 	}
 }

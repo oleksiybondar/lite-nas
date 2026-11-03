@@ -25,6 +25,7 @@ type recordingAlertPublisher struct {
 	messaging.Client
 	subject  string
 	message  string
+	mitigate string
 	severity enum.Severity
 	status   enum.Status
 }
@@ -34,6 +35,7 @@ func (publisher *recordingAlertPublisher) Publish(_ context.Context, subject str
 	publisher.subject = subject
 	if alert, ok := value.(loggingcontract.AlertPayload); ok {
 		publisher.message = alert.Message
+		publisher.mitigate = alert.Mitigate
 		publisher.severity = alert.Severity
 	}
 	return nil
@@ -107,6 +109,25 @@ func TestIncompleteScanUsesWarningSeverity(t *testing.T) {
 	client := mustPublishScanResult(t, scanIncomplete)
 	if client.severity != enum.SeverityWarning {
 		t.Fatalf("incomplete scan severity = %q", client.severity)
+	}
+}
+
+// TestScanGuidanceMatchesOutcome verifies only findings needing operator work include mitigation guidance.
+func TestScanGuidanceMatchesOutcome(t *testing.T) {
+	for _, test := range []struct {
+		status       scanStatus
+		wantGuidance bool
+	}{
+		{status: scanInfected, wantGuidance: true},
+		{status: scanIncomplete, wantGuidance: true},
+		{status: scanClean, wantGuidance: false},
+	} {
+		t.Run(string(test.status), func(t *testing.T) {
+			client := mustPublishScanResult(t, test.status)
+			if (client.mitigate != "") != test.wantGuidance {
+				t.Fatalf("mitigation guidance = %q", client.mitigate)
+			}
+		})
 	}
 }
 

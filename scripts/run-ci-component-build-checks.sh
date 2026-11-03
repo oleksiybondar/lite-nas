@@ -26,6 +26,7 @@ scripts/build-journal-manager.sh
 scripts/build-usb-manager.sh
 scripts/build-log-analysis.sh
 scripts/build-network-security.sh
+scripts/build-security-automation-binary.sh
 scripts/build-network-metrics.sh
 scripts/build-process-metrics.sh
 scripts/build-disk-metrics.sh

@@ -92,6 +92,7 @@ type eventScanResult struct {
 	lastValueBool sql.NullInt64
 	lastValueUnit sql.NullString
 	stateMessage  sql.NullString
+	mitigate      sql.NullString
 	createdAt     string
 	ackAt         string
 	mutedAt       string
@@ -120,6 +121,7 @@ func scanEventRow(rows *sql.Rows, scanned *eventScanResult) error {
 		&scanned.lastValueText,
 		&scanned.lastValueBool,
 		&scanned.lastValueUnit,
+		&scanned.mitigate,
 	)
 }
 
@@ -127,6 +129,9 @@ func buildEvent(scanned eventScanResult) model.Event {
 	row := scanned.event
 	applyCoreEventFields(&row, scanned)
 	applyStateMessage(&row, scanned.stateMessage)
+	if scanned.mitigate.Valid {
+		row.Meta = []dto.EventMetaRow{{EventID: row.Event.EventID, MetaKey: "mitigate", MetaValue: scanned.mitigate.String}}
+	}
 	row.LastValue = scanLastOccurrence(
 		row.Event.EventID,
 		row.Event.RecID,

@@ -74,6 +74,11 @@ func RunConversation(serviceName string, request AuthenticateRequest, onDemand b
 		return newServiceUnavailableResult(request.Username, err.Error()), err
 	}
 	defer endTransaction(transaction)
+	if request.ClientIP != "" {
+		if err := transaction.SetItem(pam.Rhost, request.ClientIP); err != nil {
+			return newServiceUnavailableResult(request.Username, err.Error()), err
+		}
+	}
 	if err := transaction.Authenticate(pam.DisallowNullAuthtok); err != nil {
 		return Result{Code: OutcomeDenied, Username: request.Username, Messages: buildMessages(messages, Message{Level: MessageLevelError, Text: err.Error()})}, nil
 	}

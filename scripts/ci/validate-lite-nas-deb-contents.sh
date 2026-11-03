@@ -148,6 +148,7 @@ assert_cmd "Log Analysis ingress socket packaged" assert_file "$packaged_config_
 assert_cmd "Log Analysis rsyslog forwarding packaged" assert_file "$packaged_config_root/rsyslog.d/30-lite-nas-log-analysis.conf"
 assert_cmd "rsyslogd Log Analysis AppArmor include packaged" assert_file "$packaged_config_root/apparmor.d/rsyslog.d/lite-nas-log-analysis"
 assert_cmd "Watchdog sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-service-watchdog"
+assert_cmd "Security Automation sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-security-automation"
 assert_cmd "mount-monitor binary packaged" assert_executable usr/libexec/lite-nas/mount-monitor
 assert_cmd "antivirus binary packaged" assert_executable usr/libexec/lite-nas/antivirus
 assert_cmd "system-service-monitor binary packaged" assert_executable usr/libexec/lite-nas/system-service-monitor
@@ -178,6 +179,20 @@ assert_cmd "journal-manager journal access packaged" assert_file_contains "$pack
 assert_cmd "host manager deploy loads AppArmor profiles" assert_file_contains usr/libexec/lite-nas/scripts/deploy/host-manager.sh 'apparmor_parser -r'
 assert_cmd "log-analysis binary packaged" assert_executable usr/libexec/lite-nas/log-analysis
 assert_cmd "network-security binary packaged" assert_executable usr/libexec/lite-nas/network-security
+assert_cmd "security-automation binary packaged" assert_executable usr/libexec/lite-nas/security-automation
+assert_cmd "security-automation config packaged" assert_file "$packaged_config_root/lite-nas/security-automation.conf"
+assert_cmd "security-automation rules packaged" assert_file "$packaged_config_root/lite-nas/security-automation/rules.json"
+assert_cmd "security-automation backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/security-automation.conf"
+assert_cmd "security-automation unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-security-automation.service"
+# shellcheck disable=SC2016 # The expected file content contains a literal variable reference.
+assert_cmd "security-automation package deployment wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.securityMonitor.deploy "security-automation" "$PACKAGE_ROOT/security-automation" 0'
+assert_cmd "security-automation package start wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.enableAndRefreshService "lite-nas-security-automation.service"'
+assert_cmd "security-automation CLI config packaged" assert_file "$packaged_config_root/lite-nas/security-automation-cli.conf"
+assert_cmd "security-automation CLI binary packaged" assert_executable usr/libexec/lite-nas/security-automation-cli
+assert_cmd "security-automation CLI command linked" assert_symlink_target usr/bin/security-automation-cli /usr/libexec/lite-nas/security-automation-cli
+# shellcheck disable=SC2016 # The expected file content contains a literal variable reference.
+assert_cmd "security-automation CLI package deployment wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.securityAutomationCLI.deploy "$PACKAGE_ROOT/security-automation-cli"'
+assert_cmd "security-automation CLI backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/security-automation-cli.conf"
 assert_cmd "network-security backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/network-security.conf"
 assert_cmd "network-security unit requires AppArmor" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-network-security.service" 'AssertSecurity=apparmor'
 assert_cmd "network-security unit selects its profile" assert_file_contains "$packaged_config_root/systemd/system/lite-nas-network-security.service" 'AppArmorProfile=/usr/libexec/lite-nas/network-security'

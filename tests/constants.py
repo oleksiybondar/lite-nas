@@ -38,6 +38,14 @@ FILE_WRITER_BINARY: str = os.environ.get(
     "LITENAS_FILE_WRITER_BINARY",
     "/usr/bin/lite-nas-file-writer",
 )
+BACKUP_RESTORE_CLI_BINARY: str = os.environ.get(
+    "LITENAS_BACKUP_RESTORE_CLI_BINARY",
+    "/usr/bin/backup-restore-cli",
+)
+SECURITY_AUTOMATION_CLI_BINARY: str = os.environ.get(
+    "LITENAS_SECURITY_AUTOMATION_CLI_BINARY",
+    "/usr/bin/security-automation-cli",
+)
 SYSTEM_LOGGING_MANAGER_CLI_BINARY: str = os.environ.get(
     "LITENAS_SYSTEM_LOGGING_MANAGER_CLI_BINARY",
     "/usr/bin/system-logging-manager-cli",

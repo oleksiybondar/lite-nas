@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -17,35 +18,39 @@ import (
 
 // Observation contains bounded normalized evidence selected by one rule.
 type Observation struct {
-	RuleID        string
-	Category      string
-	Severity      string
-	Email         bool
-	Lockdown      bool
-	Kind          string
-	Account       string
-	SourceAddress string
-	Service       string
-	Device        string
-	At            time.Time
+	RuleID            string
+	Category          string
+	PossibleReactions []string
+	Severity          string
+	Email             bool
+	Lockdown          bool
+	Kind              string
+	Account           string
+	SourceAddress     string
+	Service           string
+	Device            string
+	TTY               string
+	At                time.Time
 }
 
 // Detection is a typed manager or lockdown effect; plugin workers do not
 // deliver it directly to NATS or email.
 type Detection struct {
-	InstanceID    string
-	RuleID        string
-	Category      string
-	Severity      string
-	Email         bool
-	Lockdown      bool
-	Operation     string
-	EventID       string
-	Account       string
-	SourceAddress string
-	Service       string
-	Device        string
-	At            time.Time
+	InstanceID        string
+	RuleID            string
+	Category          string
+	PossibleReactions []string
+	Severity          string
+	Email             bool
+	Lockdown          bool
+	Operation         string
+	EventID           string
+	Account           string
+	SourceAddress     string
+	Service           string
+	Device            string
+	TTY               string
+	At                time.Time
 }
 
 // Config specifies one validated plugin instance constructed at startup.
@@ -114,7 +119,7 @@ func NewThreshold(cfg Config, output chan<- Detection, log sharedlogger.Logger) 
 	return New(cfg, output, log)
 }
 
-// NewKeyedThreshold constructs the compiled per-account or per-source detector.
+// NewKeyedThreshold constructs the compiled per-account, per-source, or combined detector.
 func NewKeyedThreshold(cfg Config, output chan<- Detection, log sharedlogger.Logger) (*Plugin, error) {
 	cfg.Type = "keyed_threshold"
 	return New(cfg, output, log)
@@ -144,8 +149,8 @@ func New(cfg Config, output chan<- Detection, log sharedlogger.Logger) (*Plugin,
 	if cfg.Type == "threshold" && cfg.KeyBy != "global" {
 		return nil, errors.New("threshold plugin requires global key")
 	}
-	if cfg.Type == "keyed_threshold" && cfg.KeyBy != "account" && cfg.KeyBy != "source" {
-		return nil, errors.New("keyed threshold requires account or source key")
+	if cfg.Type == "keyed_threshold" && cfg.KeyBy != "account" && cfg.KeyBy != "source" && cfg.KeyBy != "account_source" {
+		return nil, errors.New("keyed threshold requires account, source, or account_source key")
 	}
 	if cfg.Type == "immediate" && cfg.KeyBy != "global" {
 		return nil, errors.New("immediate plugin requires global key")
@@ -252,8 +257,15 @@ func (p *Plugin) key(observation Observation) (string, error) {
 		key = observation.Account
 	case "source":
 		key = observation.SourceAddress
+	case "account_source":
+		address, err := netip.ParseAddr(observation.SourceAddress)
+		if err != nil || !address.IsGlobalUnicast() || address.Zone() != "" || observation.Account == "" || len(observation.Account) > 128 {
+			return "", errors.New("missing or invalid account/source key")
+		}
+		// The account length separates names containing punctuation from the IP.
+		key = fmt.Sprintf("%d:%s%s", len(observation.Account), observation.Account, address.String())
 	}
-	if key == "" || len(key) > 128 || strings.ContainsAny(key, "\n\r\x00") {
+	if key == "" || len(key) > 256 || strings.ContainsAny(key, "\n\r\x00") {
 		return "", errors.New("missing or invalid key")
 	}
 	return observation.RuleID + "/" + key, nil
@@ -381,10 +393,12 @@ func isAlphaNumeric(value string) bool {
 func (p *Plugin) detection(data instanceData, operation string) Detection {
 	return Detection{
 		InstanceID: p.id, RuleID: data.Last.RuleID, Category: data.Last.Category,
-		Severity: data.Last.Severity, Email: data.Last.Email, Lockdown: data.Last.Lockdown, Operation: operation,
+		PossibleReactions: append([]string(nil), data.Last.PossibleReactions...),
+		Severity:          data.Last.Severity, Email: data.Last.Email, Lockdown: data.Last.Lockdown, Operation: operation,
 		EventID: data.EventID, Account: data.Last.Account, SourceAddress: data.Last.SourceAddress,
 		Service: data.Last.Service,
 		Device:  data.Last.Device,
+		TTY:     data.Last.TTY,
 		At:      data.Last.At,
 	}
 }

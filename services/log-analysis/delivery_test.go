@@ -30,6 +30,20 @@ func TestCreateDoesNotResolveSecurityAlert(t *testing.T) {
 	}
 }
 
+// TestCreateIncludesOperatorGuidance verifies rule reactions reach the alert payload.
+func TestCreateIncludesOperatorGuidance(t *testing.T) {
+	client := &deliveryTestClient{}
+	effect := pluginsDetectionForDeliveryTest()
+	effect.PossibleReactions = []string{"Review the source.", "Restrict it if hostile."}
+	alertSent := false
+	if err := deliverDetection(context.Background(), effect, &alertSent, client, client); err != nil {
+		t.Fatal(err)
+	}
+	if client.published.Mitigate != "Review the source.\nRestrict it if hostile." {
+		t.Fatalf("mitigation guidance = %q", client.published.Mitigate)
+	}
+}
+
 // Requirements: security-monitoring/FR-001.
 func TestOccurrenceUsesExistingAlertSubject(t *testing.T) {
 	client := &deliveryTestClient{}
@@ -145,6 +159,7 @@ func pluginsDetectionForDeliveryTest() plugins.Detection {
 
 // deliveryTestClient records alert publications and any attempted state update.
 type deliveryTestClient struct {
+	published      loggingcontract.AlertPayload
 	publishCount   int
 	stateCount     int
 	publishSubject string
@@ -155,9 +170,12 @@ type deliveryTestClient struct {
 }
 
 // Publish records one event publication for the retry assertion.
-func (client *deliveryTestClient) Publish(_ context.Context, subject string, _ any) error {
+func (client *deliveryTestClient) Publish(_ context.Context, subject string, payload any) error {
 	client.publishCount++
 	client.publishSubject = subject
+	if alert, ok := payload.(loggingcontract.AlertPayload); ok {
+		client.published = alert
+	}
 	return client.publishErr
 }
 

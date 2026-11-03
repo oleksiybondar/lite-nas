@@ -338,6 +338,15 @@ NATS; neither adapter should perform privileged file operations itself.
   this means preserving extra filesystem entries while restoring archived
   entries; it does not merge file contents. Key-aware INI merge and conflict
   resolution are future work and need a separate requirement/API contract.
+- **backup-restore/FR-012 — Restore by name:** A caller MUST be able to restore
+  the newest stored version whose archive metadata name exactly matches a
+  supplied name for one configured application. A separate all-application
+  operation MUST visit configured applications in stable order, restore each
+  newest matching version, skip applications without a matching name, and
+  report completed, skipped, and failed outcomes with selected versions and
+  restart warnings. Both operations MUST use the same replace or merge restore
+  behavior and administrator authorization as direct version restore. The CLI
+  and admin panel MUST expose both operations.
 
 ## Initial target inventory
 

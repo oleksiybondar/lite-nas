@@ -816,6 +816,7 @@ func publishScanResult(ctx context.Context, result scanResult, alertSent *bool, 
 				EventID: result.eventID, Category: "Malware detection", Severity: enum.SeverityError,
 				CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
 				Message: message, TriggerValue: evidence, Email: &email,
+				Mitigate: "Review the scan evidence and affected files. Quarantine or remove confirmed malware, then scan the affected storage again.",
 			}); err != nil {
 				return err
 			}
@@ -881,6 +882,7 @@ func publishScanResult(ctx context.Context, result scanResult, alertSent *bool, 
 		EventID: result.eventID, Category: "Antivirus scan", Severity: enum.SeverityWarning,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceAntivirus,
 		Message: message, TriggerValue: evidence,
+		Mitigate: "Review the scanner error and evidence, resolve the scan failure, then rerun the scan before relying on its result.",
 	})
 	if err != nil {
 		return err

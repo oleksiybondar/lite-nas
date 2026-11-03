@@ -7,7 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 # The service name is supplied by a fixed entrypoint, never by a runtime request.
 deploy.securityMonitor.requireTools() {
 	local tool
-	for tool in getent groupadd id useradd usermod install chmod chown realpath systemctl visudo rsyslogd setfacl; do
+	for tool in getent groupadd id useradd usermod install chmod chown realpath systemctl visudo rsyslogd setfacl python3; do
 		log.requireCommand "$tool" "Install the required system tooling and retry."
 	done
 }
@@ -33,7 +33,7 @@ deploy.securityMonitor.deploy() {
 	local rules_target=/etc/lite-nas/log-analysis/rules.json
 
 	case "$name" in
-	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis | network-security) ;;
+	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis | network-security | security-automation) ;;
 	*)
 		log.error "Unknown security monitor: $name"
 		return 2
@@ -55,7 +55,7 @@ deploy.securityMonitor.deploy() {
 		deploy.securityMonitor.ensureGroup lite-nas-security
 		extra_groups="$extra_groups,lite-nas-operator,lite-nas-security"
 		;;
-	service-watchdog | log-analysis | network-security)
+	service-watchdog | log-analysis | network-security | security-automation)
 		deploy.securityMonitor.ensureGroup lite-nas-security
 		extra_groups="$extra_groups,lite-nas-security"
 		;;
@@ -82,6 +82,7 @@ deploy.securityMonitor.deploy() {
 		if [ ! -f "$rules_target" ]; then
 			install -m 0640 -o "$user" -g lite-nas "$rules_source" "$rules_target"
 		fi
+		python3 "$DEPLOY_HELPER_DIR/merge-security-action-rules.py" log-analysis "$rules_target" "$rules_source"
 		install -D -m 0644 -o root -g root "$LITE_NAS_REPO_ROOT/configs/etc/rsyslog.d/30-lite-nas-log-analysis.conf" \
 			/etc/rsyslog.d/30-lite-nas-log-analysis.conf
 		install -D -m 0644 -o root -g root "$LITE_NAS_REPO_ROOT/configs/etc/apparmor.d/rsyslog.d/lite-nas-log-analysis" \
@@ -93,6 +94,29 @@ deploy.securityMonitor.deploy() {
 				fi
 			done
 		fi
+	fi
+	if [ "$name" = "security-automation" ]; then
+		chown root:root "$target"
+		chmod 0755 "$target"
+		local automation_rules_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/security-automation/rules.json"
+		local automation_rules_target=/etc/lite-nas/security-automation/rules.json
+		install -d -m 0750 -o root -g lite-nas /etc/lite-nas/security-automation
+		if [ ! -f "$automation_rules_target" ]; then
+			install -m 0640 -o root -g lite-nas "$automation_rules_source" "$automation_rules_target"
+		fi
+		python3 "$DEPLOY_HELPER_DIR/merge-security-action-rules.py" security-automation "$automation_rules_target" "$automation_rules_source"
+		local analysis_rules_target=/etc/lite-nas/log-analysis/rules.json
+		local analysis_rules_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/log-analysis/rules.json"
+		if [ -f "$analysis_rules_target" ]; then
+			python3 "$DEPLOY_HELPER_DIR/merge-security-action-rules.py" log-analysis "$analysis_rules_target" "$analysis_rules_source"
+			if [ "$should_start" = "1" ] && deploy.hasUsableSystemd; then
+				systemctl try-restart lite-nas-log-analysis.service
+			fi
+		fi
+		chown root:lite-nas "$automation_rules_target"
+		chmod 0640 "$automation_rules_target"
+		install -d -m 0700 -o "$user" -g "$user" /var/lib/lite-nas/security-automation
+		deploy.installSudoersTemplate "$LITE_NAS_REPO_ROOT/configs/etc/sudoers.d/lite-nas-security-automation" /etc/sudoers.d/lite-nas-security-automation
 	fi
 	install -d -m 0751 -o root -g lite-nas /var/log/lite-nas
 	if [ ! -f "$log_target" ]; then

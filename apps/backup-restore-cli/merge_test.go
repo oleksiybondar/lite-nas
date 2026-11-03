@@ -192,3 +192,136 @@ func TestMergeCommandStartsAndDownloadsSession(t *testing.T) {
 		t.Fatalf("merge start = %v, started = %v", err, client.started)
 	}
 }
+
+// Requirements: backup-restore/FR-005.
+// TestMergeResumeRejectsInvalidServiceSession checks a session lookup before editing.
+func TestMergeResumeRejectsInvalidServiceSession(t *testing.T) {
+	client := &commandClient{reply: contract.MergeStartResponse{SessionID: "bad"}}
+	err := runMerge(context.Background(), client, "token", []string{"resume", "0123456789abcdef0123456789abcdef"})
+	if err == nil {
+		t.Fatal("invalid service session accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-005.
+// TestMergeDiscardRequiresConfirmation checks a missing service acknowledgement.
+func TestMergeDiscardRequiresConfirmation(t *testing.T) {
+	client := &commandClient{reply: contract.MergeActionResponse{Completed: false}}
+	err := runMerge(context.Background(), client, "token", []string{"discard", "0123456789abcdef0123456789abcdef"})
+	if err == nil {
+		t.Fatal("unconfirmed discard accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-005.
+// TestMergeTerminalChoiceReportsFailures checks service and operator failure states.
+func TestMergeTerminalChoiceReportsFailures(t *testing.T) {
+	for _, testCase := range []struct {
+		name, choice string
+		reply        any
+	}{
+		{"unconfirmed", "apply", contract.MergeActionResponse{}},
+		{"restart warning", "apply", contract.MergeActionResponse{Completed: true, Warnings: []string{"restart failed"}}},
+		{"unknown choice", "unknown", nil},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			client := &commandClient{reply: testCase.reply}
+			if err := submitMergeChoice(context.Background(), client, "token", "session", testCase.choice, true); err == nil {
+				t.Fatal("merge terminal failure was ignored")
+			}
+		})
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestReadEditedResultReturnsRegularContent checks bounded editor output.
+func TestReadEditedResultReturnsRegularContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result")
+	if err := os.WriteFile(path, []byte("edited\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readEditedResult(path)
+	if err != nil || string(got) != "edited\n" {
+		t.Fatalf("edited content = %q, %v", got, err)
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestReadEditedResultRejectsDirectory prevents a directory from crossing NATS.
+func TestReadEditedResultRejectsDirectory(t *testing.T) {
+	_, err := readEditedResult(t.TempDir())
+	if err == nil {
+		t.Fatal("directory accepted as edited file")
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestEditMergeRejectsUnsafeSession prevents malformed backend paths from reaching the editor.
+func TestEditMergeRejectsUnsafeSession(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		session contract.MergeStartResponse
+	}{
+		{"bad session ID", contract.MergeStartResponse{SessionID: "bad", Files: []contract.MergeFile{{Path: "/etc/example"}}}},
+		{"no files", contract.MergeStartResponse{SessionID: "0123456789abcdef0123456789abcdef"}},
+		{"relative path", contract.MergeStartResponse{SessionID: "0123456789abcdef0123456789abcdef", Files: []contract.MergeFile{{Path: "etc/example"}}}},
+		{"unclean path", contract.MergeStartResponse{SessionID: "0123456789abcdef0123456789abcdef", Files: []contract.MergeFile{{Path: "/etc/../etc/example"}}}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if err := editMerge(context.Background(), &commandClient{}, "token", testCase.session); err == nil {
+				t.Fatal("unsafe merge session accepted")
+			}
+		})
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+// TestDownloadMergeRejectsMalformedChunks verifies transfer framing before file editing.
+func TestDownloadMergeRejectsMalformedChunks(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		reply contract.MergeReadResponse
+	}{
+		{"invalid base64", contract.MergeReadResponse{Data: "!", NextOffset: 1, Done: true}},
+		{"wrong offset", contract.MergeReadResponse{Data: "YQ==", NextOffset: 2, Done: true}},
+		{"empty continuation", contract.MergeReadResponse{Data: "", NextOffset: 0, Done: false}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			client := &commandClient{reply: testCase.reply}
+			_, err := downloadMerge(context.Background(), client, "token", "session", "/etc/example", "result")
+			if err == nil {
+				t.Fatal("malformed download chunk accepted")
+			}
+		})
+	}
+}
+
+// Requirements: backup-restore/FR-005.
+// TestUploadMergeRequiresOffsetConfirmation prevents silent truncation.
+func TestUploadMergeRequiresOffsetConfirmation(t *testing.T) {
+	client := &commandClient{reply: contract.MergeWriteResponse{NextOffset: 0}}
+	err := uploadMerge(context.Background(), client, "token", "session", "/etc/example", []byte("data"))
+	if err == nil {
+		t.Fatal("unconfirmed upload accepted")
+	}
+}
+
+// Requirements: backup-restore/IR-003.
+// TestMergeRequestsPropagateRPCFailure reports failed start, resume, and discard calls.
+func TestMergeRequestsPropagateRPCFailure(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		args []string
+	}{
+		{"start", []string{"example", "v1"}},
+		{"resume", []string{"resume", "0123456789abcdef0123456789abcdef"}},
+		{"discard", []string{"discard", "0123456789abcdef0123456789abcdef"}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			client := &commandClient{err: fmt.Errorf("rpc unavailable")}
+			if err := runMerge(context.Background(), client, "token", testCase.args); err == nil {
+				t.Fatal("merge RPC failure was ignored")
+			}
+		})
+	}
+}

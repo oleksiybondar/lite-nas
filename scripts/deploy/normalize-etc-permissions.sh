@@ -98,6 +98,7 @@ deploy.normalizeLiteNAS() {
 	deploy.normalizePath 0640 "$litenas_zfs_cli_config_file" "$(deploy.resolveUserGroupOwner "$litenas_zfs_cli_runtime_user" "$litenas_zfs_cli_access_group" "$owner")"
 	deploy.normalizePath 0640 "$litenas_system_logging_manager_cli_config_file" "$(deploy.resolveUserGroupOwner "$litenas_system_logging_manager_cli_runtime_user" "$litenas_system_logging_manager_cli_access_group" "$litenas_config_owner")"
 	deploy.normalizePath 0640 "$litenas_security_logging_manager_cli_config_file" "$(deploy.resolveUserGroupOwner "$litenas_security_logging_manager_cli_runtime_user" "$litenas_security_logging_manager_cli_access_group" "$litenas_config_owner")"
+	deploy.normalizePath 0640 "$litenas_security_automation_cli_config_file" "root:$litenas_security_automation_cli_access_group"
 
 	if [ -d "$litenas_system_email_notifier_templates_dir" ]; then
 		deploy.normalizePath 0750 "$litenas_system_email_notifier_templates_dir" "$(deploy.resolveUserGroupOwner "$litenas_system_email_notifier_runtime_user" "$litenas_group" "$litenas_config_owner")"
@@ -137,6 +138,9 @@ deploy.normalizeLiteNAS() {
 			elif [ "$identity_group" = "$litenas_security_logging_manager_cli_certificate_user" ] && getent group "$litenas_security_logging_manager_cli_access_group" >/dev/null 2>&1; then
 				deploy.normalizePath 0750 "$identity_dir" "root:${litenas_security_logging_manager_cli_access_group}"
 				credential_owner="root:${litenas_security_logging_manager_cli_access_group}"
+			elif [ "$identity_group" = "$litenas_security_automation_cli_certificate_user" ] && getent group "$litenas_security_automation_cli_access_group" >/dev/null 2>&1; then
+				deploy.normalizePath 0750 "$identity_dir" "root:${litenas_security_automation_cli_access_group}"
+				credential_owner="root:${litenas_security_automation_cli_access_group}"
 			elif getent group "$identity_group" >/dev/null 2>&1; then
 				deploy.normalizePath 0750 "$identity_dir" "root:${identity_group}"
 				credential_owner="root:${identity_group}"
@@ -149,7 +153,7 @@ deploy.normalizeLiteNAS() {
 					deploy.normalizePath 0600 "$credential_file" "$credential_owner"
 				elif [ "$identity_group" = "$litenas_cli_certificate_user" ] || [ "$identity_group" = "$litenas_network_cli_certificate_user" ] || [ "$identity_group" = "$litenas_zfs_cli_certificate_user" ] || [ "$identity_group" = "lite-nas-backup-restore-cli" ]; then
 					deploy.normalizePath 0644 "$credential_file" "$credential_owner"
-				elif [ "$identity_group" = "$litenas_system_logging_manager_cli_certificate_user" ] || [ "$identity_group" = "$litenas_security_logging_manager_cli_certificate_user" ]; then
+				elif [ "$identity_group" = "$litenas_system_logging_manager_cli_certificate_user" ] || [ "$identity_group" = "$litenas_security_logging_manager_cli_certificate_user" ] || [ "$identity_group" = "$litenas_security_automation_cli_certificate_user" ]; then
 					deploy.normalizePath 0640 "$credential_file" "$credential_owner"
 				else
 					deploy.normalizePath 0640 "$credential_file" "$credential_owner"
@@ -350,6 +354,8 @@ deploy.normalizeEtcPermissions() {
 	local litenas_security_logging_manager_cli_certificate_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_CERT_USER:-lite-nas-sec-log-mgr-cli}"
 	local litenas_security_logging_manager_cli_access_group="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_ACCESS_GROUP:-lite-nas-security}"
 	local litenas_security_logging_manager_cli_runtime_user="${LITE_NAS_SECURITY_LOGGING_MANAGER_CLI_IDENTITY_USER:-lite-nas-sec-log-mgr-cli}"
+	local litenas_security_automation_cli_certificate_user="${LITE_NAS_SECURITY_AUTOMATION_CLI_CERT_USER:-lite-nas-security-automation-cli}"
+	local litenas_security_automation_cli_access_group="${LITE_NAS_SECURITY_AUTOMATION_CLI_ACCESS_GROUP:-lite-nas-security}"
 	local litenas_rbac_runtime_user="${LITE_NAS_RBAC_RUNTIME_USER:-lite-nas-rbac}"
 	local litenas_network_metrics_runtime_user="${LITE_NAS_NETWORK_METRICS_RUNTIME_USER:-lite-nas-network-metrics}"
 	local litenas_process_metrics_runtime_user="${LITE_NAS_PROCESS_METRICS_RUNTIME_USER:-lite-nas-process-metrics}"
@@ -392,6 +398,7 @@ deploy.normalizeEtcPermissions() {
 	local litenas_zfs_cli_config_file="$litenas_config_dir/zfs-metrics-cli.conf"
 	local litenas_system_logging_manager_cli_config_file="$litenas_config_dir/system-logging-manager-cli.conf"
 	local litenas_security_logging_manager_cli_config_file="$litenas_config_dir/security-logging-manager-cli.conf"
+	local litenas_security_automation_cli_config_file="$litenas_config_dir/security-automation-cli.conf"
 	local litenas_certificates_dir="$litenas_config_dir/certificates"
 	local litenas_transport_certificates_dir="$litenas_certificates_dir/transport"
 	local litenas_transport_ca_cert="$litenas_transport_certificates_dir/root-ca.crt"

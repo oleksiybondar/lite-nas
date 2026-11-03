@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"syscall"
 
-	"golang.org/x/term"
+	"lite-nas/shared/cliauth"
 
 	authcontract "lite-nas/shared/contracts/auth"
 	"lite-nas/shared/messaging"
@@ -130,79 +129,12 @@ func writeToken(path, token string) error {
 	return os.Rename(temporary.Name(), path)
 }
 
-// login completes Auth Service's PAM conversation and keeps only its access token.
+// login obtains a user access token through the shared interactive flow.
 func login(ctx context.Context, client messaging.Client) (string, error) {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return "", fmt.Errorf("interactive terminal required: %w", err)
-	}
-	defer tty.Close()
-	return loginWithPrompt(ctx, client, func(label string, secret bool) (string, error) { return prompt(tty, label, secret) })
+	return cliauth.LoginInteractive(ctx, client)
 }
 
-// loginWithPrompt handles Auth Service's login and PAM prompts without persisting refresh material.
+// loginWithPrompt keeps the injected-prompt test contract for the shared flow.
 func loginWithPrompt(ctx context.Context, client messaging.Client, ask func(string, bool) (string, error)) (string, error) {
-	username, err := ask("Username: ", false)
-	if err != nil {
-		return "", err
-	}
-	password, err := ask("Password: ", true)
-	if err != nil {
-		return "", err
-	}
-	if username == "" || len(username) > 128 || password == "" || len(password) > 4096 {
-		return "", fmt.Errorf("invalid credentials")
-	}
-	var response authcontract.LoginResponse
-	err = client.Request(ctx, authcontract.LoginRPCSubject, authcontract.LoginRequest{Username: username, Password: password}, &response)
-	password = ""
-	if err != nil {
-		return "", err
-	}
-	for response.Conversation != nil {
-		answer, err := ask(response.Conversation.Prompt+": ", response.Conversation.Secret)
-		if err != nil {
-			return "", err
-		}
-		if answer == "" || len(answer) > 4096 {
-			return "", fmt.Errorf("invalid authentication answer")
-		}
-		request := authcontract.PasswordChangeReplyRequest{ConversationID: response.Conversation.ID, Sequence: response.Conversation.Sequence, Answer: answer}
-		err = client.Request(ctx, authcontract.PasswordChangeReplyRPCSubject, request, &response)
-		answer = ""
-		if err != nil {
-			return "", err
-		}
-	}
-	if response.Status != authcontract.StatusAuthenticated || response.AccessToken == "" {
-		return "", errors.New("authentication failed")
-	}
-	return response.AccessToken, nil
-}
-
-// prompt reads one credential from the controlling terminal, hiding secrets.
-func prompt(tty *os.File, label string, secret bool) (string, error) {
-	if _, err := fmt.Fprint(tty, label); err != nil {
-		return "", err
-	}
-	if secret {
-		value, err := term.ReadPassword(int(tty.Fd()))
-		_, _ = fmt.Fprintln(tty)
-		return string(value), err
-	}
-	value := make([]byte, 0, 128)
-	var character [1]byte
-	for {
-		_, err := tty.Read(character[:])
-		if err != nil {
-			return "", err
-		}
-		if character[0] == '\n' {
-			return string(value), nil
-		}
-		if len(value) >= 4096 {
-			return "", fmt.Errorf("authentication input too long")
-		}
-		value = append(value, character[0])
-	}
+	return cliauth.Login(ctx, client, ask)
 }

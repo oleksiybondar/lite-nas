@@ -26,6 +26,8 @@ type Services struct {
 	ZFSMetrics         services.ZFSMetricsService
 	BackupRestore      services.BackupRestoreService
 	SecurityTasks      services.SecurityTasksService
+	SecurityAutomation services.SecurityAutomationService
+	LogAudit           services.LogAuditService
 }
 
 // NewServicesModule assembles the service-layer dependencies used by the
@@ -52,5 +54,7 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 		ZFSMetrics:         services.NewZFSMetricsService(client),
 		BackupRestore:      services.NewBackupRestoreService(client),
 		SecurityTasks:      services.NewSecurityTasksService(client),
+		SecurityAutomation: services.NewSecurityAutomationService(client),
+		LogAudit:           services.NewLogAuditService(client),
 	}
 }

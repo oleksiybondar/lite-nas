@@ -1,6 +1,17 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
+
+// Requirements: backup-restore/IR-003.
+// TestRunWithoutArgumentsReportsUsage rejects an empty command before configuration loading.
+func TestRunWithoutArgumentsReportsUsage(t *testing.T) {
+	if err := run(context.Background(), nil); err == nil {
+		t.Fatal("empty command accepted")
+	}
+}
 
 // Requirements: backup-restore/SR-003.
 func TestValidApplicationRejectsUnsafeOperands(t *testing.T) {

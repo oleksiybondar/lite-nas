@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/ini.v1"
@@ -20,6 +21,7 @@ type securityConfig struct {
 	MaxPairs   int
 	Window     time.Duration
 	Cooldown   time.Duration
+	Mitigate   string
 	Horizontal patternConfig
 	Repeated   patternConfig
 }
@@ -30,6 +32,21 @@ type patternConfig struct {
 	MaxPairs  int
 	Window    time.Duration
 	Cooldown  time.Duration
+	Mitigate  string
+}
+
+// mitigationText validates administrator-authored guidance before it enters alert payloads.
+func mitigationText(section *ini.Section) (string, error) {
+	value := section.Key("mitigate").String()
+	if value == "" || len(value) > 4096 || strings.TrimSpace(value) != value {
+		return "", errors.New("invalid " + section.Name() + " mitigation guidance")
+	}
+	for _, char := range value {
+		if char < 32 || char == 127 {
+			return "", errors.New("invalid " + section.Name() + " mitigation guidance")
+		}
+	}
+	return value, nil
 }
 
 // loadPatternConfig reads and validates a detector's independent policy.
@@ -43,7 +60,11 @@ func loadPatternConfig(file *ini.File, name string) (patternConfig, error) {
 		maxPairs < 1 || maxPairs > 16384 || window < time.Second || window > time.Hour || cooldown < time.Second || cooldown > 24*time.Hour {
 		return patternConfig{}, errors.New("invalid " + name + " configuration")
 	}
-	return patternConfig{threshold, maxPairs, window, cooldown}, nil
+	mitigate, err := mitigationText(section)
+	if err != nil {
+		return patternConfig{}, err
+	}
+	return patternConfig{Threshold: threshold, MaxPairs: maxPairs, Window: window, Cooldown: cooldown, Mitigate: mitigate}, nil
 }
 
 // loadSecurityConfig rejects invalid policy before subscribing to events.
@@ -60,6 +81,10 @@ func loadSecurityConfig(reader fileio.Reader) (securityConfig, error) {
 			shared.Auth.ServiceLogin == "" {
 			return securityConfig{}, errors.New("invalid network security configuration")
 		}
+		mitigate, err := mitigationText(section)
+		if err != nil {
+			return securityConfig{}, err
+		}
 		horizontal, err := loadPatternConfig(file, "horizontal_scan")
 		if err != nil {
 			return securityConfig{}, err
@@ -70,7 +95,7 @@ func loadSecurityConfig(reader fileio.Reader) (securityConfig, error) {
 		}
 		return securityConfig{
 			Messaging: shared.Messaging, Auth: shared.Auth, Logging: shared.Logging,
-			Threshold: threshold, MaxPairs: maxPairs, Window: window, Cooldown: cooldown,
+			Threshold: threshold, MaxPairs: maxPairs, Window: window, Cooldown: cooldown, Mitigate: mitigate,
 			Horizontal: horizontal, Repeated: repeated,
 		}, nil
 	})

@@ -90,8 +90,9 @@ func (d *dispatchWorker) run(_ context.Context) {
 				}
 				observation := plugins.Observation{
 					RuleID: rule.spec.ID, Category: rule.spec.Category,
-					Severity: rule.spec.Severity, Email: rule.spec.EmailOnCritical, Lockdown: rule.spec.Lockdown, Kind: kind,
-					Account: record.Account, SourceAddress: record.SourceAddress,
+					PossibleReactions: rule.spec.PossibleReactions,
+					Severity:          rule.spec.Severity, Email: rule.spec.EmailOnCritical, Lockdown: rule.spec.Lockdown, Kind: kind,
+					Account: record.Account, SourceAddress: record.SourceAddress, TTY: record.TTY,
 					Service: record.Service, Device: record.Device, At: record.At,
 				}
 				if rule.account != nil {

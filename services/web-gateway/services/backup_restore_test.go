@@ -31,6 +31,8 @@ func TestBackupRestoreServiceUsesContractSubjects(t *testing.T) {
 		{"backup-all", contract.BackupAllSubject, func() error { _, e := s.BackupAll(context.Background(), "token", "name", "desc"); return e }},
 		{"diff", contract.DiffSubject, func() error { _, e := s.Diff(context.Background(), "token", "app", "version"); return e }},
 		{"restore", contract.RestoreSubject, func() error { _, e := s.Restore(context.Background(), "token", "app", "version", "merge"); return e }},
+		{"restore-by-name", contract.RestoreByNameSubject, func() error { _, e := s.RestoreByName(context.Background(), "token", "app", "name", "merge"); return e }},
+		{"restore-all-by-name", contract.RestoreAllByNameSubject, func() error { _, e := s.RestoreAllByName(context.Background(), "token", "name", "merge"); return e }},
 		{"merge-start", contract.MergeStartSubject, func() error { _, e := s.MergeStart(context.Background(), "token", "app", "version"); return e }},
 		{"merge-read", contract.MergeReadSubject, func() error { _, e := s.MergeRead(context.Background(), contract.MergeReadRequest{}); return e }},
 		{"merge-status", contract.MergeStatusSubject, func() error { _, e := s.MergeStatus(context.Background(), contract.MergeActionRequest{}); return e }},
@@ -55,14 +57,23 @@ func TestBackupRestoreServiceUsesContractSubjects(t *testing.T) {
 // TestRestoreActionsAllowArchiveWork checks that restore calls outlive the short default RPC timeout.
 func TestRestoreActionsAllowArchiveWork(t *testing.T) {
 	for _, action := range []struct {
-		name string
-		run  func(context.Context, BackupRestoreService) error
+		name    string
+		run     func(context.Context, BackupRestoreService) error
+		minimum time.Duration
 	}{
-		{name: "restore", run: func(ctx context.Context, service BackupRestoreService) error {
+		{name: "restore", minimum: 4 * time.Minute, run: func(ctx context.Context, service BackupRestoreService) error {
 			_, err := service.Restore(ctx, "token", "app", "version", "merge")
 			return err
 		}},
-		{name: "merge apply", run: func(ctx context.Context, service BackupRestoreService) error {
+		{name: "restore by name", minimum: 4 * time.Minute, run: func(ctx context.Context, service BackupRestoreService) error {
+			_, err := service.RestoreByName(ctx, "token", "app", "name", "merge")
+			return err
+		}},
+		{name: "restore all by name", minimum: 25 * time.Minute, run: func(ctx context.Context, service BackupRestoreService) error {
+			_, err := service.RestoreAllByName(ctx, "token", "name", "merge")
+			return err
+		}},
+		{name: "merge apply", minimum: 4 * time.Minute, run: func(ctx context.Context, service BackupRestoreService) error {
 			_, err := service.MergeApply(ctx, contract.MergeActionRequest{})
 			return err
 		}},
@@ -70,8 +81,8 @@ func TestRestoreActionsAllowArchiveWork(t *testing.T) {
 		t.Run(action.name, func(t *testing.T) {
 			client := &alertsClientStub{requestFunc: func(ctx context.Context, _ string, _ any, _ any) error {
 				deadline, ok := ctx.Deadline()
-				if !ok || time.Until(deadline) < 4*time.Minute {
-					t.Errorf("restore RPC deadline = %v, want at least four minutes remaining", deadline)
+				if !ok || time.Until(deadline) < action.minimum {
+					t.Errorf("restore RPC deadline = %v, want at least %v remaining", deadline, action.minimum)
 				}
 				return nil
 			}}

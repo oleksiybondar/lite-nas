@@ -46,7 +46,7 @@ export const AppSidebar = ({
       data-testid="app-sidebar"
       flexShrink={0}
       width={280}
-      sx={{ display }}
+      sx={{ display, height: "100%", minHeight: 0, overflowY: "auto" }}
     >
       <List data-testid="app-sidebar-list" disablePadding sx={{ py: 2 }}>
         {items.map((item) => {

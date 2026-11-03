@@ -39,6 +39,7 @@ var (
 	}
 	usbPortField = regexp.MustCompile(`^usb ([0-9]{1,3}-[0-9.]{1,32}):`)
 	usbIDField   = regexp.MustCompile(`idVendor=([0-9a-f]{4}), idProduct=([0-9a-f]{4})`)
+	sudoTTYField = regexp.MustCompile(`(?:^|\s)TTY=([A-Za-z0-9_./-]{1,64})(?:\s|$)`)
 )
 
 // rsyslogRecord is the transport contract produced by the
@@ -65,6 +66,7 @@ type logRecord struct {
 	SourceAddress string
 	Service       string
 	Device        string
+	TTY           string
 }
 
 // decodeRsyslogRecord validates one datagram against the rsyslog template
@@ -126,6 +128,9 @@ func newLogRecord(source sourceSpec, record rsyslogRecord, at time.Time) (logRec
 
 // extractAuthFields reads account, remote host and PAM service fields.
 func extractAuthFields(record *logRecord) {
+	if match := sudoTTYField.FindStringSubmatch(record.Message); len(match) == 2 {
+		record.TTY = match[1]
+	}
 	if match := accountField.FindStringSubmatch(record.Message); len(match) == 2 {
 		record.Account = match[1]
 	}

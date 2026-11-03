@@ -163,6 +163,23 @@ Network Security, and Security Logging Manager active. The helper spaces the
 last probes to accommodate UFW log rate limiting; the test can take about a
 minute before alert polling starts.
 
+## Security Automation effect enrollment
+
+The gateway authorization and rule-list cases run against the normal installed
+service. The UFW and SSH effect cases require a dedicated test host with the
+relevant rules permanently enrolled in its installed `rules.json` and the
+service restarted. Set `LITENAS_AUTOMATION_ENROLLMENT=1` only after the host has
+verified `network_reconnaissance` (single scan alert, source IP block and exact
+rollback) and `repeated_sudo_denial` (SSH session attribution and one-way
+termination). The tests then inspect the real UFW rules and SSH disconnect,
+rather than accepting an RPC success response as proof. The source-IP fixtures
+normalize their own incident after each case. The test runner needs
+passwordless `sudo -n /usr/sbin/ufw status` for read-only effect checks. The
+packaged host-changing candidate rules are disabled; the current service does
+not yet execute or restore host effects, so the effect suite remains gated
+until enrollment. The two alert-only startup defaults can be temporarily
+suspended and resumed through the operator UI without changing `rules.json`.
+
 ## UI Page Objects
 
 UI system tests use HyperionTF page objects for browser automation. Store those
@@ -227,6 +244,27 @@ HyperionTF logs therefore resolve predictably to `tests/logs`.
 
 The runner clears `tests/logs` once before the first category starts. CI uploads
 those logs as `system_tests_logs.zip` for post-failure review.
+
+## Gateway payload API checks
+
+The gateway backup and restore payload suite uses the same configured
+administrator account as the File Service admin cases. It creates one named
+`lite-nas` archive, verifies the stored metadata, and deletes that version in
+fixture cleanup. Its restore-all check uses a unique name with no matching
+archive, so it verifies the JSON request path without changing live files.
+The remaining payload checks submit invalid values and expect gateway
+validation before backup restore, Antivirus, or USBGuard actions run.
+
+## Backup and restore CLI checks
+
+`cli/backup_restore/` runs the installed CLI as the dedicated administrator.
+Set `LITENAS_FILE_SERVICE_ADMIN_LOGIN` and
+`LITENAS_FILE_SERVICE_ADMIN_PASSWORD` to that account's credentials. The
+account needs its normal `/run/user/<uid>` runtime directory for the CLI token
+cache. The suite checks application inventory, a named `lite-nas` backup, and
+`backup all`. The backup cases use unique names and delete newly created
+versions reported by the CLI or carrying that name through the gateway API
+during cleanup.
 
 ## File Service API checks
 

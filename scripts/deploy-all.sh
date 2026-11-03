@@ -35,6 +35,8 @@ source "$ENTRYPOINT_DIR/deploy/system-logging-manager-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/security-logging-manager-cli.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/security-automation-cli.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/system-metrics-cli.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/network-metrics-cli.sh"
@@ -76,6 +78,7 @@ system_metrics_binary=""
 zfs_metrics_binary=""
 system_logging_manager_cli_binary=""
 security_logging_manager_cli_binary=""
+security_automation_cli_binary=""
 system_metrics_cli_binary=""
 network_metrics_cli_binary=""
 zfs_metrics_cli_binary=""
@@ -98,6 +101,7 @@ session_manager_binary=""
 journal_manager_binary=""
 usb_manager_binary=""
 log_analysis_binary=""
+security_automation_binary=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -153,6 +157,8 @@ Options:
   --usb-manager-binary PATH Install an existing usb-manager binary.
   --log-analysis-binary PATH Install an existing log-analysis binary.
   --network-security-binary PATH Install an existing network-security binary.
+  --security-automation-binary PATH Install an existing security-automation binary.
+  --security-automation-cli-binary PATH Install an existing security-automation CLI binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
   --no-nats-config                Keep the current NATS configuration unchanged during bootstrap.
@@ -497,6 +503,24 @@ while [ "$#" -gt 0 ]; do
 		network_security_binary="$2"
 		shift 2
 		;;
+	--security-automation-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --security-automation-binary"
+			usage >&2
+			exit 2
+		fi
+		security_automation_binary="$2"
+		shift 2
+		;;
+	--security-automation-cli-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --security-automation-cli-binary"
+			usage >&2
+			exit 2
+		fi
+		security_automation_cli_binary="$2"
+		shift 2
+		;;
 	--no-start)
 		should_start=0
 		shift
@@ -754,6 +778,14 @@ if [ -z "${network_security_binary:-}" ]; then
 	"$ENTRYPOINT_DIR/build-network-security-binary.sh" "--output=$tmp_dir/network-security"
 	network_security_binary="$tmp_dir/network-security"
 fi
+if [ -z "$security_automation_binary" ]; then
+	"$ENTRYPOINT_DIR/build-security-automation-binary.sh" "--output=$tmp_dir/security-automation"
+	security_automation_binary="$tmp_dir/security-automation"
+fi
+if [ -z "$security_automation_cli_binary" ]; then
+	"$ENTRYPOINT_DIR/build-security-automation-cli-binary.sh" "--output=$tmp_dir/security-automation-cli"
+	security_automation_cli_binary="$tmp_dir/security-automation-cli"
+fi
 
 if [ "$should_bootstrap" -eq 1 ]; then
 	log.pushTask "Preparing shared LiteNAS infrastructure"
@@ -926,6 +958,14 @@ log.popTask
 
 log.pushTask "Deploying network-security service"
 deploy.securityMonitor.deploy "network-security" "$network_security_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying security-automation service"
+deploy.securityMonitor.deploy "security-automation" "$security_automation_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying security-automation CLI"
+deploy.securityAutomationCLI.deploy "$security_automation_cli_binary"
 log.popTask
 
 log.pushTask "Deploying service-watchdog service"

@@ -117,8 +117,8 @@ func (c USBManagerController) action(ctx context.Context, input *management.USBD
 	if err != nil {
 		return nil, err
 	}
-	if err := c.service.Action(ctx, token, input.DeviceID, action, input.Permanent); err != nil {
-		slog.Error("USBGuard device action RPC failed", "action", action, "device_id", input.DeviceID, "permanent", input.Permanent, "error", err)
+	if err := c.service.Action(ctx, token, input.DeviceID, action, input.Body.Permanent); err != nil {
+		slog.Error("USBGuard device action RPC failed", "action", action, "device_id", input.DeviceID, "permanent", input.Body.Permanent, "error", err)
 		return nil, huma.Error502BadGateway("failed to " + action + " USBGuard device")
 	}
 	return &management.ManagementActionOutput{Body: management.NewManagementActionBody()}, nil

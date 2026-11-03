@@ -1,3 +1,5 @@
+import { useLanguage } from "@lite-nas/language";
+import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { formatRouteLabel, resolveTelemetryRoute } from "@pages/SystemTelemetryPage/helpers";
@@ -10,7 +12,7 @@ import { SystemTelemetrySystemMetricState } from "@pages/SystemTelemetryPage/Sys
 import { SystemTelemetryUnsupportedState } from "@pages/SystemTelemetryPage/SystemTelemetryUnsupportedState";
 import { SystemTelemetryZFSMetricState } from "@pages/SystemTelemetryPage/SystemTelemetryZFSMetricState";
 import type { ReactElement } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useParams } from "react-router-dom";
 
 const telemetryStateByType = {
   "disk-metric": <SystemTelemetryDiskMetricState />,
@@ -19,6 +21,15 @@ const telemetryStateByType = {
   "service-metric": <SystemTelemetryServiceMetricState />,
   "system-metric": <SystemTelemetrySystemMetricState />,
 } as const;
+
+const dashboardKindsByRoute: Record<string, readonly string[]> = {
+  "system-metric": ["cpu", "cpu-cores", "ram"],
+  "zfs-metric": ["zfs-io", "zfs-errors"],
+  "network-metric": ["network"],
+  "disk-metric": ["disk"],
+  "process-metric": ["processes"],
+  "service-metric": ["services"],
+};
 
 const isDirectTelemetryStateType = (
   type: ReturnType<typeof resolveTelemetryRoute>["type"],
@@ -30,6 +41,7 @@ const isDirectTelemetryStateType = (
  * Telemetry page host for system performance and Raspberry Pi sensor routes.
  */
 export const SystemTelemetryPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   const { pathname } = useLocation();
   const { category = "system" } = useParams();
   const route = resolveTelemetryRoute(pathname, category);
@@ -43,6 +55,19 @@ export const SystemTelemetryPage = (): ReactElement => {
         <Typography data-testid="system-telemetry-title" variant="h1">
           {route.title}
         </Typography>
+        <Stack direction="row" flexWrap="wrap" gap={1}>
+          {(dashboardKindsByRoute[route.type] ?? []).map((kind) => (
+            <Button
+              component={RouterLink}
+              data-test-class="telemetry-add-dashboard"
+              data-test-name={kind}
+              key={kind}
+              to={`/?add=${kind}`}
+            >
+              {getLabel("admin.dashboard.addToDashboard")}: {getLabel(`admin.dashboard.${kind}`)}
+            </Button>
+          ))}
+        </Stack>
       </Stack>
       <SystemTelemetryPageContent route={route}>
         {renderTelemetryState(route)}

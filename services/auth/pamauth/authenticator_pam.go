@@ -33,6 +33,11 @@ func (a authenticator) Authenticate(request AuthenticateRequest) (Result, error)
 		return newServiceUnavailableResult(request.Username, err.Error()), err
 	}
 	defer endTransaction(transaction)
+	if request.ClientIP != "" {
+		if err := transaction.SetItem(pam.Rhost, request.ClientIP); err != nil {
+			return newServiceUnavailableResult(request.Username, err.Error()), err
+		}
+	}
 
 	if err := transaction.Authenticate(pam.DisallowNullAuthtok); err != nil {
 		return conversation.resultForAuthError(request.Username, err), nil

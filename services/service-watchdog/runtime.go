@@ -326,13 +326,18 @@ func publishSecurityEffect(ctx context.Context, effect securityEffect, client me
 	switch effect.operation {
 	case "create":
 		severity := enum.SeverityWarning
+		mitigate := "Verify the protected service's enablement against its configured policy. Investigate and restore the expected state if the change was unauthorized."
+		if effect.kind == "recovery" {
+			mitigate = "Inspect the protected service and its logs to find why recovery failed. Restore the service, then verify it is active."
+		}
 		if effect.unit.Critical {
 			severity = enum.SeverityCritical
 		}
 		return client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
 			EventID: id, Category: "Service protection", Severity: severity,
 			CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceWatchdog,
-			Message: effect.message,
+			Message:  effect.message,
+			Mitigate: mitigate,
 		})
 	case "occurrence":
 		count := float64(effect.attempts)

@@ -60,6 +60,12 @@ export type BackupRestoreContextValue = {
   openCreate: (target: string | "all") => void;
   createBackup: () => void;
   restoreBackup: (application: string, version: string) => Promise<void>;
+  namedRestoreTarget: string | "all" | null;
+  namedRestoreName: string;
+  setNamedRestoreTarget: Dispatch<SetStateAction<string | "all" | null>>;
+  setNamedRestoreName: Dispatch<SetStateAction<string>>;
+  openNamedRestore: (target: string | "all") => void;
+  restoreByName: () => Promise<void>;
   deleteBackup: (application: string, version: string) => Promise<void>;
   startMerge: (application: string, version: string) => void;
   finishMerge: (action: "apply" | "save" | "discard") => Promise<void>;
