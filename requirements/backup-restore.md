@@ -1,10 +1,12 @@
 # Backup and Restore — Handoff and Feature Definition
 
-This document records the implemented first slice and the remaining feature
-direction. The service, NATS, and CLI contracts for first-slice backup, diff,
-and restore are implemented. Browser integration, archive transfer, and
-application-specific runtime operations remain future work. Open questions
-below apply to those later slices unless stated otherwise.
+This document records the implemented backup and restore slice and remaining
+extension ideas. The service, NATS, CLI, Web Gateway, and admin-panel contracts
+support backup, diff, restore, and text merge sessions. UFW, locally managed
+Cloudflare Tunnel configuration, and Tailscale preferences have dedicated
+plugins. Archive transfer and additional application-specific runtime
+operations remain future work. Open questions below apply to those extensions
+unless stated otherwise.
 Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
 
 ## First slice: confirmed direction
@@ -96,10 +98,10 @@ Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
   removed. For selected-file targets, replace changes only the listed paths;
   unlisted neighbors remain. A merge restore keeps extra live entries in both
   cases.
-- Text or key-aware content merging is not included in the first slice. The
-  implemented `merge` mode preserves additional live directory entries while
-  restoring archived paths. INI content merging and conflict resolution can be
-  specified as a later feature.
+- Direct `merge` restore preserves additional live directory entries while
+  restoring archived paths. Separate service-owned text merge sessions let
+  the CLI or browser submit reviewed content; an INI merge helper supports
+  key-aware comparison.
 
 ## Implemented shared merge-session contract
 
@@ -145,23 +147,21 @@ requests to NATS and does not read host files or perform the merge itself.
 NATS subjects and DTOs are in `shared/go/contracts/backuprestore`. Chunks carry
 base64 bytes with a full-content SHA-256 checksum; the service ties a session
 to the verified token subject. The merge has two inputs: selected snapshot and
-current file, with the result initialized from current content. HTTP shapes
-remain for the later Web Gateway adapter.
+current file, with the result initialized from current content. The Web Gateway
+adapts the same service contract for the admin panel.
 
-The first slice excludes browser and admin-panel integration. Its implemented
-NATS contract is available for a later Web Gateway adapter without making the
-CLI own backup logic. Archive bytes stay in the service-owned store; there is
-currently no API to import or export an archive as a byte stream or base64
-payload. A future UI transfer contract must define transport, size limits,
-authorization, and temporary storage.
+Archive bytes stay in the service-owned store; there is currently no API to
+import or export an archive as a byte stream or base64 payload. Any archive
+transfer extension needs its own transport, size, authorization, and temporary
+storage contract.
 
 The backup and restore service is the single owner of source-file reads,
 metadata collection, stored-version reads and writes, comparisons with live
 files, and restore writes. On-demand CLI requests go through NATS to that
 service. The CLI presents results and collects user choices; it does not read
 privileged source files, compare them independently, or write restored files.
-Web Gateway is a later adapter to the same service operations and does not
-duplicate file or backup logic.
+Web Gateway adapts the same service operations and does not duplicate file or
+backup logic.
 
 ## Implemented first-slice service and CLI
 
@@ -220,8 +220,8 @@ The restore request has a replace or merge mode. In replace mode,
 deletion is confined to directory trees explicitly marked as fully covered in
 the stored spec; for selected-file coverage, unrelated files remain in place.
 Merge mode preserves live entries absent from the snapshot while restoring
-archived content at selected paths. Text content merging and submitting
-resolved content are not implemented in this slice.
+archived content at selected paths. Separate text merge sessions accept
+reviewed resolved content from the CLI and admin panel.
 
 Each installed application spec declares an explicit `restart_units` list.
 New archive metadata records that list for inspection. After restoring files,
@@ -251,15 +251,11 @@ when they arrive; it does not schedule backups in the first slice.
 
 ## Later feature direction
 
-Extend versioned, per-application backups and controlled restoration of LiteNAS
-configuration and state. Future work may add application CLI plugins, live
-state handling, text merge, archive transfer, and browser integration. The
-initial target inventory below guides packaged file specs; it does not mean all
-runtime state is handled by this slice.
-
-The implemented feature has a Go backup and restore service and a CLI. A future
-Web Gateway adapter and admin-panel workflow should call the same service over
-NATS; neither adapter should perform privileged file operations itself.
+Further work may extend application-specific runtime state handling, archive
+transfer, and automatic key-aware merge. The inventory below guides packaged
+file specs; a settings snapshot does not necessarily capture live application
+state. The implemented Web Gateway and admin-panel workflow call the same Go
+service over NATS as the CLI. Privileged file operations remain in the service.
 
 ## Confirmed functional requirements
 

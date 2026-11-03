@@ -44,13 +44,12 @@ search and filters use the same paged API. Owned collection actions use File
 Service pickers to add file or folder references and can open the thumbnail
 editor to save a generated cover through Moments.
 
-## Remaining browser integration
+## Known scale limit
 
-File Service's recursive album listing is not paged. Large albums still need a
-practical listing limit or a paged File Service contract. File Service remains
-the authorized file boundary and Stream Service the media delivery boundary.
-Uploaded cover images and optional generation JSON are persisted separately by
-Moments.
+File Service's recursive album listing is not paged, which limits practical
+large-album use. File Service remains the authorized file boundary and Stream
+Service the media delivery boundary. Uploaded cover images and optional
+generation JSON are persisted separately by Moments.
 
 See [browser requirements](../requirements/moments-skeleton.md),
 [backend requirements](../requirements/moments-backend.md), and the

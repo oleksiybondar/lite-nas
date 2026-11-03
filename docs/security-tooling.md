@@ -14,6 +14,7 @@ engine.
 | rsyslog and Log Analysis | Selected host records forwarded to a validated socket and evaluated by configured detection plugins | Review active rules after package updates |
 | Network Security | Correlates validated blocked TCP attempts from Log Analysis | Keep UFW blocked-packet logging enabled for scan detection |
 | Security Logging Manager and Security Email Notifier | Persist security alert lifecycles and deliver selected alerts | Review incidents and configure mail delivery |
+| Backup and Restore | Versioned snapshots and controlled restore of selected LiteNAS and host security configuration; a recovery control adjacent to the SIEM path | Review selected targets, protect archives containing secrets, and validate restored configuration before activating it |
 | OpenSCAP | External compliance assessment using selected benchmark content | Install separately, choose a suitable profile, review results, and apply host-specific changes |
 
 ## Release OpenSCAP comparison

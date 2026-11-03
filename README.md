@@ -18,7 +18,7 @@ The repository already contains an implemented platform slice:
 
 The broader platform vision still extends beyond what is implemented today. Storage management,
 deeper administration flows, and further hardening are being added
-incrementally on top of this working skeleton.
+incrementally on top of the implemented services and applications.
 
 ## Table of Contents
 
@@ -42,7 +42,7 @@ incrementally on top of this working skeleton.
 ## Overview
 
 LiteNAS started from a real home lab system used for low-power Linux and ZFS-based storage. That
-operational baseline still matters, but the repository is no longer only a design sketch.
+operational baseline still matters, but the repository now contains working product and security flows.
 
 The project now has an implemented first slice that seeds the platform architecture:
 
@@ -55,9 +55,8 @@ The project now has an implemented first slice that seeds the platform architect
 - reproducible packaging, deployment, and install validation
 - CI/CD checks for analysis, build, test, packaging, and package installability
 
-This skeleton is intentionally low direct business value, but it is now broad enough to support
-future product branches without repeating the core build, deploy, service, gateway, and packaging
-bootstrap work.
+These foundations support the current security monitoring, file, media, and
+administration workflows as well as future product work.
 
 ## Goals & Philosophy
 
@@ -120,16 +119,13 @@ issuance, and emergency auth-state control out of the browser gateway.
 
 ## Moments and Media Architecture
 
-Moments is the family-facing personal media application. Its authenticated
-browser shell, profile settings, embedded and standalone hosts, fixture-backed
-gallery, and browser-only thumbnail maker are implemented. The gallery uses
-authorized File and Stream Service routes with bounded requests and a
-virtualized wall. Gallery metadata APIs and persistence are implemented. The current boundaries and demo scope are in the
-[Moments architecture](docs/moments-architecture.md).
-
-Moments is prioritized for practical family use in this development slice. It
-is adjacent to the security and platform skeleton work, not a requirement of
-that skeleton.
+Moments is the personal media application added in this branch to meet an
+immediate household need. It was outside the original security branch scope.
+Its authenticated gallery uses File Service for authorized file access and
+Stream Service for media delivery. Moments persists gallery metadata, sharing,
+tags, and covers; optional local workers provide captions and semantic search.
+See the [Moments architecture](docs/moments-architecture.md) for current
+boundaries and limitations.
 
 ## Monorepo Structure
 
@@ -211,6 +207,18 @@ Current implemented focus:
   Unix identity. It is built and packaged with a restricted sudoers rule and
   dedicated AppArmor profile. File Service uses it for resumable upload staging and publication.
 
+- **Files and personal media**
+  File Service and File Explorer provide authorized file operations. Stream
+  Service delivers media to Moments, which provides gallery and collection
+  workflows with persistent metadata.
+
+- **Backup and restore**
+  The root-owned Backup and Restore service stores versioned, per-application
+  snapshots. Its CLI and admin-panel workflows support backup, comparison,
+  replace or merge restore, and reviewed text merge sessions. Packaged targets
+  cover LiteNAS and selected host security and network configuration. See the
+  [service guide](services/backup-restore/README.md) for target and restore limits.
+
 - **Event-driven service communication**
   Internal communication over NATS using request/reply and event-oriented patterns.
 
@@ -230,12 +238,6 @@ Current implemented focus:
   the repository workflow.
 
 Planned expansion areas:
-
-- **Authorized file transfer and media delivery**
-  Planned File and Stream Services will provide RBAC-checked, resumable file
-  transfers and original-format media delivery, including Apple Live Photo
-  still/movie pairs. Both services are specified but are not yet part of the
-  installed runtime.
 
 - **ZFS-based storage management**
   Reliable storage built on top of ZFS, with a focus on data integrity, flexibility, and efficient
@@ -262,22 +264,19 @@ Planned expansion areas:
 - **Remote access (VPN)**
   Secure access to the platform through controlled network entry points.
 
-- **Moments album and metadata workflows (next product priority)**
-  Connect the existing gallery and thumbnail maker demos to authorized albums,
-  tags, uploads, and persistent cover descriptors through separately defined
-  service contracts. See the [Moments architecture](docs/moments-architecture.md).
-
 ## Security Monitoring
 
-The implemented SIEM path receives selected host records through rsyslog,
-evaluates the shipped Log Analysis rules and Network Security detectors, and
-records alert lifecycles in Security Logging Manager. The current rules cover
-authentication failures, account and privilege changes, SSH probing, USB
-connections, and blocked TCP scan patterns. Additional rules and compiled
-plugins may be added in later releases; the current set is documented in
-[Security Monitoring](docs/security-monitoring.md). Compliance assessment is
-an operator workflow using OpenSCAP and a selected profile, separate from
-runtime detection.
+The implemented host-focused SIEM path receives selected records through
+rsyslog, evaluates Log Analysis rules and Network Security detectors, and
+records alert lifecycles and occurrences in Security Logging Manager. Its
+current sources include authentication, privilege, USB, mount, antivirus,
+integrity, service availability, and blocked TCP activity. Security Automation
+can perform configured, bounded responses to selected detections. Operators
+can inspect alerts and rules in the CLI and admin panel; selected alerts can
+also be emailed. See [Security Monitoring](docs/security-monitoring.md) and the
+[Security Automation reference](docs/security-automation-reference.md) for
+the shipped scope, standards references, and limits. OpenSCAP is a separate
+operator-led compliance assessment workflow.
 
 ## Event-Driven Design
 
@@ -506,10 +505,9 @@ blocks and infrastructure-completing slices:
 This approach helps ensure that each part of the system remains understandable and reliable as the
 platform evolves.
 
-The current branch completes the broad skeleton pass: several services and apps
-can now be built, deployed, packaged, and validated together. Future branches
-can focus more directly on storage, administration workflows, policy behavior,
-and product value instead of re-establishing the runtime and release path.
+The repository now builds, deploys, packages, and validates several working
+services and apps together. Development continues on storage, administration,
+policy behavior, and product workflows.
 
 ### Code Quality and Tooling
 

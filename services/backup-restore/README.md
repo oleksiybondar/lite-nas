@@ -1,4 +1,4 @@
-# Backup and restore first slice
+# Backup and restore
 
 The root-run service owns selected host files and `/var/lib/lite-nas/backup`.
 The CLI sends authenticated NATS requests; it does not read source files or

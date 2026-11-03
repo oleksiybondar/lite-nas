@@ -6,6 +6,28 @@ delivery. The shipped rules and compiled plugins are the current scope. More
 rules and plugin types may be added in later releases after implementation and
 verification; the active rules file is preserved across upgrades.
 
+## Capability references
+
+The implemented host SIEM collects selected records and service events,
+correlates them with configured rules, persists alert state and occurrences,
+supports operator review, and performs selected bounded responses. The
+references below identify related control areas and the scope of the shipped
+capabilities.
+
+| Reference area | LiteNAS capability | Scope and limit |
+| --- | --- | --- |
+| [IEC 62443-3-3 FR 6, SR 6.1 and SR 6.2](https://webstore.iec.ch/en/iec_catalog/product/preview/?id=L3B1Yi9wZGYvcHJldmlldy9pbmZvX2llYzYyNDQzLTMtM3tlZDEuMH1iLnBkZg%3D%3D): audit log accessibility and continuous monitoring | Security Logging Manager exposes alerts and occurrences to the CLI and admin panel; Log Analysis and Network Security continuously evaluate selected inputs. | Implemented for the configured host sources; no claim of complete IACS monitoring or an achieved IEC security level. |
+| [CIS Controls v8.1 Control 8](https://cas.docs.cisecurity.org/en/latest/source/Controls8/): collect, alert, review, and retain audit information | Selected rsyslog records feed detections; alert occurrences are persisted with bounded retention and selected alerts are emailed. | Substantial local capability. Retention policy, storage adequacy, time synchronization, and review cadence require host-specific operation and evidence. |
+| [CIS Controls v8.1 Control 13](https://cas.docs.cisecurity.org/en/latest/source/Controls13/): centralize security event alerting and monitor network activity | Several LiteNAS producers feed Security Logging Manager; Network Security correlates UFW blocked attempts and network snapshots. | Implemented for this host, not an enterprise-wide asset or network coverage measure. |
+| [NIST SP 800-53 Rev. 5 AU-6, SI-4, and IR-4](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final): audit review, system monitoring, and incident handling | Rules create actionable alerts; operators can inspect and acknowledge them; Security Automation can block selected sources, revoke matched sessions, or terminate verified sessions. | Technical support for these activities exists. An organizational review process, incident procedure, and measured response effectiveness are outside the repository evidence. |
+
+The comparison is a capability crosswalk, not a control compliance assessment.
+IEC 62443-3-3 assigns system security levels in an industrial automation and
+control system context; LiteNAS is not presented as an assessed IACS. The
+[automation reference](security-automation-reference.md) lists shipped rules,
+privilege boundaries, and disabled actions. The delivery limits below explain
+where events can be lost during restart or queue exhaustion.
+
 The security services run as separate unprivileged Go processes. Within each process, polling, NATS input, scanning
 or evaluation, and reporting run as bounded workers. `shared/go/fsm` supplies typed transition tables and a
 bounded keyed memory store; Resources Monitor and LiteNAS Integrity use it for their existing incident
