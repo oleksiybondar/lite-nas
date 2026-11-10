@@ -9,6 +9,7 @@ import { type GalleryWindow, galleryWindow } from "./GalleryWindow";
 export type WallState = {
   wallRef: RefObject<HTMLDivElement>;
   scrolling: boolean;
+  scrollTop: number;
   activeVideoId: string | null;
   setActiveVideoId: (id: string | null) => void;
   layoutHeight: number;
@@ -68,6 +69,7 @@ export const WallProvider = ({
   const value = {
     wallRef,
     scrolling,
+    scrollTop,
     activeVideoId,
     setActiveVideoId,
     layoutHeight: plan.height,
