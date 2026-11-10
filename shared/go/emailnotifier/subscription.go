@@ -14,6 +14,17 @@ func NewAlertSubscriptionHandler(
 	validator sharedloggingmanager.InputValidator,
 	output chan<- loggingmanagercontract.AlertPayload,
 ) sharedmessaging.MessageHandler {
+	return NewAlertSubscriptionHandlerWithEmailPolicy(validator, output, false)
+}
+
+// NewAlertSubscriptionHandlerWithEmailPolicy creates a validated alert adapter
+// that can enforce delivery for services whose policy requires every alert to
+// be emailed.
+func NewAlertSubscriptionHandlerWithEmailPolicy(
+	validator sharedloggingmanager.InputValidator,
+	output chan<- loggingmanagercontract.AlertPayload,
+	forceEmail bool,
+) sharedmessaging.MessageHandler {
 	codec := sharedmessaging.NewJSONCodec()
 
 	return func(ctx context.Context, envelope sharedmessaging.Envelope) error {
@@ -24,7 +35,10 @@ func NewAlertSubscriptionHandler(
 		if err := validator.Struct(payload); err != nil {
 			return err
 		}
-		if payload.Email != nil && !*payload.Email {
+		if forceEmail {
+			email := true
+			payload.Email = &email
+		} else if payload.Email != nil && !*payload.Email {
 			return nil
 		}
 

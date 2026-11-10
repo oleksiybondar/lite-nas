@@ -1,4 +1,9 @@
-import type { BackupDetails, BackupDifference, MergeSession } from "@schemas/backup-restore";
+import type {
+  BackupDetails,
+  BackupDifference,
+  BackupSnapshotSummary,
+  MergeSession,
+} from "@schemas/backup-restore";
 import type { Dispatch, SetStateAction } from "react";
 
 /** Text values shown in the three panes of the merge editor. */
@@ -12,6 +17,10 @@ export type BackupRestoreContextValue = {
   allowed: boolean;
   applications: string[];
   versionCounts: Record<string, number>;
+  snapshotsByApplication: Record<string, BackupSnapshotSummary[]>;
+  availableBackupNames: string[];
+  availableRestoreTargets: string[];
+  visibleApplications: string[];
   countsLoading: boolean;
   backupDetails: BackupDetails[];
   versionsLoading: boolean;
@@ -35,6 +44,7 @@ export type BackupRestoreContextValue = {
   selectedPath: string;
   contents: Record<string, BackupFileContent>;
   busy: boolean;
+  backupProgress: number | null;
   error: string;
   message: string;
   setApplications: Dispatch<SetStateAction<string[]>>;
@@ -67,6 +77,7 @@ export type BackupRestoreContextValue = {
   openNamedRestore: (target: string | "all") => void;
   restoreByName: () => Promise<void>;
   deleteBackup: (application: string, version: string) => Promise<void>;
+  deleteBackupsByName: (name: string) => Promise<void>;
   startMerge: (application: string, version: string) => void;
   finishMerge: (action: "apply" | "save" | "discard") => Promise<void>;
   refresh: () => Promise<void>;

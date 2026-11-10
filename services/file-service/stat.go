@@ -36,7 +36,7 @@ func (s *fileService) statResource(writer http.ResponseWriter, request *http.Req
 		decisionError(writer, fileaccess.ErrDenied)
 		return
 	}
-	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+	if err := s.authorizeRead(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
 	}

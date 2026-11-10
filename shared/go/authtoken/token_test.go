@@ -21,10 +21,11 @@ func TestIssuerIssueAndVerifierVerifyAccessToken(t *testing.T) {
 	verifier := mustNewVerifier(t, publicKey).withClock(func() time.Time { return issuedAt.Add(time.Minute) })
 
 	tokenText, issuedClaims, err := issuer.Issue(Principal{
-		Subject: "1000",
-		Login:   "alice",
-		Scopes:  []string{"monitoring.read"},
-		Roles:   []string{"operator"},
+		Subject:     "1000",
+		Login:       "alice",
+		Application: "moments",
+		Scopes:      []string{"monitoring.read"},
+		Roles:       []string{"operator"},
 	})
 	if err != nil {
 		t.Fatalf("Issue() error = %v", err)
@@ -33,6 +34,9 @@ func TestIssuerIssueAndVerifierVerifyAccessToken(t *testing.T) {
 	verifiedClaims, err := verifier.Verify(tokenText)
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
+	}
+	if verifiedClaims.Application != "moments" {
+		t.Fatalf("verified application = %q, want moments", verifiedClaims.Application)
 	}
 
 	assertAccessClaims(t, verifiedClaims, issuedClaims)
@@ -188,6 +192,7 @@ func assertAccessClaims(t *testing.T, got AccessClaims, want AccessClaims) {
 		{Name: "subject", Got: func(claims AccessClaims) any { return claims.Subject }, Want: want.Subject},
 		{Name: "id", Got: func(claims AccessClaims) any { return claims.ID }, Want: want.ID},
 		{Name: "login", Got: func(claims AccessClaims) any { return claims.Login }, Want: want.Login},
+		{Name: "application", Got: func(claims AccessClaims) any { return claims.Application }, Want: want.Application},
 		{Name: "scopes", Got: func(claims AccessClaims) any { return claims.Scopes }, Want: want.Scopes},
 		{Name: "roles", Got: func(claims AccessClaims) any { return claims.Roles }, Want: want.Roles},
 	}

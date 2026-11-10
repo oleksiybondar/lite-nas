@@ -164,6 +164,10 @@ fi
 if [ -d "$backup_specs_saved/backup.d" ]; then
 	cp -a "$backup_specs_saved/backup.d" "$target_dir/lite-nas/"
 fi
+# The retired Tailscale CLI plugin spec may survive as a dpkg conffile and is
+# also copied from the saved local backup.d tree above. Remove it after all
+# config copies so package upgrades and later deployments cannot restore it.
+rm -f -- "$target_dir/lite-nas/backup.d/tailscale.conf"
 if [ -f "$before_startup_saved/before-startup.sh" ]; then
 	cp -p "$before_startup_saved/before-startup.sh" "$target_dir/lite-nas/before-startup.sh"
 fi

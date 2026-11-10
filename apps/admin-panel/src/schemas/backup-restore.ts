@@ -9,14 +9,65 @@ export const applicationListResponseSchema = envelope(
   z.array(z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/)),
 );
 
-/** Validates backup version identifiers before using them as route operands. */
+/** Validates backup versions and their optional display names returned by the gateway. */
 export const versionListResponseSchema = envelope(
-  z.array(z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/)),
+  z.object({
+    versions: z.array(z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/)),
+    snapshots: z.array(
+      z.object({
+        version: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/),
+        name: z.string().optional(),
+      }),
+    ),
+  }),
 );
+
+/** One snapshot's version and optional user-assigned name. */
+export type BackupSnapshotSummary = z.infer<
+  typeof versionListResponseSchema
+>["data"]["snapshots"][number];
 
 /** Validates a created snapshot's version. */
 export const versionResponseSchema = envelope(
   z.object({ version: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/) }),
+);
+
+/** Validates the ID and initial state returned when a background backup is queued. */
+export const backupTaskStartResponseSchema = envelope(
+  z.object({
+    task_id: z.string().regex(/^[a-fA-F0-9]{32}$/),
+    state: z.enum(["queued", "running", "succeeded", "failed", "cancelled"]),
+  }),
+);
+
+/** Validates one durable background backup progress snapshot. */
+export const backupTaskStatusResponseSchema = envelope(
+  z.object({
+    task_id: z.string().regex(/^[a-fA-F0-9]{32}$/),
+    application: z.string().min(1).max(64),
+    state: z.enum(["queued", "running", "succeeded", "failed", "cancelled"]),
+    started_at: z.string().datetime({ offset: true }),
+    updated_at: z.string().datetime({ offset: true }),
+    finished_at: z.string().datetime({ offset: true }).optional(),
+    progress: z
+      .object({
+        percent: z.number().int().min(0).max(100).optional(),
+        message: z.string().optional(),
+      })
+      .optional(),
+    version: z.string().optional(),
+    results: z
+      .array(
+        z.object({
+          application: z.string(),
+          status: z.enum(["completed", "skipped", "failed"]),
+          version: z.string().optional(),
+          error: z.string().optional(),
+        }),
+      )
+      .optional(),
+    error: z.string().optional(),
+  }),
 );
 
 /** Validates metadata embedded in one stored application archive. */
@@ -49,6 +100,20 @@ export const backupAllResponseSchema = envelope(
 
 /** Validates confirmation that a stored archive was deleted. */
 export const backupDeleteResponseSchema = envelope(z.object({ deleted: z.literal(true) }));
+
+/** Validates every result of deleting snapshots that share an exact name. */
+export const backupDeleteAllByNameResponseSchema = envelope(
+  z.object({
+    results: z.array(
+      z.object({
+        application: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
+        version: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/),
+        status: z.enum(["deleted", "failed"]),
+        error: z.string().optional(),
+      }),
+    ),
+  }),
+);
 
 /** Validates a path-level comparison with live files. */
 export const diffResponseSchema = envelope(

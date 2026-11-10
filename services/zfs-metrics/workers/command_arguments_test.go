@@ -1,6 +1,9 @@
 package workers
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // TestValidateZpoolArgumentsRejectsUnexpectedCommands covers the polling command allowlist.
 func TestValidateZpoolArgumentsRejectsUnexpectedCommands(t *testing.T) {
@@ -8,10 +11,19 @@ func TestValidateZpoolArgumentsRejectsUnexpectedCommands(t *testing.T) {
 		{"status", "-P", "-L", "other"},
 		{"destroy", "pool"},
 		{"list", "-H", "-p", "-o", "name", ";"},
+		{"iostat", "-H", "-p"},
 	} {
 		if err := validateZpoolArguments(args); err == nil {
 			t.Errorf("validateZpoolArguments(%q) accepted unexpected command", args)
 		}
+	}
+}
+
+// TestZpoolIostatArgsUseIntervalSample covers the live-sampling command contract.
+func TestZpoolIostatArgsUseIntervalSample(t *testing.T) {
+	expected := []string{"iostat", "-H", "-p", "-y", "1", "1"}
+	if !slices.Equal(zpoolIostatArgs, expected) {
+		t.Fatalf("zpoolIostatArgs = %q, want %q", zpoolIostatArgs, expected)
 	}
 }
 

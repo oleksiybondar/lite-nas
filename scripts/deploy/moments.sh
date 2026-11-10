@@ -107,7 +107,7 @@ deploy.moments.installCaptionModel() {
 # Installs a distinct local text-model runtime; verified weights are reused.
 deploy.moments.installEmbeddingModel() {
 	local venv_dir=/usr/local/lib/lite-nas/moments/embedding-venv
-	local model_dir=/usr/local/lib/lite-nas/moments/e5-model
+	local model_dir=/usr/local/lib/lite-nas/moments/embeddinggemma-model
 	local model_installer=/usr/share/lite-nas/moments/install_embedding_model.py
 
 	install -d -m 0755 -o root -g root /usr/local/lib/lite-nas/moments || return 1
@@ -150,13 +150,13 @@ deploy.moments.onnxRuntimeVersion() {
 deploy.moments.smokeTestEmbedding() {
 	local python_bin="$1"
 	local response
-	response="$(printf '{"texts":["query: LiteNAS smoke test"]}\n' |
+	response="$(printf '{"texts":["task: search result | query: LiteNAS smoke test"]}\n' |
 		"$python_bin" /usr/share/lite-nas/moments/embed_text.py)" || return 1
 	printf '%s' "$response" | "$python_bin" -c '
 import base64, json, math, struct, sys
 raw = base64.b64decode(json.load(sys.stdin)["vectors"][0])
 vec = struct.unpack("<%df" % (len(raw) // 4), raw)
-assert len(vec) > 0 and abs(math.sqrt(sum(v * v for v in vec)) - 1.0) < 1e-3
+assert len(vec) == 768 and abs(math.sqrt(sum(v * v for v in vec)) - 1.0) < 1e-3
 ' || return 1
 }
 

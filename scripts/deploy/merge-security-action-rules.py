@@ -58,6 +58,9 @@ def merge(installed: dict, packaged: dict, kind: str) -> bool:
     if kind == "log-analysis":
         for name, current in current_rules.items():
             desired = desired_rules.get(name)
+            if current.get("email") is not True:
+                current["email"] = True
+                changed = True
             if desired is None:
                 continue
             for field in ("name", "explanation", "possible_reactions"):

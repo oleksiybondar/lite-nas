@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -64,7 +64,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.ServiceWatchdog, cfg.Logging, cfg.Messaging, cfg.Auth, 24*time.Hour)
+	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.ServiceWatchdog, cfg.Logging, cfg.Messaging, cfg.Auth, 5*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -319,7 +319,7 @@ func reportSecurityEffects(ctx context.Context, effects <-chan securityEffect, c
 // existing subscription path.
 func publishSecurityEffect(ctx context.Context, effect securityEffect, client messaging.Client) error {
 	digest := sha256.Sum256([]byte(effect.kind + ":" + effect.unit.Name))
-	id := "W" + hex.EncodeToString(digest[:8])
+	id := fmt.Sprintf("t%019d", binary.BigEndian.Uint64(digest[:8])%10_000_000_000_000_000_000)
 	if len(effect.message) > 256 {
 		effect.message = effect.message[:256]
 	}

@@ -93,8 +93,9 @@ Disabling a rule stops new observations from advancing its FSM and prevents new 
 an already applied effect. The service requests restoration of active UFW blocks owned by that rule and keeps failed
 restores visible for retry or manual rollback. USB blocks remain until an operator explicitly rolls back their recorded
 incident. One-way session actions have no inverse. Re-enabling a rule through the UI starts new detection state; it does
-not recreate a prior incident. Restart removes the temporary override and reloads the configured enabled state. A
-separate audit alert for each enable/disable request remains future work.
+not recreate a prior incident. Restart removes the temporary override and reloads the configured enabled state. Each
+successful enable/disable state change publishes an emailed security audit alert naming the rule and actor. If alert
+publication fails, the state change is rolled back and the RPC reports failure.
 
 Enable, disable, rollback, cooldown reset, and automatic mitigation/restore must be serialized per rule instance. The
 exact RPC request and response DTOs, including how a partial disable is reported, remain to be defined. A disabled rule

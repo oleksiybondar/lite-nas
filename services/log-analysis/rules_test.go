@@ -191,7 +191,6 @@ func TestRulesFileRejectsInvalidConfiguredBoundaries(t *testing.T) {
 		{name: "control character in guidance", mutate: func(spec *rulesFile) { spec.Rules[0].PossibleReactions[0] = "review\nlogs" }},
 		{name: "missing category", mutate: func(spec *rulesFile) { spec.Rules[0].Category = "" }},
 		{name: "noncritical lockdown", mutate: func(spec *rulesFile) { spec.Rules[0].Lockdown = true }},
-		{name: "noncritical email", mutate: func(spec *rulesFile) { spec.Rules[0].EmailOnCritical = true }},
 		{name: "bad rule pattern", mutate: func(spec *rulesFile) { spec.Rules[0].Pattern = "[" }},
 		{name: "bad success pattern", mutate: func(spec *rulesFile) { spec.Rules[0].SuccessPattern = "[" }},
 		{name: "bad account capture", mutate: func(spec *rulesFile) { spec.Rules[len(spec.Rules)-1].AccountPattern = "no capture" }},

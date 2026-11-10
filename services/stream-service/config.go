@@ -19,6 +19,7 @@ type serviceConfig struct {
 	Logging     sharedconfig.LoggingConfig
 	ReadRoots   []string
 	DeniedPaths []string
+	ACLPolicy   fileaccess.ReadACLPolicy
 }
 
 // loadServiceConfig validates the configuration before the HTTP listener starts.
@@ -37,6 +38,10 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 		return serviceConfig{}, errors.New("stream-service requires TLS NATS credentials")
 	}
 	logging, err := sharedconfig.LoadLoggingConfig(file)
+	if err != nil {
+		return serviceConfig{}, err
+	}
+	aclPolicy, err := sharedconfig.LoadACLConfig(file)
 	if err != nil {
 		return serviceConfig{}, err
 	}
@@ -64,5 +69,5 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 		}
 		denied[i] = path
 	}
-	return serviceConfig{Address: address, Messaging: messaging, Logging: logging, ReadRoots: roots, DeniedPaths: denied}, nil
+	return serviceConfig{Address: address, Messaging: messaging, Logging: logging, ReadRoots: roots, DeniedPaths: denied, ACLPolicy: aclPolicy}, nil
 }

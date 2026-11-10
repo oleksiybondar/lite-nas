@@ -31,9 +31,10 @@ type Requester interface {
 
 // Subject binds an Auth-verified username to the UID and groups returned by RBAC.
 type Subject struct {
-	Username string
-	UID      string
-	Groups   []string
+	Username    string
+	Application string
+	UID         string
+	Groups      []string
 }
 
 // Authorizer sends every token and path decision to the owning services.
@@ -64,7 +65,7 @@ func (a *Authorizer) Resolve(ctx context.Context, token string) (Subject, error)
 		validated.Username == "" || len(validated.Username) > 128 {
 		return Subject{}, ErrUnauthenticated
 	}
-	return a.resolveUsername(ctx, validated.Username)
+	return a.resolveUsername(ctx, validated.Username, validated.Application)
 }
 
 // ResolveCaptionGrant validates one exact file path before resolving user ACLs.
@@ -80,11 +81,11 @@ func (a *Authorizer) ResolveCaptionGrant(ctx context.Context, grant, path string
 	if !validated.Valid || validated.Username == "" || len(validated.Username) > 128 {
 		return Subject{}, ErrUnauthenticated
 	}
-	return a.resolveUsername(ctx, validated.Username)
+	return a.resolveUsername(ctx, validated.Username, "")
 }
 
 // resolveUsername maps an Auth-verified login to its current non-root host identity.
-func (a *Authorizer) resolveUsername(ctx context.Context, username string) (Subject, error) {
+func (a *Authorizer) resolveUsername(ctx context.Context, username string, application string) (Subject, error) {
 	var roles rbaccontract.GetSubjectRolesResponse
 	if err := a.client.Request(ctx, rbaccontract.GetSubjectRolesRPCSubject,
 		rbaccontract.GetSubjectRolesRequest{Username: username}, &roles); err != nil {
@@ -94,7 +95,7 @@ func (a *Authorizer) resolveUsername(ctx context.Context, username string) (Subj
 	if err != nil || uid == 0 || strconv.FormatUint(uid, 10) != roles.UID {
 		return Subject{}, ErrSubjectUnavailable
 	}
-	return Subject{Username: username, UID: roles.UID, Groups: append([]string(nil), roles.Groups...)}, nil
+	return Subject{Username: username, Application: application, UID: roles.UID, Groups: append([]string(nil), roles.Groups...)}, nil
 }
 
 // Read asks RBAC to authorize reading an existing resolved file or directory.

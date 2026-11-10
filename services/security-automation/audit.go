@@ -60,7 +60,7 @@ func newCorrelationAlert(client messaging.Client, service string) (correlationAl
 		}
 		return client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
 			AccessToken: token, EventID: id, Category: "automation_correlation", Severity: enum.Severity(rule.Action.Severity),
-			CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: "security-automation", Message: message, Email: rule.Action.Email,
+			CreatedAt: time.Now().UTC().Format(time.RFC3339), Source: "security-automation", Message: message, Email: boolPointer(true),
 			Mitigate: rule.Action.Mitigate,
 		})
 	}, nil
@@ -127,7 +127,7 @@ func newIncidentAudit(client messaging.Client, service string) (incidentAudit, e
 		if len(message) > 256 {
 			message = message[:256]
 		}
-		email := false
+		email := true
 		severity := enum.SeverityWarning
 		if record.State == contract.StateFailed {
 			severity = enum.SeverityError
@@ -138,6 +138,11 @@ func newIncidentAudit(client messaging.Client, service string) (incidentAudit, e
 			Mitigate: "Review the recorded automation outcome and verify the intended effect. Investigate any failed or unexpected action before taking further steps.",
 		})
 	}, nil
+}
+
+// boolPointer returns an addressable delivery policy for alert payloads.
+func boolPointer(value bool) *bool {
+	return &value
 }
 
 // serviceAccessToken refreshes one worker-owned Auth service credential before

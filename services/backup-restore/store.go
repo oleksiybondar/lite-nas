@@ -15,10 +15,8 @@ import (
 
 // Store owns the on-disk version archives for configured applications.
 type Store struct {
-	Root        string
-	UFW         *UFWPlugin
-	Tailscale   *TailscalePlugin
-	Cloudflared *CloudflaredPlugin
+	Root string
+	UFW  *UFWPlugin
 }
 
 // BackedUpApplications lists application IDs with at least one completed version.
@@ -82,7 +80,7 @@ func (store Store) BackupWithMetadata(spec Spec, name, description, createdBy st
 			return "", err
 		}
 		metadata := Metadata{Application: spec.Application, Version: candidate, RestartUnits: spec.RestartUnits, Name: name, Description: description, CreatedAt: created.Format(time.RFC3339Nano), CreatedBy: createdBy}
-		writeErr := writeArchive(temporary, spec, &metadata, store.UFW, store.Tailscale, store.Cloudflared)
+		writeErr := writeArchive(temporary, spec, &metadata, store.UFW)
 		if writeErr == nil {
 			writeErr = temporary.Sync()
 		}
@@ -129,7 +127,7 @@ func (store Store) Versions(application string) ([]string, error) {
 	return versions, nil
 }
 
-// VersionByName finds the newest stored version whose metadata name matches exactly.
+// VersionByName finds the newest exact name match, or accepts an exact version ID as a fallback.
 func (store Store) VersionByName(application, name string) (string, error) {
 	versions, err := store.Versions(application)
 	if err != nil {
@@ -141,6 +139,11 @@ func (store Store) VersionByName(application, name string) (string, error) {
 			return "", err
 		}
 		if metadata.Name == name {
+			return version, nil
+		}
+	}
+	for _, version := range versions {
+		if version == name {
 			return version, nil
 		}
 	}

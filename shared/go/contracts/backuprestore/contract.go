@@ -1,6 +1,8 @@
 // Package backuprestore defines the on-demand backup RPC boundary.
 package backuprestore
 
+import "time"
+
 const (
 	// Merge subjects manage the one process-local text merge session.
 	MergeStartSubject   = "backup-restore.merge.start"
@@ -20,10 +22,16 @@ const (
 	MetadataSubject = "backup-restore.metadata"
 	// DeleteSubject permanently removes one stored archive.
 	DeleteSubject = "backup-restore.delete"
+	// DeleteAllByNameSubject removes every archive with an exact snapshot name.
+	DeleteAllByNameSubject = "backup-restore.delete-all-by-name"
 	// BackupSubject creates one application snapshot.
 	BackupSubject = "backup-restore.backup"
 	// BackupAllSubject visits each configured application once.
 	BackupAllSubject = "backup-restore.backup-all"
+	// BackupTaskStartSubject starts an asynchronous backup task.
+	BackupTaskStartSubject = "backup-restore.backup-task.start"
+	// BackupTaskStatusSubject reads one asynchronous backup task.
+	BackupTaskStatusSubject = "backup-restore.backup-task.status"
 	// DiffSubject compares a version with the live application files.
 	DiffSubject = "backup-restore.diff"
 	// RestoreSubject restores a selected version.
@@ -160,6 +168,25 @@ type VersionRequest struct {
 	Version     string `json:"version" validate:"required,max=64"`
 }
 
+// DeleteAllByNameRequest removes snapshots with one exact name across applications.
+type DeleteAllByNameRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Name        string `json:"name" validate:"required,max=128"`
+}
+
+// DeleteAllByNameResult reports one matching snapshot's deletion outcome.
+type DeleteAllByNameResult struct {
+	Application string `json:"application"`
+	Version     string `json:"version"`
+	Status      string `json:"status" validate:"required,oneof=deleted failed"`
+	Error       string `json:"error,omitempty" validate:"omitempty,max=2048"`
+}
+
+// DeleteAllByNameResponse reports every matched snapshot, including partial failures.
+type DeleteAllByNameResponse struct {
+	Results []DeleteAllByNameResult `json:"results"`
+}
+
 // Difference identifies one changed path without disclosing its contents.
 type Difference struct {
 	Path   string `json:"path"`
@@ -181,9 +208,16 @@ type ApplicationsResponse struct {
 	Applications []string `json:"applications"`
 }
 
-// VersionsResponse contains completed versions, newest first.
+// SnapshotSummary identifies a stored snapshot by its stable version and optional display name.
+type SnapshotSummary struct {
+	Version string `json:"version"`
+	Name    string `json:"name,omitempty"`
+}
+
+// VersionsResponse contains completed versions, newest first, with their optional names.
 type VersionsResponse struct {
-	Versions []string `json:"versions"`
+	Versions  []string          `json:"versions"`
+	Snapshots []SnapshotSummary `json:"snapshots"`
 }
 
 // BackupResponse identifies the newly created version.
@@ -218,6 +252,47 @@ type BackupAllResult struct {
 // BackupAllResponse contains the result for every configured application.
 type BackupAllResponse struct {
 	Results []BackupAllResult `json:"results"`
+}
+
+// BackupTaskRequest selects one queued or completed background backup task.
+type BackupTaskRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	TaskID      string `json:"task_id" validate:"required,len=32,hexadecimal"`
+}
+
+// BackupTaskStartRequest starts one configured application backup or the all-applications task.
+type BackupTaskStartRequest struct {
+	AccessToken string `json:"access_token" validate:"required,max=8192"`
+	Application string `json:"application,omitempty" validate:"omitempty,max=64,required_without=All,excluded_with=All"`
+	All         bool   `json:"all,omitempty"`
+	Name        string `json:"name,omitempty" validate:"max=128"`
+	Description string `json:"description,omitempty" validate:"max=1024"`
+}
+
+// BackupTaskStartResponse identifies an accepted asynchronous backup task.
+type BackupTaskStartResponse struct {
+	TaskID string `json:"task_id" validate:"required,len=32,hexadecimal"`
+	State  string `json:"state" validate:"required,oneof=queued running succeeded failed cancelled"`
+}
+
+// BackupTaskProgress reports measurable completion across configured selections or targets.
+type BackupTaskProgress struct {
+	Percent *int   `json:"percent,omitempty" validate:"omitempty,min=0,max=100"`
+	Message string `json:"message,omitempty" validate:"omitempty,max=512"`
+}
+
+// BackupTaskStatusResponse is a pollable snapshot of one background backup.
+type BackupTaskStatusResponse struct {
+	TaskID      string              `json:"task_id" validate:"required,len=32,hexadecimal"`
+	Application string              `json:"application" validate:"required,max=64"`
+	State       string              `json:"state" validate:"required,oneof=queued running succeeded failed cancelled"`
+	StartedAt   time.Time           `json:"started_at" validate:"required"`
+	UpdatedAt   time.Time           `json:"updated_at" validate:"required"`
+	FinishedAt  *time.Time          `json:"finished_at,omitempty"`
+	Progress    *BackupTaskProgress `json:"progress,omitempty"`
+	Version     string              `json:"version,omitempty"`
+	Results     []BackupAllResult   `json:"results,omitempty"`
+	Error       string              `json:"error,omitempty" validate:"omitempty,max=2048"`
 }
 
 // RestoreResponse confirms a completed restore.

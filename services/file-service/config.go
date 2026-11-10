@@ -28,6 +28,7 @@ type serviceConfig struct {
 	DocsEnabled         bool
 	UploadTTL           time.Duration
 	CleanupEvery        time.Duration
+	ACLPolicy           fileaccess.ReadACLPolicy
 }
 
 // loadServiceConfig validates the service's INI boundary before runtime setup.
@@ -77,6 +78,10 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 	if err != nil {
 		return serviceConfig{}, err
 	}
+	aclPolicy, err := sharedconfig.LoadACLConfig(file)
+	if err != nil {
+		return serviceConfig{}, err
+	}
 	if len(writeRoots) == 0 {
 		return serviceConfig{}, errors.New("filesystem.write_roots is required")
 	}
@@ -105,6 +110,7 @@ func loadServiceConfig(reader fileio.Reader) (serviceConfig, error) {
 		MetadataDir: metadataDir, ChunkSize: int64(chunkMiB) << 20,
 		DocsEnabled: docsEnabled,
 		UploadTTL:   24 * time.Hour, CleanupEvery: 3 * time.Hour,
+		ACLPolicy: aclPolicy,
 	}, nil
 }
 

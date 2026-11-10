@@ -26,7 +26,7 @@ const get = vi.fn(() => ({
               instance: "auth",
               threshold: 5,
               window: "1m",
-              email_on_critical: false,
+              email: true,
               lockdown: false,
             },
           ],

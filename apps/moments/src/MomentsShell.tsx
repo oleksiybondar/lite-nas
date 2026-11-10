@@ -10,10 +10,10 @@ import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
-  loadGalleryConcurrency,
+  loadGallerySettings,
   loadMomentsConfig,
   logout,
-  saveGalleryConcurrency,
+  saveGallerySettings,
   saveSharedMode,
 } from "./api";
 import { FriendsPage } from "./FriendsPage";
@@ -23,7 +23,7 @@ import { MomentsHeader } from "./MomentsHeader";
 import { MomentsLayout } from "./MomentsLayout";
 import { Settings, type SettingsView } from "./Settings";
 import type { Me } from "./schemas";
-import { imageConcurrencySchema } from "./schemas";
+import { defaultImageUiCooldownMs, imageConcurrencySchema, imageUiCooldownSchema } from "./schemas";
 import { useProfileAvatar } from "./useProfileAvatar";
 
 /** Feed routes retain the same scope names used by the gallery query. */
@@ -65,6 +65,7 @@ export const MomentsShell = ({
     const parsed = imageConcurrencySchema.safeParse(stored);
     return parsed.success ? parsed.data : 10;
   });
+  const [imageUiCooldownMs, setImageUiCooldownMs] = useState(defaultImageUiCooldownMs);
   const [message, setMessage] = useState<string | null>(null);
   const [galleryMessage, setGalleryMessage] = useState<string | null>(null);
   const galleryChanged = useRef(false);
@@ -86,8 +87,11 @@ export const MomentsShell = ({
 
   useEffect(() => {
     let active = true;
-    void loadGalleryConcurrency().then((value) => {
-      if (active && !galleryChanged.current) setMaxConcurrent(value);
+    void loadGallerySettings().then((settings) => {
+      if (active && !galleryChanged.current) {
+        setMaxConcurrent(settings.maxConcurrentImageLoads);
+        setImageUiCooldownMs(settings.imageUiCooldownMs);
+      }
     });
     return () => {
       active = false;
@@ -174,6 +178,7 @@ export const MomentsShell = ({
               <GalleryRoute
                 userId={me.user.id}
                 maxConcurrent={maxConcurrent}
+                imageUiCooldownMs={imageUiCooldownMs}
                 workingDir={workingDir ?? "/home"}
               />
             }
@@ -196,11 +201,24 @@ export const MomentsShell = ({
                   onModeChange={onModeChange}
                   onSaveMode={(value) => void saveMode(value)}
                   maxConcurrent={maxConcurrent}
+                  imageUiCooldownMs={imageUiCooldownMs}
                   galleryMessage={galleryMessage}
                   onMaxConcurrentChange={(value) => {
                     galleryChanged.current = true;
                     setMaxConcurrent(value);
-                    void saveGalleryConcurrency(value)
+                    void saveGallerySettings({ maxConcurrentImageLoads: value, imageUiCooldownMs })
+                      .then(() => setGalleryMessage(null))
+                      .catch(() => setGalleryMessage(getLabel("language.saveFailed")));
+                  }}
+                  onImageUiCooldownChange={(value) => {
+                    const parsed = imageUiCooldownSchema.safeParse(value);
+                    if (!parsed.success) return;
+                    galleryChanged.current = true;
+                    setImageUiCooldownMs(parsed.data);
+                    void saveGallerySettings({
+                      maxConcurrentImageLoads: maxConcurrent,
+                      imageUiCooldownMs: parsed.data,
+                    })
                       .then(() => setGalleryMessage(null))
                       .catch(() => setGalleryMessage(getLabel("language.saveFailed")));
                   }}

@@ -18,12 +18,33 @@ type VersionInput struct {
 	Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`
 	Version     string `path:"version" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_.-]*$"`
 }
+
+// DeleteAllByNameInput selects all snapshots with one exact name.
+type DeleteAllByNameInput struct {
+	Name string `path:"name" minLength:"1" maxLength:"128"`
+}
 type BackupInput struct {
 	Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`
 	Body        BackupLabels
 }
 type BackupAllInput struct {
 	Body BackupLabels
+}
+
+// BackupTaskInput selects one application for an asynchronous backup task.
+type BackupTaskInput struct {
+	Application string `path:"application" minLength:"1" maxLength:"64" pattern:"^[A-Za-z0-9][A-Za-z0-9_-]*$"`
+	Body        BackupLabels
+}
+
+// BackupTaskAllInput supplies labels for an asynchronous all-applications task.
+type BackupTaskAllInput struct {
+	Body BackupLabels
+}
+
+// BackupTaskStatusInput validates the identifier used to poll one backup task.
+type BackupTaskStatusInput struct {
+	TaskID string `path:"task_id" minLength:"32" maxLength:"32" pattern:"^[a-fA-F0-9]{32}$"`
 }
 
 // BackupLabels are the optional human-readable fields in a backup request body.

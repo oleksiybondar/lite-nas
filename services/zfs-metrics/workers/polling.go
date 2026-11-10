@@ -24,8 +24,9 @@ var (
 	zpoolStatusArgs = []string{"status", "-P", "-L"}
 	// zpoolListArgs fetches capacity/health values in stable numeric format.
 	zpoolListArgs = []string{"list", "-H", "-p", "-o", strings.Join(listparser.DefaultHeaders, ",")}
-	// zpoolIostatArgs fetches per-pool operations and bandwidth counters.
-	zpoolIostatArgs = []string{"iostat", "-H", "-p"}
+	// zpoolIostatArgs samples current per-pool operations and bandwidth over one second.
+	// Without an interval, zpool iostat reports the average since boot or pool import.
+	zpoolIostatArgs = []string{"iostat", "-H", "-p", "-y", "1", "1"}
 
 	// zpoolCommandTimeout bounds one zpool subprocess execution.
 	zpoolCommandTimeout = 15 * time.Second
@@ -160,7 +161,7 @@ func runZpoolCommand(ctx context.Context, zpoolPath string, args ...string) (str
 func validateZpoolArguments(args []string) error {
 	if slices.Equal(args, []string{"status", "-P", "-L"}) ||
 		slices.Equal(args, []string{"list", "-H", "-p", "-o", strings.Join(listparser.DefaultHeaders, ",")}) ||
-		slices.Equal(args, []string{"iostat", "-H", "-p"}) {
+		slices.Equal(args, []string{"iostat", "-H", "-p", "-y", "1", "1"}) {
 		return nil
 	}
 	return errors.New("unsupported zpool arguments")

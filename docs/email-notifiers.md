@@ -92,6 +92,9 @@ subject_prefix=[LiteNAS]
 Behavior:
 
 - if both `to` and `cc` are empty, the notifier skips delivery
+- the security email notifier sends every security alert, including alerts
+  whose publisher sets `email=false`
+- the system email notifier respects the alert's optional email preference
 - `from` should use a sender domain that is verified with the SMTP relay
 - the notifier always sends to local Postfix, not directly to the external
   provider

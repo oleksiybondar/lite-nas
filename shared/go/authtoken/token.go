@@ -18,6 +18,8 @@ type Principal struct {
 	// Login is the authenticated host login name written to the custom
 	// "login" claim.
 	Login string
+	// Application identifies the trusted application that established the session.
+	Application string
 	// Scopes contains optional fine-grained authorization labels copied into
 	// the token. Empty scopes mean authenticated identity only.
 	Scopes []string

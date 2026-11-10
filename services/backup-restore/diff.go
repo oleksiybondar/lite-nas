@@ -37,21 +37,13 @@ func (store Store) Diff(spec Spec, version string) ([]Difference, error) {
 	if err := validateRestoreEntries(entries, spec); err != nil {
 		return nil, err
 	}
-	if spec.Plugin == "ufw" || spec.Plugin == "tailscale" {
-		var current []byte
-		var err error
-		virtualPath := ufwArchivePath
-		if spec.Plugin == "ufw" {
-			current, err = store.UFW.Export()
-		} else {
-			virtualPath = tailscaleArchivePath
-			current, err = store.Tailscale.Export()
-		}
+	if spec.Plugin == "ufw" {
+		current, err := store.UFW.Export()
 		if err != nil {
 			return nil, err
 		}
 		for _, entry := range entries {
-			if entry.path == virtualPath {
+			if entry.path == ufwArchivePath {
 				archived, err := os.ReadFile(entry.stage)
 				if err != nil {
 					return nil, err
@@ -59,7 +51,7 @@ func (store Store) Diff(spec Spec, version string) ([]Difference, error) {
 				if bytes.Equal(archived, current) {
 					return []Difference{}, nil
 				}
-				return []Difference{{Path: virtualPath, Status: "changed"}}, nil
+				return []Difference{{Path: ufwArchivePath, Status: "changed"}}, nil
 			}
 		}
 		return nil, fmt.Errorf("plugin JSON missing from snapshot")

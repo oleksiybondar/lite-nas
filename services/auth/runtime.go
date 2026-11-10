@@ -384,7 +384,7 @@ func issueLoginSession(runtimeDeps authRuntime, request authcontract.LoginReques
 	if !created {
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}
 	}
-	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles, record.SessionID)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, login, roles, record.SessionID, request.Source)
 	if !issued {
 		_ = runtimeDeps.RefreshStore.Revoke(refreshToken)
 		return authcontract.LoginResponse{Status: authcontract.StatusDenied}
@@ -419,12 +419,17 @@ func authenticatePrincipal(runtimeDeps authRuntime, request authcontract.LoginRe
 	return result, true
 }
 
-func issueAccessToken(runtimeDeps authRuntime, subject string, login string, roles []string, sessionID string) (string, bool) {
+func issueAccessToken(runtimeDeps authRuntime, subject string, login string, roles []string, sessionID string, application ...string) (string, bool) {
+	app := ""
+	if len(application) > 0 {
+		app = application[0]
+	}
 	accessToken, _, err := runtimeDeps.Tokens.Issuer.Issue(authtoken.Principal{
-		SessionID: sessionID,
-		Subject:   subject,
-		Login:     login,
-		Roles:     roles,
+		SessionID:   sessionID,
+		Subject:     subject,
+		Login:       login,
+		Roles:       roles,
+		Application: app,
 	})
 	if err != nil {
 		return "", false
@@ -495,7 +500,7 @@ func handleRefreshRPC(runtimeDeps authRuntime, envelope messaging.Envelope) (aut
 	}
 
 	subject, roles := resolvePrincipalRoles(runtimeDeps, record.Login)
-	accessToken, issued := issueAccessToken(runtimeDeps, subject, record.Login, roles, record.SessionID)
+	accessToken, issued := issueAccessToken(runtimeDeps, subject, record.Login, roles, record.SessionID, record.Source)
 	if !issued {
 		return authcontract.RefreshResponse{}, nil
 	}
@@ -547,9 +552,10 @@ func handleValidateAccessTokenRPC(runtimeDeps authRuntime, envelope messaging.En
 	}
 
 	return authcontract.ValidateAccessTokenResponse{
-		Valid:    true,
-		Status:   authcontract.StatusAuthenticated,
-		Username: claims.Login,
+		Valid:       true,
+		Status:      authcontract.StatusAuthenticated,
+		Username:    claims.Login,
+		Application: claims.Application,
 	}, nil
 }
 

@@ -23,7 +23,6 @@ type Spec struct {
 	Application  string
 	SourcePath   string
 	Plugin       string
-	ConfigPath   string
 	Selections   []Selection
 	RestartUnits []string
 }
@@ -71,21 +70,15 @@ func LoadSpec(path, application string) (Spec, error) {
 		return Spec{}, fmt.Errorf("unsupported backup plugin or settings")
 	}
 	for _, key := range backup.Keys() {
-		if key.Name() != "plugin" && key.Name() != "restart_units" && key.Name() != "config_path" {
+		if key.Name() != "plugin" && key.Name() != "restart_units" {
 			return Spec{}, fmt.Errorf("unsupported backup plugin or settings")
 		}
 	}
 	plugin := backup.Key("plugin").String()
-	if plugin != "file" && plugin != "ufw" && plugin != "cloudflared" && plugin != "tailscale" {
+	if plugin != "file" && plugin != "ufw" {
 		return Spec{}, fmt.Errorf("unsupported backup plugin or settings")
 	}
 	spec := Spec{Application: application, SourcePath: path, Plugin: plugin}
-	if backup.HasKey("config_path") {
-		if plugin != "cloudflared" {
-			return Spec{}, fmt.Errorf("config_path is only supported by cloudflared")
-		}
-		spec.ConfigPath = backup.Key("config_path").String()
-	}
 	if backup.HasKey("restart_units") {
 		seenUnits := make(map[string]bool)
 		for _, raw := range strings.Split(backup.Key("restart_units").String(), ",") {
@@ -105,13 +98,6 @@ func LoadSpec(path, application string) (Spec, error) {
 			return Spec{}, fmt.Errorf("UFW plugin accepts no selections or restart units")
 		}
 		spec.Selections = []Selection{{Path: ufwArchivePath}}
-		return spec, nil
-	}
-	if plugin == "tailscale" {
-		if application != "tailscale" || len(configuration.Sections()) != 2 || len(spec.RestartUnits) != 0 {
-			return Spec{}, fmt.Errorf("Tailscale plugin accepts no selections or restart units")
-		}
-		spec.Selections = []Selection{{Path: tailscaleArchivePath}}
 		return spec, nil
 	}
 	seen := make(map[string]bool)
@@ -149,9 +135,6 @@ func LoadSpec(path, application string) (Spec, error) {
 	}
 	if len(spec.Selections) == 0 {
 		return Spec{}, fmt.Errorf("spec has no selected paths")
-	}
-	if plugin == "cloudflared" && (application != "cloudflared" || !filepath.IsAbs(spec.ConfigPath) || filepath.Clean(spec.ConfigPath) != spec.ConfigPath || !cloudflaredSelected(spec, spec.ConfigPath)) {
-		return Spec{}, fmt.Errorf("cloudflared plugin requires a selected absolute config path")
 	}
 	for i, left := range spec.Selections {
 		for _, right := range spec.Selections[i+1:] {

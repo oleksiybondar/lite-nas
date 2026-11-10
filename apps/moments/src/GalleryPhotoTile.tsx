@@ -19,7 +19,7 @@ import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useCarousel } from "./CarouselContext";
-import { useGallery } from "./GalleryContext";
+import { useGallery, useGalleryMediaUi } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
 import { googleMapsUrl } from "./GalleryMaps";
 import { GalleryUploaderLabel } from "./GalleryUploaderLabel";
@@ -46,11 +46,17 @@ export const GalleryPhotoTile = ({
 }): ReactElement => {
   const { getLabel } = useLanguage();
   const { queue, metadata: reader } = useGallery();
+  const { state: mediaUi, dispatch: dispatchMediaUi } = useGalleryMediaUi();
   const stream = useStream();
   const { selected } = useCarousel();
   const { activeVideoId, setActiveVideoId } = useWall();
-  const status = queue.status(item.url);
+  const uiStatus = mediaUi.items[item.id]?.url === item.url ? mediaUi.items[item.id].status : null;
+  const status = uiStatus ?? queue.status(item.url);
   const attempt = queue.attempt(item.url);
+  useEffect(() => {
+    if (status === "loading")
+      dispatchMediaUi({ type: "image/loading", itemId: item.id, url: item.url });
+  }, [dispatchMediaUi, item.id, item.url, status]);
   const motionRef = useRef<HTMLVideoElement>(null);
   const [motionPlaying, setMotionPlaying] = useState(false);
   const [motionError, setMotionError] = useState(false);
@@ -157,7 +163,10 @@ export const GalleryPhotoTile = ({
             component="img"
             src={stream.image(item.url) ?? undefined}
             alt={item.filename}
-            onLoad={() => queue.complete(item.url, true, attempt)}
+            onLoad={() => {
+              dispatchMediaUi({ type: "image/ready", itemId: item.id, url: item.url });
+              queue.complete(item.url, true, attempt);
+            }}
             onError={() => queue.fail(item.url, attempt)}
             sx={{
               position: "absolute",

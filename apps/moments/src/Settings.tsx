@@ -18,7 +18,7 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { z } from "zod";
 import { replyPasswordChange, request, startPasswordChange } from "./api";
-import { imageConcurrencySchema } from "./schemas";
+import { imageConcurrencySchema, imageUiCooldownSchema } from "./schemas";
 
 /** Settings sections exposed in the Moments preferences sidebar. */
 const settingsViewSchema = z.enum(["profile", "security", "appearance", "gallery"]);
@@ -37,8 +37,10 @@ export const Settings = ({
   onModeChange,
   onSaveMode,
   maxConcurrent,
+  imageUiCooldownMs,
   galleryMessage,
   onMaxConcurrentChange,
+  onImageUiCooldownChange,
 }: {
   view: SettingsView;
   onViewChange: (view: SettingsView) => void;
@@ -50,8 +52,10 @@ export const Settings = ({
   onModeChange: (value: ThemeMode) => void;
   onSaveMode: (value: ThemeMode) => void;
   maxConcurrent: number;
+  imageUiCooldownMs: number;
   galleryMessage: string | null;
   onMaxConcurrentChange: (value: number) => void;
+  onImageUiCooldownChange: (value: number) => void;
 }): ReactElement => {
   const { getLabel } = useLanguage();
   const [savedMode, setSavedMode] = useState(mode);
@@ -169,6 +173,18 @@ export const Settings = ({
                 onChange={(event) => {
                   const result = imageConcurrencySchema.safeParse(Number(event.target.value));
                   if (result.success) onMaxConcurrentChange(result.data);
+                }}
+                sx={{ maxWidth: 320 }}
+              />
+              <TextField
+                label={getLabel("moments.settings.imageUiCooldown")}
+                helperText={getLabel("moments.settings.imageUiCooldownHint")}
+                type="number"
+                value={imageUiCooldownMs}
+                inputProps={{ min: 0, max: 500, step: 25 }}
+                onChange={(event) => {
+                  const result = imageUiCooldownSchema.safeParse(Number(event.target.value));
+                  if (result.success) onImageUiCooldownChange(result.data);
                 }}
                 sx={{ maxWidth: 320 }}
               />

@@ -16,7 +16,7 @@ export const logAuditRuleSchema = z.object({
   instance: z.string(),
   threshold: z.number().int(),
   window: z.string(),
-  email_on_critical: z.boolean(),
+  email: z.boolean(),
   lockdown: z.boolean(),
 });
 

@@ -61,25 +61,13 @@ CLI rules after the archived rules, while applying UI-resolved JSON replaces
 the CLI-managed rule set.
 The existing `ufw` file target still backs up `/etc/ufw/ufw.conf` separately.
 Custom framework rules and app-profile files are outside `ufw-rules`.
-The `cloudflared` plugin snapshots the paths declared in its spec (packaged
-defaults: `/etc/cloudflared` and its `config.yml`) for a locally managed
-tunnel. The config must name a tunnel and a credential file also selected by
-the spec. The plugin calls
-`cloudflared tunnel --config ... ingress validate`
-before backup and before restore, then the restore requests a
-`cloudflared.service` restart. Installations using the default
-`/root/.cloudflared` location needs an adjusted spec and corresponding
-systemd/AppArmor access; remotely managed tunnels are outside this spec.
-The `tailscale` plugin calls `tailscale get --set-flags` and stores the
-validated preferences as `tailscale.json`; restore calls `tailscale set` with
-those flags as separate arguments. At restore, the plugin checks each saved
-flag against the names emitted by the installed CLI, so newly added
-preferences do not require a LiteNAS flag list update. It does not copy identity state, log in,
-or recreate Serve/Funnel configuration. If the CLI reports a preference the
-plugin cannot safely represent, the backup fails for that target. `backup all`
-skips either CLI target when its executable is missing; it also skips
-`cloudflared` when `/etc/cloudflared/config.yml` is missing. Neither CLI
-target supports the text merge editor.
+The Cloudflared CLI validation and Tailscale CLI backup plugins have been
+removed. Cloudflare tunnel files are backed up by the packaged file spec,
+which selects `/etc/cloudflared` and the optional
+`/etc/systemd/system/cloudflared.service.d` drop-in directory. Restore requests
+a `cloudflared.service` restart. Tailscale's spec is no longer packaged, its
+legacy plugin identifier is rejected, and config deployment removes old
+`tailscale.conf` files retained from earlier dpkg installs.
 Selections are individual files unless an application-owned asset directory is
 included. The service validates packaged specs at startup.
 The `journal-manager` file target selects `/etc/lite-nas/journal-manager.conf`
@@ -168,6 +156,13 @@ limits text files to 1 MiB each, a session to 512 files and 32 MiB of inputs, an
 transfer chunk to 64 KiB.
 The CLI forwards the user's administrator access token to the backup service;
 the service uses the same token for Services Manager restart requests.
+
+The Admin Panel starts background backup tasks through the Backup and Restore
+service and polls their task ID for state and progress. Task snapshots are
+stored under the configured backup store's private `.tasks` directory, survive
+browser refreshes, and are marked failed at service startup if they were
+interrupted by a service restart. The synchronous backup RPCs remain available
+for the CLI.
 
 Versions are ordinary `tar.gz` archives with host paths stored without the
 leading slash, such as `etc/logrotate.d/lite-nas`. They can be inspected and

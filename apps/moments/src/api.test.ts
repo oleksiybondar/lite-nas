@@ -1,13 +1,13 @@
 import { afterEach, expect, test, vi } from "vitest";
 import {
-  loadGalleryConcurrency,
+  loadGallerySettings,
   loadMe,
   loadMomentsConfig,
   login,
   logout,
   momentsApiPath,
   request,
-  saveGalleryConcurrency,
+  saveGallerySettings,
   saveSharedMode,
 } from "./api";
 
@@ -183,29 +183,92 @@ test("Moments gallery settings load from the authenticated profile file", async 
         new Response(JSON.stringify({ gallery: { maxConcurrentImageLoads: 12 } }), { status: 200 }),
       ),
   );
-  await expect(loadGalleryConcurrency()).resolves.toBe(12);
+  await expect(loadGallerySettings()).resolves.toEqual({
+    maxConcurrentImageLoads: 12,
+    imageUiCooldownMs: 100,
+  });
+});
+
+test("Moments gallery settings default old profiles to a 100 millisecond cooldown", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ gallery: { maxConcurrentImageLoads: 12 } }), {
+        status: 200,
+      }),
+    ),
+  );
+  await expect(loadGallerySettings()).resolves.toEqual({
+    maxConcurrentImageLoads: 12,
+    imageUiCooldownMs: 100,
+  });
+});
+
+test("Moments gallery settings load the saved image UI cooldown", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          gallery: { maxConcurrentImageLoads: 12, imageUiCooldownMs: 175 },
+        }),
+        { status: 200 },
+      ),
+    ),
+  );
+  await expect(loadGallerySettings()).resolves.toEqual({
+    maxConcurrentImageLoads: 12,
+    imageUiCooldownMs: 175,
+  });
 });
 
 test("Moments gallery settings default to ten when the profile file is absent", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
-  await expect(loadGalleryConcurrency()).resolves.toBe(10);
+  await expect(loadGallerySettings()).resolves.toEqual({
+    maxConcurrentImageLoads: 10,
+    imageUiCooldownMs: 100,
+  });
 });
 
 test("Moments gallery settings use a validated browser value when the profile file is absent", async () => {
   vi.stubGlobal("window", { localStorage: { getItem: () => "12" } });
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
-  await expect(loadGalleryConcurrency()).resolves.toBe(12);
+  await expect(loadGallerySettings()).resolves.toEqual({
+    maxConcurrentImageLoads: 12,
+    imageUiCooldownMs: 100,
+  });
 });
 
 test("Moments gallery settings write a grouped document through File Service", async () => {
   const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
   vi.stubGlobal("fetch", fetchMock);
-  await saveGalleryConcurrency(12);
+  await saveGallerySettings({ maxConcurrentImageLoads: 12, imageUiCooldownMs: 100 });
   expect(fetchMock).toHaveBeenCalledWith(
     "/f/profile/moments",
     expect.objectContaining({
       method: "PUT",
-      body: JSON.stringify({ document: { gallery: { maxConcurrentImageLoads: 12 } } }),
+      body: JSON.stringify({
+        document: {
+          gallery: { maxConcurrentImageLoads: 12, imageUiCooldownMs: 100 },
+        },
+      }),
+    }),
+  );
+});
+
+test("Moments gallery settings save the selected image UI cooldown", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await saveGallerySettings({ maxConcurrentImageLoads: 12, imageUiCooldownMs: 175 });
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/f/profile/moments",
+    expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({
+        document: {
+          gallery: { maxConcurrentImageLoads: 12, imageUiCooldownMs: 175 },
+        },
+      }),
     }),
   );
 });
@@ -213,7 +276,15 @@ test("Moments gallery settings write a grouped document through File Service", a
 test("Moments gallery settings reject invalid concurrency before writing", async () => {
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
-  await expect(saveGalleryConcurrency(21)).rejects.toThrow();
+  await expect(
+    saveGallerySettings({ maxConcurrentImageLoads: 21, imageUiCooldownMs: 100 }),
+  ).rejects.toThrow();
+});
+
+test("Moments gallery settings reject cooldowns outside the supported range", async () => {
+  await expect(
+    saveGallerySettings({ maxConcurrentImageLoads: 12, imageUiCooldownMs: 501 }),
+  ).rejects.toThrow();
 });
 
 // Requirements: moments/FR-001. Auth failures cannot trigger recursive refresh.

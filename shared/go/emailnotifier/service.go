@@ -29,6 +29,7 @@ type ServiceRuntimeConfig struct {
 	StartupMessage  string
 	ShutdownMessage string
 	InputBufferSize int
+	ForceEmail      bool
 }
 
 // NewInfraModule loads shared email-notifier configuration and constructs core runtime infrastructure.
@@ -79,7 +80,7 @@ func RunService(ctx context.Context, config ServiceRuntimeConfig) error {
 
 	if err = infra.Server.Subscribe(
 		config.AlertSubject,
-		NewAlertSubscriptionHandler(validate, input),
+		NewAlertSubscriptionHandlerWithEmailPolicy(validate, input, config.ForceEmail),
 	); err != nil {
 		return err
 	}

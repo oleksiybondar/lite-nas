@@ -48,7 +48,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.ServiceMountMonitor, cfg.Logging, cfg.Messaging, cfg.Auth, 24*time.Hour)
+	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.ServiceMountMonitor, cfg.Logging, cfg.Messaging, cfg.Auth, 5*time.Minute)
 	if err != nil {
 		return err
 	}

@@ -22,7 +22,7 @@ type LogAnalysisRule struct {
 	Instance          string   `json:"instance"`
 	Threshold         int      `json:"threshold"`
 	Window            string   `json:"window"`
-	EmailOnCritical   bool     `json:"email_on_critical"`
+	Email             bool     `json:"email"`
 	Lockdown          bool     `json:"lockdown"`
 }
 

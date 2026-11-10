@@ -106,8 +106,8 @@ export const AutomatedAuditPage = (): ReactElement | null => {
                 {getLabel("admin.logAudit.window")}: {highlightCatalogText(rule.window, search)}
               </Typography>
               <Typography variant="body2">
-                {getLabel("admin.logAudit.emailOnCritical")}:{" "}
-                {getLabel(rule.email_on_critical ? "admin.logAudit.yes" : "admin.logAudit.no")}
+                {getLabel("admin.logAudit.email")}:{" "}
+                {getLabel(rule.email ? "admin.logAudit.yes" : "admin.logAudit.no")}
                 {" · "}
                 {getLabel("admin.logAudit.lockdown")}:{" "}
                 {getLabel(rule.lockdown ? "admin.logAudit.yes" : "admin.logAudit.no")}

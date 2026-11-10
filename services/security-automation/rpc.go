@@ -12,7 +12,10 @@ import (
 	"github.com/go-playground/validator/v10"
 
 	"lite-nas/shared/authtoken"
+	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	contract "lite-nas/shared/contracts/securityautomation"
+	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	"lite-nas/shared/loggingmanager/enum"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/roleauth"
 )
@@ -174,8 +177,15 @@ func (runtime *automationRuntime) setEnabled(ctx context.Context, envelope messa
 			return nil, fmt.Errorf("reset rule %q before enable: %w", request.RuleID, err)
 		}
 	}
-	rule.enabled.Store(request.Enabled)
+	previouslyEnabled := rule.enabled.Swap(request.Enabled)
 	rule.view.LastOutcome = fmt.Sprintf("temporarily set enabled=%t by %s", request.Enabled, claims.Login)
+	if previouslyEnabled != request.Enabled {
+		if err := runtime.publishRuleStateAlert(ctx, request, claims.Login); err != nil {
+			rule.enabled.Store(previouslyEnabled)
+			rule.view.LastOutcome = fmt.Sprintf("rule state change alert failed for %s", claims.Login)
+			return nil, err
+		}
+	}
 	pendingRestores := 0
 	if !request.Enabled && runtime.incidents != nil && runtime.operatorActions != nil {
 		for _, record := range runtime.incidents.list() {
@@ -193,6 +203,32 @@ func (runtime *automationRuntime) setEnabled(ctx context.Context, envelope messa
 	}
 	runtime.log.Warn("automation rule state changed", "rule", request.RuleID, "enabled", request.Enabled, "actor", claims.Login, "reason", request.Reason)
 	return contract.OperationResponse{Completed: pendingRestores == 0, PendingEffects: pendingRestores, Outcome: rule.view.LastOutcome}, nil
+}
+
+// publishRuleStateAlert records a successful operator rule toggle as a security event.
+func (runtime *automationRuntime) publishRuleStateAlert(ctx context.Context, request contract.RuleSetEnabledRequest, actor string) error {
+	state := "disabled"
+	if request.Enabled {
+		state = "enabled"
+	}
+	message := fmt.Sprintf("Security automation rule %s temporarily %s by %s", request.RuleID, state, actor)
+	createdAt := time.Now().UTC()
+	payload := loggingcontract.AlertPayload{
+		AccessToken: request.AccessToken,
+		EventID:     fmt.Sprintf("t%019d", createdAt.UnixNano()),
+		Category:    "automation_rule_state_change",
+		Severity:    enum.SeverityWarning,
+		CreatedAt:   createdAt.Format(time.RFC3339),
+		Source:      "security-automation",
+		Message:     message,
+		Email:       boolPointer(true),
+		Mitigate:    "Verify the rule state change was authorized. Review the rule configuration and re-enable it if the change was unexpected.",
+	}
+	if err := runtime.client.Publish(ctx, securityloggingmanagercontract.AlertSubject, payload); err != nil {
+		runtime.log.Error("failed to publish automation rule state alert", "rule", request.RuleID, "actor", actor, "error", err)
+		return err
+	}
+	return nil
 }
 
 // rollback queues restoration of one service-owned incident.

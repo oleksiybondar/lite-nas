@@ -11,7 +11,7 @@ import (
 	sharedmodules "lite-nas/shared/modules"
 )
 
-const defaultAuthRefreshInterval = 24 * time.Hour
+const defaultAuthRefreshInterval = 5 * time.Minute
 
 // LoadInfra constructs messaging client infra for a logging-manager CLI app.
 func LoadInfra(configPath string, appName string) (func(), MessagingClient, error) {

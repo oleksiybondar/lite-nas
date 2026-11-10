@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -31,6 +32,12 @@ func (s *backupBodyCapture) Backup(_ context.Context, _, application, name, desc
 func (s *backupBodyCapture) BackupAll(_ context.Context, _, name, description string) ([]contract.BackupAllResult, error) {
 	s.got = []string{name, description}
 	return []contract.BackupAllResult{}, nil
+}
+
+// StartBackupTask records whether the HTTP adapter selected one target or the full batch.
+func (s *backupBodyCapture) StartBackupTask(_ context.Context, _, application string, all bool, name, description string) (contract.BackupTaskStartResponse, error) {
+	s.got = []string{application, fmt.Sprint(all), name, description}
+	return contract.BackupTaskStartResponse{TaskID: "0123456789abcdef0123456789abcdef", State: "queued"}, nil
 }
 
 // Restore records the selected mode after Huma decodes the request body.
@@ -74,6 +81,8 @@ func TestBackupRestoreJSONBodiesReachService(t *testing.T) {
 	}{
 		{"backup", "/applications/example/backups", `{"name":"named","description":"note"}`, []string{"example", "named", "note"}},
 		{"backup-all", "/backups", `{"name":"named","description":"note"}`, []string{"named", "note"}},
+		{"backup-task", "/applications/example/backup-tasks", `{"name":"named","description":"note"}`, []string{"example", "false", "named", "note"}},
+		{"backup-all-task", "/backup-tasks", `{"name":"named","description":"note"}`, []string{"", "true", "named", "note"}},
 		{"restore", "/applications/example/versions/v1/restore", `{"mode":"merge"}`, []string{"example", "v1", "merge"}},
 		{"restore-by-name", "/applications/example/restore-by-name", `{"name":"release one","mode":"merge"}`, []string{"example", "release one", "merge"}},
 		{"restore-all-by-name", "/restore-by-name", `{"name":"release one","mode":"replace"}`, []string{"release one", "replace"}},
@@ -88,6 +97,8 @@ func TestBackupRestoreJSONBodiesReachService(t *testing.T) {
 			controller := NewBackupRestoreController(service)
 			huma.Register(api, huma.Operation{OperationID: "backup", Method: http.MethodPost, Path: "/applications/{application}/backups"}, controller.Backup)
 			huma.Register(api, huma.Operation{OperationID: "backup-all", Method: http.MethodPost, Path: "/backups"}, controller.BackupAll)
+			huma.Register(api, huma.Operation{OperationID: "backup-task", Method: http.MethodPost, Path: "/applications/{application}/backup-tasks"}, controller.StartBackupTask)
+			huma.Register(api, huma.Operation{OperationID: "backup-all-task", Method: http.MethodPost, Path: "/backup-tasks"}, controller.StartBackupAllTask)
 			huma.Register(api, huma.Operation{OperationID: "restore", Method: http.MethodPost, Path: "/applications/{application}/versions/{version}/restore"}, controller.Restore)
 			huma.Register(api, huma.Operation{OperationID: "restore-by-name", Method: http.MethodPost, Path: "/applications/{application}/restore-by-name"}, controller.RestoreByName)
 			huma.Register(api, huma.Operation{OperationID: "restore-all-by-name", Method: http.MethodPost, Path: "/restore-by-name"}, controller.RestoreAllByName)

@@ -60,7 +60,7 @@ func listRules(ctx context.Context, envelope messaging.Envelope, spec rulesFile,
 			PossibleReactions: append([]string(nil), rule.PossibleReactions...),
 			Enabled:           rule.Enabled, Source: rule.Source, Category: rule.Category,
 			Severity: rule.Severity, Instance: rule.Instance, Threshold: instance.Threshold,
-			Window: instance.Window, EmailOnCritical: rule.EmailOnCritical, Lockdown: rule.Lockdown,
+			Window: instance.Window, Email: rule.shouldEmail(), Lockdown: rule.Lockdown,
 		})
 	}
 	return response, nil

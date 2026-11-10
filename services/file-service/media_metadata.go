@@ -65,7 +65,7 @@ func (s *fileService) mediaMetadataResource(writer http.ResponseWriter, request 
 		decisionError(writer, fileaccess.ErrDenied)
 		return
 	}
-	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+	if err := s.authorizeRead(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
 	}

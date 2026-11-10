@@ -19,6 +19,8 @@ type AccessClaims struct {
 
 	// Login is the authenticated host login name associated with Subject.
 	Login string `json:"login"`
+	// Application identifies the LiteNAS application that established the session.
+	Application string `json:"application,omitempty"`
 	// Scopes contains optional fine-grained permissions such as
 	// "monitoring.read".
 	Scopes []string `json:"scopes"`

@@ -20,11 +20,12 @@ import (
 
 // fakeRequester controls the Auth and RBAC decisions without a live NATS server.
 type fakeRequester struct {
-	allowed bool
-	valid   bool
-	calls   []string
-	inputs  []any
-	failRPC string
+	allowed     bool
+	valid       bool
+	application string
+	calls       []string
+	inputs      []any
+	failRPC     string
 }
 
 // Request returns one contract response and records its RPC subject.
@@ -37,7 +38,7 @@ func (f *fakeRequester) Request(_ context.Context, subject string, input any, re
 	switch subject {
 	case authcontract.ValidateAccessTokenRPCSubject:
 		*response.(*authcontract.ValidateAccessTokenResponse) = authcontract.ValidateAccessTokenResponse{
-			Valid: f.valid, Status: authcontract.StatusAuthenticated, Username: "operator",
+			Valid: f.valid, Status: authcontract.StatusAuthenticated, Username: "operator", Application: f.application,
 		}
 	case rbaccontract.GetSubjectRolesRPCSubject:
 		*response.(*rbaccontract.GetSubjectRolesResponse) = rbaccontract.GetSubjectRolesResponse{UID: "1000"}
@@ -95,6 +96,40 @@ func TestOwnerCanSeekOriginalAVI(t *testing.T) {
 	response := requestMedia(service, path, "valid", "bytes=2-3")
 	if response.Code != http.StatusPartialContent || response.Body.String() != "cd" {
 		t.Fatalf("response=%d body=%q", response.Code, response.Body.String())
+	}
+}
+
+// TestStreamReadUsesSharedApplicationACLPolicy covers stream-service-svc/FR-003.
+func TestStreamReadUsesSharedApplicationACLPolicy(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		enforce    bool
+		wantPathFn func(string) string
+	}{
+		{name: "whitelisted descendant", wantPathFn: filepath.Dir},
+		{name: "globally enforced descendant", enforce: true, wantPathFn: func(path string) string { return path }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			service, path, client := mustStreamFixture(t, true)
+			client.application = "moments"
+			root := filepath.Dir(path)
+			service.cfg.ACLPolicy = fileaccess.ReadACLPolicy{
+				ApplicationFolders: map[string][]string{"moments": {root}},
+			}
+			if test.enforce {
+				service.cfg.ACLPolicy.EnforcePaths = []string{path}
+			}
+			_ = requestMedia(service, path, "valid", "")
+			var checkedPath string
+			for _, input := range client.inputs {
+				if check, ok := input.(rbaccontract.CheckPathRequest); ok {
+					checkedPath = check.Path
+				}
+			}
+			if want := test.wantPathFn(path); checkedPath != want {
+				t.Fatalf("RBAC checked %q, want %q", checkedPath, want)
+			}
+		})
 	}
 }
 

@@ -271,9 +271,16 @@ export const friendInputSchema = z.object({
 /** Operator choice for parallel lazy image downloads. */
 export const imageConcurrencySchema = z.number().int().min(1).max(20);
 
+/** Bounds the UI-only cooldown used to batch wall and carousel image updates. */
+export const imageUiCooldownSchema = z.number().int().min(0).max(500);
+export const defaultImageUiCooldownMs = 100;
+
 /** App-specific user settings grouped for the Moments profile JSON file. */
 export const momentsSettingsSchema = z.object({
-  gallery: z.object({ maxConcurrentImageLoads: imageConcurrencySchema }),
+  gallery: z.object({
+    maxConcurrentImageLoads: imageConcurrencySchema,
+    imageUiCooldownMs: imageUiCooldownSchema.default(defaultImageUiCooldownMs),
+  }),
 });
 
 /** Persisted Moments settings after runtime validation. */

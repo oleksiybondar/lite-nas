@@ -132,7 +132,7 @@ func (s *fileService) download(writer http.ResponseWriter, request *http.Request
 	if !attachment && s.serveSharedAvatar(writer, request, subject, resolved) {
 		return
 	}
-	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+	if err := s.authorizeRead(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
 	}
@@ -346,7 +346,7 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 		decisionError(writer, fileaccess.ErrDenied)
 		return
 	}
-	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+	if err := s.authorizeRead(request.Context(), subject, resolved); err != nil {
 		decisionError(writer, err)
 		return
 	}
@@ -374,7 +374,9 @@ func (s *fileService) list(writer http.ResponseWriter, request *http.Request, su
 			} else if !scope.AllowsFile(path) {
 				continue
 			}
-			if err := s.auth.Read(request.Context(), subject, path); err != nil {
+			if s.listingCanUseParentACL(subject.Application, directory, path) {
+				// The current directory's successful folder check covers ordinary descendants.
+			} else if err := s.authorizeRead(request.Context(), subject, path); err != nil {
 				if errors.Is(err, fileaccess.ErrDenied) {
 					continue
 				}

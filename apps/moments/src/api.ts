@@ -14,6 +14,7 @@ import {
 } from "@lite-nas/profile";
 import type { ThemeMode } from "@lite-nas/theme";
 import {
+  defaultImageUiCooldownMs,
   imageConcurrencySchema,
   loginSchema,
   type Me,
@@ -197,13 +198,18 @@ export const saveSharedMode = async (value: ThemeMode): Promise<void> => {
   );
 };
 
-/** Reads the signed-in user's gallery setting, then the browser fallback. */
-export const loadGalleryConcurrency = async (): Promise<number> => {
+/** Loads validated gallery preferences from the user profile and browser fallback. */
+export const loadGallerySettings = async (): Promise<{
+  maxConcurrentImageLoads: number;
+  imageUiCooldownMs: number;
+}> => {
   try {
     const settings = await readProfileDocument(request, "moments", momentsSettingsSchema);
-    if (settings) {
-      return settings.gallery.maxConcurrentImageLoads;
-    }
+    if (settings)
+      return {
+        maxConcurrentImageLoads: settings.gallery.maxConcurrentImageLoads,
+        imageUiCooldownMs: settings.gallery.imageUiCooldownMs,
+      };
   } catch {
     // Continue with a validated browser value when profile storage is unavailable.
   }
@@ -211,16 +217,25 @@ export const loadGalleryConcurrency = async (): Promise<number> => {
     typeof window === "undefined" ? null : window.localStorage.getItem("moments-image-concurrency"),
   );
   const parsed = imageConcurrencySchema.safeParse(stored);
-  return parsed.success ? parsed.data : 10;
+  return {
+    maxConcurrentImageLoads: parsed.success ? parsed.data : 10,
+    imageUiCooldownMs: defaultImageUiCooldownMs,
+  };
 };
 
 let gallerySaveQueue = Promise.resolve();
 
-/** Saves the gallery group to this user's profile file in change order. */
-export const saveGalleryConcurrency = async (value: number): Promise<void> => {
-  const settings = momentsSettingsSchema.parse({ gallery: { maxConcurrentImageLoads: value } });
+/** Saves gallery preferences together so changing one value preserves the other. */
+export const saveGallerySettings = async (values: {
+  maxConcurrentImageLoads: number;
+  imageUiCooldownMs: number;
+}): Promise<void> => {
+  const settings = momentsSettingsSchema.parse({ gallery: values });
   if (typeof window !== "undefined")
-    window.localStorage.setItem("moments-image-concurrency", String(value));
+    window.localStorage.setItem(
+      "moments-image-concurrency",
+      String(settings.gallery.maxConcurrentImageLoads),
+    );
   const pending = gallerySaveQueue.then(() =>
     writeProfileDocument(
       (path, body) =>

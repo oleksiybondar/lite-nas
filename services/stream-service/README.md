@@ -10,11 +10,18 @@ after `/s/` is the absolute host path: `/s/home/alice/movie.mov` addresses
 browsers use the existing Secure `lite-nas-at` cookie.
 
 Every GET or HEAD request validates the access token through Auth, resolves its
-username to a UID through RBAC, and asks RBAC to check read access to the resolved
-path. There is no administrator bypass. A denied or missing path returns 404 after
-authentication; a missing or invalid token returns 401. Failed Auth or RBAC
-dependencies return 503. Neither a media URL nor a prior range grant carries
-authorization into the next request.
+username to a UID through RBAC, and asks RBAC for a fresh read decision. By
+default RBAC checks the resolved path. An app can instead use the configured ACL
+for a whitelisted folder to authorize descendants; globally enforced paths
+always receive an exact path check. There is no administrator bypass. A denied
+or missing path returns 404 after authentication; a missing or invalid token
+returns 401. Failed Auth or RBAC dependencies return 503. Neither a media URL nor
+a prior range grant carries authorization into the next request.
+
+The shared `[acl]` config section accepts comma-separated `moments_folders`,
+`admin_panel_folders`, and `enforce_paths`. All lists are empty by default.
+Folder ACL rules are scoped to the signed application claim. Global enforcement
+paths take precedence and cover the configured path and its descendants.
 
 ## Original playback
 

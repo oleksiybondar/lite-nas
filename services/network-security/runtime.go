@@ -50,7 +50,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.ServiceNetworkSecurity, cfg.Logging, cfg.Messaging, cfg.Auth, 24*time.Hour)
+	infra, err := modules.NewCoreClientAuthInfra(sharedcontracts.ServiceNetworkSecurity, cfg.Logging, cfg.Messaging, cfg.Auth, 5*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func publishAlert(ctx context.Context, client messaging.Client, effect alertInte
 	if !effect.SnapshotAt.IsZero() {
 		message += "; network snapshot " + effect.SnapshotAt.UTC().Format(time.RFC3339)
 	}
-	email := false
+	email := true
 	return client.Publish(ctx, securitycontract.AlertSubject, loggingcontract.AlertPayload{
 		EventID: effect.ID, Category: detectionCategory(effect.Detection.Kind), Severity: enum.SeverityWarning,
 		CreatedAt: effect.Detection.At.UTC().Format(time.RFC3339), Source: sharedcontracts.ServiceNetworkSecurity,

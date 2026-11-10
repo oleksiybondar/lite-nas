@@ -24,7 +24,7 @@ func TestResolveRequiresVerifiedTokenAndUID(t *testing.T) {
 		uid      string
 		wantErr  error
 	}{
-		{"valid", authcontract.ValidateAccessTokenResponse{Valid: true, Status: authcontract.StatusAuthenticated, Username: "alice"}, "1001", nil},
+		{"valid", authcontract.ValidateAccessTokenResponse{Valid: true, Status: authcontract.StatusAuthenticated, Username: "alice", Application: "moments"}, "1001", nil},
 		{"invalid", authcontract.ValidateAccessTokenResponse{Valid: false, Status: authcontract.StatusAuthenticated, Username: "alice"}, "1001", ErrUnauthenticated},
 		{"wrong status", authcontract.ValidateAccessTokenResponse{Valid: true, Status: authcontract.StatusDenied, Username: "alice"}, "1001", ErrUnauthenticated},
 		{"missing username", authcontract.ValidateAccessTokenResponse{Valid: true, Status: authcontract.StatusAuthenticated}, "1001", ErrUnauthenticated},
@@ -63,6 +63,9 @@ func TestResolveRequiresVerifiedTokenAndUID(t *testing.T) {
 			if test.wantErr == nil && (subject.Username != "alice" || subject.UID != "1001" ||
 				len(subject.Groups) != 1 || subject.Groups[0] != "lite-nas-operator") {
 				t.Fatalf("Resolve subject = %+v", subject)
+			}
+			if test.name == "valid" && subject.Application != "moments" {
+				t.Fatalf("Resolve application = %q, want moments", subject.Application)
 			}
 			if test.wantErr == ErrUnauthenticated && calls != 1 {
 				t.Fatalf("unauthenticated token caused %d RPCs", calls)

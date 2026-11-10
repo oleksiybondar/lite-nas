@@ -1,4 +1,4 @@
-"""Install a pinned offline multilingual E5 ONNX model for Moments search."""
+"""Install a pinned offline Google EmbeddingGemma ONNX model for Moments."""
 
 import hashlib
 import pathlib
@@ -6,19 +6,22 @@ import sys
 
 from huggingface_hub import snapshot_download
 
-MODEL_ID = "intfloat/multilingual-e5-small"
-MODEL_REVISION = "ccc66d3bcd826f577e26b9a4072cc5fe3a7ad6a3"
+MODEL_ID = "onnx-community/embeddinggemma-300m-ONNX"
+MODEL_REVISION = "75a84c732f1884df76bec365346230e32f582c82"
 FILE_SHA256 = {
-    "onnx/model.onnx": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665",
-    "onnx/tokenizer.json": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+    "onnx/model_q4.onnx": "ad1dfee81a70f7944b9b9d1cc6e48075b832881cf33fab2f2b248be78f3f0043",
+    "onnx/model_q4.onnx_data": "599962c3143b040de2dd05e5975be3e9091dd067cacc6a8f7186e3203bab9e02",
+    "tokenizer.json": "4dda02faaf32bc91031dc8c88457ac272b00c1016cc679757d1c441b248b9c47",
 }
 FILES = [
-    "onnx/model.onnx",
-    "onnx/config.json",
-    "onnx/tokenizer.json",
-    "onnx/tokenizer_config.json",
-    "onnx/special_tokens_map.json",
-    "onnx/sentencepiece.bpe.model",
+    "onnx/model_q4.onnx",
+    "onnx/model_q4.onnx_data",
+    "config.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "added_tokens.json",
+    "tokenizer.model",
 ]
 
 
@@ -33,7 +36,8 @@ def valid_model(directory: pathlib.Path) -> bool:
         path = directory / name
         if not path.is_file() or path.is_symlink():
             return False
-        if path.stat().st_size > (500 * 1024 * 1024 if name.endswith(".onnx") else 25 * 1024 * 1024):
+        limit = 300 * 1024 * 1024 if name.endswith(".onnx_data") else 25 * 1024 * 1024
+        if path.stat().st_size > limit:
             return False
     for name, expected in FILE_SHA256.items():
         with (directory / name).open("rb") as handle:

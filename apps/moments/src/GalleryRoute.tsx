@@ -9,16 +9,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { GalleryDetail } from "./GalleryDetail";
 import { getGallery } from "./moments-data";
-import type { GalleryRecord } from "./schemas";
+import { defaultImageUiCooldownMs, type GalleryRecord } from "./schemas";
 
 /** Loads a shared gallery URL through the caller's existing API permissions. */
 export function GalleryRoute({
   userId,
   maxConcurrent,
+  imageUiCooldownMs = defaultImageUiCooldownMs,
   workingDir,
 }: {
   userId: string;
   maxConcurrent: number;
+  imageUiCooldownMs?: number;
   workingDir: string;
 }): ReactElement {
   const { getLabel } = useLanguage();
@@ -62,10 +64,25 @@ export function GalleryRoute({
         selected={gallery}
         userId={userId}
         maxConcurrent={maxConcurrent}
+        imageUiCooldownMs={imageUiCooldownMs}
         workingDir={workingDir}
         onBack={() => navigate("/")}
       />
     );
+  return <GalleryRouteLoading getLabel={getLabel} loading={loading} error={error} />;
+}
+
+/** Shows the route's loading, error, and return-to-galleries actions. */
+function GalleryRouteLoading({
+  getLabel,
+  loading,
+  error,
+}: {
+  getLabel: (key: string) => string;
+  loading: boolean;
+  error: string | null;
+}): ReactElement {
+  const navigate = useNavigate();
   return (
     <Stack spacing={2}>
       <Button onClick={() => navigate("/")} sx={{ alignSelf: "start" }}>

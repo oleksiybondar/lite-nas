@@ -147,8 +147,15 @@ type ruleSpec struct {
 	Exclude           []string `json:"exclude,omitempty"`
 	Instance          string   `json:"instance"`
 	Severity          string   `json:"severity"`
-	EmailOnCritical   bool     `json:"email_on_critical"`
+	Email             bool     `json:"email"`
+	EmailOnCritical   bool     `json:"email_on_critical,omitempty"`
 	Lockdown          bool     `json:"lockdown"`
+}
+
+// shouldEmail supports the current all-severity setting and the former
+// critical-only setting so preserved host configurations keep working.
+func (rule ruleSpec) shouldEmail() bool {
+	return rule.Email || rule.EmailOnCritical
 }
 
 // rulesFile is the complete startup construction plan. Nothing in this file
@@ -248,9 +255,6 @@ func loadRulesFile(path string) (rulesFile, error) {
 		}
 		if rule.Lockdown && rule.Severity != "critical" {
 			return rulesFile{}, fmt.Errorf("rule %s lockdown requires critical severity", rule.ID)
-		}
-		if rule.EmailOnCritical && rule.Severity != "critical" {
-			return rulesFile{}, fmt.Errorf("rule %s email requires critical severity", rule.ID)
 		}
 		if _, err := compileRulePatterns(rule); err != nil {
 			return rulesFile{}, fmt.Errorf("rule %s: %w", rule.ID, err)

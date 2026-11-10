@@ -74,7 +74,10 @@ RBAC and use the returned UID for file capability checks.
 #### stream-service-svc/FR-003 Description
 
 Before opening or reading media content, the service MUST ask RBAC whether the
-token owner may read the actual resolved path.
+token owner may read the actual resolved path, unless that path is beneath a
+configured folder for the token's application. In that case, the configured
+folder ACL decision authorizes descendants. Globally enforced paths always use
+the actual resolved path.
 
 #### stream-service-svc/FR-003 Input
 
@@ -87,11 +90,15 @@ token owner may read the actual resolved path.
 
 #### stream-service-svc/FR-003 Acceptance Criteria
 
-- The read check uses `rbac.rpc.path.read.check` and the actual target path.
+- The read check uses `rbac.rpc.path.read.check` and either the actual target
+  path or its configured application folder.
+- App folder and global enforcement lists are empty by default; global
+  enforcement takes precedence and covers the configured path and descendants.
 - Denial, timeout, transport error, malformed response, or unresolved subject
   prevents file access.
 - Every playback, resume, seek, reconnect, and byte-range request repeats
-  authentication, safe path resolution, and RBAC authorization.
+  authentication, safe path resolution, and a fresh RBAC decision using the
+  configured path rule; no ACL decision cache is used.
 - Path traversal and encoding tricks cannot escape the host root `/` or the
   service's filesystem mount namespace.
 

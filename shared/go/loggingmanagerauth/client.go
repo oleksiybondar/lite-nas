@@ -3,6 +3,8 @@ package loggingmanagerauth
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"time"
 
 	"lite-nas/shared/messaging"
@@ -23,7 +25,12 @@ type Client struct {
 	messaging.Client
 	tokenManager TokenManager
 	inject       Injector
+	tokenMutex   sync.Mutex
 }
+
+const tokenRefreshBuffer = time.Minute
+
+var errTokenExpiresTooSoon = errors.New("service access token expires within the refresh buffer")
 
 // NewClient wraps outbound messages while preserving the client's lifecycle methods.
 func NewClient(client messaging.Client, tokenManager TokenManager, inject Injector) *Client {
@@ -50,19 +57,28 @@ func (client *Client) Request(ctx context.Context, subject string, request any, 
 
 // CurrentToken obtains a token, refreshing or logging in when necessary.
 func (client *Client) CurrentToken(ctx context.Context) (string, error) {
-	accessToken, _, err := client.tokenManager.Token()
-	if err == nil {
+	client.tokenMutex.Lock()
+	defer client.tokenMutex.Unlock()
+
+	accessToken, expiresAt, err := client.tokenManager.Token()
+	if err == nil && expiresAt.After(time.Now().Add(tokenRefreshBuffer)) {
 		return accessToken, nil
 	}
 	if refreshErr := client.tokenManager.Refresh(ctx); refreshErr == nil {
-		accessToken, _, err = client.tokenManager.Token()
-		if err == nil {
+		accessToken, expiresAt, err = client.tokenManager.Token()
+		if err == nil && expiresAt.After(time.Now().Add(tokenRefreshBuffer)) {
 			return accessToken, nil
 		}
 	}
 	if loginErr := client.tokenManager.Login(ctx); loginErr != nil {
 		return "", loginErr
 	}
-	accessToken, _, err = client.tokenManager.Token()
-	return accessToken, err
+	accessToken, expiresAt, err = client.tokenManager.Token()
+	if err != nil {
+		return "", err
+	}
+	if accessToken == "" || !expiresAt.After(time.Now().Add(tokenRefreshBuffer)) {
+		return "", errTokenExpiresTooSoon
+	}
+	return accessToken, nil
 }

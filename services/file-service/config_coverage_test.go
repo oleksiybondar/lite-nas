@@ -78,6 +78,44 @@ func TestPackagedConfigDefinesListingFilters(t *testing.T) {
 	}
 }
 
+// TestPackagedConfigLeavesACLOverridesEmpty covers file-service-svc/FR-003 secure opt-in defaults.
+func TestPackagedConfigLeavesACLOverridesEmpty(t *testing.T) {
+	config := mustLoadPackagedConfig(t)
+	if len(config.ACLPolicy.ApplicationFolders) != 0 || len(config.ACLPolicy.EnforcePaths) != 0 {
+		t.Fatalf("ACL overrides = whitelist %v, enforced %v, want empty defaults", config.ACLPolicy.ApplicationFolders, config.ACLPolicy.EnforcePaths)
+	}
+}
+
+// TestLoadServiceConfigParsesACLPathLists covers file-service-svc/FR-003 ACL configuration.
+func TestLoadServiceConfigParsesACLPathLists(t *testing.T) {
+	payload, err := os.ReadFile("../../configs/etc/lite-nas/file-service.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := strings.Replace(string(payload), "moments_folders=", "moments_folders=/home/alice/gallery", 1)
+	changed = strings.Replace(changed, "enforce_paths=", "enforce_paths=/home/alice/gallery/private", 1)
+	config, err := loadServiceConfig(textConfigReader(changed))
+	if err != nil {
+		t.Fatalf("loadServiceConfig() error = %v", err)
+	}
+	if !slices.Equal(config.ACLPolicy.ApplicationFolders["moments"], []string{"/home/alice/gallery"}) ||
+		!slices.Equal(config.ACLPolicy.EnforcePaths, []string{"/home/alice/gallery/private"}) {
+		t.Fatalf("ACL config = whitelist %v, enforced %v", config.ACLPolicy.ApplicationFolders, config.ACLPolicy.EnforcePaths)
+	}
+}
+
+// TestLoadServiceConfigRejectsRelativeACLPaths covers file-service-svc/FR-003 ACL path validation.
+func TestLoadServiceConfigRejectsRelativeACLPaths(t *testing.T) {
+	payload, err := os.ReadFile("../../configs/etc/lite-nas/file-service.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := strings.Replace(string(payload), "moments_folders=", "moments_folders=relative/path", 1)
+	if _, err := loadServiceConfig(textConfigReader(changed)); err == nil {
+		t.Fatal("loadServiceConfig() accepted a relative ACL folder")
+	}
+}
+
 // TestLoadServiceConfigRejectsUnsafeOverrides covers service config input validation.
 func TestLoadServiceConfigRejectsUnsafeOverrides(t *testing.T) {
 	payload, err := os.ReadFile("../../configs/etc/lite-nas/file-service.conf")

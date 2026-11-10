@@ -42,6 +42,7 @@ lists a directory, mutates a file or directory, or reads a job.
 - Nginx forwards the access cookie over the HTTPS `/f/` and `/d/` routes. The
   File Service does not issue a replacement browser session cookie.
 - The authenticated username comes only from verified token claims.
+- The application identity comes only from the verified signed token claim.
 - Token roles or scopes do not grant file access by themselves.
 - The service follows the existing Auth/shared token-validation contracts and
   documents the behavior for token revocation/current status.
@@ -73,7 +74,10 @@ RBAC and use the returned UID for path capability checks.
 #### file-service-svc/FR-003 Description
 
 Before opening or reading a file, the service MUST ask RBAC whether the token
-owner may read the actual resolved target path.
+owner may read the actual resolved target path, unless that path is beneath a
+configured folder for the token's application. In that case, the configured
+folder ACL decision authorizes descendants. Globally enforced paths always use
+the actual resolved target path.
 
 #### file-service-svc/FR-003 Input
 
@@ -86,15 +90,20 @@ owner may read the actual resolved target path.
 
 #### file-service-svc/FR-003 Acceptance Criteria
 
-- The read check uses `rbac.rpc.path.read.check` and the actual target path.
+- The read check uses `rbac.rpc.path.read.check` and either the actual target
+  path or its configured application folder.
+- Application folder rules and globally enforced paths are empty by default.
+- Global enforcement takes precedence over application folder rules and covers
+  the configured path and its descendants.
 - Before the RBAC check, non-administrators may read only within `/home`,
   configured storage write roots, and mounted ZFS filesystems outside system directories.
   Members of the `admin` or `sudo` group may request system paths, subject to
   the same RBAC read check.
 - Denial, timeout, transport error, malformed response, or unresolved subject
   prevents file access.
-- Every new, resumed, or continued download request is authenticated and
-  authorized again.
+- Every new, resumed, or continued download request is authenticated and asks
+  RBAC for a fresh decision using the configured path rule; no decision cache
+  is used.
 - Client path traversal and encoding tricks cannot escape the configured
   storage boundary.
 - The first version may use fixed `/bin/cat` through `sudo -u` as the verified
@@ -433,10 +442,12 @@ effective path access as decided by RBAC.
   outside system directories, and the ancestors needed to reach those trees.
   Root listings omit system entries such as `/etc`, `/var`, `/sys`, and `/proc`.
   Members of `admin` or `sudo` may list system paths when RBAC permits them.
-- A file is included only when RBAC allows read access to it and its ancestor
-  directories from `/` are searchable by the subject.
-- A directory is included and traversed only when RBAC allows both read and
-  execute/search on that directory and execute/search on its ancestors.
+- A file is included only when RBAC allows its path or its configured
+  application folder, unless a globally enforced path requires a per-path
+  decision; its ancestor directories must remain within the storage boundary.
+- A directory is included and traversed only when RBAC allows its path or its
+  configured application folder, unless globally enforced, and the storage
+  policy permits the directory.
 - Without `recursive`, the service returns eligible direct children only;
   including `recursive` descends only into eligible directories.
 - Including `files-only` omits directory entries while including eligible

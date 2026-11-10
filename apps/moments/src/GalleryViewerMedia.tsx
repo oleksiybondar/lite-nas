@@ -13,7 +13,7 @@ import Typography from "@mui/material/Typography";
 import type { ReactElement, SyntheticEvent } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useCarousel } from "./CarouselContext";
-import { useGallery } from "./GalleryContext";
+import { useGallery, useGalleryMediaUi } from "./GalleryContext";
 import { attemptVideoAutoplay } from "./GalleryVideoPlayback";
 import { useStream } from "./StreamContext";
 
@@ -21,6 +21,7 @@ import { useStream } from "./StreamContext";
 export const GalleryViewerMedia = (): ReactElement | null => {
   const { getLabel } = useLanguage();
   const { items, queue } = useGallery();
+  const { dispatch: dispatchMediaUi } = useGalleryMediaUi();
   const stream = useStream();
   useSyncExternalStore(queue.subscribe, queue.getSnapshot);
   const {
@@ -132,7 +133,14 @@ export const GalleryViewerMedia = (): ReactElement | null => {
     <Stack
       alignItems="center"
       justifyContent="center"
-      sx={{ flex: 1, minWidth: 0, height: "100%" }}
+      sx={{
+        flex: "1 1 0%",
+        alignSelf: "stretch",
+        minWidth: 0,
+        minHeight: 0,
+        width: "100%",
+        height: "100%",
+      }}
     >
       {current.kind === "image" &&
         !showingMotion &&
@@ -140,20 +148,28 @@ export const GalleryViewerMedia = (): ReactElement | null => {
           <Box
             sx={{
               position: "relative",
-              display: "inline-flex",
-              maxWidth: "100%",
-              maxHeight: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              height: "100%",
+              minWidth: 0,
+              minHeight: 0,
             }}
           >
             <Box
               component="img"
               src={stream.image(current.url) ?? undefined}
               alt={current.filename}
-              onLoad={() => queue.complete(current.url, true, attempt)}
+              onLoad={() => {
+                dispatchMediaUi({ type: "image/ready", itemId: current.id, url: current.url });
+                queue.complete(current.url, true, attempt);
+              }}
               onError={() => queue.fail(current.url, attempt)}
               sx={{
-                maxWidth: "100%",
-                maxHeight: "100%",
+                display: "block",
+                width: "100%",
+                height: "100%",
                 objectFit: "contain",
                 opacity: status === "ready" ? 1 : 0,
               }}

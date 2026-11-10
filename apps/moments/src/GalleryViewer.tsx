@@ -26,7 +26,7 @@ import Typography from "@mui/material/Typography";
 import type { KeyboardEvent, ReactElement } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useCarousel } from "./CarouselContext";
-import { useGallery } from "./GalleryContext";
+import { useGallery, useGalleryMediaUi } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
 import { GalleryItemMenu } from "./GalleryItemMenu";
 import { GalleryUploaderLabel } from "./GalleryUploaderLabel";
@@ -40,6 +40,7 @@ import { useWall } from "./WallContext";
 export const GalleryViewer = (): ReactElement => {
   const { getLabel } = useLanguage();
   const { items, queue, metadata } = useGallery();
+  const { state: mediaUi, dispatch: dispatchMediaUi } = useGalleryMediaUi();
   const stream = useStream();
   const {
     window: { visible: visibleWallItems },
@@ -59,24 +60,43 @@ export const GalleryViewer = (): ReactElement => {
     navigate,
   } = useCarousel();
   const fullscreenRef = useRef<HTMLDivElement>(null);
+  const previewStripRef = useRef<HTMLDivElement>(null);
   const selectedPreviewRef = useRef<HTMLButtonElement>(null);
   const controlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [details, setDetails] = useState<PhotoMetadata | null | undefined>(undefined);
   const downloadUrl = current ? galleryDownloadUrl(current.url) : null;
-  const previewOffset = visibleWallItems.length;
+  // Keep a generous strip window around the active item so nearby previews are
+  // already rendered as the operator steps through a large gallery.
+  const previewOffset = Math.max(12, visibleWallItems.length * 2);
   const previewItems = items
     .map((item, index) => ({ item, index }))
     .filter(({ item, index }) => {
       if (selected === null || Math.abs(index - selected) > previewOffset) return false;
       if (item.kind === "image")
         return (
+          (mediaUi.items[item.id]?.url === item.url && mediaUi.items[item.id].status === "ready") ||
           queue.status(item.url) === "ready" ||
           (!!item.motionUrl && queue.status(item.url) === "error")
         );
       return true;
     });
+  useEffect(() => {
+    const indices =
+      selected === null
+        ? []
+        : items
+            .map((_, index) => index)
+            .filter((index) => Math.abs(index - selected) <= previewOffset);
+    const ids = indices.map((index) => items[index].id);
+    dispatchMediaUi({
+      type: "carousel/selectionChanged",
+      currentIndex: selected,
+      rendered: ids,
+      visible: ids,
+    });
+  }, [dispatchMediaUi, items, previewOffset, selected]);
   useEffect(() => {
     if (!current) {
       setDetails(undefined);
@@ -103,12 +123,17 @@ export const GalleryViewer = (): ReactElement => {
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
-  // Selection changes update the preview ref, so this effect must follow selection.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: selection changes the target referenced by the preview ref.
+  // Center the active thumbnail in the strip without scrolling the whole dialog.
   useEffect(() => {
-    if (!fullscreen)
-      selectedPreviewRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
-  }, [fullscreen, previewItems.length, selected]);
+    if (fullscreen) return;
+    const strip = previewStripRef.current;
+    const preview = selectedPreviewRef.current;
+    if (!strip || !preview) return;
+    strip.scrollTo({
+      left: preview.offsetLeft + preview.offsetWidth / 2 - strip.clientWidth / 2,
+      behavior: "smooth",
+    });
+  }, [fullscreen]);
   useEffect(
     () => () => {
       if (controlsTimerRef.current !== null) clearTimeout(controlsTimerRef.current);
@@ -159,6 +184,9 @@ export const GalleryViewer = (): ReactElement => {
       closeLabel={getLabel("moments.viewer.close")}
       showTitleBar={false}
       aria-label={current?.filename ?? getLabel("moments.viewer.close")}
+      contentProps={{
+        sx: { display: "flex", flexDirection: "column", minHeight: 0, p: 0, overflow: "hidden" },
+      }}
       slotProps={{ paper: { sx: { bgcolor: "#101014", color: "white" } } }}
     >
       {current && (
@@ -340,7 +368,14 @@ export const GalleryViewer = (): ReactElement => {
           <Stack
             alignItems="center"
             justifyContent="center"
-            sx={{ position: "relative", flex: 1, minHeight: 0 }}
+            sx={{
+              position: "relative",
+              display: "flex",
+              flex: "1 1 0%",
+              minWidth: 0,
+              minHeight: 0,
+              overflow: "hidden",
+            }}
           >
             <GalleryViewerMedia />
             {playing && current.kind !== "video" && countdown !== null && (
@@ -411,6 +446,7 @@ export const GalleryViewer = (): ReactElement => {
                   <ArrowBackIosNewIcon />
                 </IconButton>
                 <Stack
+                  ref={previewStripRef}
                   direction="row"
                   gap={1}
                   sx={{

@@ -146,7 +146,7 @@ when Log Analysis restarts.
 | `account_pattern`    | Optional RE2 pattern with one capture for the account key |
 | `instance`           | ID of the plugin instance that receives matches           |
 | `severity`           | `info`, `warning`, `error`, or `critical`                 |
-| `email_on_critical`  | Request email for a critical alert                        |
+| `email`              | Request email for an alert at any severity                |
 | `lockdown`           | Request Auth lockdown after a critical alert is created   |
 
 The file also defines `event_id_prefix` and `sources`. Each source has an `id`,
@@ -277,11 +277,10 @@ and review the impact before restarting Log Analysis. The RPC has a NATS ACL lim
 Auth owns enforcement and its state change event.
 
 Security alerts follow the existing Security Logging Manager and Security Email Notifier path; no new SMTP
-client is used. A single failed login remains a warning without email. Repeated known-account or unknown-account
-failures are critical and set `email_on_critical`, so they send email when the configured cooldown creates a new
-incident. Malware detections use error severity and explicitly request email. The disabled critical source-probing
-example also sends email if enabled. Publishers that omit the alert contract's optional `email` flag retain the
-notifier's previous behavior. Transport or SMTP failure must be checked in the corresponding service logs.
+client is used. The security notifier sends every alert it receives, regardless of severity or the publisher's
+optional email flag. The shipped Log Analysis rules also set `email: true` for every configured detection. Email
+delivery still requires configured recipients and a working local Postfix relay. Transport or SMTP failure must be
+checked in the corresponding service logs.
 Monitor event IDs follow the resources monitor's readable prefix and eight-digit counter format:
 `sysmnt_00000001` for mounts, `syssvc_00000001` for service availability,
 `secauth_00000001` for authentication, `secusb_00000001` for USB devices, `secav_00000001` for antivirus,

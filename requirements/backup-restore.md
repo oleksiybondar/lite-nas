@@ -2,11 +2,11 @@
 
 This document records the implemented backup and restore slice and remaining
 extension ideas. The service, NATS, CLI, Web Gateway, and admin-panel contracts
-support backup, diff, restore, and text merge sessions. UFW, locally managed
-Cloudflare Tunnel configuration, and Tailscale preferences have dedicated
-plugins. Archive transfer and additional application-specific runtime
-operations remain future work. Open questions below apply to those extensions
-unless stated otherwise.
+support backup, diff, restore, and text merge sessions. UFW has a dedicated
+plugin, while locally managed Cloudflare Tunnel configuration uses the generic
+file plugin. Tailscale CLI backup is deprecated. Archive transfer and
+additional application-specific runtime operations remain future work. Open
+questions below apply to those extensions unless stated otherwise.
 Requirement IDs use `backup-restore/<TYPE>-<NNN>` for traceability.
 
 ## First slice: confirmed direction
@@ -246,8 +246,9 @@ without rewriting the file require manual resolution. Resolved content should
 become a new stored version.
 
 This CLI authenticates the user and caches only a short-lived access token in
-the user's runtime directory. The service stays running and handles requests only
-when they arrive; it does not schedule backups in the first slice.
+the user's runtime directory. The service stays running and handles on-demand
+requests; browser backup requests run as pollable background tasks. It does not
+schedule periodic backups.
 
 ## Later feature direction
 
@@ -284,13 +285,12 @@ service over NATS as the CLI. Privileged file operations remain in the service.
   replaces UFW-managed rules and defaults. Custom `before.rules` and
   `after.rules`, the full `/etc/default/ufw` file, and app-profile files are
   outside this JSON plugin.
-  The Cloudflare plugin MUST archive a locally managed tunnel configuration
-  and its credential file from a spec-declared directory, and validate ingress with
-  the installed `cloudflared` CLI before capture and restore. The Tailscale
-  plugin MUST archive local preferences exported by `tailscale get --set-flags`
-  and restore them through `tailscale set` with individually validated operands.
-  It MUST NOT copy device identity state. Both CLI targets MUST be skipped by
-  all-application backup when their executable is absent.
+  The Cloudflared CLI validation plugin has been removed. Cloudflare Tunnel
+  configuration remains a file-based target that archives `/etc/cloudflared`
+  and requests its service restart on restore. Tailscale CLI backup has also
+  been removed: its spec is not packaged, its plugin identifier is rejected,
+  and deployment removes legacy `tailscale.conf` files left by previous
+  package versions.
 - **backup-restore/FR-004 — Direct restore:** A user MUST be able to select a
   stored version and request its restoration to the applicable application.
   The stored application spec MUST be restorable with the version. In replace
@@ -343,6 +343,13 @@ service over NATS as the CLI. Privileged file operations remain in the service.
   restart warnings. Both operations MUST use the same replace or merge restore
   behavior and administrator authorization as direct version restore. The CLI
   and admin panel MUST expose both operations.
+- **backup-restore/FR-013 — Background backup progress:** The admin panel MUST
+  be able to start a backup task and receive a task ID without waiting for the
+  archive operation to finish. The service MUST process accepted tasks on a
+  bounded background worker and expose queued, running, succeeded, and failed
+  states with progress for all-application backups. Task state MUST survive a
+  browser refresh and service restart. Tasks interrupted by service restart
+  MUST be reported as failed rather than left running.
 
 ## Initial target inventory
 
@@ -350,8 +357,8 @@ service over NATS as the CLI. Privileged file operations remain in the service.
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | LiteNAS configuration     | `configs/etc/lite-nas/` contains service configs, rules, templates, and certificate paths.                                                                                       | Which live files are included; how private keys and other credentials are handled.                                                                                 |
 | Firewall                  | The existing `ufw` file spec selects `/etc/ufw/ufw.conf`; the `ufw-rules` plugin exports and replays CLI-managed state in JSON.                                                  | Custom framework rules and app-profile files remain outside the JSON target.                                                                                       |
-| Cloudflare Tunnel         | The `cloudflared` plugin archives a spec-declared local directory and validates ingress through the CLI. The packaged spec uses `/etc/cloudflared`.                              | Remote tunnel settings are excluded. Other local paths require matching confinement rules.                                                                         |
-| Tailscale                 | The `tailscale` plugin exports and replays local preferences through the CLI.                                                                                                    | Identity state and Serve/Funnel configuration are excluded.                                                                                                        |
+| Cloudflare Tunnel         | The packaged `cloudflared.conf` file spec archives `/etc/cloudflared` and an optional `/etc/systemd/system/cloudflared.service.d` directory, then requests a service restart on restore. CLI validation is removed. | Tunnel configuration, credentials, and present systemd drop-ins are included as files; remote tunnel settings remain excluded.                                      |
+| Tailscale                 | Deprecated: the CLI backup plugin and packaged `tailscale.conf` spec have been removed.                                                                                            | No Tailscale data is backed up by this service.                                                                                                                    |
 | USBGuard                  | A file spec selects `/etc/usbguard/usbguard-daemon.conf` and `/etc/usbguard/rules.conf`. Both files must exist. Runtime device authorization state is excluded.                  | Safe policy reload behavior and optional `rules.d` directories remain separate work.                                                                               |
 | Journal Manager           | A file spec selects `/etc/lite-nas/journal-manager.conf` and requests a Journal Manager restart after restore. Shared systemd and AppArmor targets include its unit and profile. | Journal records and the package-managed sudoers rule are outside this configuration target.                                                                        |
 | AIDE                      | `litenas-integrity` invokes AIDE and maintains its baseline under `/var/lib/aide`.                                                                                               | Configuration versus baseline database, and whether baseline restore is appropriate.                                                                               |
@@ -422,15 +429,10 @@ separate design before adding a Tailscale target. See the
   administrative access. Encryption at rest is not a requirement. Archive and
   directory permissions, ownership, and AppArmor access MUST enforce the
   selected storage policy.
-- **backup-restore/SR-002 — Scoped privileged commands:** Any plugin requiring
-  an application CLI MUST validate commands and variable arguments against
-  each program's operand and option rules and invoke them without a shell.
-  The root-run service does not use sudo for file access in the first slice.
-  The Cloudflare local-tunnel plugin validates its selected files with the
-  `cloudflared` ingress CLI before capture and restore. The Tailscale plugin
-  exports local preferences with `tailscale get --set-flags` and replays
-  validated flags with `tailscale set`; device identity remains outside its
-  snapshot. Missing CLI installations are skipped by all-application backup.
+- **backup-restore/SR-002 — Scoped privileged commands:** The root-run service
+  does not use sudo for file access. Cloudflare backups use the file plugin and
+  do not invoke the `cloudflared` CLI. Tailscale CLI plugin identifiers are
+  rejected by backup specs; no Tailscale CLI integration remains.
 - **backup-restore/SR-003 — Validate and authorize requests:** CLI, NATS,
   HTTP, and frontend inputs MUST be validated at their adapter boundaries.
   Backup reads, version reads, merge submissions, and restores MUST be

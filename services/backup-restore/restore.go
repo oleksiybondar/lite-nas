@@ -66,7 +66,7 @@ func (store Store) Restore(spec Spec, version string, mode RestoreMode) error {
 	if err := validateRestoreEntries(entries, spec); err != nil {
 		return err
 	}
-	if spec.Plugin == "ufw" || spec.Plugin == "tailscale" {
+	if spec.Plugin == "ufw" {
 		for _, entry := range entries {
 			if entry.path == spec.SourcePath {
 				if err := rejectSymlinkParents(entry.path); err != nil {
@@ -79,7 +79,7 @@ func (store Store) Restore(spec Spec, version string, mode RestoreMode) error {
 			}
 		}
 		for _, entry := range entries {
-			if entry.path != ufwArchivePath && entry.path != tailscaleArchivePath {
+			if entry.path != ufwArchivePath {
 				continue
 			}
 			content, err := os.ReadFile(entry.stage)
@@ -87,14 +87,10 @@ func (store Store) Restore(spec Spec, version string, mode RestoreMode) error {
 				return err
 			}
 			var applyErr error
-			if spec.Plugin == "ufw" {
-				if mode == MergeMode {
-					applyErr = store.UFW.Merge(content)
-				} else {
-					applyErr = store.UFW.Apply(content)
-				}
+			if mode == MergeMode {
+				applyErr = store.UFW.Merge(content)
 			} else {
-				applyErr = store.Tailscale.Apply(content)
+				applyErr = store.UFW.Apply(content)
 			}
 			if applyErr != nil {
 				return applyErr
@@ -106,11 +102,6 @@ func (store Store) Restore(spec Spec, version string, mode RestoreMode) error {
 			}
 		}
 		return nil
-	}
-	if spec.Plugin == "cloudflared" {
-		if err := validateStagedCloudflared(spec, entries, store.Cloudflared); err != nil {
-			return err
-		}
 	}
 	for _, entry := range entries {
 		if err := rejectSymlinkParents(entry.path); err != nil {

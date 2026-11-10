@@ -22,14 +22,7 @@ def named_backup(
     """Create one named LiteNAS archive and delete that exact version after the case."""
     name = f"payload-{uuid4().hex}"
     description = f"system-payload-{uuid4().hex}"
-    response = api_client.post(
-        path=f"{BASE}/applications/{APPLICATION}/backups",
-        payload={"name": name, "description": description},
-        cookies={COOKIE: admin_cookie},
-    )
-    if response.status != HTTPStatus.OK:
-        pytest.fail(f"test backup creation failed: HTTP {response.status}")
-    version = str(response.body["data"]["version"])
+    version = create_named_backup(api_client, admin_cookie, APPLICATION, name, description)
     try:
         yield version, name, description
     finally:
@@ -39,6 +32,62 @@ def named_backup(
         )
         if deleted.status != HTTPStatus.OK:
             pytest.fail(f"test backup cleanup failed: HTTP {deleted.status}")
+
+
+def create_named_backup(
+    api_client: RESTClient,
+    admin_cookie: str,
+    application: str,
+    name: str,
+    description: str,
+) -> str:
+    """Create one labeled archive through the installed backup endpoint."""
+    response = api_client.post(
+        path=f"{BASE}/applications/{application}/backups",
+        payload={"name": name, "description": description},
+        cookies={COOKIE: admin_cookie},
+    )
+    if response.status != HTTPStatus.OK:
+        pytest.fail(f"test backup creation failed: HTTP {response.status}")
+    return str(response.body["data"]["version"])
+
+
+@pytest.fixture
+def named_backup_pair(
+    api_client: RESTClient, admin_cookie: str
+) -> Generator[tuple[str, str, str, str], None, None]:
+    """Create two matching archives and one differently named archive for bulk-delete coverage."""
+    name = f"bulk-payload-{uuid4().hex}"
+    description = "bulk-delete-system-test"
+    created: list[tuple[str, str]] = []
+    try:
+        for backup_name in (name, name):
+            version = create_named_backup(
+                api_client, admin_cookie, APPLICATION, backup_name, description
+            )
+            created.append((APPLICATION, version))
+        preserved_name = f"preserve-{uuid4().hex}"
+        preserved_version = create_named_backup(
+            api_client, admin_cookie, APPLICATION, preserved_name, description
+        )
+        created.append((APPLICATION, preserved_version))
+        yield name, created[0][1], created[1][1], preserved_version
+    finally:
+        for application, version in created:
+            inventory = api_client.get(
+                path=f"{BASE}/applications/{application}/versions",
+                cookies={COOKIE: admin_cookie},
+            )
+            if inventory.status != HTTPStatus.OK:
+                pytest.fail(f"test backup cleanup inventory failed: HTTP {inventory.status}")
+            if version not in inventory.body["data"]["versions"]:
+                continue
+            deleted = api_client.delete(
+                path=f"{BASE}/applications/{application}/versions/{version}",
+                cookies={COOKIE: admin_cookie},
+            )
+            if deleted.status != HTTPStatus.OK:
+                pytest.fail(f"test backup cleanup failed: HTTP {deleted.status}")
 
 
 # Requirements: backup-restore/FR-001, backup-restore/IR-004.
@@ -65,6 +114,79 @@ def test_backup_json_labels_are_stored(
         pytest.fail(f"test backup metadata read failed: HTTP {response.status}")
     data = response.body["data"]
     expect((data.get("name"), data.get("description"))).to_be((name, description))
+
+
+# Requirements: backup-restore/FR-001, backup-restore/IR-004.
+def test_versions_response_includes_named_snapshot_summaries(
+    api_client: RESTClient, admin_cookie: str, named_backup: tuple[str, str, str]
+) -> None:
+    """Test case: the versions inventory includes each backup's name.
+
+    Preparation:
+    - An administrator creates a disposable named LiteNAS backup.
+
+    Action:
+    - Request the application's versions inventory.
+
+    Expected result:
+    - The response includes the version and its snapshot name.
+    """
+    version, name, _ = named_backup
+    response = api_client.get(
+        path=f"{BASE}/applications/{APPLICATION}/versions",
+        cookies={COOKIE: admin_cookie},
+    )
+    if response.status != HTTPStatus.OK:
+        pytest.fail(f"test versions inventory failed: HTTP {response.status}")
+    data = response.body["data"]
+    snapshot_versions = {item["version"] for item in data["snapshots"] if item["name"] == name}
+    expect((version in data["versions"], snapshot_versions)).to_be((True, {version}))
+
+
+# Requirements: backup-restore/FR-009, backup-restore/IR-004.
+def test_bulk_delete_removes_only_snapshots_with_exact_name(
+    api_client: RESTClient,
+    admin_cookie: str,
+    named_backup_pair: tuple[str, str, str, str],
+) -> None:
+    """Test case: bulk deletion removes every exact-name snapshot and preserves other names.
+
+    Preparation:
+    - An administrator creates two backups with the same unique name and one with a different name.
+
+    Action:
+    - Delete all backups using the shared name.
+
+    Expected result:
+    - Both matching versions are reported deleted and the differently named version remains.
+    """
+    name, first_version, second_version, preserved_version = named_backup_pair
+    response = api_client.delete(
+        path=f"{BASE}/backups/by-name/{name}",
+        cookies={COOKIE: admin_cookie},
+    )
+    if response.status != HTTPStatus.OK:
+        pytest.fail(f"bulk backup deletion failed: HTTP {response.status}")
+    outcomes = {
+        (item["application"], item["version"], item["status"])
+        for item in response.body["data"]["results"]
+    }
+    inventory = api_client.get(
+        path=f"{BASE}/applications/{APPLICATION}/versions",
+        cookies={COOKIE: admin_cookie},
+    )
+    if inventory.status != HTTPStatus.OK:
+        pytest.fail(f"test versions inventory failed: HTTP {inventory.status}")
+    remaining_versions = set(inventory.body["data"]["versions"])
+    expect((outcomes, preserved_version in remaining_versions)).to_be(
+        (
+            {
+                (APPLICATION, first_version, "deleted"),
+                (APPLICATION, second_version, "deleted"),
+            },
+            True,
+        )
+    )
 
 
 # Requirements: backup-restore/FR-012, backup-restore/IR-004.

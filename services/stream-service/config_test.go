@@ -34,6 +34,22 @@ func TestPackagedStreamConfigLoads(t *testing.T) {
 	}
 }
 
+// TestStreamConfigLoadsSharedACLRules covers stream-service-svc/FR-003 shared ACL configuration.
+func TestStreamConfigLoadsSharedACLRules(t *testing.T) {
+	payload := mustPackagedStreamConfig(t)
+	payload += "\n[acl]\nmoments_folders=/home/alice/gallery\nenforce_paths=/home/alice/gallery/private\n"
+	config, err := loadServiceConfig(streamConfigReader(payload))
+	if err != nil {
+		t.Fatalf("loadServiceConfig() error = %v", err)
+	}
+	if got := config.ACLPolicy.ReadDecisionPath("moments", "/home/alice/gallery/photo.jpg"); got != "/home/alice/gallery" {
+		t.Fatalf("whitelisted read path = %q, want folder", got)
+	}
+	if got := config.ACLPolicy.ReadDecisionPath("moments", "/home/alice/gallery/private/photo.jpg"); got != "/home/alice/gallery/private/photo.jpg" {
+		t.Fatalf("enforced read path = %q, want exact file", got)
+	}
+}
+
 // TestStreamConfigRejectsUnsafeOverrides covers transport and path validation.
 func TestStreamConfigRejectsUnsafeOverrides(t *testing.T) {
 	payload := mustPackagedStreamConfig(t)

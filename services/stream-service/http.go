@@ -106,7 +106,7 @@ func (s *streamService) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		http.NotFound(writer, request)
 		return
 	}
-	if err := s.auth.Read(request.Context(), subject, resolved); err != nil {
+	if err := s.auth.Read(request.Context(), subject, s.cfg.ACLPolicy.ReadDecisionPath(subject.Application, resolved)); err != nil {
 		if errors.Is(err, fileaccess.ErrDenied) {
 			s.logAccessDenial(subject.Username)
 			http.NotFound(writer, request)

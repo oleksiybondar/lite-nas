@@ -20,9 +20,9 @@ import (
 )
 
 const (
-	embeddingModel  = "intfloat/multilingual-e5-small@ccc66d3bcd826f577e26b9a4072cc5fe3a7ad6a3"
+	embeddingModel  = "google/embeddinggemma-300m-q4@75a84c732f1884df76bec365346230e32f582c82"
 	embeddingPython = "/usr/local/lib/lite-nas/moments/embedding-venv/bin/python3"
-	embeddingSize   = 384
+	embeddingSize   = 768
 )
 
 // semanticCandidate holds text and a cached vector for one visible physical image.
@@ -72,7 +72,7 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 	if len(candidates) > 10000 {
 		return nil, errors.New("semantic search exceeds image limit")
 	}
-	texts := []string{"query: " + input.Q}
+	texts := []string{"task: search result | query: " + input.Q}
 	stale := make([]int, 0, len(candidates))
 	for index := range candidates {
 		candidate := &candidates[index]
@@ -87,7 +87,7 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 		}
 		if len(candidate.vector) != embeddingSize {
 			stale = append(stale, index)
-			texts = append(texts, "passage: "+candidate.text)
+			texts = append(texts, "title: none | text: "+candidate.text)
 		}
 	}
 	vectors, err := runEmbeddingModel(ctx, model.embeddingScript, texts)
@@ -230,7 +230,7 @@ func runEmbeddingModel(ctx context.Context, script string, texts []string) ([][]
 	command.Stdin = bytes.NewReader(append(request, '\n'))
 	command.Stderr = nil
 	output, err := command.Output()
-	if err != nil || len(output) > 24<<20 {
+	if err != nil || len(output) > 48<<20 {
 		return nil, errors.New("embedding worker unavailable or output too large")
 	}
 	var response struct {

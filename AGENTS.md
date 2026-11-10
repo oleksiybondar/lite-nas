@@ -39,6 +39,9 @@ repository working style after explicit user instructions.
   before expanding the solution.
 - If a design choice is uncertain, stop and ask a focused question instead of
   filling the gap with assumptions.
+- Do not add lint, type-check, or other tool suppression/ignore statements to
+  silence a failing check unless the user explicitly asks for that. Fix the
+  underlying code or configuration issue instead.
 
 ## Go Service Workers and Messaging
 
@@ -192,6 +195,18 @@ branch or otherwise provides a pushed source branch.
 - Validate language values at storage and profile boundaries with the shared
   schema. Test the default, switching, stored user preference, and missing-file
   fallback for a new app's integration.
+
+## Frontend Browser Compatibility
+
+- Frontend apps must work in Firefox, Chrome, Safari, and Microsoft Edge.
+- When implementing or changing frontend behavior, account for browser-specific
+  differences in CSS layout, media playback, fullscreen behavior, input events,
+  and web APIs. Prefer standards-based features and feature detection over
+  browser-name assumptions or unsupported APIs.
+- Check responsive layouts and interactive behavior in the target browsers
+  when a change uses browser-sensitive features. Include Safari/WebKit and
+  Firefox behavior in particular when relying on flex sizing, viewport units,
+  media formats, or fullscreen APIs.
 
 ## Tooling Conventions
 

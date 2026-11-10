@@ -21,8 +21,8 @@ func (s backupRestoreStub) BackedUp(context.Context, string) ([]string, error) {
 	return []string{"app"}, s.err
 }
 
-func (s backupRestoreStub) Versions(context.Context, string, string) ([]string, error) {
-	return []string{"v1"}, s.err
+func (s backupRestoreStub) Versions(context.Context, string, string) (contract.VersionsResponse, error) {
+	return contract.VersionsResponse{Versions: []string{"v1"}, Snapshots: []contract.SnapshotSummary{{Version: "v1", Name: "nightly"}}}, s.err
 }
 
 func (s backupRestoreStub) Metadata(context.Context, string, string, string) (contract.BackupMetadataResponse, error) {
@@ -33,12 +33,24 @@ func (s backupRestoreStub) Delete(context.Context, string, string, string) error
 	return s.err
 }
 
+func (s backupRestoreStub) DeleteAllByName(context.Context, string, string) (contract.DeleteAllByNameResponse, error) {
+	return contract.DeleteAllByNameResponse{Results: []contract.DeleteAllByNameResult{{Application: "app", Version: "v1", Status: "deleted"}}}, s.err
+}
+
 func (s backupRestoreStub) Backup(context.Context, string, string, string, string) (string, error) {
 	return "v2", s.err
 }
 
 func (s backupRestoreStub) BackupAll(context.Context, string, string, string) ([]contract.BackupAllResult, error) {
 	return []contract.BackupAllResult{{Application: "app", Status: "completed"}}, s.err
+}
+
+func (s backupRestoreStub) StartBackupTask(context.Context, string, string, bool, string, string) (contract.BackupTaskStartResponse, error) {
+	return contract.BackupTaskStartResponse{TaskID: "0123456789abcdef0123456789abcdef", State: "queued"}, s.err
+}
+
+func (s backupRestoreStub) BackupTaskStatus(context.Context, string, string) (contract.BackupTaskStatusResponse, error) {
+	return contract.BackupTaskStatusResponse{TaskID: "0123456789abcdef0123456789abcdef", Application: "app", State: "running"}, s.err
 }
 
 func (s backupRestoreStub) Diff(context.Context, string, string, string) ([]contract.Difference, error) {
@@ -116,7 +128,7 @@ func TestBackupRestoreControllerMapsSuccessfulRPCResults(t *testing.T) {
 		}},
 		{"versions", func() error {
 			o, e := c.Versions(ctx, &brdto.ApplicationInput{Application: "app"})
-			if e == nil && len(o.Body.Data) != 1 {
+			if e == nil && (len(o.Body.Data.Versions) != 1 || o.Body.Data.Snapshots[0].Name != "nightly") {
 				t.Fatal("versions missing")
 			}
 			return e
@@ -135,6 +147,13 @@ func TestBackupRestoreControllerMapsSuccessfulRPCResults(t *testing.T) {
 			}
 			return e
 		}},
+		{"delete-all-by-name", func() error {
+			o, e := c.DeleteAllByName(ctx, &brdto.DeleteAllByNameInput{Name: "nightly"})
+			if e == nil && (len(o.Body.Data.Results) != 1 || o.Body.Data.Results[0].Status != "deleted") {
+				t.Fatal("bulk delete result missing")
+			}
+			return e
+		}},
 		{"backup", func() error {
 			o, e := c.Backup(ctx, &brdto.BackupInput{Application: "app"})
 			if e == nil && o.Body.Data["version"] != "v2" {
@@ -143,6 +162,27 @@ func TestBackupRestoreControllerMapsSuccessfulRPCResults(t *testing.T) {
 			return e
 		}},
 		{"backup-all", func() error { _, e := c.BackupAll(ctx, &brdto.BackupAllInput{}); return e }},
+		{"backup-task", func() error {
+			o, e := c.StartBackupTask(ctx, &brdto.BackupTaskInput{Application: "app"})
+			if e == nil && o.Body.Data.State != "queued" {
+				t.Fatal("backup task was not queued")
+			}
+			return e
+		}},
+		{"backup-all-task", func() error {
+			o, e := c.StartBackupAllTask(ctx, &brdto.BackupTaskAllInput{})
+			if e == nil && o.Body.Data.State != "queued" {
+				t.Fatal("all-applications backup task was not queued")
+			}
+			return e
+		}},
+		{"backup-task-status", func() error {
+			o, e := c.BackupTaskStatus(ctx, &brdto.BackupTaskStatusInput{TaskID: "0123456789abcdef0123456789abcdef"})
+			if e == nil && o.Body.Data.State != "running" {
+				t.Fatal("backup task status missing")
+			}
+			return e
+		}},
 		{"diff", func() error { _, e := c.Diff(ctx, &brdto.VersionInput{Application: "app", Version: "v1"}); return e }},
 		{"restore", func() error {
 			input := &brdto.RestoreInput{Application: "app", Version: "v1"}

@@ -25,6 +25,28 @@ func TestPackagedBeforeStartupSpecSelectsHostScript(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-003.
+func TestPackagedCloudflaredSpecUsesFilePlugin(t *testing.T) {
+	path := "../../configs/etc/lite-nas/backup.d/cloudflared.conf"
+	got, err := LoadSpec(path, "cloudflared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Spec{
+		Application: "cloudflared",
+		SourcePath:  path,
+		Plugin:      "file",
+		Selections: []Selection{
+			{Path: "/etc/cloudflared", Directory: true},
+			{Path: "/etc/systemd/system/cloudflared.service.d", Directory: true, Optional: true},
+		},
+		RestartUnits: []string{"cloudflared.service"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Cloudflare spec = %#v, want %#v", got, want)
+	}
+}
+
 // Requirements: backup-restore/FR-002, security-automation/BR-001.
 func TestPackagedSecurityAutomationCLISpecIncludesTransportTrust(t *testing.T) {
 	path := "../../configs/etc/lite-nas/backup.d/security-automation-cli.conf"
@@ -181,13 +203,17 @@ func TestLoadSpecsRejectsInvalidApplicationFilename(t *testing.T) {
 
 // Requirements: backup-restore/SR-003.
 func TestLoadSpecRejectsUnsupportedPlugin(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "app.conf")
-	content := "[backup]\nplugin=command\n[file.main]\npath=/etc/example.conf\n"
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := LoadSpec(path, "example"); err == nil {
-		t.Fatal("unsupported plugin was accepted")
+	for _, plugin := range []string{"command", "cloudflared", "tailscale"} {
+		t.Run(plugin, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "app.conf")
+			content := "[backup]\nplugin=" + plugin + "\n[file.main]\npath=/etc/example.conf\n"
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadSpec(path, "example"); err == nil {
+				t.Fatal("unsupported plugin was accepted")
+			}
+		})
 	}
 }
 

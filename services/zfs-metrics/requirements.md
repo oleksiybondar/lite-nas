@@ -18,7 +18,7 @@ For each polling cycle, the service must collect raw outputs from:
 
 - `zpool status -P -L`
 - `zpool list -H -p -o name,size,alloc,free,cap,health`
-- `zpool iostat -H -p`
+- `zpool iostat -H -p -y 1 1` to report a one-second interval sample rather than the since-boot average
 
 ### zfs-metrics-svc/FR-003 Structured Parsing
 

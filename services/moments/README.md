@@ -156,16 +156,23 @@ checkpoint. Each generated caption is still saved immediately. The service's
 private `/tmp` is already a 64 MiB bounded tmpfs; image bytes use a pipe and
 the model is loaded from read-only storage, so neither is staged there.
 
-Optional semantic search uses the pinned multilingual E5 small ONNX model. Its
-470 MB model file and 17 MB tokenizer are downloaded once into
-`/usr/local/lib/lite-nas/moments/e5-model`, checked against pinned hashes, and
-reused on later deployments. A separate Python environment uses the
+Optional semantic search uses Google's multilingual EmbeddingGemma 300M model
+through a pinned Q4 ONNX export. Its roughly 197 MB external weights file,
+tokenizer, and graph are downloaded once into
+`/usr/local/lib/lite-nas/moments/embeddinggemma-model`, checked against pinned
+hashes, and reused on later deployments. The export comes from ONNX Community;
+the original model is by Google DeepMind and uses Google's Gemma terms. A
+separate Python environment uses the
 distribution's `python3-onnxruntime` package when available, with a pinned pip
 fallback. Both model directories are readable by root and the Moments service
 group only. The embedding worker has its own AppArmor child profile without
 network, database, or original-media access. Both model workers start on demand
 and exit after their job. An initial semantic query embeds visible files whose
-caption or tags have changed; later queries reuse their path-keyed vectors.
+caption or tags have changed; later queries reuse their 768-dimensional
+path-keyed vectors. Queries and image text use EmbeddingGemma's search-query
+and retrieval-document prefixes. The model was trained on more than 100
+languages and performs local cross-language semantic matching; it does not
+translate queries or rewrite captions.
 Search continues with text matching if the embedding environment is unavailable,
 busy, or fails. Set `embedding_script=` to disable it. Model weights are not
 Debian archive packages, so the `.deb` recommends available Python runtimes;

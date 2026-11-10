@@ -5,9 +5,9 @@ import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useCarousel } from "./CarouselContext";
-import { useGallery } from "./GalleryContext";
+import { useGallery, useGalleryMediaUi } from "./GalleryContext";
 import { GalleryWallItem } from "./GalleryWallItem";
 import { wallImageRequests } from "./GalleryWindow";
 import { useWall } from "./WallContext";
@@ -16,9 +16,24 @@ import { useWall } from "./WallContext";
 export const GalleryWall = (): ReactElement => {
   const { getLabel } = useLanguage();
   const { items, queue } = useGallery();
-  const { wallRef, onScroll, layoutHeight, window: wallWindow, scrolling } = useWall();
+  const { dispatch: dispatchMediaUi } = useGalleryMediaUi();
+  const { wallRef, onScroll, layoutHeight, window: wallWindow, scrolling, scrollTop } = useWall();
   const { selected, current, open } = useCarousel();
   const imageVersion = useSyncExternalStore(queue.subscribe, queue.getSnapshot);
+  const previousScrollTop = useRef(0);
+  useEffect(() => {
+    const top = scrollTop;
+    let direction: "up" | "down" | "idle" = "idle";
+    if (top > previousScrollTop.current) direction = "down";
+    if (top < previousScrollTop.current) direction = "up";
+    previousScrollTop.current = top;
+    dispatchMediaUi({
+      type: "wall/windowChanged",
+      rendered: wallWindow.rendered.map((tile) => items[tile.index].id),
+      visible: wallWindow.visible.map((tile) => items[tile.index].id),
+      direction,
+    });
+  }, [dispatchMediaUi, items, scrollTop, wallWindow]);
   useEffect(() => {
     const retained = wallWindow.rendered
       .filter((tile) => items[tile.index].kind === "image")

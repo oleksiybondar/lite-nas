@@ -30,6 +30,7 @@ func newAccessClaims(options accessClaimOptions) AccessClaims {
 		RegisteredClaims: newRegisteredClaims(options),
 		SessionID:        options.Principal.SessionID,
 		Login:            options.Principal.Login,
+		Application:      options.Principal.Application,
 		Scopes:           scopes,
 		Roles:            roles,
 	}

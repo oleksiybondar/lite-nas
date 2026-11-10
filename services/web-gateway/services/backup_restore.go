@@ -13,11 +13,14 @@ import (
 type BackupRestoreService interface {
 	Applications(context.Context, string) ([]string, error)
 	BackedUp(context.Context, string) ([]string, error)
-	Versions(context.Context, string, string) ([]string, error)
+	Versions(context.Context, string, string) (contract.VersionsResponse, error)
 	Metadata(context.Context, string, string, string) (contract.BackupMetadataResponse, error)
 	Delete(context.Context, string, string, string) error
+	DeleteAllByName(context.Context, string, string) (contract.DeleteAllByNameResponse, error)
 	Backup(context.Context, string, string, string, string) (string, error)
 	BackupAll(context.Context, string, string, string) ([]contract.BackupAllResult, error)
+	StartBackupTask(context.Context, string, string, bool, string, string) (contract.BackupTaskStartResponse, error)
+	BackupTaskStatus(context.Context, string, string) (contract.BackupTaskStatusResponse, error)
 	Diff(context.Context, string, string, string) ([]contract.Difference, error)
 	Restore(context.Context, string, string, string, string) (contract.RestoreResponse, error)
 	RestoreByName(context.Context, string, string, string, string) (contract.RestoreByNameResponse, error)
@@ -60,10 +63,10 @@ func (s backupRestoreService) BackedUp(ctx context.Context, token string) ([]str
 	return out.Applications, err
 }
 
-func (s backupRestoreService) Versions(ctx context.Context, token, app string) ([]string, error) {
+func (s backupRestoreService) Versions(ctx context.Context, token, app string) (contract.VersionsResponse, error) {
 	var out contract.VersionsResponse
 	err := s.request(ctx, contract.VersionsSubject, contract.ApplicationRequest{AccessToken: token, Application: app}, &out)
-	return out.Versions, err
+	return out, err
 }
 
 // Metadata reads archive labels and attribution without exposing archived files.
@@ -83,6 +86,13 @@ func (s backupRestoreService) Delete(ctx context.Context, token, app, version st
 	return err
 }
 
+// DeleteAllByName removes every snapshot with the exact name and returns per-snapshot outcomes.
+func (s backupRestoreService) DeleteAllByName(ctx context.Context, token, name string) (contract.DeleteAllByNameResponse, error) {
+	var out contract.DeleteAllByNameResponse
+	err := s.request(ctx, contract.DeleteAllByNameSubject, contract.DeleteAllByNameRequest{AccessToken: token, Name: name}, &out)
+	return out, err
+}
+
 func (s backupRestoreService) Backup(ctx context.Context, token, app, name, description string) (string, error) {
 	var out contract.BackupResponse
 	err := s.request(ctx, contract.BackupSubject, contract.BackupRequest{AccessToken: token, Application: app, Name: name, Description: description}, &out)
@@ -93,6 +103,20 @@ func (s backupRestoreService) BackupAll(ctx context.Context, token, name, descri
 	var out contract.BackupAllResponse
 	err := s.request(ctx, contract.BackupAllSubject, contract.BackupAllRequest{AccessToken: token, Name: name, Description: description}, &out)
 	return out.Results, err
+}
+
+// StartBackupTask queues one application's backup or the all-applications batch.
+func (s backupRestoreService) StartBackupTask(ctx context.Context, token, application string, all bool, name, description string) (contract.BackupTaskStartResponse, error) {
+	var out contract.BackupTaskStartResponse
+	err := s.request(ctx, contract.BackupTaskStartSubject, contract.BackupTaskStartRequest{AccessToken: token, Application: application, All: all, Name: name, Description: description}, &out)
+	return out, err
+}
+
+// BackupTaskStatus reads the durable progress snapshot for one backup task.
+func (s backupRestoreService) BackupTaskStatus(ctx context.Context, token, taskID string) (contract.BackupTaskStatusResponse, error) {
+	var out contract.BackupTaskStatusResponse
+	err := s.request(ctx, contract.BackupTaskStatusSubject, contract.BackupTaskRequest{AccessToken: token, TaskID: taskID}, &out)
+	return out, err
 }
 
 func (s backupRestoreService) Diff(ctx context.Context, token, app, version string) ([]contract.Difference, error) {

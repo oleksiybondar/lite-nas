@@ -90,6 +90,27 @@ func TestVersionByNameRequiresExactMatch(t *testing.T) {
 	}
 }
 
+// TestVersionByNameAcceptsExactVersionForUnnamedSnapshot allows restoring an unnamed archive by its timestamp ID.
+func TestVersionByNameAcceptsExactVersionForUnnamedSnapshot(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(source, []byte("settings"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	want, err := store.Backup(Spec{Application: "example", Selections: []Selection{{Path: source}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.VersionByName("example", want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("version selected by ID = %q, want %q", got, want)
+	}
+}
+
 // Requirements: backup-restore/FR-009.
 func TestBackedUpApplicationsListsStoredHistory(t *testing.T) {
 	root := t.TempDir()

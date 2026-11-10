@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -145,6 +146,24 @@ func TestRestoreAllByNameSkipsUnmatchedApplications(t *testing.T) {
 	}
 }
 
+// TestRestoreAllByNameAcceptsExactVersionForUnnamedSnapshot restores that version only where it exists.
+func TestRestoreAllByNameAcceptsExactVersionForUnnamedSnapshot(t *testing.T) {
+	runtime, token, version, _ := mergeFixture(t)
+	runtime.specs["other"] = Spec{Application: "other"}
+	result, err := runtime.restoreAllByName(context.Background(), messagingtest.MustEnvelope(t, contract.RestoreAllByNameRequest{AccessToken: token, Name: version, Mode: "replace"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := result.(contract.RestoreAllByNameResponse).Results
+	want := []contract.RestoreAllByNameResult{
+		{Application: "example", Status: "completed", Version: version},
+		{Application: "other", Status: "skipped"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("restore results = %+v, want %+v", got, want)
+	}
+}
+
 // Requirements: backup-restore/FR-012.
 // TestRestoreAllByNameContinuesAfterFailure checks that later targets are still visited.
 func TestRestoreAllByNameContinuesAfterFailure(t *testing.T) {
@@ -212,6 +231,63 @@ func TestVersionsRPCListsStoredSnapshot(t *testing.T) {
 }
 
 // Requirements: backup-restore/FR-001.
+func TestVersionsRPCIncludesSnapshotName(t *testing.T) {
+	runtime, token, _, _ := mergeFixture(t)
+	version, err := runtime.store.BackupWithMetadata(runtime.specs["example"], "nightly", "", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := runtime.versions(context.Background(), messagingtest.MustEnvelope(t, contract.ApplicationRequest{AccessToken: token, Application: "example"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := result.(contract.VersionsResponse)
+	if got := response.Snapshots[0]; got != (contract.SnapshotSummary{Version: version, Name: "nightly"}) {
+		t.Fatalf("snapshot summary = %+v", got)
+	}
+}
+
+// TestStartBackupTaskRPCQueuesConfiguredApplication verifies authenticated task admission.
+// Requirements: backup-restore/FR-013.
+func TestStartBackupTaskRPCQueuesConfiguredApplication(t *testing.T) {
+	runtime, token, _, _ := mergeFixture(t)
+	var err error
+	runtime.tasks, err = newBackupTaskRunner(runtime.store.Root, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := runtime.startBackupTask(context.Background(), messagingtest.MustEnvelope(t, contract.BackupTaskStartRequest{AccessToken: token, Application: "example"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(contract.BackupTaskStartResponse).State; got != "queued" {
+		t.Fatalf("task state = %q, want queued", got)
+	}
+}
+
+// TestBackupTaskStatusRPCReturnsQueuedTask verifies callers can poll a queued task by ID.
+// Requirements: backup-restore/FR-013.
+func TestBackupTaskStatusRPCReturnsQueuedTask(t *testing.T) {
+	runtime, token, _, _ := mergeFixture(t)
+	var err error
+	runtime.tasks, err = newBackupTaskRunner(runtime.store.Root, runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := runtime.tasks.Start("example", false, "", "", "tester")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := runtime.backupTaskStatus(context.Background(), messagingtest.MustEnvelope(t, contract.BackupTaskRequest{AccessToken: token, TaskID: started.TaskID}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := result.(contract.BackupTaskStatusResponse).TaskID; got != started.TaskID {
+		t.Fatalf("polled task ID = %q, want %q", got, started.TaskID)
+	}
+}
+
+// Requirements: backup-restore/FR-001.
 func TestMetadataRPCReturnsStoredSnapshotDetails(t *testing.T) {
 	runtime, token, version, _ := mergeFixture(t)
 	result, err := runtime.metadata(context.Background(), messagingtest.MustEnvelope(t, contract.VersionRequest{AccessToken: token, Application: "example", Version: version}))
@@ -232,6 +308,39 @@ func TestDeleteBackupRPCRemovesStoredSnapshot(t *testing.T) {
 	}
 	if !result.(contract.DeleteResponse).Deleted {
 		t.Fatal("delete response did not confirm deletion")
+	}
+}
+
+// TestDeleteAllByNameRPCRemovesExactNameAcrossApplications reports matched snapshots only.
+func TestDeleteAllByNameRPCRemovesExactNameAcrossApplications(t *testing.T) {
+	runtime, token, _, _ := mergeFixture(t)
+	first := runtime.specs["example"]
+	firstVersion, err := runtime.store.BackupWithMetadata(first, "nightly", "", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	preservedVersion, err := runtime.store.BackupWithMetadata(first, "Nightly", "", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := first
+	other.Application = "other"
+	runtime.specs["other"] = other
+	secondVersion, err := runtime.store.BackupWithMetadata(other, "nightly", "", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := runtime.deleteAllByName(context.Background(), messagingtest.MustEnvelope(t, contract.DeleteAllByNameRequest{AccessToken: token, Name: "nightly"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := result.(contract.DeleteAllByNameResponse).Results
+	remaining, err := runtime.store.Versions("example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []contract.DeleteAllByNameResult{{Application: "example", Version: firstVersion, Status: "deleted"}, {Application: "other", Version: secondVersion, Status: "deleted"}}) || len(remaining) != 2 || remaining[0] != preservedVersion {
+		t.Fatalf("bulk delete results = %+v, remaining versions = %v", got, remaining)
 	}
 }
 
@@ -346,6 +455,7 @@ func TestRegisterPropagatesRPCRegistrationFailures(t *testing.T) {
 		contract.VersionsSubject,
 		contract.MetadataSubject,
 		contract.DeleteSubject,
+		contract.DeleteAllByNameSubject,
 		contract.BackupSubject,
 		contract.BackupAllSubject,
 		contract.DiffSubject,

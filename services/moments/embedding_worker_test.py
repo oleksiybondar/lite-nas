@@ -23,7 +23,7 @@ class EmbeddingWorkerTests(unittest.TestCase):
 
     def test_accepts_non_latin_text(self) -> None:
         """A Ukrainian sentence passes the input boundary unchanged."""
-        request = json.dumps({"texts": ["query: собака"]}).encode() + b"\n"
+        request = json.dumps({"texts": ["task: search result | query: собака"]}).encode() + b"\n"
         output = io.StringIO()
         with patch.object(sys, "stdin", io.TextIOWrapper(io.BytesIO(request))):
             with patch.object(sys, "stdout", output):

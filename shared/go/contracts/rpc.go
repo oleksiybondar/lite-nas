@@ -46,6 +46,8 @@ var RPCByService = map[string]map[string]RPCContract{
 		"delete":              {Subject: backupcontract.DeleteSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DeleteResponse{}},
 		"backup":              {Subject: backupcontract.BackupSubject, Request: backupcontract.BackupRequest{}, Response: backupcontract.BackupResponse{}},
 		"backup_all":          {Subject: backupcontract.BackupAllSubject, Request: backupcontract.BackupAllRequest{}, Response: backupcontract.BackupAllResponse{}},
+		"backup_task_start":   {Subject: backupcontract.BackupTaskStartSubject, Request: backupcontract.BackupTaskStartRequest{}, Response: backupcontract.BackupTaskStartResponse{}},
+		"backup_task_status":  {Subject: backupcontract.BackupTaskStatusSubject, Request: backupcontract.BackupTaskRequest{}, Response: backupcontract.BackupTaskStatusResponse{}},
 		"diff":                {Subject: backupcontract.DiffSubject, Request: backupcontract.VersionRequest{}, Response: backupcontract.DiffResponse{}},
 		"restore":             {Subject: backupcontract.RestoreSubject, Request: backupcontract.RestoreRequest{}, Response: backupcontract.RestoreResponse{}},
 		"restore_by_name":     {Subject: backupcontract.RestoreByNameSubject, Request: backupcontract.RestoreByNameRequest{}, Response: backupcontract.RestoreByNameResponse{}},

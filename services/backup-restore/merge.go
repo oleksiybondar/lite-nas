@@ -59,9 +59,6 @@ func (runtime *Runtime) mergeStart(_ context.Context, envelope messaging.Envelop
 	if !ok {
 		return nil, fmt.Errorf("unknown application")
 	}
-	if spec.Plugin == "cloudflared" || spec.Plugin == "tailscale" {
-		return nil, fmt.Errorf("merge is unavailable for %s backups", spec.Plugin)
-	}
 	runtime.mutex.Lock()
 	defer runtime.mutex.Unlock()
 	if runtime.session != nil {

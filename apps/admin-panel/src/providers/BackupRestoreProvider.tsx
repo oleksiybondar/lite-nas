@@ -12,10 +12,13 @@ import {
   applicationListResponseSchema,
   type BackupDetails,
   type BackupDifference,
-  backupAllResponseSchema,
+  type BackupSnapshotSummary,
+  backupDeleteAllByNameResponseSchema,
   backupDeleteResponseSchema,
   backupDetailsResponseSchema,
   backupMetadataSchema,
+  backupTaskStartResponseSchema,
+  backupTaskStatusResponseSchema,
   diffResponseSchema,
   type MergeSession,
   mergeActionResponseSchema,
@@ -30,15 +33,80 @@ import {
   versionResponseSchema,
 } from "@schemas/backup-restore";
 import type { PropsWithChildren, ReactElement } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 const storedSessionKey = "lite-nas-backup-merge-session";
+const storedBackupTaskKey = "lite-nas-backup-task";
+const storedBackupTaskSchema = z.string().regex(/^[a-fA-F0-9]{32}$/);
 const storedSessionSchema = z.object({
   id: z.string().regex(/^[a-fA-F0-9]{32}$/),
   application: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/),
   version: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/),
 });
+
+/** Identifies task states that no longer need polling. */
+const isTerminalBackupTask = (state: string): boolean =>
+  state === "succeeded" || state === "failed" || state === "cancelled";
+
+/** Validates the resumable task identifier and clears malformed browser state. */
+const readStoredBackupTaskID = (): string | null => {
+  const raw = window.localStorage.getItem(storedBackupTaskKey);
+  if (!raw) return null;
+  const stored = storedBackupTaskSchema.safeParse(raw);
+  if (stored.success) return stored.data;
+  window.localStorage.removeItem(storedBackupTaskKey);
+  return null;
+};
+
+type BackupTaskStatus = z.infer<typeof backupTaskStatusResponseSchema>["data"];
+
+/** Polls a backup task until it finishes, publishing progress only while its owner remains active. */
+const pollBackupTaskStatus = async (
+  taskID: string,
+  isActive: () => boolean,
+  readStatus: (id: string) => Promise<BackupTaskStatus>,
+  publishProgress: (percent: number | null) => void,
+): Promise<BackupTaskStatus> => {
+  const status = await readStatus(taskID);
+  if (!isActive()) return status;
+  publishProgress(status.progress?.percent ?? null);
+  if (isTerminalBackupTask(status.state)) {
+    window.localStorage.removeItem(storedBackupTaskKey);
+    return status;
+  }
+  await new Promise((resolve) => window.setTimeout(resolve, 800));
+  return pollBackupTaskStatus(taskID, isActive, readStatus, publishProgress);
+};
+
+/** Summarizes terminal backup outcomes for the page's message and error areas. */
+const describeBackupTaskStatus = (
+  status: BackupTaskStatus,
+  label: (key: string) => string,
+): { message: string; error: string } => {
+  if (status.state !== "succeeded")
+    return { message: "", error: status.error || label("admin.backup.createFailed") };
+  if (status.application !== "all") return { message: label("admin.backup.created"), error: "" };
+  const results = status.results ?? [];
+  const completed = results.filter((result) => result.status === "completed").length;
+  const skipped = results.filter((result) => result.status === "skipped").length;
+  const failures = results.filter((result) => result.status === "failed");
+  const message = label("admin.backup.allCompleted")
+    .replace("{completed}", String(completed))
+    .replace("{skipped}", String(skipped))
+    .replace("{failed}", String(failures.length));
+  const error = failures.length
+    ? [
+        label("admin.backup.failedTargets"),
+        ...failures.map((result) => `${result.application}: ${result.error || "—"}`),
+      ].join("\n")
+    : "";
+  return { message, error };
+};
+
+/** Keeps the current version when present and otherwise selects the first available version. */
+const selectExistingVersion = (current: string, versions: string[]): string =>
+  versions.includes(current) ? current : versions[0] || "";
 
 /** Owns backup inventory, restore actions, and merge editor state for its page. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps ordered backup requests and their React state updates together.
@@ -52,6 +120,9 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
   labelRef.current = getLabel;
   const [applications, setApplications] = useState<string[]>([]);
   const [versionCounts, setVersionCounts] = useState<Record<string, number>>({});
+  const [snapshotsByApplication, setSnapshotsByApplication] = useState<
+    Record<string, BackupSnapshotSummary[]>
+  >({});
   const [countsLoading, setCountsLoading] = useState(true);
   const [backupDetails, setBackupDetails] = useState<BackupDetails[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -77,6 +148,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
   const [selectedPath, setSelectedPath] = useState("");
   const [contents, setContents] = useState<Record<string, BackupFileContent>>({});
   const [busy, setBusy] = useState(false);
+  const [backupProgress, setBackupProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const allowed = requireAdmin();
@@ -127,12 +199,17 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
           await getRef.current(`${backupPath(app)}/versions`).execute(),
           versionListResponseSchema,
         );
-        return [app, list.length] as const;
+        return [app, list] as const;
       }),
     )
       .then((counts) => {
         if (active) {
-          setVersionCounts(Object.fromEntries(counts));
+          setVersionCounts(
+            Object.fromEntries(counts.map(([app, list]) => [app, list.versions.length])),
+          );
+          setSnapshotsByApplication(
+            Object.fromEntries(counts.map(([app, list]) => [app, list.snapshots])),
+          );
           setCountsLoading(false);
         }
       })
@@ -185,9 +262,12 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
           versionListResponseSchema,
         );
         if (active) {
-          setVersions(list);
+          setVersions(list.versions);
+          setSnapshotsByApplication((previous) => ({ ...previous, [application]: list.snapshots }));
           // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The provider keeps ordered backup requests and their React state updates together.
-          setVersion((previous) => (list.includes(previous) ? previous : list[0] || ""));
+          setVersion((previous) =>
+            list.versions.includes(previous) ? previous : list.versions[0] || "",
+          );
         }
       } catch {
         if (active) setError(labelRef.current("admin.backup.loadFailed"));
@@ -294,17 +374,62 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
       if (propagateError) throw caught;
     } finally {
       setBusy(false);
+      setBackupProgress(null);
     }
   };
+
+  /** Polls a durable backup task and mirrors its latest completion percentage into page state. */
+  const pollBackupTask = useCallback(
+    (taskID: string, isActive: () => boolean = () => true): Promise<BackupTaskStatus> =>
+      pollBackupTaskStatus(
+        taskID,
+        isActive,
+        async (id) =>
+          readData(
+            await getRef.current(`/api/backup-restore/backup-tasks/${id}`).execute(),
+            backupTaskStatusResponseSchema,
+          ),
+        setBackupProgress,
+      ),
+    [],
+  );
+
+  useEffect(() => {
+    if (!allowed) return;
+    const taskID = readStoredBackupTaskID();
+    if (!taskID) return;
+    let active = true;
+    setBusy(true);
+    void pollBackupTask(taskID, () => active)
+      .then((status) => {
+        if (!active) return;
+        const result = describeBackupTaskStatus(status, labelRef.current);
+        setMessage(result.message);
+        setError(result.error);
+      })
+      .catch(() => {
+        if (active) setError(labelRef.current("admin.backup.createFailed"));
+      })
+      .finally(() => {
+        if (active) {
+          setBusy(false);
+          setBackupProgress(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [allowed, pollBackupTask]);
 
   const reloadVersions = async (): Promise<void> => {
     const list = await readData(
       await get(`${backupPath(application)}/versions`).execute(),
       versionListResponseSchema,
     );
-    setVersions(list);
-    setVersionCounts((previous) => ({ ...previous, [application]: list.length }));
-    setVersion(list[0] || "");
+    setVersions(list.versions);
+    setVersionCounts((previous) => ({ ...previous, [application]: list.versions.length }));
+    setSnapshotsByApplication((previous) => ({ ...previous, [application]: list.snapshots }));
+    setVersion(list.versions[0] || "");
   };
 
   const reloadDifferences = async (): Promise<void> => {
@@ -332,11 +457,21 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps ordered backup requests and their React state updates together.
     void run(async () => {
       const payload = backupMetadataSchema.parse({ name, description });
+      const start = await readData(
+        await post(
+          backupTarget === "all"
+            ? "/api/backup-restore/backup-tasks"
+            : `${backupPath(backupTarget)}/backup-tasks`,
+          { ...payload },
+        ).execute(),
+        backupTaskStartResponseSchema,
+      );
+      window.localStorage.setItem(storedBackupTaskKey, start.task_id);
+      setBackupProgress(backupTarget === "all" ? 0 : null);
+      const task = await pollBackupTask(start.task_id);
+      if (task.state !== "succeeded") throw new Error(task.error || "Backup failed");
       if (backupTarget === "all") {
-        const results = await readData(
-          await post("/api/backup-restore/backups", payload).execute(),
-          backupAllResponseSchema,
-        );
+        const results = task.results ?? [];
         const completed = results.filter((result) => result.status === "completed").length;
         const skipped = results.filter((result) => result.status === "skipped").length;
         const failures = results.filter((result) => result.status === "failed");
@@ -360,29 +495,33 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
               await get(`${backupPath(app)}/versions`).execute(),
               versionListResponseSchema,
             );
-            return [app, list.length] as const;
+            return [app, list] as const;
           }),
         );
-        setVersionCounts(Object.fromEntries(counts));
+        setVersionCounts(
+          Object.fromEntries(counts.map(([app, list]) => [app, list.versions.length])),
+        );
+        setSnapshotsByApplication(
+          Object.fromEntries(counts.map(([app, list]) => [app, list.snapshots])),
+        );
         if (backupsOpen && application) {
           const list = await readData(
             await get(`${backupPath(application)}/versions`).execute(),
             versionListResponseSchema,
           );
-          setVersions(list);
+          setVersions(list.versions);
+          setSnapshotsByApplication((previous) => ({ ...previous, [application]: list.snapshots }));
         }
         return;
       }
-      const created = await readData(
-        await post(`${backupPath(backupTarget)}/backups`, payload).execute(),
-        versionResponseSchema,
-      );
+      const created = { version: task.version ?? "" };
       const list = await readData(
         await get(`${backupPath(backupTarget)}/versions`).execute(),
         versionListResponseSchema,
       );
-      setVersionCounts((previous) => ({ ...previous, [backupTarget]: list.length }));
-      if (application === backupTarget) setVersions(list);
+      setVersionCounts((previous) => ({ ...previous, [backupTarget]: list.versions.length }));
+      setSnapshotsByApplication((previous) => ({ ...previous, [backupTarget]: list.snapshots }));
+      if (application === backupTarget) setVersions(list.versions);
       setVersion(created.version);
       setMessage(getLabel("admin.backup.created"));
     }, "admin.backup.createFailed");
@@ -412,7 +551,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
 
   /** Opens a named restore for one application or every configured application. */
   const openNamedRestore = (target: string | "all"): void => {
-    setNamedRestoreName("");
+    setNamedRestoreName(target === "all" ? availableRestoreTargets[0] || "" : "");
     setNamedRestoreTarget(target);
   };
 
@@ -482,14 +621,88 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
           await get(`${backupPath(targetApplication)}/versions`).execute(),
           versionListResponseSchema,
         );
-        setVersions(list);
-        setVersion((previous) => (previous === targetVersion ? list[0] || "" : previous));
-        setVersionCounts((previous) => ({ ...previous, [targetApplication]: list.length }));
+        setVersions(list.versions);
+        setVersion((previous) => (previous === targetVersion ? list.versions[0] || "" : previous));
+        setVersionCounts((previous) => ({
+          ...previous,
+          [targetApplication]: list.versions.length,
+        }));
+        setSnapshotsByApplication((previous) => ({
+          ...previous,
+          [targetApplication]: list.snapshots,
+        }));
         setBackupDetails((previous) => previous.filter((item) => item.version !== targetVersion));
         setMessage(getLabel("admin.backup.deleted"));
         setPendingDelete(null);
       },
       "admin.backup.deleteFailed",
+      true,
+    );
+  };
+
+  const reloadAllInventories = async () => {
+    const inventories = await Promise.all(
+      applications.map(async (app) => {
+        const inventory = await readData(
+          await get(`${backupPath(app)}/versions`).execute(),
+          versionListResponseSchema,
+        );
+        return [app, inventory] as const;
+      }),
+    );
+    setVersionCounts(
+      Object.fromEntries(inventories.map(([app, inventory]) => [app, inventory.versions.length])),
+    );
+    setSnapshotsByApplication(
+      Object.fromEntries(inventories.map(([app, inventory]) => [app, inventory.snapshots])),
+    );
+    const selectedInventory = inventories.find(([app]) => app === application)?.[1];
+    if (!selectedInventory) return;
+    setVersions(selectedInventory.versions);
+    setVersion((previous) => selectExistingVersion(previous, selectedInventory.versions));
+  };
+
+  const reportBulkDelete = (
+    deleted: Array<{ application: string; version: string }>,
+    failures: Array<{ application: string; version: string; error?: string }>,
+  ): void => {
+    const deletedVersions = new Set(
+      deleted.map((result) => `${result.application}/${result.version}`),
+    );
+    setBackupDetails((previous) =>
+      previous.filter((detail) => !deletedVersions.has(`${detail.application}/${detail.version}`)),
+    );
+    setMessage(
+      getLabel("admin.backup.bulkDeleteCompleted")
+        .replace("{deleted}", String(deleted.length))
+        .replace("{failed}", String(failures.length)),
+    );
+    if (failures.length === 0) return;
+    setError(
+      [
+        getLabel("admin.backup.bulkDeleteFailed"),
+        ...failures.map(
+          (result) => `${result.application} (${result.version}): ${result.error || "—"}`,
+        ),
+      ].join("\n"),
+    );
+  };
+
+  const deleteBackupsByName = async (targetName: string): Promise<void> => {
+    await run(
+      async () => {
+        const outcome = await readData(
+          await del(
+            `/api/backup-restore/backups/by-name/${encodeURIComponent(targetName)}`,
+          ).execute(),
+          backupDeleteAllByNameResponseSchema,
+        );
+        const deleted = outcome.results.filter((result) => result.status === "deleted");
+        const failures = outcome.results.filter((result) => result.status === "failed");
+        await reloadAllInventories();
+        reportBulkDelete(deleted, failures);
+      },
+      "admin.backup.bulkDeleteFailed",
       true,
     );
   };
@@ -572,6 +785,37 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     );
   };
 
+  const normalizedApplicationSearch = applicationSearch.toLocaleLowerCase();
+  const visibleApplications = applications.filter(
+    (app) =>
+      app.toLocaleLowerCase().includes(normalizedApplicationSearch) ||
+      (snapshotsByApplication[app] ?? []).some((snapshot) =>
+        (snapshot.name ?? "").toLocaleLowerCase().includes(normalizedApplicationSearch),
+      ),
+  );
+  const availableBackupNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          Object.values(snapshotsByApplication)
+            .flatMap((snapshots) => snapshots.map((snapshot) => snapshot.name ?? ""))
+            .filter((snapshotName) => snapshotName.trim().length > 0),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [snapshotsByApplication],
+  );
+  const availableRestoreTargets = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          Object.values(snapshotsByApplication).flatMap((snapshots) =>
+            snapshots.map((snapshot) => snapshot.name || snapshot.version),
+          ),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [snapshotsByApplication],
+  );
+
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The provider keeps ordered backup requests and their React state updates together.
   // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps ordered backup requests and their React state updates together.
   const refresh = async (): Promise<void> => {
@@ -591,10 +835,15 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
             await get(`${backupPath(app)}/versions`).execute(),
             versionListResponseSchema,
           );
-          return [app, list.length] as const;
+          return [app, list] as const;
         }),
       );
-      setVersionCounts(Object.fromEntries(counts));
+      setVersionCounts(
+        Object.fromEntries(counts.map(([app, list]) => [app, list.versions.length])),
+      );
+      setSnapshotsByApplication(
+        Object.fromEntries(counts.map(([app, list]) => [app, list.snapshots])),
+      );
 
       const activeApplication = apps.includes(application) ? application : apps[0] || "";
       if (activeApplication !== application) setApplication(activeApplication);
@@ -610,12 +859,12 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
         await get(`${backupPath(activeApplication)}/versions`).execute(),
         versionListResponseSchema,
       );
-      setVersions(refreshedVersions);
-      const activeVersion = refreshedVersions.includes(version)
+      setVersions(refreshedVersions.versions);
+      const activeVersion = refreshedVersions.versions.includes(version)
         ? version
-        : refreshedVersions[0] || "";
+        : refreshedVersions.versions[0] || "";
       setVersion(activeVersion);
-      if (refreshedVersions.length === 0) {
+      if (refreshedVersions.versions.length === 0) {
         setBackupDetails([]);
       }
       if (activeVersion) {
@@ -638,6 +887,10 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     allowed,
     applications,
     versionCounts,
+    snapshotsByApplication,
+    availableBackupNames,
+    availableRestoreTargets,
+    visibleApplications,
     countsLoading,
     backupDetails,
     versionsLoading,
@@ -661,6 +914,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     selectedPath,
     contents,
     busy,
+    backupProgress,
     error,
     message,
     setApplications,
@@ -693,6 +947,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     openNamedRestore,
     restoreByName,
     deleteBackup,
+    deleteBackupsByName,
     startMerge,
     finishMerge,
     refresh,

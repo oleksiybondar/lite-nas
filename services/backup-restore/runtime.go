@@ -25,6 +25,7 @@ import (
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/modules"
 	"lite-nas/shared/roleauth"
+	"lite-nas/shared/workers"
 )
 
 // Runtime owns configured backup targets and serialized host mutations.
@@ -36,6 +37,7 @@ type Runtime struct {
 	client   messaging.Client
 	mutex    sync.Mutex
 	session  *mergeSession
+	tasks    *backupTaskRunner
 }
 
 // Serve starts the on-demand NATS service and blocks until shutdown.
@@ -99,12 +101,25 @@ func Serve(ctx context.Context, configPath string) error {
 		return err
 	}
 	defer infra.Close()
-	runtime := &Runtime{specs: specs, store: Store{Root: storeRoot, UFW: NewUFWPlugin(), Tailscale: NewTailscalePlugin(), Cloudflared: NewCloudflaredPlugin()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: infra.Client}
+	runtime := &Runtime{specs: specs, store: Store{Root: storeRoot, UFW: NewUFWPlugin()}, verifier: verifier, validate: validator.New(validator.WithRequiredStructEnabled()), client: infra.Client}
+	runtime.tasks, err = newBackupTaskRunner(storeRoot, runtime)
+	if err != nil {
+		return err
+	}
+	runtime.tasks.onPersistenceError = func(err error) {
+		infra.Logger.Error("backup task status persistence failed", "error", err)
+	}
+	workers.NewBaseWorker(runtime.tasks.Run).Start(ctx)
 	if err := runtime.register(infra.Server); err != nil {
+		runtime.tasks.Close()
 		return err
 	}
 	infra.Logger.Info("backup restore service started", "applications", len(specs))
 	<-ctx.Done()
+	if err := infra.Server.Drain(); err != nil {
+		infra.Logger.Error("backup restore RPC drain failed", "error", err)
+	}
+	runtime.tasks.Close()
 	return ctx.Err()
 }
 
@@ -148,6 +163,10 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 		token = value.AccessToken
 	case contract.BackupRequest:
 		token = value.AccessToken
+	case contract.BackupTaskStartRequest:
+		token = value.AccessToken
+	case contract.BackupTaskRequest:
+		token = value.AccessToken
 	case contract.BackupAllRequest:
 		token = value.AccessToken
 	case contract.RestoreRequest:
@@ -157,6 +176,8 @@ func decodeRequest[T any](runtime *Runtime, envelope messaging.Envelope) (T, err
 	case contract.RestoreAllByNameRequest:
 		token = value.AccessToken
 	case contract.VersionRequest:
+		token = value.AccessToken
+	case contract.DeleteAllByNameRequest:
 		token = value.AccessToken
 	case contract.MergeStartRequest:
 		token = value.AccessToken
@@ -211,10 +232,19 @@ func (runtime *Runtime) register(server messaging.Server) error {
 	if err := server.RegisterRPC(contract.DeleteSubject, runtime.deleteBackup); err != nil {
 		return err
 	}
+	if err := server.RegisterRPC(contract.DeleteAllByNameSubject, runtime.deleteAllByName); err != nil {
+		return err
+	}
 	if err := server.RegisterRPC(contract.BackupSubject, runtime.backup); err != nil {
 		return err
 	}
 	if err := server.RegisterRPC(contract.BackupAllSubject, runtime.backupAll); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(contract.BackupTaskStartSubject, runtime.startBackupTask); err != nil {
+		return err
+	}
+	if err := server.RegisterRPC(contract.BackupTaskStatusSubject, runtime.backupTaskStatus); err != nil {
 		return err
 	}
 	if err := server.RegisterRPC(contract.DiffSubject, runtime.diff); err != nil {
@@ -281,7 +311,18 @@ func (runtime *Runtime) versions(_ context.Context, envelope messaging.Envelope)
 		return nil, err
 	}
 	versions, err := runtime.store.Versions(request.Application)
-	return contract.VersionsResponse{Versions: versions}, err
+	if err != nil {
+		return nil, err
+	}
+	snapshots := make([]contract.SnapshotSummary, 0, len(versions))
+	for _, version := range versions {
+		metadata, err := runtime.store.Metadata(request.Application, version)
+		if err != nil {
+			return nil, err
+		}
+		snapshots = append(snapshots, contract.SnapshotSummary{Version: version, Name: metadata.Name})
+	}
+	return contract.VersionsResponse{Versions: versions, Snapshots: snapshots}, nil
 }
 
 // metadata reads details for one configured application's stored version.
@@ -317,6 +358,44 @@ func (runtime *Runtime) deleteBackup(_ context.Context, envelope messaging.Envel
 	return contract.DeleteResponse{Deleted: true}, nil
 }
 
+// deleteAllByName removes exact-name snapshots across configured applications and records partial failures.
+func (runtime *Runtime) deleteAllByName(_ context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.DeleteAllByNameRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	runtime.mutex.Lock()
+	defer runtime.mutex.Unlock()
+	applications := make([]string, 0, len(runtime.specs))
+	for application := range runtime.specs {
+		applications = append(applications, application)
+	}
+	sort.Strings(applications)
+	response := contract.DeleteAllByNameResponse{Results: make([]contract.DeleteAllByNameResult, 0)}
+	for _, application := range applications {
+		versions, err := runtime.store.Versions(application)
+		if err != nil {
+			return nil, err
+		}
+		for _, version := range versions {
+			metadata, err := runtime.store.Metadata(application, version)
+			if err != nil {
+				response.Results = append(response.Results, contract.DeleteAllByNameResult{Application: application, Version: version, Status: "failed", Error: err.Error()})
+				continue
+			}
+			if metadata.Name != request.Name {
+				continue
+			}
+			result := contract.DeleteAllByNameResult{Application: application, Version: version, Status: "deleted"}
+			if err := runtime.store.Delete(application, version); err != nil {
+				result.Status, result.Error = "failed", err.Error()
+			}
+			response.Results = append(response.Results, result)
+		}
+	}
+	return response, nil
+}
+
 // backup serializes snapshot creation with restore operations.
 func (runtime *Runtime) backup(_ context.Context, envelope messaging.Envelope) (any, error) {
 	request, err := decodeRequest[contract.BackupRequest](runtime, envelope)
@@ -335,6 +414,33 @@ func (runtime *Runtime) backup(_ context.Context, envelope messaging.Envelope) (
 	}
 	version, err := runtime.store.BackupWithMetadata(spec, request.Name, request.Description, claims.Login)
 	return contract.BackupResponse{Version: version}, err
+}
+
+// startBackupTask authenticates and queues one durable asynchronous backup task.
+func (runtime *Runtime) startBackupTask(_ context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.BackupTaskStartRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	if !request.All {
+		if _, ok := runtime.specs[request.Application]; !ok {
+			return nil, fmt.Errorf("unknown application")
+		}
+	}
+	claims, err := runtime.verifier.Verify(request.AccessToken)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.tasks.Start(request.Application, request.All, request.Name, request.Description, claims.Login)
+}
+
+// backupTaskStatus returns the authenticated caller's pollable task snapshot.
+func (runtime *Runtime) backupTaskStatus(_ context.Context, envelope messaging.Envelope) (any, error) {
+	request, err := decodeRequest[contract.BackupTaskRequest](runtime, envelope)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.tasks.Status(strings.ToLower(request.TaskID))
 }
 
 // backupAll visits configured applications one by one and reports every outcome.
@@ -356,50 +462,7 @@ func (runtime *Runtime) backupAll(_ context.Context, envelope messaging.Envelope
 	sort.Strings(names)
 	response := contract.BackupAllResponse{Results: make([]contract.BackupAllResult, 0, len(names))}
 	for _, name := range names {
-		spec := runtime.specs[name]
-		result := contract.BackupAllResult{Application: name}
-		present := false
-		if spec.Plugin == "ufw" {
-			present = true
-			for _, path := range []string{"/usr/sbin/ufw", "/etc/ufw/ufw.conf", "/etc/default/ufw"} {
-				if _, err := os.Stat(path); os.IsNotExist(err) {
-					present = false
-					break
-				}
-			}
-		}
-		if spec.Plugin == "tailscale" {
-			present = tailscaleInstalled()
-		}
-		if spec.Plugin == "cloudflared" {
-			present = cloudflaredInstalled()
-			if _, err := os.Stat(spec.ConfigPath); os.IsNotExist(err) {
-				present = false
-			}
-		}
-		if spec.Plugin == "file" || spec.Plugin == "" {
-			for _, selection := range spec.Selections {
-				_, err := os.Lstat(selection.Path)
-				if err == nil || !os.IsNotExist(err) {
-					present = true
-					break
-				}
-			}
-		}
-		if !present {
-			result.Status = "skipped"
-			response.Results = append(response.Results, result)
-			continue
-		}
-		version, err := runtime.store.BackupWithMetadata(spec, request.Name, request.Description, claims.Login)
-		if err != nil {
-			result.Status = "failed"
-			result.Error = err.Error()
-		} else {
-			result.Status = "completed"
-			result.Version = version
-		}
-		response.Results = append(response.Results, result)
+		response.Results = append(response.Results, runtime.backupOne(runtime.specs[name], request.Name, request.Description, claims.Login))
 	}
 	return response, nil
 }

@@ -61,6 +61,11 @@ assert_file() {
 	test -f "$package_root/$path"
 }
 
+assert_file_absent() {
+	local path="$1"
+	test ! -e "$package_root/$path"
+}
+
 assert_file_contains() {
 	local path="$1"
 	local expected_line="$2"
@@ -267,8 +272,8 @@ assert_cmd "package trust backup spec packaged" assert_file "$packaged_config_ro
 assert_cmd "Netplan backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/netplan.conf"
 assert_cmd "USBGuard backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/usbguard.conf"
 assert_cmd "UFW rule backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/ufw-rules.conf"
-assert_cmd "Cloudflare tunnel backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/cloudflared.conf"
-assert_cmd "Tailscale preference backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/tailscale.conf"
+assert_cmd "Cloudflare tunnel file backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/cloudflared.conf"
+assert_cmd "deprecated Tailscale preference backup spec absent" assert_file_absent "$packaged_config_root/lite-nas/backup.d/tailscale.conf"
 assert_cmd "auth.conf packaged" assert_file "$packaged_config_root/lite-nas/auth.conf"
 assert_cmd "rbac-service.conf packaged" assert_file "$packaged_config_root/lite-nas/rbac-service.conf"
 assert_cmd "system-logging-manager.conf packaged" assert_file "$packaged_config_root/lite-nas/system-logging-manager.conf"

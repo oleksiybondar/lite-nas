@@ -3,21 +3,18 @@ import { MergeDiffViewer } from "@components/backup-restore/MergeDiffViewer";
 import { useBackupRestore } from "@hooks/useBackupRestore";
 import { ConfirmActionDialog, StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
-import BackupIcon from "@mui/icons-material/Backup";
-import ListAltIcon from "@mui/icons-material/ListAlt";
+import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import RestoreIcon from "@mui/icons-material/Restore";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CardActionArea from "@mui/material/CardActionArea";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { BackupApplicationCard } from "@pages/BackupApplicationCard";
 import { restoreModeSchema } from "@schemas/backup-restore";
 import type { ReactElement } from "react";
 import { useState } from "react";
@@ -29,10 +26,20 @@ import { Navigate } from "react-router-dom";
 export const BackupRestorePageContent = (): ReactElement => {
   const { getLabel } = useLanguage();
   const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteConfirmationOpen, setBulkDeleteConfirmationOpen] = useState(false);
+  const [bulkDeleteName, setBulkDeleteName] = useState("");
+  const [expandedSnapshotApplications, setExpandedSnapshotApplications] = useState<Set<string>>(
+    () => new Set(),
+  );
   const {
     allowed,
     applications,
+    visibleApplications,
     versionCounts,
+    snapshotsByApplication,
+    availableBackupNames,
+    availableRestoreTargets,
     countsLoading,
     setBackupDetails,
     setSearch,
@@ -61,6 +68,7 @@ export const BackupRestorePageContent = (): ReactElement => {
     contents,
     setContents,
     busy,
+    backupProgress,
     error,
     message,
     openCreate,
@@ -75,12 +83,10 @@ export const BackupRestorePageContent = (): ReactElement => {
     openNamedRestore,
     restoreByName,
     deleteBackup,
+    deleteBackupsByName,
     finishMerge,
     refresh,
   } = useBackupRestore();
-  const visibleApplications = applications.filter((app) =>
-    app.toLocaleLowerCase().includes(applicationSearch.toLocaleLowerCase()),
-  );
   const openBackups = (app: string): void => {
     setApplication(app);
     setVersion("");
@@ -88,6 +94,12 @@ export const BackupRestorePageContent = (): ReactElement => {
     setBackupDetails([]);
     setSearch("");
     setBackupsOpen(true);
+  };
+  const openBulkDelete = (): void => {
+    setBulkDeleteName((previous) =>
+      availableBackupNames.includes(previous) ? previous : availableBackupNames[0] || "",
+    );
+    setBulkDeleteOpen(true);
   };
 
   if (!allowed) return <Navigate replace to="/" />;
@@ -102,7 +114,10 @@ export const BackupRestorePageContent = (): ReactElement => {
       {busy && (
         <Box aria-live="polite" data-testid="backup-operation-progress">
           <Typography>{getLabel("admin.backup.operationInProgress")}</Typography>
-          <LinearProgress />
+          <LinearProgress
+            variant={backupProgress === null ? "indeterminate" : "determinate"}
+            value={backupProgress ?? undefined}
+          />
         </Box>
       )}
       {error && (
@@ -146,6 +161,19 @@ export const BackupRestorePageContent = (): ReactElement => {
             </IconButton>
           </span>
         </Tooltip>
+        <Tooltip title={getLabel("admin.backup.bulkDeleteByName")}>
+          <span>
+            <IconButton
+              data-testid="backup-delete-all-by-name"
+              aria-label={getLabel("admin.backup.bulkDeleteByName")}
+              disabled={busy || !!session || availableBackupNames.length === 0}
+              onClick={openBulkDelete}
+              color="error"
+            >
+              <DeleteSweepIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
         <Tooltip title={getLabel("admin.backup.restoreAllByName")}>
           <span>
             <IconButton
@@ -168,74 +196,28 @@ export const BackupRestorePageContent = (): ReactElement => {
       )}
       <Stack spacing={1}>
         {visibleApplications.map((app) => (
-          <Paper
+          <BackupApplicationCard
             key={app}
-            variant="outlined"
-            sx={{ p: 2 }}
-            data-test-class="backup-application-card"
-            data-test-name={app}
-          >
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <CardActionArea
-                data-testid={`backup-open-${app}`}
-                onClick={() => openBackups(app)}
-                sx={{ flex: 1, borderRadius: 1, px: 1, py: 0.5 }}
-              >
-                <Stack direction="row" alignItems="baseline" flexWrap="wrap" columnGap={1}>
-                  <Typography variant="body1" fontWeight={600} color="primary.main">
-                    {app}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {countsLoading
-                      ? getLabel("admin.backup.countLoading")
-                      : getLabel("admin.backup.backupCount").replace(
-                          "{count}",
-                          String(versionCounts[app] ?? 0),
-                        )}
-                  </Typography>
-                </Stack>
-              </CardActionArea>
-              <Stack direction="row" spacing={0.5}>
-                <Tooltip title={getLabel("admin.backup.create")}>
-                  <span>
-                    <IconButton
-                      data-testid={`backup-create-${app}`}
-                      aria-label={getLabel("admin.backup.create")}
-                      disabled={busy || !!session}
-                      onClick={() => openCreate(app)}
-                      color="primary"
-                    >
-                      <BackupIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title={getLabel("admin.backup.showBackups")}>
-                  <span>
-                    <IconButton
-                      data-testid={`backup-show-${app}`}
-                      aria-label={getLabel("admin.backup.showBackups")}
-                      disabled={busy}
-                      onClick={() => openBackups(app)}
-                    >
-                      <ListAltIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title={getLabel("admin.backup.restoreByName")}>
-                  <span>
-                    <IconButton
-                      data-testid={`backup-restore-by-name-${app}`}
-                      aria-label={getLabel("admin.backup.restoreByName")}
-                      disabled={busy || !!session}
-                      onClick={() => openNamedRestore(app)}
-                    >
-                      <RestoreIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-              </Stack>
-            </Stack>
-          </Paper>
+            application={app}
+            snapshots={snapshotsByApplication[app] ?? []}
+            expanded={expandedSnapshotApplications.has(app)}
+            count={versionCounts[app] ?? 0}
+            countsLoading={countsLoading}
+            busy={busy}
+            sessionActive={session !== null}
+            getLabel={getLabel}
+            onOpen={() => openBackups(app)}
+            onCreate={() => openCreate(app)}
+            onRestore={() => openNamedRestore(app)}
+            onToggle={() =>
+              setExpandedSnapshotApplications((previous) => {
+                const next = new Set(previous);
+                if (next.has(app)) next.delete(app);
+                else next.add(app);
+                return next;
+              })
+            }
+          />
         ))}
       </Stack>
       <BackupVersionsDialog />
@@ -258,14 +240,32 @@ export const BackupRestorePageContent = (): ReactElement => {
               ? getLabel("admin.backup.restoreAllByNameHint")
               : namedRestoreTarget}
           </Typography>
-          <TextField
-            data-testid="backup-restore-name"
-            label={getLabel("admin.backup.name")}
-            value={namedRestoreName}
-            onChange={(event) => setNamedRestoreName(event.target.value)}
-            inputProps={{ maxLength: 128 }}
-            fullWidth
-          />
+          {namedRestoreTarget === "all" ? (
+            <TextField
+              select
+              data-testid="backup-restore-name"
+              label={getLabel("admin.backup.name")}
+              value={namedRestoreName}
+              onChange={(event) => setNamedRestoreName(event.target.value)}
+              disabled={busy || availableRestoreTargets.length === 0}
+              fullWidth
+            >
+              {availableRestoreTargets.map((restoreTarget) => (
+                <MenuItem key={restoreTarget} value={restoreTarget}>
+                  {restoreTarget}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : (
+            <TextField
+              data-testid="backup-restore-name"
+              label={getLabel("admin.backup.name")}
+              value={namedRestoreName}
+              onChange={(event) => setNamedRestoreName(event.target.value)}
+              inputProps={{ maxLength: 128 }}
+              fullWidth
+            />
+          )}
           <TextField
             select
             data-testid="backup-named-restore-mode"
@@ -286,6 +286,56 @@ export const BackupRestorePageContent = (): ReactElement => {
           </Button>
         </Stack>
       </StandardDialog>
+      <StandardDialog
+        open={bulkDeleteOpen}
+        fullWidth
+        maxWidth="sm"
+        title={getLabel("admin.backup.bulkDeleteByName")}
+        closeLabel={getLabel("dialogs.close")}
+        closeDisabled={busy}
+        onClose={() => !busy && setBulkDeleteOpen(false)}
+      >
+        <Stack spacing={2}>
+          <Typography>{getLabel("admin.backup.bulkDeleteHint")}</Typography>
+          <TextField
+            select
+            data-testid="backup-delete-name"
+            label={getLabel("admin.backup.name")}
+            value={bulkDeleteName}
+            onChange={(event) => setBulkDeleteName(event.target.value)}
+            disabled={busy || availableBackupNames.length === 0}
+          >
+            {availableBackupNames.map((backupName) => (
+              <MenuItem key={backupName} value={backupName}>
+                {backupName}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button
+            data-testid="backup-delete-name-continue"
+            variant="contained"
+            color="error"
+            disabled={busy || !bulkDeleteName}
+            onClick={() => setBulkDeleteConfirmationOpen(true)}
+          >
+            {getLabel("admin.backup.bulkDeleteAction")}
+          </Button>
+        </Stack>
+      </StandardDialog>
+      <ConfirmActionDialog
+        open={bulkDeleteConfirmationOpen}
+        title={getLabel("admin.backup.bulkDeleteAction")}
+        description={getLabel("admin.backup.bulkDeleteConfirm").replace("{name}", bulkDeleteName)}
+        confirmLabel={getLabel("admin.backup.bulkDeleteAction")}
+        onClose={() => setBulkDeleteConfirmationOpen(false)}
+        onConfirm={async () => {
+          if (!bulkDeleteName) return;
+          await deleteBackupsByName(bulkDeleteName);
+          setBulkDeleteConfirmationOpen(false);
+          setBulkDeleteOpen(false);
+          setBulkDeleteName("");
+        }}
+      />
       <ConfirmActionDialog
         open={pendingRestore !== null}
         title={getLabel("admin.backup.restore")}

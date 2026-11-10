@@ -91,7 +91,7 @@ func (d *dispatchWorker) run(_ context.Context) {
 				observation := plugins.Observation{
 					RuleID: rule.spec.ID, Category: rule.spec.Category,
 					PossibleReactions: rule.spec.PossibleReactions,
-					Severity:          rule.spec.Severity, Email: rule.spec.EmailOnCritical, Lockdown: rule.spec.Lockdown, Kind: kind,
+					Severity:          rule.spec.Severity, Email: rule.spec.shouldEmail(), Lockdown: rule.spec.Lockdown, Kind: kind,
 					Account: record.Account, SourceAddress: record.SourceAddress, TTY: record.TTY,
 					Service: record.Service, Device: record.Device, At: record.At,
 				}

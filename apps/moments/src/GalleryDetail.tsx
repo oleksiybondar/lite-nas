@@ -29,7 +29,7 @@ import {
   listReferences,
   scanUploadedMedia,
 } from "./moments-data";
-import { type GalleryRecord, galleryLocationNames } from "./schemas";
+import { defaultImageUiCooldownMs, type GalleryRecord, galleryLocationNames } from "./schemas";
 
 /** Creates the member folder or confirms that an earlier upload already created it. */
 async function ensureUploadDirectory(path: string): Promise<void> {
@@ -47,12 +47,14 @@ export function GalleryDetail({
   selected,
   userId,
   maxConcurrent,
+  imageUiCooldownMs = defaultImageUiCooldownMs,
   workingDir,
   onBack,
 }: {
   selected: GalleryRecord;
   userId: string;
   maxConcurrent: number;
+  imageUiCooldownMs?: number;
   workingDir: string;
   onBack: () => void;
 }): ReactElement {
@@ -246,6 +248,7 @@ export function GalleryDetail({
           layout={gallery.wallRenderStrategy}
           collectionActions={actions}
           maxConcurrent={maxConcurrent}
+          imageUiCooldownMs={imageUiCooldownMs}
         />
       )}
       {owned && (

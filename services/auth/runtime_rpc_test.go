@@ -215,7 +215,7 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	runtimeDeps := authRuntimeFixture(t, pamauth.Result{})
-	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil, "")
+	accessToken, issued := issueAccessToken(runtimeDeps, "testuser", "testuser", nil, "", "moments")
 	if !issued {
 		t.Fatal("issueAccessToken() failed")
 	}
@@ -232,6 +232,49 @@ func TestHandleValidateAccessTokenRPCReturnsAuthenticated(t *testing.T) {
 	}
 	if response.Username != "testuser" {
 		t.Fatalf("Username = %q, want testuser", response.Username)
+	}
+	if response.Application != "moments" {
+		t.Fatalf("Application = %q, want moments", response.Application)
+	}
+}
+
+// TestHandleRefreshPreservesApplicationClaim keeps the session app identity across rotation.
+func TestHandleRefreshPreservesApplicationClaim(t *testing.T) {
+	runtimeDeps, loginResponse := loginRPCFixture(t)
+	refreshed, err := handleRefreshRPC(runtimeDeps, rpcEnvelope(t, authcontract.RefreshRequest{
+		RefreshToken: loginResponse.RefreshToken,
+		UserAgent:    "lite-nas-test",
+	}))
+	if err != nil {
+		t.Fatalf("handleRefreshRPC() error = %v", err)
+	}
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(refreshed.AccessToken)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if claims.Application != "admin-panel" {
+		t.Fatalf("refreshed application = %q, want admin-panel", claims.Application)
+	}
+}
+
+// TestHandleLoginSignsRequestedApplication includes the server-selected app in its access token.
+func TestHandleLoginSignsRequestedApplication(t *testing.T) {
+	runtimeDeps := authRuntimeFixture(t, pamauth.Result{Code: pamauth.OutcomeAuthenticated, Username: "testuser"})
+	response, err := handleLoginRPC(runtimeDeps, rpcEnvelope(t, authcontract.LoginRequest{
+		Username: "testuser", Password: "testpassword", UserAgent: "lite-nas-test", Source: "moments",
+	}))
+	if err != nil {
+		t.Fatalf("handleLoginRPC() error = %v", err)
+	}
+	if response.AccessToken == "" {
+		t.Fatalf("login response = %#v, want an access token", response)
+	}
+	claims, err := runtimeDeps.Tokens.Verifier.Verify(response.AccessToken)
+	if err != nil {
+		t.Fatalf("Verify() error = %v", err)
+	}
+	if claims.Application != "moments" {
+		t.Fatalf("application claim = %q, want moments", claims.Application)
 	}
 }
 

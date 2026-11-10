@@ -51,7 +51,7 @@ func (c BackupRestoreController) BackedUp(ctx context.Context, _ *brdto.EmptyInp
 	return brdto.NewOutput(v), nil
 }
 
-func (c BackupRestoreController) Versions(ctx context.Context, i *brdto.ApplicationInput) (*brdto.Output[[]string], error) {
+func (c BackupRestoreController) Versions(ctx context.Context, i *brdto.ApplicationInput) (*brdto.Output[contract.VersionsResponse], error) {
 	t, e := c.token(ctx)
 	if e != nil {
 		return nil, e
@@ -88,6 +88,19 @@ func (c BackupRestoreController) Delete(ctx context.Context, i *brdto.VersionInp
 	return brdto.NewOutput(contract.DeleteResponse{Deleted: true}), nil
 }
 
+// DeleteAllByName removes all exact-name snapshots and returns every per-snapshot outcome.
+func (c BackupRestoreController) DeleteAllByName(ctx context.Context, i *brdto.DeleteAllByNameInput) (*brdto.Output[contract.DeleteAllByNameResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.DeleteAllByName(ctx, t, i.Name)
+	if e != nil {
+		return nil, huma.Error502BadGateway("failed to delete named backups")
+	}
+	return brdto.NewOutput(v), nil
+}
+
 func (c BackupRestoreController) Backup(ctx context.Context, i *brdto.BackupInput) (*brdto.Output[map[string]string], error) {
 	t, e := c.token(ctx)
 	if e != nil {
@@ -108,6 +121,45 @@ func (c BackupRestoreController) BackupAll(ctx context.Context, i *brdto.BackupA
 	v, e := c.service.BackupAll(ctx, t, i.Body.Name, i.Body.Description)
 	if e != nil {
 		return nil, huma.Error502BadGateway("failed to create backups")
+	}
+	return brdto.NewOutput(v), nil
+}
+
+// StartBackupTask accepts a background backup request and returns its polling ID.
+func (c BackupRestoreController) StartBackupTask(ctx context.Context, i *brdto.BackupTaskInput) (*brdto.Output[contract.BackupTaskStartResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.StartBackupTask(ctx, t, i.Application, false, i.Body.Name, i.Body.Description)
+	if e != nil {
+		return nil, huma.Error502BadGateway("failed to queue backup")
+	}
+	return brdto.NewOutput(v), nil
+}
+
+// StartBackupAllTask queues the configured applications as one pollable task.
+func (c BackupRestoreController) StartBackupAllTask(ctx context.Context, i *brdto.BackupTaskAllInput) (*brdto.Output[contract.BackupTaskStartResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.StartBackupTask(ctx, t, "", true, i.Body.Name, i.Body.Description)
+	if e != nil {
+		return nil, huma.Error502BadGateway("failed to queue backups")
+	}
+	return brdto.NewOutput(v), nil
+}
+
+// BackupTaskStatus returns the latest persisted progress for a background task.
+func (c BackupRestoreController) BackupTaskStatus(ctx context.Context, i *brdto.BackupTaskStatusInput) (*brdto.Output[contract.BackupTaskStatusResponse], error) {
+	t, e := c.token(ctx)
+	if e != nil {
+		return nil, e
+	}
+	v, e := c.service.BackupTaskStatus(ctx, t, i.TaskID)
+	if e != nil {
+		return nil, huma.Error404NotFound("backup task not found")
 	}
 	return brdto.NewOutput(v), nil
 }

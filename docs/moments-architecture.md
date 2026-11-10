@@ -23,7 +23,8 @@ uploaded covers, and on-demand media rescans.
 - The Moments metadata API owns gallery identities, shares, collection
   references, scan-derived tags, pagination, and optional cover data. The
   [backend API guide](../services/moments/README.md) documents its contract.
-- Optional local BLIP and E5 workers generate captions and rank image search.
+- Optional local BLIP and Google EmbeddingGemma workers generate captions and
+  rank image search.
   The [local model guide](moments-models.md) covers their installation,
   authorization, restart behavior, and resource limits.
 

@@ -11,7 +11,7 @@ import (
 	sharedmodules "lite-nas/shared/modules"
 )
 
-const defaultAuthRefreshInterval = 24 * time.Hour
+const defaultAuthRefreshInterval = 5 * time.Minute
 
 // Infra groups runtime infrastructure dependencies for resources-monitor.
 type Infra struct {

@@ -245,7 +245,7 @@ func (s *fileService) createTransfer(writer http.ResponseWriter, request *http.R
 		writeError(writer, http.StatusConflict, "recursive_destination")
 		return
 	}
-	if err := s.auth.Read(request.Context(), subject, source); err != nil {
+	if err := s.authorizeRead(request.Context(), subject, source); err != nil {
 		decisionError(writer, err)
 		return
 	}
@@ -321,7 +321,7 @@ func (s *fileService) allowDestination(ctx context.Context, subject fileaccess.S
 	}
 	if err == nil {
 		if directory && info.IsDir() {
-			return s.auth.Read(ctx, subject, path)
+			return s.authorizeRead(ctx, subject, path)
 		}
 		if !directory && info.Mode().IsRegular() {
 			return s.auth.Operation(ctx, subject, path, rbaccontract.PathOperationReplace)
@@ -379,7 +379,7 @@ func (s *fileService) runOperation(ctx context.Context, job *operationJob, updat
 			if entry.IsDir() && !scope.AllowsDirectory(path) || entry.Type().IsRegular() && !scope.AllowsFile(path) {
 				return fileaccess.ErrDenied
 			}
-			if err := s.auth.Read(ctx, job.subject, path); err != nil {
+			if err := s.authorizeRead(ctx, job.subject, path); err != nil {
 				return err
 			}
 		}

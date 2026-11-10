@@ -5,12 +5,12 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import {
   beginLogin,
-  loadGalleryConcurrency,
+  loadGallerySettings,
   loadMe,
   loadMomentsConfig,
   logout,
   request,
-  saveGalleryConcurrency,
+  saveGallerySettings,
   saveSharedMode,
 } from "./api";
 import type { Me } from "./schemas";
@@ -19,7 +19,7 @@ import { renderWithLanguage as render } from "./test-utils/language";
 vi.mock("./api", () => ({
   sessionExpiredEvent: "lite-nas-moments-session-expired",
   loadMomentsConfig: vi.fn(),
-  loadGalleryConcurrency: vi.fn(),
+  loadGallerySettings: vi.fn(),
   loadMe: vi.fn(),
   beginLogin: vi.fn(),
   logout: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock("./api", () => ({
   replyPasswordChange: vi.fn(),
   request: vi.fn(),
   saveSharedMode: vi.fn(),
-  saveGalleryConcurrency: vi.fn(),
+  saveGallerySettings: vi.fn(),
 }));
 
 const me: Me = {
@@ -39,10 +39,13 @@ const me: Me = {
 };
 
 /** Gives the shell unavailable optional resources while keeping auth controlled. */
-function renderMomentsApp(concurrency = 10): void {
+function renderMomentsApp(concurrency = 10, imageUiCooldownMs = 100): void {
   vi.mocked(loadMomentsConfig).mockResolvedValue("/home/oleksiybondar");
-  vi.mocked(loadGalleryConcurrency).mockResolvedValue(concurrency);
-  vi.mocked(saveGalleryConcurrency).mockResolvedValue(undefined);
+  vi.mocked(loadGallerySettings).mockResolvedValue({
+    maxConcurrentImageLoads: concurrency,
+    imageUiCooldownMs,
+  });
+  vi.mocked(saveGallerySettings).mockResolvedValue(undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "fetch",
@@ -199,7 +202,12 @@ test("gallery settings save image concurrency to the user profile", async () => 
   fireEvent.change(screen.getByLabelText("Maximum concurrent gallery image loads"), {
     target: { value: "12" },
   });
-  await waitFor(() => expect(saveGalleryConcurrency).toHaveBeenCalledWith(12));
+  await waitFor(() =>
+    expect(saveGallerySettings).toHaveBeenCalledWith({
+      maxConcurrentImageLoads: 12,
+      imageUiCooldownMs: 100,
+    }),
+  );
 });
 
 test("gallery settings load the user's saved concurrency", async () => {
@@ -212,6 +220,48 @@ test("gallery settings load the user's saved concurrency", async () => {
       "value",
       "12",
     ),
+  );
+});
+
+test("gallery settings use the default cooldown when a profile has no saved value", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp(12);
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+  await waitFor(() =>
+    expect(screen.getByLabelText("Gallery image update cooldown (ms)")).toHaveProperty(
+      "value",
+      "100",
+    ),
+  );
+});
+
+test("gallery settings load the user's saved image UI cooldown", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp(12, 175);
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+  await waitFor(() =>
+    expect(screen.getByLabelText("Gallery image update cooldown (ms)")).toHaveProperty(
+      "value",
+      "175",
+    ),
+  );
+});
+
+test("gallery settings save the image UI cooldown with the current concurrency", async () => {
+  vi.mocked(loadMe).mockResolvedValue(me);
+  renderMomentsApp(12, 100);
+  await chooseUserAction("user-menu-application-settings-link");
+  fireEvent.click(screen.getByRole("tab", { name: "Gallery" }));
+  fireEvent.change(screen.getByLabelText("Gallery image update cooldown (ms)"), {
+    target: { value: "150" },
+  });
+  await waitFor(() =>
+    expect(saveGallerySettings).toHaveBeenCalledWith({
+      maxConcurrentImageLoads: 12,
+      imageUiCooldownMs: 150,
+    }),
   );
 });
 

@@ -1,21 +1,27 @@
 # Moments local models
 
 Moments uses two optional local models. BLIP generates captions for still images;
-multilingual E5 ranks photo search results from text already attached to those
-images. Both run on demand in separate Python processes. Missing dependencies or
-weights do not prevent Moments from serving galleries.
+Google EmbeddingGemma ranks photo search results from text already attached to
+those images. Both run on demand in separate Python processes. Missing
+dependencies or weights do not prevent Moments from serving galleries.
 
 | Model                                               | Used when                                       | Input                                                | Saved result                                          |
 | --------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------- |
 | BLIP base (`Salesforce/blip-image-captioning-base`) | An owner starts a caption scan                  | One authorized still image at a time                 | A caption keyed by source path                        |
-| E5 small (`intfloat/multilingual-e5-small`)         | A visible gallery search needs semantic ranking | Search text, captions, source tags, and person names | A 384-value vector keyed by source path and text hash |
+| EmbeddingGemma 300M Q4 (`google/embeddinggemma-300m`) | A visible gallery search needs semantic ranking | Search text, captions, source tags, and person names | A 768-value vector keyed by source path and text hash |
 
 ## Installation and offline use
 
 The local Moments deployment attempts to prepare both Python environments and
 download pinned, checksum-checked model files. The BLIP files are installed at
-`/usr/local/lib/lite-nas/moments/blip-model`; E5 files are installed at
-`/usr/local/lib/lite-nas/moments/e5-model`. The Python environments are separate
+`/usr/local/lib/lite-nas/moments/blip-model`; EmbeddingGemma's Q4 ONNX model and
+tokenizer are installed at
+`/usr/local/lib/lite-nas/moments/embeddinggemma-model`. The ONNX export is
+published by ONNX Community from [Google DeepMind's EmbeddingGemma
+weights](https://huggingface.co/google/embeddinggemma-300m). It is quantized for
+CPU inference and occupies about 220 MB with its tokenizer. The model is
+provided under [Google's Gemma terms](https://ai.google.dev/gemma/terms). The
+Python environments are separate
 `caption-venv` and `embedding-venv` directories under the same parent. Model
 files are owned by root and readable by the Moments service group. A later
 deployment reuses verified files. BLIP can also relocate an older verified copy
@@ -26,7 +32,8 @@ The service sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`. Both workers
 load only local files at runtime and have no network access in their AppArmor
 child profiles. Downloads happen during model setup, not during a caption scan
 or search. Model installation is optional: without BLIP, caption jobs fail and
-existing captions remain; without E5, search continues with text matching.
+existing captions remain; without EmbeddingGemma, search continues with text
+matching.
 
 The configured worker scripts are in `/etc/lite-nas/moments.conf`:
 
@@ -76,21 +83,24 @@ time; the caption job deadline is seven days.
 
 ## Semantic search
 
-For multiword or non-Latin `q`, Moments tries E5 ranking of image matches. A
-single Latin word uses text matching first and tries semantic ranking only
+For multiword or non-Latin `q`, Moments tries EmbeddingGemma ranking of image
+matches. A single Latin word uses text matching first and tries semantic ranking only
 when text matching finds no photos. Gallery result ordering and pagination
 remain lexical. The worker receives bounded text, never original image bytes,
 paths, tokens, or database handles. It processes up to 10,000 visible image
 candidates in batches of 16 and has a 60-second request deadline. Moments
 stores vectors for the model revision and the hash of the source text, so
 unchanged text reuses its vector. Search falls back to text matching if the
-model is unavailable, busy, or fails.
+model is unavailable, busy, or fails. Query text uses `task: search result |
+query:` and image text uses `title: none | text:`, as required by the model's
+retrieval prompts.
 
 ## Resource and storage limits
 
 The systemd unit limits the combined Go service and model worker to
 `MemoryHigh=2500M`, `MemoryMax=3200M`, `MemorySwapMax=0`, and `CPUQuota=200%`.
-The model workers share one lock, preventing BLIP and E5 from loading together.
+The model workers share one lock, preventing BLIP and EmbeddingGemma from
+loading together.
 Moments already has a private, size-limited 64 MiB tmpfs at `/tmp`. Model
 weights are read from protected storage, and image bytes pass through memory
 and a pipe; neither is staged in `/tmp`. SQLite stores derived captions,
@@ -104,7 +114,7 @@ journalctl -u lite-nas-moments -b
 ```
 
 An unavailable BLIP worker produces a failed caption job while existing
-captions remain. A rejected or expired grant fails the job. E5 failures leave
-normal text search available. Device-level memory peaks and SQLite write
+captions remain. A rejected or expired grant fails the job. EmbeddingGemma
+failures leave normal text search available. Device-level memory peaks and SQLite write
 volume should be measured with a real caption job; unit tests do not establish
 those hardware limits.

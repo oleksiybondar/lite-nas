@@ -13,16 +13,19 @@ export const Gallery = ({
   layout,
   collectionActions,
   maxConcurrent,
+  imageUiCooldownMs,
 }: {
   items: readonly GalleryItem[];
   layout: GalleryLayoutMode;
   collectionActions?: GalleryState["collectionActions"];
   maxConcurrent?: number;
+  imageUiCooldownMs?: number;
 }): ReactElement => (
   <GalleryProvider
     items={items}
     collectionActions={collectionActions}
     maxConcurrent={maxConcurrent}
+    imageUiCooldownMs={imageUiCooldownMs}
   >
     <WallProvider layout={layout}>
       <CarouselProvider>
