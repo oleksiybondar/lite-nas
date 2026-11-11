@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 	"lite-nas/shared/workers"
 )
 

@@ -239,7 +239,7 @@ test("image results use their own pagination offset", async () => {
     ),
   );
   vi.stubGlobal("fetch", fetchMock);
-  await listGalleries(1, undefined, { q: "dog" }, 50);
+  await listGalleries(1, undefined, { q: "dog" }, { mediaOffset: 50 });
   expect(fetchMock.mock.calls[0][0]).toBe("/api/galleries?page=1&size=20&mediaOffset=50&q=dog");
 });
 

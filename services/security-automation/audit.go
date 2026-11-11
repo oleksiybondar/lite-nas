@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	contract "lite-nas/shared/contracts/securityautomation"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"

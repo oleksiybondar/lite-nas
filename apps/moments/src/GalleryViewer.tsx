@@ -24,7 +24,7 @@ import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { KeyboardEvent, ReactElement } from "react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useCarousel } from "./CarouselContext";
 import { useGallery, useGalleryMediaUi } from "./GalleryContext";
 import type { PhotoMetadata } from "./GalleryExif";
@@ -74,6 +74,7 @@ export const GalleryViewer = (): ReactElement => {
     .map((item, index) => ({ item, index }))
     .filter(({ item, index }) => {
       if (selected === null || Math.abs(index - selected) > previewOffset) return false;
+      if (index === selected) return true;
       if (item.kind === "image")
         return (
           (mediaUi.items[item.id]?.url === item.url && mediaUi.items[item.id].status === "ready") ||
@@ -124,16 +125,25 @@ export const GalleryViewer = (): ReactElement => {
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
   // Center the active thumbnail in the strip without scrolling the whole dialog.
-  useEffect(() => {
-    if (fullscreen) return;
+  const previewItemCount = previewItems.length;
+  useLayoutEffect(() => {
+    if (fullscreen || selected === null || previewItemCount === 0 || selected >= previewItemCount)
+      return;
     const strip = previewStripRef.current;
     const preview = selectedPreviewRef.current;
     if (!strip || !preview) return;
+    const stripRect = strip.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
     strip.scrollTo({
-      left: preview.offsetLeft + preview.offsetWidth / 2 - strip.clientWidth / 2,
-      behavior: "smooth",
+      left:
+        strip.scrollLeft +
+        previewRect.left -
+        stripRect.left +
+        previewRect.width / 2 -
+        stripRect.width / 2,
+      behavior: "auto",
     });
-  }, [fullscreen]);
+  }, [fullscreen, selected, previewItemCount]);
   useEffect(
     () => () => {
       if (controlsTimerRef.current !== null) clearTimeout(controlsTimerRef.current);
@@ -450,11 +460,15 @@ export const GalleryViewer = (): ReactElement => {
                   direction="row"
                   gap={1}
                   sx={{
-                    flex: "0 1 auto",
+                    flex: "1 1 0%",
                     minWidth: 0,
                     maxWidth: "calc(100% - 112px)",
                     overflowX: "auto",
                     mx: "auto",
+                    "&::before, &::after": {
+                      content: '""',
+                      flex: "0 0 calc(50% - 38px)",
+                    },
                   }}
                 >
                   {previewItems.map(({ item, index }) => (
@@ -480,7 +494,7 @@ export const GalleryViewer = (): ReactElement => {
                         color: "white",
                       }}
                     >
-                      {item.kind === "image" ? (
+                      {item.kind === "image" && queue.status(item.url) === "ready" ? (
                         <Box
                           component="img"
                           src={stream.image(item.url) ?? undefined}

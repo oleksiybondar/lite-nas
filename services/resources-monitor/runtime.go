@@ -6,12 +6,15 @@ import (
 	"errors"
 	"time"
 
+	validation "github.com/go-playground/validator/v10"
+
 	servicemodules "lite-nas/services/resources-monitor/modules"
 	"lite-nas/services/resources-monitor/processor"
 	servicerules "lite-nas/services/resources-monitor/rules"
 	sharedcontracts "lite-nas/shared/contracts"
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	sensorcontract "lite-nas/shared/contracts/sensormonitor"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 	"lite-nas/shared/eventmanager"
@@ -79,8 +82,18 @@ func runWithDependencies(
 	workers.NewBaseWorker(func(workerCtx context.Context) {
 		defer close(processorDone)
 		defer close(effects)
-		for event := range incoming {
-			eventProcessor.ProcessSnapshot(workerCtx, event.subject, event.payload)
+		cooldownTicker := time.NewTicker(time.Second)
+		defer cooldownTicker.Stop()
+		for {
+			select {
+			case event, ok := <-incoming:
+				if !ok {
+					return
+				}
+				eventProcessor.ProcessSnapshot(workerCtx, event.subject, event.payload)
+			case <-cooldownTicker.C:
+				eventProcessor.ProcessCooldowns(workerCtx)
+			}
 		}
 	}).Start(ctx)
 
@@ -132,7 +145,17 @@ func handleAuthRefreshTick(ctx context.Context, infra servicemodules.Infra) {
 
 // registerSubscriptions wires subject handlers required by resources-monitor.
 func registerSubscriptions(server messaging.Server, input chan<- snapshotInput, serviceCtx context.Context) error {
+	validate := validation.New(validation.WithRequiredStructEnabled())
 	handler := func(ctx context.Context, envelope messaging.Envelope) error {
+		if envelope.Subject == sensorcontract.SnapshotEventSubject {
+			var event sensorcontract.SnapshotUpdatedEvent
+			if err := json.Unmarshal(envelope.Payload, &event); err != nil {
+				return err
+			}
+			if err := validate.Struct(event); err != nil {
+				return err
+			}
+		}
 		var payload map[string]any
 		if err := json.Unmarshal(envelope.Payload, &payload); err != nil {
 			return err
@@ -155,6 +178,9 @@ func registerSubscriptions(server messaging.Server, input chan<- snapshotInput, 
 	}
 
 	if err := server.Subscribe(diskmetricscontract.SnapshotEventSubject, handler); err != nil {
+		return err
+	}
+	if err := server.Subscribe(sensorcontract.SnapshotEventSubject, handler); err != nil {
 		return err
 	}
 

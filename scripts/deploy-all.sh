@@ -19,6 +19,8 @@ source "$ENTRYPOINT_DIR/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/network-metrics.sh"
 # shellcheck disable=SC1091
+source "$ENTRYPOINT_DIR/deploy/sensor-monitor.sh"
+# shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/process-metrics.sh"
 # shellcheck disable=SC1091
 source "$ENTRYPOINT_DIR/deploy/backup-restore.sh"
@@ -70,6 +72,7 @@ security_logging_manager_binary=""
 system_email_notifier_binary=""
 security_email_notifier_binary=""
 network_metrics_binary=""
+sensor_monitor_binary=""
 process_metrics_binary=""
 backup_restore_binary=""
 disk_metrics_binary=""
@@ -102,6 +105,7 @@ journal_manager_binary=""
 usb_manager_binary=""
 log_analysis_binary=""
 security_automation_binary=""
+operational_safety_automation_binary=""
 should_bootstrap=1
 manage_nats_config=1
 should_start=1
@@ -122,6 +126,7 @@ Options:
   --security-email-notifier-binary PATH
                                   Install an existing security-email-notifier binary.
   --network-metrics-binary PATH   Install an existing network-metrics binary.
+  --sensor-monitor-binary PATH    Install an existing sensor-monitor binary.
   --process-metrics-binary PATH   Install an existing process-metrics binary.
   --backup-restore-binary PATH    Install an existing backup-restore binary.
   --disk-metrics-binary PATH      Install an existing disk-metrics binary.
@@ -158,6 +163,7 @@ Options:
   --log-analysis-binary PATH Install an existing log-analysis binary.
   --network-security-binary PATH Install an existing network-security binary.
   --security-automation-binary PATH Install an existing security-automation binary.
+  --operational-safety-automation-binary PATH Install an existing operational-safety-automation binary.
   --security-automation-cli-binary PATH Install an existing security-automation CLI binary.
   --no-start                      Install files but do not enable or start services.
   --skip-bootstrap                Skip shared config, certificates, and NATS restart.
@@ -202,6 +208,15 @@ while [ "$#" -gt 0 ]; do
 			exit 2
 		fi
 		network_metrics_binary="$2"
+		shift 2
+		;;
+	--sensor-monitor-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --sensor-monitor-binary"
+			usage >&2
+			exit 2
+		fi
+		sensor_monitor_binary="$2"
 		shift 2
 		;;
 	--process-metrics-binary)
@@ -512,6 +527,15 @@ while [ "$#" -gt 0 ]; do
 		security_automation_binary="$2"
 		shift 2
 		;;
+	--operational-safety-automation-binary)
+		if [ -z "${2:-}" ]; then
+			log.error "Missing value for --operational-safety-automation-binary"
+			usage >&2
+			exit 2
+		fi
+		operational_safety_automation_binary="$2"
+		shift 2
+		;;
 	--security-automation-cli-binary)
 		if [ -z "${2:-}" ]; then
 			log.error "Missing value for --security-automation-cli-binary"
@@ -554,6 +578,7 @@ deploy.securityLoggingManager.requireTools
 deploy.systemEmailNotifier.requireTools
 deploy.securityEmailNotifier.requireTools
 deploy.networkMetrics.requireTools
+deploy.sensorMonitor.requireTools
 deploy.diskMetrics.requireTools
 deploy.serviceMetrics.requireTools
 deploy.systemMetrics.requireTools
@@ -572,7 +597,7 @@ deploy.securityMonitor.requireTools
 deploy.hostManager.requireTools
 
 tmp_dir=""
-if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ] || [ -z "$backup_restore_binary" ]; then
+if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$system_logging_manager_binary" ] || [ -z "$security_logging_manager_binary" ] || [ -z "$network_metrics_binary" ] || [ -z "$sensor_monitor_binary" ] || [ -z "$disk_metrics_binary" ] || [ -z "$service_metrics_binary" ] || [ -z "$system_metrics_binary" ] || [ -z "$zfs_metrics_binary" ] || [ -z "$system_logging_manager_cli_binary" ] || [ -z "$security_logging_manager_cli_binary" ] || [ -z "$system_metrics_cli_binary" ] || [ -z "$network_metrics_cli_binary" ] || [ -z "$zfs_metrics_cli_binary" ] || [ -z "$file_writer_binary" ] || [ -z "$file_service_binary" ] || [ -z "$stream_service_binary" ] || [ -z "$web_gateway_binary" ] || [ -z "$moments_binary" ] || [ -z "$moments_assets" ] || [ -z "$admin_panel_assets" ] || [ -z "$file_explorer_assets" ] || [ -z "$resources_monitor_binary" ] || [ -z "$litenas_integrity_binary" ] || [ -z "$backup_restore_binary" ]; then
 	tmp_dir="$(mktemp -d)"
 	trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -615,6 +640,11 @@ if [ -z "$auth_service_binary" ] || [ -z "$rbac_service_binary" ] || [ -z "$syst
 		build_args=("--output=$tmp_dir/network-metrics")
 		"$ENTRYPOINT_DIR/build-network-metrics-binary.sh" "${build_args[@]}"
 		network_metrics_binary="$tmp_dir/network-metrics"
+	fi
+	if [ -z "$sensor_monitor_binary" ]; then
+		build_args=("--output=$tmp_dir/sensor-monitor")
+		"$ENTRYPOINT_DIR/build-sensor-monitor-binary.sh" "${build_args[@]}"
+		sensor_monitor_binary="$tmp_dir/sensor-monitor"
 	fi
 
 	if [ -z "$process_metrics_binary" ]; then
@@ -782,6 +812,10 @@ if [ -z "$security_automation_binary" ]; then
 	"$ENTRYPOINT_DIR/build-security-automation-binary.sh" "--output=$tmp_dir/security-automation"
 	security_automation_binary="$tmp_dir/security-automation"
 fi
+if [ -z "$operational_safety_automation_binary" ]; then
+	"$ENTRYPOINT_DIR/build-operational-safety-automation-binary.sh" "--output=$tmp_dir/operational-safety-automation"
+	operational_safety_automation_binary="$tmp_dir/operational-safety-automation"
+fi
 if [ -z "$security_automation_cli_binary" ]; then
 	"$ENTRYPOINT_DIR/build-security-automation-cli-binary.sh" "--output=$tmp_dir/security-automation-cli"
 	security_automation_cli_binary="$tmp_dir/security-automation-cli"
@@ -845,6 +879,10 @@ log.popTask
 
 log.pushTask "Deploying network-metrics service"
 deploy.networkMetrics.deploy "$network_metrics_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying sensor-monitor service"
+deploy.sensorMonitor.deploy "$sensor_monitor_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying process-metrics service"
@@ -962,6 +1000,10 @@ log.popTask
 
 log.pushTask "Deploying security-automation service"
 deploy.securityMonitor.deploy "security-automation" "$security_automation_binary" "$should_start"
+log.popTask
+
+log.pushTask "Deploying operational-safety-automation service"
+deploy.securityMonitor.deploy "operational-safety-automation" "$operational_safety_automation_binary" "$should_start"
 log.popTask
 
 log.pushTask "Deploying security-automation CLI"

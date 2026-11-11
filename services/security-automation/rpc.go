@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -19,6 +20,8 @@ import (
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/roleauth"
 )
+
+var ruleStateEventIDTimestamp atomic.Int64
 
 // register binds every published operator subject to a validated service handler.
 func (runtime *automationRuntime) register(server messaging.Server) error {
@@ -215,7 +218,7 @@ func (runtime *automationRuntime) publishRuleStateAlert(ctx context.Context, req
 	createdAt := time.Now().UTC()
 	payload := loggingcontract.AlertPayload{
 		AccessToken: request.AccessToken,
-		EventID:     fmt.Sprintf("t%019d", createdAt.UnixNano()),
+		EventID:     nextRuleStateEventID(createdAt),
 		Category:    "automation_rule_state_change",
 		Severity:    enum.SeverityWarning,
 		CreatedAt:   createdAt.Format(time.RFC3339),
@@ -229,6 +232,21 @@ func (runtime *automationRuntime) publishRuleStateAlert(ctx context.Context, req
 		return err
 	}
 	return nil
+}
+
+// nextRuleStateEventID returns a timestamp-shaped ID that increases even when
+// concurrent calls observe the same clock tick.
+func nextRuleStateEventID(now time.Time) string {
+	nanoseconds := now.UnixNano()
+	for {
+		previous := ruleStateEventIDTimestamp.Load()
+		if nanoseconds <= previous {
+			nanoseconds = previous + 1
+		}
+		if ruleStateEventIDTimestamp.CompareAndSwap(previous, nanoseconds) {
+			return fmt.Sprintf("t%019d", nanoseconds)
+		}
+	}
 }
 
 // rollback queues restoration of one service-owned incident.

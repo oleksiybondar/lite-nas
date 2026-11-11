@@ -25,6 +25,8 @@ source "$PACKAGE_ROOT/scripts/deploy/security-email-notifier.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/network-metrics.sh"
 # shellcheck disable=SC1091
+source "$PACKAGE_ROOT/scripts/deploy/sensor-monitor.sh"
+# shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/process-metrics.sh"
 # shellcheck disable=SC1091
 source "$PACKAGE_ROOT/scripts/deploy/disk-metrics.sh"
@@ -96,6 +98,7 @@ deploy_runtime_files_without_start() {
 	deploy.systemEmailNotifier.deploy "$PACKAGE_ROOT/system-email-notifier" 0
 	deploy.securityEmailNotifier.deploy "$PACKAGE_ROOT/security-email-notifier" 0
 	deploy.networkMetrics.deploy "$PACKAGE_ROOT/network-metrics" 0
+	deploy.sensorMonitor.deploy "$PACKAGE_ROOT/sensor-monitor" 0
 	deploy.processMetrics.deploy "$PACKAGE_ROOT/process-metrics" 0
 	deploy.diskMetrics.deploy "$PACKAGE_ROOT/disk-metrics" 0
 	deploy.serviceMetrics.deploy "$PACKAGE_ROOT/service-metrics" 0
@@ -129,6 +132,7 @@ deploy_runtime_files_without_start() {
 	deploy.securityMonitor.deploy "log-analysis" "$PACKAGE_ROOT/log-analysis" 0
 	deploy.securityMonitor.deploy "network-security" "$PACKAGE_ROOT/network-security" 0
 	deploy.securityMonitor.deploy "security-automation" "$PACKAGE_ROOT/security-automation" 0
+	deploy.securityMonitor.deploy "operational-safety-automation" "$PACKAGE_ROOT/operational-safety-automation" 0
 }
 
 while [ "$#" -gt 0 ]; do
@@ -189,6 +193,7 @@ for tool in getent groupadd id useradd usermod install ln chmod realpath; do
 done
 deploy.systemMetricsCLI.requireTools
 deploy.networkMetricsCLI.requireTools
+deploy.sensorMonitor.requireTools
 deploy.zfsMetricsCLI.requireTools
 deploy.fileWriter.requireTools
 deploy.fileService.requireTools
@@ -243,6 +248,7 @@ deploy.securityLoggingManager.enableAndStart
 deploy.systemEmailNotifier.enableAndStart
 deploy.securityEmailNotifier.enableAndStart
 deploy.networkMetrics.enableAndStart
+deploy.sensorMonitor.enableAndStart
 deploy.processMetrics.enableAndStart
 deploy.diskMetrics.enableAndStart
 deploy.systemMetrics.enableAndStart
@@ -264,6 +270,7 @@ deploy.enableAndRefreshService "lite-nas-usb-manager.service"
 deploy.securityMonitor.refreshLogAnalysis
 deploy.enableAndRefreshService "lite-nas-network-security.service"
 deploy.enableAndRefreshService "lite-nas-security-automation.service"
+deploy.enableAndRefreshService "lite-nas-operational-safety-automation.service"
 deploy.enableAndRefreshService "lite-nas-service-watchdog.service"
 log.popTask
 

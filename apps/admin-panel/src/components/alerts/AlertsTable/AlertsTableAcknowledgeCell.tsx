@@ -1,4 +1,7 @@
-import { formatAcknowledgedByValue } from "@components/alerts/AlertsTable/helpers";
+import {
+  buildAlertsStickyColumnSx,
+  formatAcknowledgedByValue,
+} from "@components/alerts/AlertsTable/helpers";
 import { useAlerts } from "@hooks/useAlerts";
 import { useLanguage } from "@lite-nas/language";
 import Button from "@mui/material/Button";
@@ -31,7 +34,11 @@ export const AlertsTableAcknowledgeCell = ({
         data-test-class="alerts-table-cell"
         data-test-name="acknowledgement"
         data-test-tone="primary"
-        sx={{ color: "primary.main", fontWeight: 600 }}
+        sx={{
+          ...buildAlertsStickyColumnSx("acknowledgement"),
+          color: "primary.main",
+          fontWeight: 600,
+        }}
       >
         {formatAcknowledgedByValue(item.AcknowledgedBy)}
       </TableCell>
@@ -39,7 +46,11 @@ export const AlertsTableAcknowledgeCell = ({
   }
 
   return (
-    <TableCell data-test-class="alerts-table-cell" data-test-name="acknowledgement">
+    <TableCell
+      data-test-class="alerts-table-cell"
+      data-test-name="acknowledgement"
+      sx={buildAlertsStickyColumnSx("acknowledgement")}
+    >
       <Button
         data-testid={`alerts-acknowledge-button-${eventId}`}
         disabled={isAcknowledging || item === undefined}

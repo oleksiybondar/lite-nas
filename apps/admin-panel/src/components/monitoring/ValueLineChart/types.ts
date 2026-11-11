@@ -53,4 +53,14 @@ export type ValueLineChartProps = {
    * Ordered value series plotted on a dynamic vertical scale.
    */
   valuesByKey: Record<string, number[]>;
+  /** Optional value/color stops for a single-series sensor chart. */
+  colorStops?: { value: number; color: string }[];
+  /** Optional labeled horizontal guides for sensor thresholds. */
+  guideStops?: {
+    value: number;
+    color: string;
+    label: string;
+    showBar: boolean;
+    showLabel: boolean;
+  }[];
 };

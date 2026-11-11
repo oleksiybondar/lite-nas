@@ -19,3 +19,16 @@ func searchKey(value string) string {
 	}
 	return norm.NFC.String(result.String())
 }
+
+// ukrainianLatinKey matches Ukrainian spellings against Latin gallery metadata.
+func ukrainianLatinKey(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.NewReplacer(
+		"а", "a", "б", "b", "в", "v", "г", "h", "ґ", "g", "д", "d", "е", "e", "є", "ye",
+		"ж", "zh", "з", "z", "и", "y", "і", "i", "ї", "yi", "й", "i", "к", "k", "л", "l",
+		"м", "m", "н", "n", "о", "o", "п", "p", "р", "r", "с", "s", "т", "t", "у", "u",
+		"ф", "f", "х", "kh", "ц", "ts", "ч", "ch", "ш", "sh", "щ", "shch", "ь", "",
+		"ю", "yu", "я", "ya", "’", "", "'", "",
+	).Replace(value)
+	return searchKey(value)
+}

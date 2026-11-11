@@ -208,6 +208,19 @@ func TestEligibleMountAcceptsAllowlistedFilesystem(t *testing.T) {
 }
 
 // Requirements: security-monitoring/FR-003.
+func TestEligibleMountRejectsExcludedDockerPath(t *testing.T) {
+	t.Parallel()
+	cfg := antivirusConfig{
+		FSTypes: map[string]bool{"zfs": true}, MountPrefixes: []string{"/var/lib/docker"},
+		ExcludedMountPrefixes: []string{"/var/lib/docker/zfs/graph"},
+	}
+	mount := mountinfo.Record{ID: 4, Point: "/var/lib/docker/zfs/graph/2aff85a0", FSType: "zfs"}
+	if eligibleMount(cfg, mount) {
+		t.Fatal("excluded Docker mount was eligible")
+	}
+}
+
+// Requirements: security-monitoring/FR-003.
 func TestFindMountByIdentityUsesReceiverNamespaceMountID(t *testing.T) {
 	t.Parallel()
 	event := mountcontract.LifecycleEvent{

@@ -27,7 +27,9 @@ scripts/build-usb-manager.sh
 scripts/build-log-analysis.sh
 scripts/build-network-security.sh
 scripts/build-security-automation-binary.sh
+scripts/build-operational-safety-automation-binary.sh
 scripts/build-network-metrics.sh
+scripts/build-sensor-monitor.sh
 scripts/build-process-metrics.sh
 scripts/build-disk-metrics.sh
 scripts/build-service-metrics.sh

@@ -99,8 +99,12 @@ The service MUST evaluate each matching rule and apply a three-state lifecycle:
   event and caches it as active
 - While condition remains true, the service creates occurrences for the cached
   active event
-- When condition transitions from true to false, the service normalizes the
-  event and removes it from cache
+- A rule MAY set an integer `cooldown` in seconds. When configured, a match for
+  an active rule creates an occurrence and restarts that rule's cooldown
+- After the configured cooldown elapses without a matching occurrence, the
+  service normalizes the event and removes it from cache
+- When `cooldown` is omitted or zero, the service normalizes the event as soon
+  as the rule condition clears
 - After normalization and cache deletion, a future true condition creates a new
   event (not reuse of previous normalized event)
 
@@ -159,6 +163,28 @@ CLI/event DTO expectations.
 - Normalization payloads include the target event ID and normalized state
 - Date/time fields are produced by runtime event processing, not static rule
   entries
+
+---
+
+### FR-006 Monitor sensor supply voltage and CPU temperature
+
+Resources Monitor MUST subscribe to `sensor.monitor.events.snapshot` and
+evaluate configured sensor rules against stable sensor keys. The packaged
+voltage rules target `EXT5V_V`; the packaged temperature rules target
+`thermal:cpu-thermal`. Operators MAY edit those keys for other hosts.
+
+- Supply voltage warning: `4.85 V <= value < 4.9 V`.
+- Supply voltage error: `4.81 V < value < 4.85 V`.
+- Supply voltage critical: `value <= 4.81 V`.
+- CPU/SoC temperature warning: `65 °C <= value < 70 °C`.
+- CPU/SoC temperature error: `70 °C <= value < 75 °C`.
+- CPU/SoC temperature critical: `value >= 75 °C`.
+
+Only one severity band MAY be active per monitored reading at a time. Missing
+readings MUST NOT be treated as normal readings. Warning alerts MUST explicitly
+disable email; error and critical alerts MUST explicitly enable email. Rule
+evaluation MUST use the stable sensor key for alert identity rather than an
+array index, because optional readings can change array positions.
 
 ---
 
@@ -293,13 +319,13 @@ memory.
 #### OR-002 Description
 
 The service MUST be structured so additional metric event domains (for example
-ZFS, network, and sensor metrics) can be added through rule and subscription
+additional metrics) can be added through rule and subscription
 configuration.
 
 #### OR-002 Acceptance Criteria
 
-- Current behavior supports both `system.metrics.events.snapshot` and
-  `zfs.metrics.events.snapshot`
+- Current behavior supports system, network, disk, ZFS, and sensor snapshot
+  subjects
 - Rule schema includes explicit event matching (`event`) and event ID prefix
   (`event_prefix`)
 - Interface contracts permit additional subscription subjects in future without
@@ -349,8 +375,8 @@ MUST be testable with deterministic inputs and controlled dependencies.
 
 ## Notes
 
-- This requirement set defines the `resources-monitor` service behavior for the
-  current system-metrics and ZFS-metrics monitoring scope
+- This requirement set defines the `resources-monitor` service behavior for its
+  configured metrics snapshot subjects
 - The exact logging-manager transport mechanics (subject publish vs RPC for
   create/occurrence/state update) are implementation-level integration details
   and must map to existing repository contracts

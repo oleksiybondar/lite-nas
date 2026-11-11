@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 	"time"
 
 	servicerules "lite-nas/services/resources-monitor/rules"
@@ -20,11 +22,30 @@ import (
 
 // Processor orchestrates rule evaluation and alert lifecycle messaging.
 type Processor struct {
-	rules   []servicerules.Rule
-	manager *eventmanager.Manager
-	sender  AlertSender
-	logger  sharedlogger.Logger
-	clock   func() time.Time
+	rules     []servicerules.Rule
+	manager   *eventmanager.Manager
+	sender    AlertSender
+	logger    sharedlogger.Logger
+	clock     func() time.Time
+	cooldowns map[string]activeCooldown
+	pending   map[string]pendingWindowState
+}
+
+// pendingWindowState holds matches for one rule and qualifier until its window expires.
+type pendingWindowState struct {
+	expiresAt time.Time
+	matches   []pendingMatch
+}
+
+// pendingMatch preserves the original sample time and value for replay.
+type pendingMatch struct {
+	at    time.Time
+	value evaluatedValue
+}
+
+type activeCooldown struct {
+	event     ActiveEvent
+	expiresAt time.Time
 }
 
 // AlertSender delivers one alert effect and reports its result before local
@@ -132,11 +153,13 @@ func NewWithSender(
 	log sharedlogger.Logger,
 ) *Processor {
 	return &Processor{
-		rules:   rules,
-		manager: manager,
-		sender:  sender,
-		logger:  log,
-		clock:   time.Now,
+		rules:     rules,
+		manager:   manager,
+		sender:    sender,
+		logger:    log,
+		clock:     time.Now,
+		cooldowns: make(map[string]activeCooldown),
+		pending:   make(map[string]pendingWindowState),
 	}
 }
 
@@ -159,6 +182,30 @@ func (p *Processor) ProcessSnapshot(ctx context.Context, subject string, payload
 
 		p.processRule(ctx, rule, payload)
 	}
+	p.ProcessCooldowns(ctx)
+}
+
+// ProcessCooldowns normalizes active alerts whose configured cooldown elapsed.
+// The runtime calls this periodically as well as after snapshots so expiry
+// does not depend on further input arriving.
+func (p *Processor) ProcessCooldowns(ctx context.Context) {
+	now := p.clock()
+	for eventID, cooldown := range p.cooldowns {
+		if now.Before(cooldown.expiresAt) {
+			continue
+		}
+		p.handleActiveToNormal(ctx, cooldown.event)
+		if _, stillActive := p.cooldowns[eventID]; stillActive {
+			// A failed normalization leaves the alert active and is retried on the
+			// next poll.
+			p.cooldowns[eventID] = activeCooldown{event: cooldown.event, expiresAt: now}
+		}
+	}
+	for key, pending := range p.pending {
+		if now.After(pending.expiresAt) {
+			delete(p.pending, key)
+		}
+	}
 }
 
 // processRule executes lifecycle transitions for one rule and one payload.
@@ -171,8 +218,37 @@ func (p *Processor) processRule(ctx context.Context, rule servicerules.Rule, pay
 	for _, extractedValue := range extractedValues {
 		activeEvent, isActive := p.findActiveEvent(rule, extractedValue.Qualifiers)
 		p.logRuleEvaluation(rule, extractedValue, isActive)
+		if !isActive && rule.MinMatches > 0 {
+			key := pendingKey(rule, extractedValue.Qualifiers)
+			if !extractedValue.IsMatch {
+				delete(p.pending, key)
+				continue
+			}
+			now := p.clock()
+			pending := p.pending[key]
+			if pending.matches == nil || now.After(pending.expiresAt) {
+				pending = pendingWindowState{expiresAt: now.Add(time.Duration(rule.MatchWindow) * time.Second)}
+			}
+			pending.matches = append(pending.matches, pendingMatch{at: now, value: extractedValue})
+			p.pending[key] = pending
+			if len(pending.matches) < rule.MinMatches {
+				continue
+			}
+			p.handleNewToActiveAt(ctx, rule, pending.matches[0].value, pending.matches[0].at)
+			if active, ok := p.findActiveEvent(rule, extractedValue.Qualifiers); ok {
+				delete(p.pending, key)
+				for _, match := range pending.matches {
+					p.handleActiveToActiveAt(ctx, active, match.value.Value, match.at)
+				}
+			}
+			continue
+		}
 		p.handleRuleTransition(ctx, rule, extractedValue, activeEvent, isActive)
 	}
+}
+
+func pendingKey(rule servicerules.Rule, qualifiers []string) string {
+	return rule.Event + "|" + rule.Field + "|" + rule.EventPrefix + "|" + strings.Join(qualifiers, "|")
 }
 
 // evaluateRule extracts and evaluates one rule against payload.
@@ -192,16 +268,43 @@ func (p *Processor) evaluateRule(rule servicerules.Rule, payload map[string]any)
 	}
 
 	evaluatedValues := make([]evaluatedValue, 0, len(extractedValues))
+	var sensorKeys []ruleevaluator.ExtractedValue
+	if rule.SensorKey != "" {
+		keyField := strings.TrimSuffix(rule.Field, ".value") + ".key"
+		sensorKeys, _ = ruleevaluator.ExtractValuesByPath(payload, keyField)
+	}
 	for _, extractedValue := range extractedValues {
+		qualifiers := ruleevaluator.FormatIndexQualifiers(extractedValue.Indexes)
+		if rule.SensorKey != "" {
+			if !hasSensorKey(sensorKeys, extractedValue.Indexes, rule.SensorKey) {
+				continue
+			}
+			// The rule prefix separates exclusive severity bands for one sensor.
+			qualifiers = []string{rule.SensorKey, rule.EventPrefix}
+		}
+		matched := ruleevaluator.EvaluateCondition(extractedValue.Value, rule.Condition, rule.Values)
+		if rule.SecondaryCondition != "" {
+			matched = matched && ruleevaluator.EvaluateCondition(extractedValue.Value, rule.SecondaryCondition, rule.SecondaryValues)
+		}
 		evaluatedValues = append(evaluatedValues, evaluatedValue{
 			FieldPath:  extractedValue.FieldPath,
-			Qualifiers: ruleevaluator.FormatIndexQualifiers(extractedValue.Indexes),
+			Qualifiers: qualifiers,
 			Value:      extractedValue.Value,
-			IsMatch:    ruleevaluator.EvaluateCondition(extractedValue.Value, rule.Condition, rule.Values),
+			IsMatch:    matched,
 		})
 	}
 
 	return evaluatedValues, true
+}
+
+// hasSensorKey matches a reading's stable key to the indexed value in its array.
+func hasSensorKey(keys []ruleevaluator.ExtractedValue, indexes []int, want string) bool {
+	for _, key := range keys {
+		if slices.Equal(key.Indexes, indexes) && key.Value == want {
+			return true
+		}
+	}
+	return false
 }
 
 // logRuleEvaluation logs one completed rule evaluation.
@@ -255,9 +358,16 @@ func (p *Processor) handleRuleTransition(
 		case effectCreate:
 			p.handleNewToActive(ctx, rule, extractedValue)
 		case effectOccurrence:
-			p.handleActiveToActive(ctx, activeEvent, extractedValue.Value)
+			if p.handleActiveToActive(ctx, activeEvent, extractedValue.Value) && rule.Cooldown > 0 {
+				p.cooldowns[activeEvent.EventID] = activeCooldown{
+					event:     activeEvent,
+					expiresAt: p.clock().Add(time.Duration(rule.Cooldown) * time.Second),
+				}
+			}
 		case effectNormalize:
-			p.handleActiveToNormal(ctx, activeEvent)
+			if rule.Cooldown == 0 {
+				p.handleActiveToNormal(ctx, activeEvent)
+			}
 		}
 	}
 }
@@ -279,8 +389,14 @@ func (p *Processor) findActiveEvent(rule servicerules.Rule, qualifiers []string)
 
 // handleNewToActive publishes a new alert and caches active state.
 func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rule, extractedValue evaluatedValue) {
+	p.handleNewToActiveAt(ctx, rule, extractedValue, p.clock())
+}
+
+// handleNewToActiveAt creates an alert using the first qualifying sample time.
+func (p *Processor) handleNewToActiveAt(ctx context.Context, rule servicerules.Rule, extractedValue evaluatedValue, at time.Time) {
 	eventID := p.nextEventID(rule.EventPrefix)
 	createInput := p.buildAlertCreateInput(rule, eventID, extractedValue)
+	createInput.CreatedAt = at.UTC().Format(time.RFC3339)
 
 	if err := p.sender.Create(ctx, createInput); err != nil {
 		p.logger.Warn("failed to publish alert create", "subject", systemloggingmanagercontract.AlertSubject, "error", err)
@@ -311,6 +427,14 @@ func (p *Processor) handleNewToActive(ctx context.Context, rule servicerules.Rul
 		extractedValue.Qualifiers...,
 	); err != nil {
 		p.logger.Warn("failed to cache active event", "event_id", eventID, "error", err)
+		return
+	}
+	if rule.Cooldown > 0 {
+		activeEvent := buildActiveEvent(rule, eventID, extractedValue)
+		p.cooldowns[eventID] = activeCooldown{
+			event:     activeEvent,
+			expiresAt: p.clock().Add(time.Duration(rule.Cooldown) * time.Second),
+		}
 	}
 }
 
@@ -333,6 +457,7 @@ func (p *Processor) buildAlertCreateInput(
 		Source:       rule.Source,
 		Message:      rule.Message,
 		TriggerValue: fmt.Sprintf("%v", extractedValue.Value),
+		Email:        rule.Email,
 	}
 }
 
@@ -352,17 +477,22 @@ func buildActiveEvent(
 }
 
 // handleActiveToActive publishes one occurrence for an active alert.
-func (p *Processor) handleActiveToActive(ctx context.Context, activeEvent ActiveEvent, extractedValue any) {
+func (p *Processor) handleActiveToActive(ctx context.Context, activeEvent ActiveEvent, extractedValue any) bool {
+	return p.handleActiveToActiveAt(ctx, activeEvent, extractedValue, p.clock())
+}
+
+// handleActiveToActiveAt publishes one occurrence at its original sample time.
+func (p *Processor) handleActiveToActiveAt(ctx context.Context, activeEvent ActiveEvent, extractedValue any, at time.Time) bool {
 	occurrence := loggingmanagercontract.AlertOccurrencePayload{
 		EventID:   activeEvent.EventID,
-		Timestamp: p.clock().UTC().Format(time.RFC3339),
+		Timestamp: at.UTC().Format(time.RFC3339),
 	}
 
 	assignOccurrenceValue(&occurrence, extractedValue)
 
 	if err := p.sender.Occurrence(ctx, occurrence); err != nil {
 		p.logger.Warn("failed to publish alert occurrence", "subject", systemloggingmanagercontract.AlertOccurrenceSubject, "event_id", activeEvent.EventID, "error", err)
-		return
+		return false
 	}
 
 	p.logger.Info(
@@ -382,6 +512,7 @@ func (p *Processor) handleActiveToActive(ctx context.Context, activeEvent Active
 		"value_type",
 		occurrence.ValueType,
 	)
+	return true
 }
 
 // handleActiveToNormal updates alert state to normal and clears cached active
@@ -416,6 +547,7 @@ func (p *Processor) handleActiveToNormal(ctx context.Context, activeEvent Active
 		activeEvent.Rule.Condition,
 		activeEvent.Qualifiers...,
 	)
+	delete(p.cooldowns, activeEvent.EventID)
 }
 
 // evaluatedValue stores one resolved rule field value together with its

@@ -1,4 +1,5 @@
 import { AlertsTableTextCell } from "@components/alerts/AlertsTable/AlertsTableTextCell";
+import { buildAlertsStickyColumnSx } from "@components/alerts/AlertsTable/helpers";
 import type { AlertListItemDTO } from "@dto/alerts/alerts";
 import type { ReactElement } from "react";
 
@@ -13,5 +14,11 @@ type AlertsTableEventIdCellProps = {
  * Renders the plain-text event identifier cell.
  */
 export const AlertsTableEventIdCell = ({ item }: AlertsTableEventIdCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="event-id" value={item.EventID} />;
+  return (
+    <AlertsTableTextCell
+      cellName="event-id"
+      value={item.EventID}
+      sx={buildAlertsStickyColumnSx("event-id")}
+    />
+  );
 };

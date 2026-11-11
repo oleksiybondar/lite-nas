@@ -53,7 +53,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer infra.Close()
-	return runMountPipeline(ctx, cfg.PollInterval, infra.Client,
+	return runMountPipeline(ctx, cfg.PollInterval, cfg.ExcludedMountPrefixes, infra.Client,
 		loggingmanagerauth.NewClient(infra.Client, infra.AuthTokenManager, loggingmanagerauth.InjectAlertAccessToken),
 		infra.Logger, readCurrentMounts)
 }
@@ -66,7 +66,7 @@ func readCurrentMounts() (map[uint64]mountRecord, error) {
 // runMountPipeline owns both bounded channels. The poller alone closes
 // snapshots; the diff worker alone closes intents after consuming snapshots.
 // The publisher finishes queued intents before its done channel closes.
-func runMountPipeline(ctx context.Context, interval time.Duration, eventClient, alertClient messaging.Client,
+func runMountPipeline(ctx context.Context, interval time.Duration, excludedPrefixes []string, eventClient, alertClient messaging.Client,
 	log sharedlogger.Logger, read func() (map[uint64]mountRecord, error),
 ) error {
 	timer, ticks, err := workers.NewPollingTimerWorker(interval, 1)
@@ -77,7 +77,7 @@ func runMountPipeline(ctx context.Context, interval time.Duration, eventClient, 
 	intents := make(chan mountIntent, mountQueueCapacity)
 	done := make(chan struct{})
 	workers.NewBaseWorker(func(workerCtx context.Context) { pollMounts(workerCtx, ticks, snapshots, read, log) }).Start(ctx)
-	workers.NewBaseWorker(func(_ context.Context) { diffMounts(snapshots, intents, log) }).Start(ctx)
+	workers.NewBaseWorker(func(_ context.Context) { diffMounts(snapshots, intents, excludedPrefixes, log) }).Start(ctx)
 	workers.NewBaseWorker(func(workerCtx context.Context) {
 		publishMounts(workerCtx, intents, eventClient, alertClient, log)
 		close(done)
@@ -115,7 +115,7 @@ func pollMounts(ctx context.Context, ticks <-chan struct{}, out chan<- mountSnap
 
 // diffMounts uses the first complete snapshot as a baseline and fans every
 // later state change into the outbound queue; it never drops a queued change.
-func diffMounts(snapshots <-chan mountSnapshot, out chan<- mountIntent, log sharedlogger.Logger) {
+func diffMounts(snapshots <-chan mountSnapshot, out chan<- mountIntent, excludedPrefixes []string, log sharedlogger.Logger) {
 	defer close(out)
 	var previous map[uint64]mountRecord
 	for snapshot := range snapshots {
@@ -123,7 +123,7 @@ func diffMounts(snapshots <-chan mountSnapshot, out chan<- mountIntent, log shar
 			previous = snapshot.mounts
 			continue
 		}
-		for _, change := range changedMounts(previous, snapshot.mounts) {
+		for _, change := range changedMounts(previous, snapshot.mounts, excludedPrefixes) {
 			id := newMountEventID()
 			event := mountcontract.LifecycleEvent{
 				Version: mountcontract.CurrentVersion, EventID: id,

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -106,6 +107,10 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 			}
 			order += ` END`
 			queryOffset = 0
+		} else {
+			if ctx.Err() == nil {
+				slog.Warn("photo semantic search unavailable", "error", err)
+			}
 		}
 	}
 	rows, err := c.store.db.QueryContext(ctx, `SELECT min(g.id),gm.path,max(gm.media_type),mf.width,mf.height,max(gm.live_photo_path),mc.caption`+where+

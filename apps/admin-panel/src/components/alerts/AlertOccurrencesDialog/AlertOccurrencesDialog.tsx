@@ -232,4 +232,6 @@ const alertOccurrencesTriggerButtonSx = {
   py: 0,
   textAlign: "left",
   textTransform: "none",
+  overflowWrap: "anywhere",
+  whiteSpace: "normal",
 } as const;

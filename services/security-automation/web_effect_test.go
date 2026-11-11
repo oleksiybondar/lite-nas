@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 	"lite-nas/shared/logger"
 )
 

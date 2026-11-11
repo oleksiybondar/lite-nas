@@ -1,4 +1,5 @@
 import { AlertsTableTextCell } from "@components/alerts/AlertsTable/AlertsTableTextCell";
+import { buildAlertsStickyColumnSx } from "@components/alerts/AlertsTable/helpers";
 import type { AlertListItemDTO } from "@dto/alerts/alerts";
 import type { ReactElement } from "react";
 
@@ -13,5 +14,11 @@ type AlertsTableMessageCellProps = {
  * Renders the plain-text message cell.
  */
 export const AlertsTableMessageCell = ({ item }: AlertsTableMessageCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="message" value={item.Message} />;
+  return (
+    <AlertsTableTextCell
+      cellName="message"
+      value={item.Message}
+      sx={buildAlertsStickyColumnSx("message")}
+    />
+  );
 };

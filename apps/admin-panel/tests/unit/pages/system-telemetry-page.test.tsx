@@ -677,16 +677,6 @@ test("renders the first draft of the disk telemetry panels on the disk performan
   expect(screen.queryByText("sda | ATA | Ubuntu Linux 24.")).not.toBeInTheDocument();
 });
 
-test("renders a placeholder state for unsupported telemetry routes", () => {
-  renderSystemTelemetryPage("/system/sensors/temperature", "/system/sensors/:category");
-
-  expect(screen.getByTestId("system-telemetry-overline")).toHaveTextContent("Sensors");
-  expect(screen.getByTestId("system-telemetry-title")).toHaveTextContent("Temperature");
-  expect(screen.getByTestId("system-telemetry-placeholder-title")).toHaveTextContent(
-    "Route pending backend support",
-  );
-});
-
 test("renders process telemetry on the processes route", () => {
   renderSystemTelemetryPage("/system/processes/processes", "/system/processes/:category");
 

@@ -21,6 +21,7 @@ security_logging_manager_binary_path=""
 system_email_notifier_binary_path=""
 security_email_notifier_binary_path=""
 network_metrics_binary_path=""
+sensor_monitor_binary_path=""
 process_metrics_binary_path=""
 disk_metrics_binary_path=""
 service_metrics_binary_path=""
@@ -51,6 +52,7 @@ journal_manager_binary_path=""
 usb_manager_binary_path=""
 log_analysis_binary_path=""
 security_automation_binary_path=""
+operational_safety_automation_binary_path=""
 security_automation_cli_binary_path=""
 admin_panel_assets_path=""
 file_explorer_assets_path=""
@@ -75,6 +77,7 @@ Options:
   --security-email-notifier-binary=PATH
                                      Use an existing security-email-notifier binary.
   --network-metrics-binary=PATH      Use an existing network-metrics binary.
+  --sensor-monitor-binary=PATH       Use an existing sensor-monitor binary.
   --process-metrics-binary=PATH      Use an existing process-metrics binary.
   --disk-metrics-binary=PATH         Use an existing disk-metrics binary.
   --service-metrics-binary=PATH      Use an existing service-metrics binary.
@@ -108,6 +111,7 @@ Options:
   --log-analysis-binary=PATH  Use an existing log-analysis binary.
   --network-security-binary=PATH  Use an existing network-security binary.
   --security-automation-binary=PATH Use an existing security-automation binary.
+  --operational-safety-automation-binary=PATH Use an existing operational-safety-automation binary.
   --security-automation-cli-binary=PATH Use an existing security-automation CLI binary.
   --admin-panel-assets=PATH          Use an existing admin-panel Vite build output directory.
   --file-explorer-assets=PATH        Include File Explorer Vite assets in this package.
@@ -117,8 +121,8 @@ MSG
 }
 
 args.parse "$@"
-if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary security-automation-binary security-automation-cli-binary admin-panel-assets file-explorer-assets output-dir help h; then
-	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary security-automation-binary security-automation-cli-binary admin-panel-assets file-explorer-assets output-dir help h | head -n 1)"
+if ! args.assertKnown version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary sensor-monitor-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary security-automation-binary operational-safety-automation-binary security-automation-cli-binary admin-panel-assets file-explorer-assets output-dir help h; then
+	log.error "Unknown option: --$(args.unknownKeys version auth-service-binary rbac-service-binary system-logging-manager-binary security-logging-manager-binary system-email-notifier-binary security-email-notifier-binary network-metrics-binary sensor-monitor-binary process-metrics-binary disk-metrics-binary service-metrics-binary system-metrics-binary zfs-metrics-binary system-logging-manager-cli-binary security-logging-manager-cli-binary system-metrics-cli-binary network-metrics-cli-binary zfs-metrics-cli-binary file-writer-binary file-service-binary stream-service-binary web-gateway-binary backup-restore-binary backup-restore-cli-binary moments-binary moments-assets resources-monitor-binary litenas-integrity-binary mount-monitor-binary antivirus-binary system-service-monitor-binary service-watchdog-binary services-manager-binary session-manager-binary journal-manager-binary usb-manager-binary log-analysis-binary network-security-binary security-automation-binary operational-safety-automation-binary security-automation-cli-binary admin-panel-assets file-explorer-assets output-dir help h | head -n 1)"
 	usage >&2
 	exit 64
 fi
@@ -163,6 +167,11 @@ if args.has security-email-notifier-binary && ! security_email_notifier_binary_p
 fi
 if args.has network-metrics-binary && ! network_metrics_binary_path="$(args.require_arg network-metrics-binary)"; then
 	log.error "Missing value for --network-metrics-binary"
+	usage >&2
+	exit 64
+fi
+if args.has sensor-monitor-binary && ! sensor_monitor_binary_path="$(args.require_arg sensor-monitor-binary)"; then
+	log.error "Missing value for --sensor-monitor-binary"
 	usage >&2
 	exit 64
 fi
@@ -302,6 +311,10 @@ if args.has security-automation-binary && ! security_automation_binary_path="$(a
 	log.error "Missing value for --security-automation-binary"
 	exit 64
 fi
+if args.has operational-safety-automation-binary && ! operational_safety_automation_binary_path="$(args.require_arg operational-safety-automation-binary)"; then
+	log.error "Missing value for --operational-safety-automation-binary"
+	exit 64
+fi
 if args.has security-automation-cli-binary && ! security_automation_cli_binary_path="$(args.require_arg security-automation-cli-binary)"; then
 	log.error "Missing value for --security-automation-cli-binary"
 	exit 64
@@ -375,6 +388,10 @@ if [ -z "$network_metrics_binary_path" ]; then
 	network_metrics_binary_path="$output_dir/${package_name}-${package_arch}/network-metrics"
 	"$LITE_NAS_REPO_ROOT/scripts/build-network-metrics-binary.sh" \
 		"--output=${network_metrics_binary_path}"
+fi
+if [ -z "$sensor_monitor_binary_path" ]; then
+	sensor_monitor_binary_path="$output_dir/${package_name}-${package_arch}/sensor-monitor"
+	"$LITE_NAS_REPO_ROOT/scripts/build-sensor-monitor-binary.sh" "--output=$sensor_monitor_binary_path"
 fi
 
 if [ -z "$process_metrics_binary_path" ]; then
@@ -521,6 +538,10 @@ if [ -z "$security_automation_binary_path" ]; then
 	security_automation_binary_path="$output_dir/${package_name}-${package_arch}/security-automation"
 	"$LITE_NAS_REPO_ROOT/scripts/build-security-automation-binary.sh" "--output=$security_automation_binary_path"
 fi
+if [ -z "$operational_safety_automation_binary_path" ]; then
+	operational_safety_automation_binary_path="$output_dir/${package_name}-${package_arch}/operational-safety-automation"
+	"$LITE_NAS_REPO_ROOT/scripts/build-operational-safety-automation-binary.sh" "--output=$operational_safety_automation_binary_path"
+fi
 if [ -z "$security_automation_cli_binary_path" ]; then
 	security_automation_cli_binary_path="$output_dir/${package_name}-${package_arch}/security-automation-cli"
 	"$LITE_NAS_REPO_ROOT/scripts/build-security-automation-cli-binary.sh" "--output=$security_automation_cli_binary_path"
@@ -574,6 +595,10 @@ fi
 
 if [ ! -f "$network_metrics_binary_path" ]; then
 	log.error "Missing network-metrics binary: $network_metrics_binary_path"
+	exit 1
+fi
+if [ ! -f "$sensor_monitor_binary_path" ]; then
+	log.error "Missing sensor-monitor binary: $sensor_monitor_binary_path"
 	exit 1
 fi
 
@@ -687,6 +712,10 @@ if [ ! -f "$security_automation_binary_path" ] || [ ! -f "$security_automation_c
 	log.error "Missing security-automation service or CLI binary"
 	exit 1
 fi
+if [ ! -f "$operational_safety_automation_binary_path" ]; then
+	log.error "Missing operational-safety-automation binary: $operational_safety_automation_binary_path"
+	exit 1
+fi
 if [ ! -f "$litenas_integrity_binary_path" ]; then
 	log.error "Missing litenas-integrity binary: $litenas_integrity_binary_path"
 	exit 1
@@ -749,6 +778,8 @@ install -D -m 0755 "$security_email_notifier_binary_path" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier"
 install -D -m 0755 "$network_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/network-metrics"
+install -D -m 0755 "$sensor_monitor_binary_path" \
+	"$package_root/usr/libexec/lite-nas/sensor-monitor"
 install -D -m 0755 "$process_metrics_binary_path" \
 	"$package_root/usr/libexec/lite-nas/process-metrics"
 install -D -m 0755 "$disk_metrics_binary_path" \
@@ -814,6 +845,8 @@ install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/embed_text.py" \
 	"$package_root/usr/share/lite-nas/moments/embed_text.py"
 install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_embedding_model.py" \
 	"$package_root/usr/share/lite-nas/moments/install_embedding_model.py"
+install -D -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_e5_model.py" \
+	"$package_root/usr/share/lite-nas/moments/install_e5_model.py"
 package.copyTree "$moments_assets_path" \
 	"$package_root/usr/libexec/lite-nas/moments-assets"
 install -D -m 0755 "$resources_monitor_binary_path" \
@@ -829,6 +862,7 @@ install -D -m 0755 "$usb_manager_binary_path" "$package_root/usr/libexec/lite-na
 install -D -m 0755 "$log_analysis_binary_path" "$package_root/usr/libexec/lite-nas/log-analysis"
 install -D -m 0755 "$network_security_binary_path" "$package_root/usr/libexec/lite-nas/network-security"
 install -D -m 0755 "$security_automation_binary_path" "$package_root/usr/libexec/lite-nas/security-automation"
+install -D -m 0755 "$operational_safety_automation_binary_path" "$package_root/usr/libexec/lite-nas/operational-safety-automation"
 install -D -m 0755 "$security_automation_cli_binary_path" "$package_root/usr/libexec/lite-nas/security-automation-cli"
 install -D -m 0755 "$litenas_integrity_binary_path" \
 	"$package_root/usr/libexec/lite-nas/litenas-integrity"
@@ -856,6 +890,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/system-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/security-email-notifier" \
 	"$package_root/usr/libexec/lite-nas/network-metrics" \
+	"$package_root/usr/libexec/lite-nas/sensor-monitor" \
 	"$package_root/usr/libexec/lite-nas/process-metrics" \
 	"$package_root/usr/libexec/lite-nas/disk-metrics" \
 	"$package_root/usr/libexec/lite-nas/service-metrics" \
@@ -874,6 +909,7 @@ chmod 0755 \
 	"$package_root/usr/libexec/lite-nas/log-analysis" \
 	"$package_root/usr/libexec/lite-nas/network-security" \
 	"$package_root/usr/libexec/lite-nas/security-automation" \
+	"$package_root/usr/libexec/lite-nas/operational-safety-automation" \
 	"$package_root/usr/libexec/lite-nas/security-automation-cli" \
 	"$package_root/usr/libexec/lite-nas/system-logging-manager-cli" \
 	"$package_root/usr/libexec/lite-nas/security-logging-manager-cli" \

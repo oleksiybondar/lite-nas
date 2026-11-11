@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 )
 
 // TestDispatcherPipesCompletedMatch verifies the worker hands a complete FSM

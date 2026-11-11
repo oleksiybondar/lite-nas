@@ -19,6 +19,7 @@ type Services struct {
 	SystemAlerts       services.AlertsService
 	SecurityAlerts     services.AlertsService
 	SystemMetrics      services.SystemMetricsService
+	SensorMonitor      services.SensorMonitorService
 	ProcessMetrics     services.ProcessMetricsService
 	ServiceMetrics     services.ServiceMetricsService
 	DiskMetrics        services.DiskMetricsService
@@ -27,6 +28,7 @@ type Services struct {
 	BackupRestore      services.BackupRestoreService
 	SecurityTasks      services.SecurityTasksService
 	SecurityAutomation services.SecurityAutomationService
+	OperationalSafety  services.OperationalSafetyService
 	LogAudit           services.LogAuditService
 }
 
@@ -47,6 +49,7 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 		SystemAlerts:       services.NewSystemAlertsService(client),
 		SecurityAlerts:     services.NewSecurityAlertsService(client),
 		SystemMetrics:      services.NewSystemMetricsService(client),
+		SensorMonitor:      services.NewSensorMonitorService(client),
 		ProcessMetrics:     services.NewProcessMetricsService(client),
 		ServiceMetrics:     services.NewServiceMetricsService(client),
 		DiskMetrics:        services.NewDiskMetricsService(client),
@@ -55,6 +58,7 @@ func NewServicesModule(client messaging.Client, authVerifier services.AccessToke
 		BackupRestore:      services.NewBackupRestoreService(client),
 		SecurityTasks:      services.NewSecurityTasksService(client),
 		SecurityAutomation: services.NewSecurityAutomationService(client),
+		OperationalSafety:  services.NewOperationalSafetyService(client),
 		LogAudit:           services.NewLogAuditService(client),
 	}
 }

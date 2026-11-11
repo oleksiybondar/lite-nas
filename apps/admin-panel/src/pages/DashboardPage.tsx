@@ -19,6 +19,7 @@ const widgetKindSchema = z.enum([
   "disk",
   "processes",
   "services",
+  "sensor",
 ]);
 type Widget = z.infer<typeof dashboardSchema>["widgets"][number];
 const defaults: z.infer<typeof dashboardSchema> = {
@@ -34,8 +35,32 @@ const defaults: z.infer<typeof dashboardSchema> = {
 /** Keeps one dashboard tile per metric kind when loading older saved layouts. */
 const uniqueWidgets = (widgets: Widget[]): Widget[] =>
   widgets.filter(
-    (widget, index) => widgets.findIndex((candidate) => candidate.kind === widget.kind) === index,
+    (widget, index) =>
+      widgets.findIndex(
+        (candidate) => candidate.kind === widget.kind && candidate.sensor === widget.sensor,
+      ) === index,
   );
+
+/** Applies a validated add request from telemetry navigation to the loaded layout. */
+const requestedSensor = (kind: Widget["kind"]): string | null => {
+  if (kind !== "sensor") return null;
+  const sensor = new URLSearchParams(window.location.search).get("sensor");
+  if (!sensor || !/^(temperatures|voltages|clocks|fans|throttling):.{1,256}$/.test(sensor))
+    return null;
+  return sensor;
+};
+
+/** Checks whether a dashboard already contains the requested metric tile. */
+const hasRequestedWidget = (
+  widgets: Widget[],
+  kind: Widget["kind"],
+  sensor: string | null,
+): boolean =>
+  widgets.some((widget) => widget.kind === kind && widget.sensor === (sensor ?? undefined));
+
+/** Enforces the tile limit and rejects repeated metrics. */
+const canAddWidget = (widgets: Widget[], kind: Widget["kind"], sensor: string | null): boolean =>
+  widgets.length < 16 && !hasRequestedWidget(widgets, kind, sensor);
 
 /** Applies a validated add request from telemetry navigation to the loaded layout. */
 const addRequestedWidget = (
@@ -46,11 +71,21 @@ const addRequestedWidget = (
     new URLSearchParams(window.location.search).get("add"),
   );
   if (!requested.success) return current;
+  const sensor = requestedSensor(requested.data);
+  if (requested.data === "sensor" && sensor === null) return current;
+  if (!canAddWidget(current, requested.data, sensor)) return current;
   window.history.replaceState(window.history.state, "", window.location.pathname);
-  if (current.length >= 16) return current;
-  if (current.some((widget) => widget.kind === requested.data)) return current;
   setEditing(true);
-  return [...current, { id: crypto.randomUUID(), kind: requested.data, width: 3, height: 1 }];
+  return [
+    ...current,
+    {
+      id: crypto.randomUUID(),
+      kind: requested.data,
+      sensor: sensor ?? undefined,
+      width: 3,
+      height: 1,
+    },
+  ];
 };
 
 /** Reads the saved dashboard, falling back to defaults for missing or invalid profiles. */

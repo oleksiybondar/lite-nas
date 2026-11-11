@@ -5,7 +5,6 @@ import CoronavirusIcon from "@mui/icons-material/Coronavirus";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
-import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
@@ -28,7 +27,6 @@ import TableRowsIcon from "@mui/icons-material/TableRows";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import UsbIcon from "@mui/icons-material/Usb";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import type { ReactNode } from "react";
 
 /**
@@ -89,7 +87,7 @@ export const buildAppNavigationItems = (
     buildDashboardNavigationItem(),
     buildApplicationsNavigationItem(momentsAvailable),
     ...buildAlertsNavigationItems({ requireOperator, requireSecurity }),
-    buildSystemNavigationItem(),
+    buildSystemNavigationItem(requireAdmin),
     ...(requireSecurity() || requireAdmin?.()
       ? [
           {
@@ -261,12 +259,23 @@ const buildAlertStatusNavigationItems = (domainPath: string): AppNavigationItem[
 /**
  * Builds the system metrics and sensors navigation branch.
  */
-const buildSystemNavigationItem = (): AppNavigationItem => {
+const buildSystemNavigationItem = (
+  isAdmin: AppNavigationRbac["requireAdmin"],
+): AppNavigationItem => {
   return {
     children: [
       buildPerformanceNavigationItem(),
       buildProcessesNavigationItem(),
       buildSensorsNavigationItem(),
+      ...(isAdmin?.()
+        ? [
+            {
+              icon: <PrecisionManufacturingIcon />,
+              path: "/system/automation",
+              title: "Automation",
+            },
+          ]
+        : []),
     ],
     icon: <MemoryRoundedIcon />,
     path: "/system",
@@ -310,40 +319,11 @@ const buildPerformanceNavigationItem = (): AppNavigationItem => {
 /**
  * Builds the Raspberry Pi sensors navigation branch.
  */
-const buildSensorsNavigationItem = (): AppNavigationItem => {
-  return {
-    children: [
-      {
-        icon: <DeviceThermostatRoundedIcon />,
-        path: "/system/sensors/temperature",
-        title: "Temperature",
-      },
-      {
-        icon: <ElectricBoltRoundedIcon />,
-        path: "/system/sensors/voltage",
-        title: "Voltage",
-      },
-      {
-        icon: <SpeedRoundedIcon />,
-        path: "/system/sensors/clock",
-        title: "Clock",
-      },
-      {
-        icon: <WarningAmberRoundedIcon />,
-        path: "/system/sensors/throttling",
-        title: "Throttling",
-      },
-      {
-        icon: <SpeedRoundedIcon />,
-        path: "/system/sensors/fan",
-        title: "Fan",
-      },
-    ],
-    icon: <DeviceThermostatRoundedIcon />,
-    path: "/system/sensors",
-    title: "Sensors",
-  };
-};
+const buildSensorsNavigationItem = (): AppNavigationItem => ({
+  icon: <DeviceThermostatRoundedIcon />,
+  path: "/system/sensors",
+  title: "Sensors",
+});
 
 /**
  * Builds the system processes navigation branch.

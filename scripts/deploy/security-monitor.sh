@@ -23,17 +23,20 @@ deploy.securityMonitor.deploy() {
 	local source_binary="$2"
 	local should_start="${3:-1}"
 	local user="lite-nas-$name"
+	if [ "$name" = "operational-safety-automation" ]; then
+		user="lite-nas-ops-automation"
+	fi
 	local extra_groups="lite-nas,$user"
 	local target="/usr/libexec/lite-nas/$name"
 	local config_target="/etc/lite-nas/$name.conf"
 	local log_target="/var/log/lite-nas/$name.log"
 	local config_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/$name.conf"
-	local unit_source="$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/$user.service"
+	local unit_source="$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-$name.service"
 	local rules_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/log-analysis/rules.json"
 	local rules_target=/etc/lite-nas/log-analysis/rules.json
 
 	case "$name" in
-	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis | network-security | security-automation) ;;
+	mount-monitor | antivirus | system-service-monitor | service-watchdog | log-analysis | network-security | security-automation | operational-safety-automation) ;;
 	*)
 		log.error "Unknown security monitor: $name"
 		return 2
@@ -55,11 +58,15 @@ deploy.securityMonitor.deploy() {
 		deploy.securityMonitor.ensureGroup lite-nas-security
 		extra_groups="$extra_groups,lite-nas-operator,lite-nas-security"
 		;;
-	service-watchdog | log-analysis | network-security | security-automation)
+	service-watchdog | log-analysis | network-security | security-automation | operational-safety-automation)
 		deploy.securityMonitor.ensureGroup lite-nas-security
 		extra_groups="$extra_groups,lite-nas-security"
 		;;
 	esac
+	if [ "$name" = "operational-safety-automation" ]; then
+		deploy.securityMonitor.ensureGroup lite-nas-operator
+		extra_groups="$extra_groups,lite-nas-operator"
+	fi
 	if ! id "$user" >/dev/null 2>&1; then
 		useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin --gid "$user" --groups "$extra_groups" "$user"
 	else
@@ -76,6 +83,14 @@ deploy.securityMonitor.deploy() {
 	fi
 	install -d -m 0711 -o root -g lite-nas /etc/lite-nas
 	deploy.installMergedConfig "$config_source" "$config_target" "$user" lite-nas
+	if [ "$name" = "operational-safety-automation" ]; then
+		# Earlier installs used the service name for transport cert paths, while
+		# the NATS account and certificate belong to lite-nas-ops-automation.
+		sed -i \
+			-e 's@/transport/lite-nas-operational-safety-automation/client.crt@/transport/lite-nas-ops-automation/client.crt@' \
+			-e 's@/transport/lite-nas-operational-safety-automation/client.key@/transport/lite-nas-ops-automation/client.key@' \
+			"$config_target"
+	fi
 	if [ "$name" = "log-analysis" ]; then
 		install -d -m 0750 -o "$user" -g lite-nas /etc/lite-nas/log-analysis
 		deploy.securityMonitor.retireLegacyLogAnalysisRules "$rules_target"
@@ -118,11 +133,23 @@ deploy.securityMonitor.deploy() {
 		install -d -m 0700 -o "$user" -g "$user" /var/lib/lite-nas/security-automation
 		deploy.installSudoersTemplate "$LITE_NAS_REPO_ROOT/configs/etc/sudoers.d/lite-nas-security-automation" /etc/sudoers.d/lite-nas-security-automation
 	fi
+	if [ "$name" = "operational-safety-automation" ]; then
+		chown root:root "$target"
+		chmod 0755 "$target"
+		local safety_rules_source="$LITE_NAS_REPO_ROOT/configs/etc/lite-nas/operational-safety-automation/rules.json"
+		local safety_rules_target=/etc/lite-nas/operational-safety-automation/rules.json
+		install -d -m 0750 -o root -g lite-nas /etc/lite-nas/operational-safety-automation
+		if [ ! -f "$safety_rules_target" ]; then
+			install -m 0640 -o root -g lite-nas "$safety_rules_source" "$safety_rules_target"
+		fi
+		install -d -m 0700 -o "$user" -g "$user" /var/lib/lite-nas/operational-safety-automation/event-ids
+		deploy.installSudoersTemplate "$LITE_NAS_REPO_ROOT/configs/etc/sudoers.d/lite-nas-operational-safety-automation" /etc/sudoers.d/lite-nas-operational-safety-automation
+	fi
 	install -d -m 0751 -o root -g lite-nas /var/log/lite-nas
 	if [ ! -f "$log_target" ]; then
 		install -m 0640 -o "$user" -g "$user" /dev/null "$log_target"
 	fi
-	install -D -m 0644 "$unit_source" "/etc/systemd/system/$user.service"
+	install -D -m 0644 "$unit_source" "/etc/systemd/system/lite-nas-$name.service"
 	if [ "$name" = "antivirus" ]; then
 		install -D -m 0644 "$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-antivirus-updater.service" \
 			/etc/systemd/system/lite-nas-antivirus-updater.service
@@ -140,7 +167,7 @@ deploy.securityMonitor.deploy() {
 		if [ "$name" = "log-analysis" ]; then
 			deploy.securityMonitor.refreshLogAnalysis
 		else
-			deploy.enableAndRefreshService "$user.service"
+			deploy.enableAndRefreshService "lite-nas-$name.service"
 		fi
 	fi
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	alertsdto "lite-nas/services/web-gateway/dto/alerts"
@@ -321,6 +322,8 @@ func newListMetadata(page int, size int, totalCount int) alertsdto.ListMetadata 
 }
 
 func mapAlertBackendError(err error, message string) error {
+	slog.Error("alert backend request failed", "operation", message, "error", err)
+
 	if errors.Is(err, services.ErrAlertActionFailed) {
 		return huma.Error502BadGateway(message)
 	}

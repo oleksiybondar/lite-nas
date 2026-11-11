@@ -156,23 +156,29 @@ checkpoint. Each generated caption is still saved immediately. The service's
 private `/tmp` is already a 64 MiB bounded tmpfs; image bytes use a pipe and
 the model is loaded from read-only storage, so neither is staged there.
 
-Optional semantic search uses Google's multilingual EmbeddingGemma 300M model
-through a pinned Q4 ONNX export. Its roughly 197 MB external weights file,
-tokenizer, and graph are downloaded once into
-`/usr/local/lib/lite-nas/moments/embeddinggemma-model`, checked against pinned
-hashes, and reused on later deployments. The export comes from ONNX Community;
-the original model is by Google DeepMind and uses Google's Gemma terms. A
+Optional semantic search defaults to `intfloat/multilingual-e5-small` for lower
+memory use on Raspberry Pi. Set `embedding_model=embeddinggemma` in
+`/etc/lite-nas/moments.conf` to use Google's EmbeddingGemma 300M Q4 instead.
+Both pinned ONNX models are installed and verified during deployment, but each
+search starts only the configured model. E5 is stored under
+`/usr/local/lib/lite-nas/moments/e5-model`; EmbeddingGemma is stored under
+`/usr/local/lib/lite-nas/moments/embeddinggemma-model`. EmbeddingGemma's export
+comes from ONNX Community and its original weights use Google's Gemma terms. A
 separate Python environment uses the
 distribution's `python3-onnxruntime` package when available, with a pinned pip
 fallback. Both model directories are readable by root and the Moments service
 group only. The embedding worker has its own AppArmor child profile without
 network, database, or original-media access. Both model workers start on demand
 and exit after their job. An initial semantic query embeds visible files whose
-caption or tags have changed; later queries reuse their 768-dimensional
-path-keyed vectors. Queries and image text use EmbeddingGemma's search-query
-and retrieval-document prefixes. The model was trained on more than 100
-languages and performs local cross-language semantic matching; it does not
-translate queries or rewrite captions.
+caption or tags have changed and visible galleries whose name, description, or
+manual tags have changed. Later queries reuse their model-specific vectors
+(384 dimensions for E5, 768 for EmbeddingGemma). Switching models refreshes
+cached vectors on the next semantic search.
+Gallery vectors are stored separately from path-keyed image vectors and are
+removed when their gallery is deleted. E5 uses query and passage prefixes;
+EmbeddingGemma uses search-query and retrieval-document prefixes. Both models
+perform local cross-language semantic matching; neither translates queries or
+rewrites captions.
 Search continues with text matching if the embedding environment is unavailable,
 busy, or fails. Set `embedding_script=` to disable it. Model weights are not
 Debian archive packages, so the `.deb` recommends available Python runtimes;

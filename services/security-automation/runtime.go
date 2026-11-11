@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
 	"lite-nas/shared/authtoken"
+	detection "lite-nas/shared/automationdetection"
 	sharedcontracts "lite-nas/shared/contracts"
 	"lite-nas/shared/logger"
 	"lite-nas/shared/messaging"

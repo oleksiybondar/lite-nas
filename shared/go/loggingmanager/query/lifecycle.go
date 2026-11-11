@@ -2,14 +2,13 @@ package query
 
 import "lite-nas/shared/loggingmanager/dto"
 
-// UpsertLifecycle builds an upsert query for one lifecycle row.
+// UpsertLifecycle builds an upsert keyed by event ID while retaining the
+// original row identity for duplicate event deliveries.
 func UpsertLifecycle(row dto.LifecycleRow) Query {
 	return Query{
 		SQL: "INSERT INTO lifecycle (rec_id, event_id, event_rec_id, acknowledged, acknowledged_by, acknowledged_at, muted, muted_by, muted_at) " +
 			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-			"ON CONFLICT(rec_id) DO UPDATE SET " +
-			"event_id = excluded.event_id, " +
-			"event_rec_id = excluded.event_rec_id, " +
+			"ON CONFLICT(event_id) DO UPDATE SET " +
 			"acknowledged = excluded.acknowledged, " +
 			"acknowledged_by = excluded.acknowledged_by, " +
 			"acknowledged_at = excluded.acknowledged_at, " +

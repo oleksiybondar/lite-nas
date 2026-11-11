@@ -44,7 +44,7 @@ func TestRegisterSubscriptionsReturnsServerError(t *testing.T) {
 	}
 }
 
-func TestRegisterSubscriptionsSubscribesToNetworkSystemDiskAndZFSSnapshots(t *testing.T) {
+func TestRegisterSubscriptionsSubscribesToMetricsAndSensorSnapshots(t *testing.T) {
 	t.Parallel()
 
 	server := &stubServer{}
@@ -57,6 +57,7 @@ func TestRegisterSubscriptionsSubscribesToNetworkSystemDiskAndZFSSnapshots(t *te
 		"network.metrics.events.snapshot",
 		"system.metrics.events.snapshot",
 		"disk.metrics.events.snapshot",
+		"sensor.monitor.events.snapshot",
 		"zfs.metrics.events.snapshot",
 	}
 	if !slices.Equal(server.subscribedSubjects, want) {
@@ -107,6 +108,7 @@ func TestRunWithDependenciesLoadsConfiguredRulesFiles(t *testing.T) {
 		"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
 		"/etc/lite-nas/resources-monitor/rules/disk-metrics.json",
 		"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/sensor-monitor.json",
 	}
 
 	var gotFiles []string

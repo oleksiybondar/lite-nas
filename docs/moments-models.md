@@ -1,20 +1,22 @@
 # Moments local models
 
 Moments uses two optional local models. BLIP generates captions for still images;
-Google EmbeddingGemma ranks photo search results from text already attached to
+The configured E5 or EmbeddingGemma model ranks photo search results from text already attached to
 those images. Both run on demand in separate Python processes. Missing
 dependencies or weights do not prevent Moments from serving galleries.
 
 | Model                                               | Used when                                       | Input                                                | Saved result                                          |
 | --------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------- |
 | BLIP base (`Salesforce/blip-image-captioning-base`) | An owner starts a caption scan                  | One authorized still image at a time                 | A caption keyed by source path                        |
-| EmbeddingGemma 300M Q4 (`google/embeddinggemma-300m`) | A visible gallery search needs semantic ranking | Search text, captions, source tags, and person names | A 768-value vector keyed by source path and text hash |
+| Multilingual E5 small (`intfloat/multilingual-e5-small`) | A visible gallery search needs semantic ranking | Search text and gallery or image metadata | A 384-value vector keyed by gallery or source path and text hash |
+| EmbeddingGemma 300M Q4 (`google/embeddinggemma-300m`) | A visible gallery search needs semantic ranking | Search text, gallery names, descriptions, user tags, image captions, source tags, and person names | A 768-value vector keyed by gallery or source path and text hash |
 
 ## Installation and offline use
 
 The local Moments deployment attempts to prepare both Python environments and
 download pinned, checksum-checked model files. The BLIP files are installed at
-`/usr/local/lib/lite-nas/moments/blip-model`; EmbeddingGemma's Q4 ONNX model and
+`/usr/local/lib/lite-nas/moments/blip-model`; E5's ONNX model is installed at
+`/usr/local/lib/lite-nas/moments/e5-model`; EmbeddingGemma's Q4 ONNX model and
 tokenizer are installed at
 `/usr/local/lib/lite-nas/moments/embeddinggemma-model`. The ONNX export is
 published by ONNX Community from [Google DeepMind's EmbeddingGemma
@@ -32,7 +34,7 @@ The service sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`. Both workers
 load only local files at runtime and have no network access in their AppArmor
 child profiles. Downloads happen during model setup, not during a caption scan
 or search. Model installation is optional: without BLIP, caption jobs fail and
-existing captions remain; without EmbeddingGemma, search continues with text
+existing captions remain; without the selected embedding model, search continues with text
 matching.
 
 The configured worker scripts are in `/etc/lite-nas/moments.conf`:
@@ -40,6 +42,7 @@ The configured worker scripts are in `/etc/lite-nas/moments.conf`:
 ```ini
 caption_script=/usr/share/lite-nas/moments/caption_image.py
 embedding_script=/usr/share/lite-nas/moments/embed_text.py
+embedding_model=e5
 ```
 
 An empty `caption_script` disables BLIP; an empty `embedding_script` disables
@@ -83,23 +86,29 @@ time; the caption job deadline is seven days.
 
 ## Semantic search
 
-For multiword or non-Latin `q`, Moments tries EmbeddingGemma ranking of image
-matches. A single Latin word uses text matching first and tries semantic ranking only
-when text matching finds no photos. Gallery result ordering and pagination
-remain lexical. The worker receives bounded text, never original image bytes,
+For multiword or non-Latin `q`, Moments tries ranking galleries and image matches
+with the selected embedding model. A single Latin word uses text matching first and tries semantic
+ranking only when text matching finds no results. Album and collection names,
+descriptions, and user tags are embedded directly; image captions are not required
+for translated gallery metadata search. The worker receives bounded text, never original image bytes,
 paths, tokens, or database handles. It processes up to 10,000 visible image
-candidates in batches of 16 and has a 60-second request deadline. Moments
+candidates in batches of 16 and has a 180-second request deadline. Moments
 stores vectors for the model revision and the hash of the source text, so
 unchanged text reuses its vector. Search falls back to text matching if the
 model is unavailable, busy, or fails. Query text uses `task: search result |
 query:` and image text uses `title: none | text:`, as required by the model's
 retrieval prompts.
+Ukrainian spellings of Latin gallery names and user tags also use direct
+transliteration matching: `демо` finds `Demo` even if the model is unavailable.
 
 ## Resource and storage limits
 
 The systemd unit limits the combined Go service and model worker to
-`MemoryHigh=2500M`, `MemoryMax=3200M`, `MemorySwapMax=0`, and `CPUQuota=200%`.
-The model workers share one lock, preventing BLIP and EmbeddingGemma from
+`MemoryHigh=2500M`, `MemoryMax=3200M`, and `MemorySwapMax=0`. Deployment
+sets a service-wide `CPUQuota` to 35% times the number of online CPUs (140%
+on a four-core Pi); the unit's 35% fallback applies if CPU detection fails.
+This quota includes the API and its BLIP and embedding child processes.
+The model workers share one lock, preventing BLIP and the selected embedding model from
 loading together.
 Moments already has a private, size-limited 64 MiB tmpfs at `/tmp`. Model
 weights are read from protected storage, and image bytes pass through memory
@@ -114,7 +123,7 @@ journalctl -u lite-nas-moments -b
 ```
 
 An unavailable BLIP worker produces a failed caption job while existing
-captions remain. A rejected or expired grant fails the job. EmbeddingGemma
+captions remain. A rejected or expired grant fails the job. Embedding model
 failures leave normal text search available. Device-level memory peaks and SQLite write
 volume should be measured with a real caption job; unit tests do not establish
 those hardware limits.

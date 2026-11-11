@@ -40,7 +40,7 @@ func TestChangedMountsEmitsUnmount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse after: %v", err)
 	}
-	changes := changedMounts(before, after)
+	changes := changedMounts(before, after, nil)
 	if len(changes) != 1 || changes[0].action != "unmounted" {
 		t.Fatalf("changes = %v", changes)
 	}
@@ -54,7 +54,7 @@ func TestChangedMountsIgnoresUserRuntimeMounts(t *testing.T) {
 		t.Run(point, func(t *testing.T) {
 			before := map[uint64]mountRecord{}
 			after := map[uint64]mountRecord{42: {ID: 42, Point: point}}
-			if got := changedMounts(before, after); len(got) != 0 {
+			if got := changedMounts(before, after, []string{"/run/user"}); len(got) != 0 {
 				t.Fatalf("changes for %q = %v", point, got)
 			}
 		})
@@ -71,7 +71,7 @@ func TestChangedMountsIgnoresPortScanNamespace(t *testing.T) {
 		"unmounted": {{42: namespace}, {}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := changedMounts(snapshots[0], snapshots[1]); len(got) != 0 {
+			if got := changedMounts(snapshots[0], snapshots[1], []string{"/run/netns/litenas-scan-test"}); len(got) != 0 {
 				t.Fatalf("changes = %v", got)
 			}
 		})
@@ -83,7 +83,42 @@ func TestChangedMountsIgnoresPortScanNamespace(t *testing.T) {
 func TestChangedMountsReportsOtherNamespaceMounts(t *testing.T) {
 	t.Parallel()
 	after := map[uint64]mountRecord{42: {ID: 42, Point: "/run/netns/other", FSType: "nsfs"}}
-	if got := changedMounts(map[uint64]mountRecord{}, after); len(got) != 1 {
+	if got := changedMounts(map[uint64]mountRecord{}, after, nil); len(got) != 1 {
+		t.Fatalf("changes = %v", got)
+	}
+}
+
+// Requirements: security-monitoring/FR-002.
+// TestChangedMountsUsesConfiguredPrefixes verifies Docker mounts stay out of
+// lifecycle publication when their paths are excluded.
+func TestChangedMountsUsesConfiguredPrefixes(t *testing.T) {
+	t.Parallel()
+	prefixes := []string{"/run/user", "/run/docker/netns", "/var/lib/docker/zfs/graph"}
+	for _, point := range []string{
+		"/var/lib/docker/zfs/graph/2aff85a0",
+		"/run/docker/netns/cb48e21a3083",
+	} {
+		t.Run(point, func(t *testing.T) {
+			mount := mountRecord{ID: 42, Point: point, FSType: "zfs"}
+			for action, snapshots := range map[string][2]map[uint64]mountRecord{
+				"mounted":   {{}, {42: mount}},
+				"unmounted": {{42: mount}, {}},
+			} {
+				t.Run(action, func(t *testing.T) {
+					if got := changedMounts(snapshots[0], snapshots[1], prefixes); len(got) != 0 {
+						t.Fatalf("changes for %q = %v", point, got)
+					}
+				})
+			}
+		})
+	}
+}
+
+// Requirements: security-monitoring/FR-002.
+func TestChangedMountsIncludesOtherDirectory(t *testing.T) {
+	t.Parallel()
+	after := map[uint64]mountRecord{42: {ID: 42, Point: "/mnt/storage", FSType: "ext4"}}
+	if got := changedMounts(map[uint64]mountRecord{}, after, []string{"/run/docker/netns"}); len(got) != 1 {
 		t.Fatalf("changes = %v", got)
 	}
 }
@@ -99,7 +134,7 @@ func TestDiffMountsUsesFirstSnapshotAsBaseline(t *testing.T) {
 	intents := make(chan mountIntent, 1)
 	snapshots <- mountSnapshot{mounts: mounts, at: time.Now()}
 	close(snapshots)
-	diffMounts(snapshots, intents, nil)
+	diffMounts(snapshots, intents, nil, nil)
 	if len(intents) != 0 {
 		t.Fatalf("startup intents = %d", len(intents))
 	}

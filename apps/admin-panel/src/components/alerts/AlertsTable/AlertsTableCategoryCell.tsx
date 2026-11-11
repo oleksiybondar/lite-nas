@@ -1,4 +1,5 @@
 import { AlertsTableTextCell } from "@components/alerts/AlertsTable/AlertsTableTextCell";
+import { buildAlertsStickyColumnSx } from "@components/alerts/AlertsTable/helpers";
 import type { AlertListItemDTO } from "@dto/alerts/alerts";
 import type { ReactElement } from "react";
 
@@ -13,5 +14,12 @@ type AlertsTableCategoryCellProps = {
  * Renders the category cell with warning emphasis to surface alert grouping.
  */
 export const AlertsTableCategoryCell = ({ item }: AlertsTableCategoryCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="category" tone="warning" value={item.Category} />;
+  return (
+    <AlertsTableTextCell
+      cellName="category"
+      tone="warning"
+      value={item.Category}
+      sx={buildAlertsStickyColumnSx("category")}
+    />
+  );
 };

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
 	"lite-nas/shared/authtoken"
+	detection "lite-nas/shared/automationdetection"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"
 	"lite-nas/shared/logger"
 	"lite-nas/shared/messaging"

@@ -9,6 +9,8 @@
     "normal_message": "Pool health returned to ONLINE",
     "description": "Alert when a pool health value is DEGRADED.",
     "category": "zfs.metrics.pool.health",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "warning",
     "priority": 2,
     "source": "zfs-metrics"
@@ -23,6 +25,8 @@
     "normal_message": "Pool health returned to ONLINE",
     "description": "Alert when a pool health value is OFFLINE or REMOVED.",
     "category": "zfs.metrics.pool.health",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "error",
     "priority": 1,
     "source": "zfs-metrics"
@@ -37,6 +41,8 @@
     "normal_message": "Pool health returned to ONLINE",
     "description": "Critical alert when a pool health value is FAULTED.",
     "category": "zfs.metrics.pool.health",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "critical",
     "priority": 0,
     "source": "zfs-metrics"
@@ -51,6 +57,8 @@
     "normal_message": "Pool health returned to ONLINE",
     "description": "Critical alert when a pool health value is UNKNOWN.",
     "category": "zfs.metrics.pool.health",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "critical",
     "priority": 2,
     "source": "zfs-metrics"
@@ -65,6 +73,8 @@
     "normal_message": "Pool root read errors returned below warning threshold",
     "description": "Alert when per-pool root read errors are greater than or equal to 50.",
     "category": "zfs.metrics.pool.root.errors.read",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "warning",
     "priority": 2,
     "source": "zfs-metrics"
@@ -79,6 +89,8 @@
     "normal_message": "Pool root read errors returned below error threshold",
     "description": "Alert when per-pool root read errors are greater than or equal to 100.",
     "category": "zfs.metrics.pool.root.errors.read",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "error",
     "priority": 2,
     "source": "zfs-metrics"
@@ -93,6 +105,8 @@
     "normal_message": "Pool root write errors returned below warning threshold",
     "description": "Alert when per-pool root write errors are greater than or equal to 50.",
     "category": "zfs.metrics.pool.root.errors.write",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "warning",
     "priority": 2,
     "source": "zfs-metrics"
@@ -107,6 +121,8 @@
     "normal_message": "Pool root write errors returned below error threshold",
     "description": "Alert when per-pool root write errors are greater than or equal to 100.",
     "category": "zfs.metrics.pool.root.errors.write",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "error",
     "priority": 2,
     "source": "zfs-metrics"
@@ -121,6 +137,8 @@
     "normal_message": "Pool root checksum errors returned below warning threshold",
     "description": "Alert when per-pool root checksum errors are greater than or equal to 50.",
     "category": "zfs.metrics.pool.root.errors.checksum",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "warning",
     "priority": 3,
     "source": "zfs-metrics"
@@ -135,6 +153,8 @@
     "normal_message": "Pool root checksum errors returned below error threshold",
     "description": "Alert when per-pool root checksum errors are greater than or equal to 100.",
     "category": "zfs.metrics.pool.root.errors.checksum",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "error",
     "priority": 2,
     "source": "zfs-metrics"

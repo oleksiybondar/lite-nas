@@ -18,6 +18,7 @@ import (
 	"lite-nas/shared/browserauth"
 	authcontract "lite-nas/shared/contracts/auth"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	safetycontract "lite-nas/shared/contracts/operationalsafety"
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/metrics"
 )
@@ -124,6 +125,38 @@ func (s routeAuthService) Me(now time.Time, accessToken string) (services.Sessio
 }
 
 type routeSystemMetricsService struct{}
+
+type routeSensorMonitorService struct{}
+
+type routeOperationalSafetyService struct{}
+
+func (routeOperationalSafetyService) Rules(context.Context, string) (safetycontract.OperationalSafetyRulesResponse, error) {
+	return safetycontract.OperationalSafetyRulesResponse{Rules: []safetycontract.OperationalSafetyRule{}}, nil
+}
+
+func (routeOperationalSafetyService) Tasks(context.Context, string) (safetycontract.OperationalSafetyTasksResponse, error) {
+	return safetycontract.OperationalSafetyTasksResponse{Items: []safetycontract.OperationalSafetyTask{}}, nil
+}
+
+func (routeOperationalSafetyService) SetEnabled(context.Context, safetycontract.OperationalSafetyRuleSetEnabledRequest) (safetycontract.OperationalSafetyOperationResponse, error) {
+	return safetycontract.OperationalSafetyOperationResponse{State: safetycontract.OutcomeCompleted}, nil
+}
+
+func (routeOperationalSafetyService) ForceSet(context.Context, safetycontract.OperationalSafetyTaskForceSetRequest) (safetycontract.OperationalSafetyOperationResponse, error) {
+	return safetycontract.OperationalSafetyOperationResponse{State: safetycontract.OutcomePending}, nil
+}
+
+func (routeOperationalSafetyService) ForceStop(context.Context, safetycontract.OperationalSafetyTaskForceStopRequest) (safetycontract.OperationalSafetyOperationResponse, error) {
+	return safetycontract.OperationalSafetyOperationResponse{State: safetycontract.OutcomePending}, nil
+}
+
+func (routeSensorMonitorService) GetSnapshot(context.Context) (metrics.SensorSnapshot, error) {
+	return metrics.SensorSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
+}
+
+func (routeSensorMonitorService) GetHistory(context.Context) ([]metrics.SensorSnapshot, error) {
+	return []metrics.SensorSnapshot{{Timestamp: time.Unix(100, 0).UTC()}}, nil
+}
 
 func (routeSystemMetricsService) GetSnapshot(context.Context) (metrics.SystemSnapshot, error) {
 	return metrics.SystemSnapshot{Timestamp: time.Unix(100, 0).UTC()}, nil
@@ -268,14 +301,16 @@ func routerFixtureWithVerifier(authService controllers.AuthService, verifier rou
 			},
 			sharedlogger.NewNop(),
 		),
-		SystemAlerts:   controllers.NewSystemAlertsController(routeAlertsService{}),
-		SecurityAlerts: controllers.NewSecurityAlertsController(routeAlertsService{}),
-		SystemMetrics:  controllers.NewSystemMetricsController(routeSystemMetricsService{}),
-		ProcessMetrics: controllers.NewProcessMetricsController(routeProcessMetricsService{}),
-		ServiceMetrics: controllers.NewServiceMetricsController(routeServiceMetricsService{}),
-		DiskMetrics:    controllers.NewDiskMetricsController(routeDiskMetricsService{}),
-		NetworkMetrics: controllers.NewNetworkMetricsController(routeNetworkMetricsService{}),
-		ZFSMetrics:     controllers.NewZFSMetricsController(routeZFSMetricsService{}),
+		SystemAlerts:      controllers.NewSystemAlertsController(routeAlertsService{}),
+		SecurityAlerts:    controllers.NewSecurityAlertsController(routeAlertsService{}),
+		SystemMetrics:     controllers.NewSystemMetricsController(routeSystemMetricsService{}),
+		SensorMonitor:     controllers.NewSensorMonitorController(routeSensorMonitorService{}),
+		OperationalSafety: controllers.NewOperationalSafetyController(routeOperationalSafetyService{}),
+		ProcessMetrics:    controllers.NewProcessMetricsController(routeProcessMetricsService{}),
+		ServiceMetrics:    controllers.NewServiceMetricsController(routeServiceMetricsService{}),
+		DiskMetrics:       controllers.NewDiskMetricsController(routeDiskMetricsService{}),
+		NetworkMetrics:    controllers.NewNetworkMetricsController(routeNetworkMetricsService{}),
+		ZFSMetrics:        controllers.NewZFSMetricsController(routeZFSMetricsService{}),
 	}
 
 	return NewRouter("web-gateway", "0.1.0", controllerModule, middlewares.AuthenticationOptions{
@@ -420,6 +455,25 @@ func TestRouterSystemMetricsHistoryReturnsJSONWhenAuthenticated(t *testing.T) {
 	t.Parallel()
 
 	assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, "/api/system-metrics/history", nil, http.StatusOK)
+}
+
+// Requirements: sensor-monitor/FR-005, web-gateway/FR-003.
+func TestRouterSensorMonitorRoutesRequireAuthentication(t *testing.T) {
+	for _, path := range []string{"/api/sensor-monitor/snapshot", "/api/sensor-monitor/history"} {
+		t.Run(path, func(t *testing.T) {
+			recorder := webtest.ServeRequest(routerFixture(nil), webtest.NewRequest(http.MethodGet, path, nil))
+			webtest.AssertStatus(t, recorder, http.StatusUnauthorized)
+		})
+	}
+}
+
+// Requirements: sensor-monitor/FR-005, web-gateway/FR-003.
+func TestRouterSensorMonitorRoutesReturnJSONWhenAuthenticated(t *testing.T) {
+	for _, path := range []string{"/api/sensor-monitor/snapshot", "/api/sensor-monitor/history"} {
+		t.Run(path, func(t *testing.T) {
+			assertAuthenticatedRouteStatus(t, routerFixture(nil), http.MethodGet, path, nil, http.StatusOK)
+		})
+	}
 }
 
 func TestRouterProcessMetricsSnapshotRequiresAuthentication(t *testing.T) {

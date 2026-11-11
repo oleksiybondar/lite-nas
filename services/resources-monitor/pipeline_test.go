@@ -7,6 +7,7 @@ import (
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	sensorcontract "lite-nas/shared/contracts/sensormonitor"
 	"lite-nas/shared/messaging"
 )
 
@@ -24,6 +25,45 @@ func TestSubscriptionQueuesSnapshot(t *testing.T) {
 	}
 	if got := (<-input).subject; got != envelope.Subject {
 		t.Fatalf("queued subject = %q, want %q", got, envelope.Subject)
+	}
+}
+
+// TestSensorSubscriptionRejectsMissingTimestamp verifies the sensor adapter
+// validates the public event before queueing rule work.
+// Requirements: resources-monitor/SR-001.
+func TestSensorSubscriptionRejectsMissingTimestamp(t *testing.T) {
+	server := &stubServer{}
+	input := make(chan snapshotInput, 1)
+	if err := registerSubscriptions(server, input, t.Context()); err != nil {
+		t.Fatalf("registerSubscriptions(): %v", err)
+	}
+	err := server.handlers[sensorcontract.SnapshotEventSubject](t.Context(), messaging.Envelope{
+		Subject: sensorcontract.SnapshotEventSubject,
+		Payload: []byte(`{"snapshot":{"voltages":[{"key":"EXT5V_V","name":"supply","value":4.8,"unit":"V"}]}}`),
+	})
+	if err == nil {
+		t.Fatal("sensor subscription accepted a snapshot without timestamp")
+	}
+}
+
+// TestSensorSubscriptionQueuesValidSnapshot verifies a typed sensor event
+// reaches the processor worker input.
+// Requirements: resources-monitor/FR-006.
+func TestSensorSubscriptionQueuesValidSnapshot(t *testing.T) {
+	server := &stubServer{}
+	input := make(chan snapshotInput, 1)
+	if err := registerSubscriptions(server, input, t.Context()); err != nil {
+		t.Fatalf("registerSubscriptions(): %v", err)
+	}
+	envelope := messaging.Envelope{
+		Subject: sensorcontract.SnapshotEventSubject,
+		Payload: []byte(`{"snapshot":{"timestamp":"2026-11-11T00:00:00Z","voltages":[{"key":"EXT5V_V","name":"supply","value":4.8,"unit":"V"}]}}`),
+	}
+	if err := server.handlers[envelope.Subject](t.Context(), envelope); err != nil {
+		t.Fatalf("sensor subscription: %v", err)
+	}
+	if got := (<-input).subject; got != sensorcontract.SnapshotEventSubject {
+		t.Fatalf("queued subject = %q, want sensor subject", got)
 	}
 }
 

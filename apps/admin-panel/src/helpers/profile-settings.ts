@@ -26,6 +26,7 @@ export const monitoringScopes = [
   "zfs-metrics",
   "process-metrics",
   "service-metrics",
+  "sensor-monitor",
 ] as const;
 
 type AdminSettings = z.infer<typeof adminSettingsSchema>;
@@ -71,16 +72,22 @@ export const collectAdminSettings = (): AdminSettings => {
 
 let saveQueue = Promise.resolve();
 
+/** Merges the current profile document with locally validated admin settings. */
+const persistAdminSettings = async (api: Pick<ApiContextValue, "get" | "put">): Promise<void> => {
+  const response = await api.get("/f/profile/admin-panel").execute();
+  const existing = response.ok ? adminSettingsSchema.safeParse(await response.json()) : null;
+  if (existing && !existing.success) throw new Error("Invalid admin profile");
+  await writeProfileDocument(
+    (url, body) => api.put(url, body).execute(),
+    "admin-panel",
+    adminSettingsSchema,
+    { ...(existing?.success ? existing.data : {}), ...collectAdminSettings() },
+  );
+};
+
 /** Serializes app-setting saves so rapid changes cannot replace newer data. */
-export const saveAdminSettings = (api: Pick<ApiContextValue, "put">): Promise<void> => {
-  const pending = saveQueue.then(async () => {
-    await writeProfileDocument(
-      (url, body) => api.put(url, body).execute(),
-      "admin-panel",
-      adminSettingsSchema,
-      collectAdminSettings(),
-    );
-  });
+export const saveAdminSettings = (api: Pick<ApiContextValue, "get" | "put">): Promise<void> => {
+  const pending = saveQueue.then(() => persistAdminSettings(api));
   saveQueue = pending.catch(() => undefined);
   return pending;
 };

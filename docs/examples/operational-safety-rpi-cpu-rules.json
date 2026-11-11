@@ -1,0 +1,128 @@
+{
+  "rules": [
+    {
+      "id": "cpu_warning",
+      "name": "Reduce CPU cap for power or temperature warning",
+      "enabled": true,
+      "correlate_by": "event_id",
+      "steps": [
+        { "id_prefix": "snsvwrn", "source": "sensor-monitor", "category": "sensor.power.input" },
+        { "id_prefix": "snsverr", "source": "sensor-monitor", "category": "sensor.power.input" },
+        { "id_prefix": "snsvcrit", "source": "sensor-monitor", "category": "sensor.power.input" },
+        {
+          "id_prefix": "snstwrn",
+          "source": "sensor-monitor",
+          "category": "sensor.temperature.cpu"
+        },
+        {
+          "id_prefix": "snsterr",
+          "source": "sensor-monitor",
+          "category": "sensor.temperature.cpu"
+        },
+        {
+          "id_prefix": "snstcrit",
+          "source": "sensor-monitor",
+          "category": "sensor.temperature.cpu"
+        }
+      ],
+      "action": {
+        "kind": "cpu_stage",
+        "level": "warning",
+        "active_khz": 1800000,
+        "normal_khz": 1900000,
+        "cooldown": "5m"
+      },
+      "output": {
+        "id_prefix": "opswarn",
+        "category": "operational_safety.cpu",
+        "severity": "warning",
+        "message": "CPU capped at 1800 MHz for power or temperature"
+      }
+    },
+    {
+      "id": "cpu_error",
+      "name": "Reduce CPU cap for power or temperature error",
+      "enabled": true,
+      "correlate_by": "event_id",
+      "steps": [
+        { "id_prefix": "snsverr", "source": "sensor-monitor", "category": "sensor.power.input" },
+        { "id_prefix": "snsvcrit", "source": "sensor-monitor", "category": "sensor.power.input" },
+        {
+          "id_prefix": "snsterr",
+          "source": "sensor-monitor",
+          "category": "sensor.temperature.cpu"
+        },
+        {
+          "id_prefix": "snstcrit",
+          "source": "sensor-monitor",
+          "category": "sensor.temperature.cpu"
+        }
+      ],
+      "action": {
+        "kind": "cpu_stage",
+        "level": "error",
+        "parent_rule": "cpu_warning",
+        "active_khz": 1600000,
+        "normal_khz": 1800000,
+        "cooldown": "5m"
+      },
+      "output": {
+        "id_prefix": "opserr",
+        "category": "operational_safety.cpu",
+        "severity": "error",
+        "message": "CPU capped at 1600 MHz for power or temperature"
+      }
+    },
+    {
+      "id": "cpu_critical",
+      "name": "Reduce CPU cap for critical power or temperature",
+      "enabled": true,
+      "correlate_by": "event_id",
+      "steps": [
+        { "id_prefix": "snsvcrit", "source": "sensor-monitor", "category": "sensor.power.input" },
+        {
+          "id_prefix": "snstcrit",
+          "source": "sensor-monitor",
+          "category": "sensor.temperature.cpu"
+        }
+      ],
+      "action": {
+        "kind": "cpu_stage",
+        "level": "critical",
+        "parent_rule": "cpu_error",
+        "active_khz": 1500000,
+        "normal_khz": 1600000,
+        "cooldown": "5m"
+      },
+      "output": {
+        "id_prefix": "opscrit",
+        "category": "operational_safety.cpu",
+        "severity": "critical",
+        "message": "CPU capped at 1500 MHz for power or temperature"
+      }
+    },
+    {
+      "id": "cpu_normal",
+      "name": "Record verified return to normal CPU cap",
+      "enabled": true,
+      "correlate_by": "event_id",
+      "steps": [
+        { "id_prefix": "opswarn", "source": "operational-safety-automation", "state": "normal" }
+      ],
+      "fsm": {
+        "type": "count_within_window",
+        "window": "5m",
+        "threshold": 1,
+        "max_keys": 128,
+        "max_idle": "10m"
+      },
+      "action": { "kind": "emit_normal" },
+      "output": {
+        "id_prefix": "opsnorm",
+        "category": "operational_safety.cpu",
+        "severity": "info",
+        "message": "CPU restored to the configured normal cap"
+      }
+    }
+  ]
+}

@@ -278,6 +278,11 @@ also be emailed. See [Security Monitoring](docs/security-monitoring.md) and the
 the shipped scope, standards references, and limits. OpenSCAP is a separate
 operator-led compliance assessment workflow.
 
+Operational Safety Automation can respond to configured power and CPU
+temperature alerts with linked CPU frequency caps. The packaged rules are
+empty; see the [CPU rule guide](docs/operational-safety-cpu-rules.md) for the
+event IDs, four-rule example, and hardware checks before enrollment.
+
 ## Event-Driven Design
 
 LiteNAS is designed around an event-driven approach to enable loose coupling between components and

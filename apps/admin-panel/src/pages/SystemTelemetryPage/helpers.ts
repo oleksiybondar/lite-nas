@@ -3,7 +3,7 @@
  */
 export type SupportedTelemetryRoute = {
   category: string;
-  group: "performance" | "processes" | "sensors";
+  group: "performance" | "processes";
   summary: string;
   title: string;
   type:
@@ -87,10 +87,6 @@ export const resolveTelemetryRoute = (
  * Resolves the telemetry subsection from the current browser pathname.
  */
 const resolveTelemetryRouteGroup = (pathname: string): SupportedTelemetryRoute["group"] => {
-  if (pathname.startsWith("/system/sensors/")) {
-    return "sensors";
-  }
-
   if (pathname.startsWith("/system/processes/")) {
     return "processes";
   }

@@ -127,6 +127,8 @@ jobs:
             dir: ./services/security-automation
           - name: Network metrics service
             dir: ./services/network-metrics
+          - name: Sensor monitor service
+            dir: ./services/sensor-monitor
           - name: Process metrics service
             dir: ./services/process-metrics
           - name: Disk metrics service
@@ -532,6 +534,15 @@ jobs:
           - arch: amd64
             runner: ubuntu-latest
             component:
+              name: Sensor monitor
+              artifact_name: sensor-monitor-linux
+              build_script: scripts/build-sensor-monitor-binary.sh
+              output_path: .build/sensor-monitor/linux-amd64/sensor-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/sensor-monitor --with-coverage
+              apt_packages: ""
+          - arch: amd64
+            runner: ubuntu-latest
+            component:
               name: Process metrics
               artifact_name: process-metrics-linux
               build_script: scripts/build-process-metrics-binary.sh
@@ -789,6 +800,15 @@ jobs:
               build_script: scripts/build-network-metrics-binary.sh
               output_path: .build/network-metrics/linux-arm64/network-metrics
               test_script: scripts/ci/go-test-module.sh ./services/network-metrics --with-coverage
+              apt_packages: ""
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            component:
+              name: Sensor monitor
+              artifact_name: sensor-monitor-linux
+              build_script: scripts/build-sensor-monitor-binary.sh
+              output_path: .build/sensor-monitor/linux-arm64/sensor-monitor
+              test_script: scripts/ci/go-test-module.sh ./services/sensor-monitor --with-coverage
               apt_packages: ""
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -1209,6 +1229,12 @@ jobs:
           name: network-metrics-linux-${{ matrix.arch }}
           path: .artifacts/${{ matrix.arch }}/network-metrics
 
+      - name: Download sensor monitor build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sensor-monitor-linux-${{ matrix.arch }}
+          path: .artifacts/${{ matrix.arch }}/sensor-monitor
+
       - name: Download process metrics build artifact
         uses: actions/download-artifact@v4
         with:
@@ -1476,8 +1502,8 @@ jobs:
       - name: Diagnose installed LiteNAS routing
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
-          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
+          systemctl is-enabled nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-sensor-monitor lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
+          systemctl is-active nginx nats-server lite-nas-auth lite-nas-system-metrics lite-nas-service-metrics lite-nas-sensor-monitor lite-nas-web-gateway lite-nas-file-service lite-nas-stream-service lite-nas-mount-monitor lite-nas-antivirus lite-nas-system-service-monitor lite-nas-service-watchdog lite-nas-services-manager lite-nas-session-manager lite-nas-journal-manager lite-nas-log-analysis lite-nas-security-automation
           sudo nginx -t
           sudo nginx -T | sed -n '1,220p'
           curl -skS -o /dev/null -w "%{http_code}\n" https://localhost/api/auth/login

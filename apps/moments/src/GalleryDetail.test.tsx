@@ -90,9 +90,6 @@ vi.mock("./moments-data", () => ({
   listReferences: vi.fn(),
   scanUploadedMedia: vi.fn(),
 }));
-vi.mock("./GalleryScanControls", () => ({
-  GalleryScanControls: () => <div>Media scan controls</div>,
-}));
 vi.mock("./Gallery", () => ({
   Gallery: ({
     collectionActions,
@@ -204,6 +201,15 @@ function renderCollection(
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+test("album page keeps caption controls inside the edit dialog", () => {
+  renderCollection(undefined, [], {
+    ...collection,
+    type: "ALBUM",
+    uploadDirectory: "/home/Photos",
+  });
+  expect(screen.queryByText("Image captions")).toBeNull();
 });
 
 test("collection file picker adds its selected file", async () => {

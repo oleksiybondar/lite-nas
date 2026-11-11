@@ -3,13 +3,18 @@ import { MergeDiffViewer } from "@components/backup-restore/MergeDiffViewer";
 import { useBackupRestore } from "@hooks/useBackupRestore";
 import { ConfirmActionDialog, StandardDialog } from "@lite-nas/dialogs";
 import { useLanguage } from "@lite-nas/language";
+import BackupIcon from "@mui/icons-material/Backup";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import RestoreIcon from "@mui/icons-material/Restore";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
@@ -17,8 +22,36 @@ import Typography from "@mui/material/Typography";
 import { BackupApplicationCard } from "@pages/BackupApplicationCard";
 import { restoreModeSchema } from "@schemas/backup-restore";
 import type { ReactElement } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
+
+type BackupNotification = { id: string; text: string; failed: boolean };
+
+/** Resolves the label for a completed backup task result. */
+const backupNotificationLabel = (status: string): string => {
+  if (status === "failed") return "admin.backup.notificationFailed";
+  if (status === "skipped") return "admin.backup.notificationSkipped";
+  return "admin.backup.notificationCompleted";
+};
+
+/** Returns newly completed results and records which applications were shown. */
+const newBackupNotifications = (
+  results: ReturnType<typeof useBackupRestore>["backupTaskResults"],
+  seen: Set<string>,
+  getLabel: (key: string) => string,
+): BackupNotification[] => {
+  const fresh: BackupNotification[] = [];
+  for (const result of results) {
+    if (seen.has(result.application)) continue;
+    seen.add(result.application);
+    fresh.push({
+      id: result.application,
+      text: `${result.application}: ${getLabel(backupNotificationLabel(result.status))}`,
+      failed: result.status === "failed",
+    });
+  }
+  return fresh;
+};
 
 /** Administrator page for snapshots, restore, and three-pane text merging. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The page keeps backup and merge controls with their shared selection state.
@@ -69,6 +102,7 @@ export const BackupRestorePageContent = (): ReactElement => {
     setContents,
     busy,
     backupProgress,
+    backupTaskResults,
     error,
     message,
     openCreate,
@@ -87,6 +121,13 @@ export const BackupRestorePageContent = (): ReactElement => {
     finishMerge,
     refresh,
   } = useBackupRestore();
+  const [notifications, setNotifications] = useState<BackupNotification[]>([]);
+  const notifiedResults = useRef(new Set<string>());
+  useEffect(() => {
+    const fresh = newBackupNotifications(backupTaskResults, notifiedResults.current, getLabel);
+    if (fresh.length > 0) setNotifications((current) => [...current, ...fresh]);
+    if (!busy && backupTaskResults.length === 0) notifiedResults.current.clear();
+  }, [backupTaskResults, busy, getLabel]);
   const openBackups = (app: string): void => {
     setApplication(app);
     setVersion("");
@@ -114,6 +155,21 @@ export const BackupRestorePageContent = (): ReactElement => {
       {busy && (
         <Box aria-live="polite" data-testid="backup-operation-progress">
           <Typography>{getLabel("admin.backup.operationInProgress")}</Typography>
+          {backupTaskResults.length > 0 && applications.length > 0 && (
+            <Typography data-testid="backup-task-counts">
+              {getLabel("admin.backup.liveCounts")
+                .replace("{processed}", String(backupTaskResults.length))
+                .replace("{total}", String(applications.length))
+                .replace(
+                  "{completed}",
+                  String(backupTaskResults.filter((item) => item.status === "completed").length),
+                )
+                .replace(
+                  "{failed}",
+                  String(backupTaskResults.filter((item) => item.status === "failed").length),
+                )}
+            </Typography>
+          )}
           <LinearProgress
             variant={backupProgress === null ? "indeterminate" : "determinate"}
             value={backupProgress ?? undefined}
@@ -187,6 +243,30 @@ export const BackupRestorePageContent = (): ReactElement => {
             </IconButton>
           </span>
         </Tooltip>
+      </Stack>
+      <Stack
+        sx={{ position: "fixed", right: 16, bottom: 16, zIndex: (theme) => theme.zIndex.snackbar }}
+        spacing={1}
+      >
+        {notifications.map((notification) => (
+          <Snackbar
+            key={notification.id}
+            open
+            autoHideDuration={4000}
+            onClose={() =>
+              setNotifications((current) => current.filter((item) => item.id !== notification.id))
+            }
+          >
+            <Alert
+              severity={notification.failed ? "error" : "success"}
+              onClose={() =>
+                setNotifications((current) => current.filter((item) => item.id !== notification.id))
+              }
+            >
+              {notification.text}
+            </Alert>
+          </Snackbar>
+        ))}
       </Stack>
       {applications.length === 0 && (
         <Typography>{getLabel("admin.backup.noApplications")}</Typography>

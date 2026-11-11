@@ -53,6 +53,18 @@ export const GalleryPhotoTile = ({
   const uiStatus = mediaUi.items[item.id]?.url === item.url ? mediaUi.items[item.id].status : null;
   const status = uiStatus ?? queue.status(item.url);
   const attempt = queue.attempt(item.url);
+  const imageRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (
+      status === "queued" ||
+      status === "error" ||
+      !imageRef.current?.complete ||
+      !imageRef.current.naturalWidth
+    )
+      return;
+    if (queue.complete(item.url, true, attempt) || queue.status(item.url) === "ready")
+      dispatchMediaUi({ type: "image/ready", itemId: item.id, url: item.url });
+  }, [attempt, dispatchMediaUi, item.id, item.url, queue, status]);
   useEffect(() => {
     if (status === "loading")
       dispatchMediaUi({ type: "image/loading", itemId: item.id, url: item.url });
@@ -161,11 +173,12 @@ export const GalleryPhotoTile = ({
         {(status === "ready" || status === "loading") && (
           <Box
             component="img"
+            ref={imageRef}
             src={stream.image(item.url) ?? undefined}
             alt={item.filename}
             onLoad={() => {
-              dispatchMediaUi({ type: "image/ready", itemId: item.id, url: item.url });
-              queue.complete(item.url, true, attempt);
+              if (queue.complete(item.url, true, attempt) || queue.status(item.url) === "ready")
+                dispatchMediaUi({ type: "image/ready", itemId: item.id, url: item.url });
             }}
             onError={() => queue.fail(item.url, attempt)}
             sx={{

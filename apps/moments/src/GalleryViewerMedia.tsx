@@ -48,6 +48,23 @@ export const GalleryViewerMedia = (): ReactElement | null => {
   const activeVideoId = current?.kind === "video" || viewingMotion ? current?.id : null;
   const currentUrl = viewingMotion ? current?.motionUrl : current?.url;
   const shouldAutoplay = showingMotion || (current?.kind === "video" && videoAutoplay);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const imageId = current?.kind === "image" ? current.id : null;
+  const imageUrl = current?.kind === "image" ? current.url : null;
+  const imageAttempt = imageUrl ? queue.attempt(imageUrl) : undefined;
+  const imageStatus = imageUrl ? queue.status(imageUrl) : null;
+  useEffect(() => {
+    if (
+      !imageId ||
+      !imageUrl ||
+      (imageStatus !== "loading" && imageStatus !== "ready") ||
+      !imageRef.current?.complete ||
+      !imageRef.current.naturalWidth
+    )
+      return;
+    if (queue.complete(imageUrl, true, imageAttempt) || queue.status(imageUrl) === "ready")
+      dispatchMediaUi({ type: "image/ready", itemId: imageId, url: imageUrl });
+  }, [dispatchMediaUi, imageAttempt, imageId, imageStatus, imageUrl, queue]);
   useEffect(() => {
     const video = videoRef.current;
     return () => video?.pause();
@@ -93,8 +110,8 @@ export const GalleryViewerMedia = (): ReactElement | null => {
     transcodeStart,
   ]);
   if (!current) return null;
-  const status = current.kind === "image" ? queue.status(current.url) : null;
-  const attempt = current.kind === "image" ? queue.attempt(current.url) : undefined;
+  const status = imageStatus;
+  const attempt = imageAttempt;
   let videoSource: string | null = null;
   if (current.kind === "video" || viewingMotion)
     videoSource =
@@ -159,11 +176,15 @@ export const GalleryViewerMedia = (): ReactElement | null => {
           >
             <Box
               component="img"
+              ref={imageRef}
               src={stream.image(current.url) ?? undefined}
               alt={current.filename}
               onLoad={() => {
-                dispatchMediaUi({ type: "image/ready", itemId: current.id, url: current.url });
-                queue.complete(current.url, true, attempt);
+                if (
+                  queue.complete(current.url, true, attempt) ||
+                  queue.status(current.url) === "ready"
+                )
+                  dispatchMediaUi({ type: "image/ready", itemId: current.id, url: current.url });
               }}
               onError={() => queue.fail(current.url, attempt)}
               sx={{

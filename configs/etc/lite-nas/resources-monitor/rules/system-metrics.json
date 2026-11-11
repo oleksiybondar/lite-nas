@@ -9,6 +9,8 @@
     "normal_message": "Total CPU usage returned to normal range",
     "description": "Alert when total CPU usage is greater than or equal to 90%",
     "category": "system.metrics.cpu.total",
+    "match_window": 3,
+    "min_matches": 5,
     "severity": "warning",
     "priority": 2,
     "source": "system-metrics"
@@ -23,6 +25,8 @@
     "normal_message": "RAM usage returned to normal range",
     "description": "Alert when RAM usage is greater than or equal to 90%",
     "category": "system.metrics.mem.used",
+    "match_window": 10,
+    "min_matches": 5,
     "severity": "warning",
     "priority": 2,
     "source": "system-metrics"

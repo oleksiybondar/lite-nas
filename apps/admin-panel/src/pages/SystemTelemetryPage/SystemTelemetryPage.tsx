@@ -38,7 +38,7 @@ const isDirectTelemetryStateType = (
 };
 
 /**
- * Telemetry page host for system performance and Raspberry Pi sensor routes.
+ * Telemetry page host for system performance and process routes.
  */
 export const SystemTelemetryPage = (): ReactElement => {
   const { getLabel } = useLanguage();

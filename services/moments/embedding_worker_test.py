@@ -23,13 +23,21 @@ class EmbeddingWorkerTests(unittest.TestCase):
 
     def test_accepts_non_latin_text(self) -> None:
         """A Ukrainian sentence passes the input boundary unchanged."""
-        request = json.dumps({"texts": ["task: search result | query: собака"]}).encode() + b"\n"
+        query = "task: search result | query: маленька дівчинка і квіти"
+        request = json.dumps({"texts": [query]}).encode() + b"\n"
         output = io.StringIO()
         with patch.object(sys, "stdin", io.TextIOWrapper(io.BytesIO(request))):
             with patch.object(sys, "stdout", output):
                 with patch.object(embed_text, "embed", return_value=["vector"]):
                     embed_text.main()
         self.assertEqual(json.loads(output.getvalue()), {"vectors": ["vector"]})
+
+    def test_rejects_unknown_model(self) -> None:
+        """An unknown model is rejected before dependencies are loaded."""
+        request = b'{"model":"unknown","texts":["query: sky"]}\n'
+        with patch.object(sys, "stdin", io.TextIOWrapper(io.BytesIO(request))):
+            with self.assertRaisesRegex(ValueError, "invalid embedding model"):
+                embed_text.main()
 
 
 if __name__ == "__main__":

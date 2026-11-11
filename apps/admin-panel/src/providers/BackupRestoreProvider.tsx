@@ -66,17 +66,21 @@ const pollBackupTaskStatus = async (
   taskID: string,
   isActive: () => boolean,
   readStatus: (id: string) => Promise<BackupTaskStatus>,
-  publishProgress: (percent: number | null) => void,
+  publish: {
+    progress: (percent: number | null) => void;
+    results: (results: NonNullable<BackupTaskStatus["results"]>) => void;
+  },
 ): Promise<BackupTaskStatus> => {
   const status = await readStatus(taskID);
   if (!isActive()) return status;
-  publishProgress(status.progress?.percent ?? null);
+  publish.progress(status.progress?.percent ?? null);
+  publish.results(status.results ?? []);
   if (isTerminalBackupTask(status.state)) {
     window.localStorage.removeItem(storedBackupTaskKey);
     return status;
   }
   await new Promise((resolve) => window.setTimeout(resolve, 800));
-  return pollBackupTaskStatus(taskID, isActive, readStatus, publishProgress);
+  return pollBackupTaskStatus(taskID, isActive, readStatus, publish);
 };
 
 /** Summarizes terminal backup outcomes for the page's message and error areas. */
@@ -149,6 +153,9 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
   const [contents, setContents] = useState<Record<string, BackupFileContent>>({});
   const [busy, setBusy] = useState(false);
   const [backupProgress, setBackupProgress] = useState<number | null>(null);
+  const [backupTaskResults, setBackupTaskResults] = useState<
+    NonNullable<BackupTaskStatus["results"]>
+  >([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const allowed = requireAdmin();
@@ -389,7 +396,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
             await getRef.current(`/api/backup-restore/backup-tasks/${id}`).execute(),
             backupTaskStatusResponseSchema,
           ),
-        setBackupProgress,
+        { progress: setBackupProgress, results: setBackupTaskResults },
       ),
     [],
   );
@@ -414,6 +421,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
         if (active) {
           setBusy(false);
           setBackupProgress(null);
+          setBackupTaskResults([]);
         }
       });
     return () => {
@@ -468,6 +476,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
       );
       window.localStorage.setItem(storedBackupTaskKey, start.task_id);
       setBackupProgress(backupTarget === "all" ? 0 : null);
+      setBackupTaskResults([]);
       const task = await pollBackupTask(start.task_id);
       if (task.state !== "succeeded") throw new Error(task.error || "Backup failed");
       if (backupTarget === "all") {
@@ -664,7 +673,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
 
   const reportBulkDelete = (
     deleted: Array<{ application: string; version: string }>,
-    failures: Array<{ application: string; version: string; error?: string }>,
+    failures: Array<{ application: string; version: string; error?: string | undefined }>,
   ): void => {
     const deletedVersions = new Set(
       deleted.map((result) => `${result.application}/${result.version}`),
@@ -915,6 +924,7 @@ export const BackupRestoreProvider = ({ children }: PropsWithChildren): ReactEle
     contents,
     busy,
     backupProgress,
+    backupTaskResults,
     error,
     message,
     setApplications,

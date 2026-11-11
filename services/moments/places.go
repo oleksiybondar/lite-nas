@@ -28,6 +28,7 @@ type cityIndex struct {
 	captionScript   string
 	captionMu       sync.Mutex
 	embeddingScript string
+	embeddingModel  string
 }
 
 // loadCityIndex reads the packaged GeoNames extract once at service startup.

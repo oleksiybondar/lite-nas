@@ -5,6 +5,29 @@ This file tracks release-level changes for LiteNAS.
 The working format and guidance are documented in
 [docs/release-notes.md](docs/release-notes.md).
 
+## 0.21.0 - 2026-11-11
+
+### RL-0.21.0 Summary
+
+- Expanded monitoring to include hardware sensor readings and added automated
+  CPU safety responses to configured operating conditions.
+
+### RL-0.21.0 Added
+
+- Added Sensor Monitor to discover and publish sensor snapshots and retained
+  history, including human-readable sensor names and a sensor dashboard in the
+  admin panel.
+- Added sensor-based resource alert rules, including CPU temperature and
+  supply-voltage monitoring.
+- Added Operational Safety Automation with configurable staged CPU caps,
+  operator task and rule controls, and auditable safety actions.
+
+### RL-0.21.0 Platform
+
+- Added service configs, systemd units, deployment and build flows, API routes,
+  and backup coverage for sensor monitoring and operational safety automation.
+- Updated the Debian base package version to 0.21.0.
+
 ## 0.4.1 - 2026-10-30
 
 ### RL-0.4.1 Summary

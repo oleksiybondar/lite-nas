@@ -21,10 +21,10 @@ describe("resolveSelectedNavigationPath", () => {
     { pathname: "/system/performance/network", selectedPath: "/system/performance/network" },
     { pathname: "/system/processes/processes", selectedPath: "/system/processes/processes" },
     { pathname: "/system/processes/services/logs", selectedPath: "/system/processes/services" },
-    { pathname: "/system/sensors/temperature", selectedPath: "/system/sensors/temperature" },
+    { pathname: "/system/sensors/temperature", selectedPath: "/system/sensors" },
     {
       pathname: "/system/sensors/temperature/history",
-      selectedPath: "/system/sensors/temperature",
+      selectedPath: "/system/sensors",
     },
     {
       pathname: "/preferences/application/theme",
@@ -71,11 +71,7 @@ describe("appNavigationItems", () => {
 
     expect(routePaths).toContain("/system/processes/processes");
     expect(routePaths).toContain("/system/processes/services");
-    expect(routePaths).toContain("/system/sensors/temperature");
-    expect(routePaths).toContain("/system/sensors/voltage");
-    expect(routePaths).toContain("/system/sensors/clock");
-    expect(routePaths).toContain("/system/sensors/throttling");
-    expect(routePaths).toContain("/system/sensors/fan");
+    expect(routePaths).toContain("/system/sensors");
   });
 });
 

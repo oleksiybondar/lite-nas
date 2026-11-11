@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 	contract "lite-nas/shared/contracts/securityautomation"
 )
 

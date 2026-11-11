@@ -208,6 +208,19 @@ func TestGallerySearchMatchesDescriptions(t *testing.T) {
 	}
 }
 
+// TestGallerySearchMatchesUkrainianSpelling covers a Latin collection name without a model.
+func TestGallerySearchMatchesUkrainianSpelling(t *testing.T) {
+	router := mustGalleryRouter(t, "alice")
+	id := mustNamedGallery(t, router, "COLLECTION", "Demo", "")
+	body := mustGalleryRequest(t, router, http.MethodGet, "/api/galleries?q="+url.QueryEscape("демо"), "", http.StatusOK)
+	page := mustGalleryJSON[struct {
+		Items []galleryBody `json:"items"`
+	}](t, body)
+	if len(page.Items) != 1 || page.Items[0].ID != id {
+		t.Fatalf("transliterated gallery matches = %+v", page.Items)
+	}
+}
+
 // TestUserTagSurvivesScan covers moments-backend/FR-007.
 func TestUserTagSurvivesScan(t *testing.T) {
 	router := mustGalleryRouter(t, "alice")

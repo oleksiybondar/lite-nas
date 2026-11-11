@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 	"lite-nas/shared/logger"
 	"lite-nas/shared/workers"
 )

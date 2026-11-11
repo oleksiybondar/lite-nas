@@ -56,12 +56,13 @@ export class GalleryImageQueue {
   };
 
   /** Settles a request made by an image element and grants the next slot. */
-  complete = (url: string, success: boolean, attempt = this.active.get(url)): void => {
-    if (attempt === undefined || this.active.get(url) !== attempt) return;
+  complete = (url: string, success: boolean, attempt = this.active.get(url)): boolean => {
+    if (attempt === undefined || this.active.get(url) !== attempt) return false;
     this.active.delete(url);
     if (success) this.ready.set(url, attempt);
     else this.failed.add(url);
     this.pump();
+    return true;
   };
 
   /** Ignores stale errors from canceled elements and records current failures. */

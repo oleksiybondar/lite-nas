@@ -197,34 +197,41 @@ const createAcknowledgeMany = (
   domain: AlertDomain,
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
   queryClient: QueryClient,
-): ((ids: string[]) => Promise<void>) => {
-  return async (ids: string[]): Promise<void> => {
-    const hasSucceeded = await acknowledgeManyUntilFailure(ids, mutateAsync, domain);
-
-    if (hasSucceeded) {
+): ((ids: string[]) => Promise<{ acknowledged: number; failed: number }>) => {
+  return async (ids: string[]): Promise<{ acknowledged: number; failed: number }> => {
+    const { acknowledged, failed } = await acknowledgeBatch(ids, mutateAsync);
+    if (acknowledged > 0) {
       await queryClient.invalidateQueries({ queryKey: ["alerts", domain] });
     }
+    return { acknowledged, failed };
   };
 };
 
-const acknowledgeManyUntilFailure = async (
+/** Acknowledges each selected alert and counts individual failures. */
+const acknowledgeBatch = async (
   ids: string[],
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  domain: AlertDomain,
-): Promise<boolean> => {
-  let hasSucceeded = false;
-
+): Promise<{ acknowledged: number; failed: number }> => {
+  let acknowledged = 0;
+  let failed = 0;
   for (const id of ids) {
-    const itemSucceeded = await acknowledgeOneUntilFailure(id, mutateAsync, domain);
-
-    if (!itemSucceeded) {
-      return hasSucceeded;
-    }
-
-    hasSucceeded = true;
+    if (await tryAcknowledge(id, mutateAsync)) acknowledged += 1;
+    else failed += 1;
   }
+  return { acknowledged, failed };
+};
 
-  return hasSucceeded;
+/** Reports whether one alert was acknowledged without aborting a bulk request. */
+const tryAcknowledge = async (
+  id: string,
+  mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
+): Promise<boolean> => {
+  try {
+    await mutateAsync({ id });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const createAlertsRefetch = (
@@ -244,20 +251,6 @@ const createClearFilters = (clearFilters: () => void, resetPage: () => void): ((
   };
 };
 
-const acknowledgeOneUntilFailure = async (
-  id: string,
-  mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  domain: AlertDomain,
-): Promise<boolean> => {
-  try {
-    await acknowledgeSingle({ id }, mutateAsync);
-    return true;
-  } catch (error) {
-    notifyError(error instanceof Error ? error.message : `Failed to acknowledge ${domain} alerts.`);
-    return false;
-  }
-};
-
 const createFilterSetter = <T,>(
   setter: (value: T) => void,
   resetPage: () => void,
@@ -266,11 +259,4 @@ const createFilterSetter = <T,>(
     setter(value);
     resetPage();
   };
-};
-
-/**
- * Temporary centralized error reporting stub until snackbar context is added.
- */
-const notifyError = (message: string): void => {
-  void message;
 };

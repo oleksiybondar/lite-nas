@@ -192,6 +192,7 @@ assert_cmd "security-automation unit packaged" assert_file "$packaged_config_roo
 # shellcheck disable=SC2016 # The expected file content contains a literal variable reference.
 assert_cmd "security-automation package deployment wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.securityMonitor.deploy "security-automation" "$PACKAGE_ROOT/security-automation" 0'
 assert_cmd "security-automation package start wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.enableAndRefreshService "lite-nas-security-automation.service"'
+assert_cmd "security-automation sudoers install wired" assert_file_contains usr/libexec/lite-nas/scripts/deploy/security-monitor.sh "deploy.installSudoersTemplate \"\$LITE_NAS_REPO_ROOT/configs/etc/sudoers.d/lite-nas-security-automation\" /etc/sudoers.d/lite-nas-security-automation"
 assert_cmd "security-automation CLI config packaged" assert_file "$packaged_config_root/lite-nas/security-automation-cli.conf"
 assert_cmd "security-automation CLI binary packaged" assert_executable usr/libexec/lite-nas/security-automation-cli
 assert_cmd "security-automation CLI command linked" assert_symlink_target usr/bin/security-automation-cli /usr/libexec/lite-nas/security-automation-cli
@@ -224,6 +225,7 @@ assert_cmd "Moments optional caption worker packaged" assert_file usr/share/lite
 assert_cmd "Moments caption model installer packaged" assert_file usr/share/lite-nas/moments/install_caption_model.py
 assert_cmd "Moments embedding worker packaged" assert_file usr/share/lite-nas/moments/embed_text.py
 assert_cmd "Moments embedding model installer packaged" assert_file usr/share/lite-nas/moments/install_embedding_model.py
+assert_cmd "Moments E5 model installer packaged" assert_file usr/share/lite-nas/moments/install_e5_model.py
 
 assert_cmd "package runtime deploy entrypoint packaged" assert_executable usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh
 assert_cmd "file-writer deploy helper packaged" assert_file usr/libexec/lite-nas/scripts/deploy/file-writer.sh
@@ -311,6 +313,28 @@ assert_cmd "network metrics rule packaged" assert_file "$packaged_config_root/li
 assert_cmd "disk metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/disk-metrics.json"
 assert_cmd "zfs metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/zfs-metrics.json"
 assert_cmd "service metrics rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/service-metrics.json"
+assert_cmd "sensor monitor rule packaged" assert_file "$packaged_config_root/lite-nas/resources-monitor/rules/sensor-monitor.json"
+assert_cmd "sensor monitor binary packaged" assert_executable usr/libexec/lite-nas/sensor-monitor
+assert_cmd "sensor monitor config packaged" assert_file "$packaged_config_root/lite-nas/sensor-monitor.conf"
+assert_cmd "sensor monitor uses dedicated NATS certificate" assert_file_contains "$packaged_config_root/lite-nas/sensor-monitor.conf" 'lite-nas-sensor-monitor/client.crt'
+assert_cmd "sensor names packaged" assert_file "$packaged_config_root/lite-nas/sensor-names.json"
+assert_cmd "sensor monitor unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-sensor-monitor.service"
+assert_cmd "sensor monitor AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.sensor-monitor"
+assert_cmd "sensor monitor vcio udev rule packaged" assert_file "$packaged_config_root/udev/rules.d/99-lite-nas-vcio.rules"
+assert_cmd "sensor monitor NATS identity authorized" assert_file_contains "$packaged_config_root/nats-server/authorization.conf" 'user: "lite-nas-sensor-monitor"'
+assert_cmd "sensor monitor package deployment wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh "deploy.sensorMonitor.deploy \"\$PACKAGE_ROOT/sensor-monitor\" 0"
+assert_cmd "sensor monitor package start wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.sensorMonitor.enableAndStart'
+assert_cmd "sensor monitor NATS certificate creation wired" assert_file_contains usr/libexec/lite-nas/scripts/deploy/sensor-monitor.sh 'rotate-nats-certificates.sh'
+assert_cmd "sensor monitor backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/sensor-monitor.conf"
+assert_cmd "operational safety config packaged" assert_file "$packaged_config_root/lite-nas/operational-safety-automation.conf"
+assert_cmd "operational safety binary packaged" assert_executable usr/libexec/lite-nas/operational-safety-automation
+assert_cmd "operational safety rule skeleton packaged" assert_file "$packaged_config_root/lite-nas/operational-safety-automation/rules.json"
+assert_cmd "operational safety backup spec packaged" assert_file "$packaged_config_root/lite-nas/backup.d/operational-safety-automation.conf"
+assert_cmd "operational safety unit packaged" assert_file "$packaged_config_root/systemd/system/lite-nas-operational-safety-automation.service"
+assert_cmd "operational safety AppArmor profile packaged" assert_file "$packaged_config_root/apparmor.d/usr.libexec.lite-nas.operational-safety-automation"
+assert_cmd "operational safety sudoers packaged" assert_file "$packaged_config_root/sudoers.d/lite-nas-operational-safety-automation"
+assert_cmd "operational safety package deployment wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh "deploy.securityMonitor.deploy \"operational-safety-automation\" \"\$PACKAGE_ROOT/operational-safety-automation\" 0"
+assert_cmd "operational safety package start wired" assert_file_contains usr/libexec/lite-nas/scripts/runtime/deploy-package-runtime.sh 'deploy.enableAndRefreshService "lite-nas-operational-safety-automation.service"'
 assert_cmd "web-gateway.conf packaged" assert_file "$packaged_config_root/lite-nas/web-gateway.conf"
 assert_cmd "moments.conf packaged" assert_file "$packaged_config_root/lite-nas/moments.conf"
 assert_cmd "Moments Nginx host packaged" assert_file "$packaged_config_root/nginx/sites-available/lite-nas-moments.conf"

@@ -64,6 +64,25 @@ export const formatAlertsTimestamp = (value: string | null): string => {
  * Returns sticky column styling for supported alerts table columns.
  */
 export const buildAlertsStickyColumnSx = (columnKey: string, isHeader = false): SxProps<Theme> => {
+  const textWidths: Record<string, [number, number, number]> = {
+    "event-id": [150, 190, 230],
+    message: [180, 360, 520],
+    value: [110, 140, 180],
+    source: [110, 140, 180],
+    category: [130, 160, 210],
+    mitigate: [110, 240, 360],
+  };
+  const widths = textWidths[columnKey];
+  if (widths) {
+    return {
+      minWidth: widths[0],
+      width: widths[1],
+      maxWidth: widths[2],
+      overflowWrap: "anywhere",
+      whiteSpace: "normal",
+    };
+  }
+  if (columnKey === "acknowledgement") return acknowledgementColumnSx(isHeader);
   const stickyConfig = resolveStickyColumnConfig(columnKey);
 
   if (stickyConfig === null) {
@@ -79,6 +98,16 @@ export const buildAlertsStickyColumnSx = (columnKey: string, isHeader = false): 
     zIndex: isHeader ? 4 : 2,
   };
 };
+
+/** Pins the acknowledgement control at the right edge of the alerts table. */
+const acknowledgementColumnSx = (isHeader: boolean): SxProps<Theme> => ({
+  backgroundColor: "background.paper",
+  position: "sticky",
+  right: 0,
+  minWidth: 150,
+  width: 150,
+  zIndex: isHeader ? 4 : 2,
+});
 
 /**
  * Formats one severity value for display in typed severity cells.

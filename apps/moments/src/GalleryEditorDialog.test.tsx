@@ -33,7 +33,9 @@ vi.mock("./ThumbnailMaker", () => ({
   ),
 }));
 vi.mock("./GalleryScanControls", () => ({
-  GalleryScanControls: () => <div>Media scan controls</div>,
+  GalleryScanControls: ({ kind }: { kind?: string }) => (
+    <div>{kind === "CAPTION" ? "Caption scan controls" : "Media scan controls"}</div>
+  ),
 }));
 vi.mock("./moments-data", () => ({
   addUserTag: vi.fn(),
@@ -87,6 +89,12 @@ function renderEditor(selectedGallery?: GalleryRecord): void {
     />,
   );
 }
+
+test("gallery editor includes caption generation beside media scanning", async () => {
+  mockTags();
+  renderEditor(gallery);
+  expect(await screen.findByText("Caption scan controls")).toBeTruthy();
+});
 
 test.each([
   { label: "Close gallery creator", gallery: undefined },

@@ -42,6 +42,7 @@ type serviceConfig struct {
 	GeocoderURL     string
 	CaptionScript   string
 	EmbeddingScript string
+	EmbeddingModel  string
 }
 
 // loadConfig reads the service listener, messaging, and browser cookie scope.
@@ -110,6 +111,10 @@ func loadConfig(path string) (serviceConfig, error) {
 	if embeddingScript != "" && fileaccess.ValidateHostPath(embeddingScript) != nil {
 		return serviceConfig{}, errors.New("embedding_script must be a clean absolute path")
 	}
+	embeddingModel := iniFile.Section("storage").Key("embedding_model").MustString("e5")
+	if embeddingModel != "e5" && embeddingModel != "embeddinggemma" {
+		return serviceConfig{}, errors.New("embedding_model must be e5 or embeddinggemma")
+	}
 	parsed, err := url.Parse(fileServiceURL)
 	if err != nil || parsed.Scheme != "http" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
@@ -117,7 +122,7 @@ func loadConfig(path string) (serviceConfig, error) {
 	if err := validateListener(parsed.Host); err != nil {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
 	}
-	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript, EmbeddingScript: embeddingScript}, nil
+	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript, EmbeddingScript: embeddingScript, EmbeddingModel: embeddingModel}, nil
 }
 
 // validateListener keeps the Moments API behind the local Nginx proxy.
@@ -177,6 +182,7 @@ func run(ctx context.Context, path string) error {
 	places.online = newReverseGeocoder(store, cfg.GeocoderURL)
 	places.captionScript = cfg.CaptionScript
 	places.embeddingScript = cfg.EmbeddingScript
+	places.embeddingModel = cfg.EmbeddingModel
 	files := newFileServiceClient(cfg.FileServiceURL)
 	auth := browserauth.NewAuthService(infra.Client, verifier, "moments")
 	scans := newScanManager(store, auth, files, places)

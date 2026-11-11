@@ -47,6 +47,52 @@ func TestPackagedCloudflaredSpecUsesFilePlugin(t *testing.T) {
 	}
 }
 
+// Requirements: backup-restore/FR-002, operational-safety-automation/BR-001.
+// TestPackagedOperationalSafetySpecIncludesRuleSkeleton checks that a future
+// configured rule set is captured with its owning service configuration.
+func TestPackagedOperationalSafetySpecIncludesRuleSkeleton(t *testing.T) {
+	path := "../../configs/etc/lite-nas/backup.d/operational-safety-automation.conf"
+	got, err := LoadSpec(path, "operational-safety-automation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Spec{
+		Application: "operational-safety-automation", SourcePath: path, Plugin: "file",
+		Selections: []Selection{
+			{Path: "/etc/lite-nas/operational-safety-automation.conf"},
+			{Path: "/etc/lite-nas/operational-safety-automation", Directory: true},
+			{Path: "/var/lib/lite-nas/operational-safety-automation/event-ids", Directory: true},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("operational safety spec = %#v, want %#v", got, want)
+	}
+}
+
+// Requirements: backup-restore/FR-002, sensor-monitor/BR-001.
+// TestPackagedSensorMonitorSpecIncludesConfigurationAndTransportIdentity checks
+// that the service's runtime configuration and NATS identity are restorable.
+func TestPackagedSensorMonitorSpecIncludesConfigurationAndTransportIdentity(t *testing.T) {
+	path := "../../configs/etc/lite-nas/backup.d/sensor-monitor.conf"
+	got, err := LoadSpec(path, "sensor-monitor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Spec{
+		Application: "sensor-monitor", SourcePath: path, Plugin: "file",
+		RestartUnits: []string{"lite-nas-sensor-monitor.service"},
+		Selections: []Selection{
+			{Path: "/etc/lite-nas/sensor-monitor.conf"},
+			{Path: "/etc/lite-nas/sensor-names.json"},
+			{Path: "/etc/lite-nas/certificates/transport/root-ca.crt"},
+			{Path: "/etc/lite-nas/certificates/transport/lite-nas-sensor-monitor", Directory: true},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("sensor monitor spec = %#v, want %#v", got, want)
+	}
+}
+
 // Requirements: backup-restore/FR-002, security-automation/BR-001.
 func TestPackagedSecurityAutomationCLISpecIncludesTransportTrust(t *testing.T) {
 	path := "../../configs/etc/lite-nas/backup.d/security-automation-cli.conf"

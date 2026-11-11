@@ -102,15 +102,21 @@ export function GalleryFeed({
   }, [searchDraft, search]);
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setBusy(true);
     setError(null);
-    void listGalleries(page, scope === "mine" ? userId : undefined, {
-      q: search || undefined,
-      type: kind || undefined,
-      visibility: visibility || undefined,
-      mediaType: mediaTypes.length > 0 ? mediaTypes : undefined,
-      location: location.trim() || undefined,
-    })
+    void listGalleries(
+      page,
+      scope === "mine" ? userId : undefined,
+      {
+        q: search || undefined,
+        type: kind || undefined,
+        visibility: visibility || undefined,
+        mediaType: mediaTypes.length > 0 ? mediaTypes : undefined,
+        location: location.trim() || undefined,
+      },
+      { signal: controller.signal },
+    )
       .then((result) => {
         if (!active) return;
         setPages(result.metadata.total_pages);
@@ -128,6 +134,7 @@ export function GalleryFeed({
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [page, scope, userId, search, kind, visibility, mediaTypes, location, getLabel]);
   useEffect(() => {
@@ -167,7 +174,7 @@ export function GalleryFeed({
           mediaType: mediaTypes.length > 0 ? mediaTypes : undefined,
           location: location.trim() || undefined,
         },
-        mediaMatches.length,
+        { mediaOffset: mediaMatches.length },
       );
       if (version !== requestVersion.current) return;
       setMediaMatches((previous) => [...previous, ...(result.matchingMedia?.items ?? [])]);

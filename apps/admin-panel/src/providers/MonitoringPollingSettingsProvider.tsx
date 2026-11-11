@@ -30,7 +30,7 @@ export const MonitoringPollingSettingsProvider = ({
   children,
   storageKey,
 }: MonitoringPollingSettingsProviderProps): ReactElement => {
-  const { put } = useApi();
+  const { get, put } = useApi();
   const { isAuthenticated } = useAuth();
   const [settings, setSettingsState] = useState<MonitoringPollingSettings>(() => {
     return loadMonitoringPollingSettings(storageKey);
@@ -45,10 +45,11 @@ export const MonitoringPollingSettingsProvider = ({
       setSettingsState,
       settings,
       storageKey,
+      get,
       put,
       isAuthenticated,
     });
-  }, [settings, storageKey, put, isAuthenticated]);
+  }, [settings, storageKey, get, put, isAuthenticated]);
 
   return (
     <MonitoringPollingSettingsContext.Provider value={value}>
@@ -61,6 +62,7 @@ type BuildMonitoringPollingSettingsContextValueOptions = {
   setSettingsState: Dispatch<SetStateAction<MonitoringPollingSettings>>;
   settings: MonitoringPollingSettings;
   storageKey: string;
+  get: ApiContextValue["get"];
   put: ApiContextValue["put"];
   isAuthenticated: boolean;
 };
@@ -69,10 +71,15 @@ const buildMonitoringPollingSettingsContextValue = ({
   setSettingsState,
   settings,
   storageKey,
+  get,
   put,
   isAuthenticated,
 }: BuildMonitoringPollingSettingsContextValueOptions): MonitoringPollingSettingsContextValue => {
-  const updateSettings = createSettingsUpdater(setSettingsState, storageKey, put, isAuthenticated);
+  const updateSettings = createSettingsUpdater(setSettingsState, storageKey, {
+    get,
+    put,
+    isAuthenticated,
+  });
 
   return {
     ...settings,
@@ -119,8 +126,7 @@ const buildMonitoringPollingSettingsContextValue = ({
 const createSettingsUpdater = (
   setSettingsState: Dispatch<SetStateAction<MonitoringPollingSettings>>,
   storageKey: string,
-  put: ApiContextValue["put"],
-  isAuthenticated: boolean,
+  api: Pick<ApiContextValue, "get" | "put"> & { isAuthenticated: boolean },
 ): ((settings: MonitoringPollingSettings) => void) => {
   return (nextSettings: MonitoringPollingSettings): void => {
     const normalizedSettings = normalizeMonitoringPollingSettings(
@@ -130,6 +136,6 @@ const createSettingsUpdater = (
 
     setSettingsState(normalizedSettings);
     saveMonitoringPollingSettings(storageKey, normalizedSettings);
-    if (isAuthenticated) void saveAdminSettings({ put }).catch(() => undefined);
+    if (api.isAuthenticated) void saveAdminSettings(api).catch(() => undefined);
   };
 };

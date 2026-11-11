@@ -6,6 +6,7 @@ import (
 	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
 	processmetricscontract "lite-nas/shared/contracts/processmetrics"
+	sensorcontract "lite-nas/shared/contracts/sensormonitor"
 	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
@@ -18,6 +19,12 @@ import (
 type SystemMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.SystemSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.SystemSnapshot, error)
+}
+
+// SensorMonitorService defines the sensor snapshot and history flows.
+type SensorMonitorService interface {
+	GetSnapshot(ctx context.Context) (metrics.SensorSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.SensorSnapshot, error)
 }
 
 // ServiceMetricsService defines the backend-facing service metrics flows used by
@@ -62,6 +69,19 @@ type metricsRPCService[T any, SnapshotResponse any, HistoryResponse any] struct 
 	historyRequest     any
 	selectSnapshot     func(SnapshotResponse) T
 	selectHistoryItems func(HistoryResponse) []T
+}
+
+// NewSensorMonitorService fetches sensor readings over shared messaging.
+func NewSensorMonitorService(client messaging.Client) SensorMonitorService {
+	return metricsRPCService[metrics.SensorSnapshot, sensorcontract.GetSnapshotResponse, sensorcontract.GetHistoryResponse]{
+		client:             client,
+		snapshotSubject:    sensorcontract.SnapshotRPCSubject,
+		historySubject:     sensorcontract.HistoryRPCSubject,
+		snapshotRequest:    sensorcontract.GetSnapshotRequest{},
+		historyRequest:     sensorcontract.GetHistoryRequest{},
+		selectSnapshot:     func(response sensorcontract.GetSnapshotResponse) metrics.SensorSnapshot { return response.Snapshot },
+		selectHistoryItems: func(response sensorcontract.GetHistoryResponse) []metrics.SensorSnapshot { return response.Items },
+	}
 }
 
 // NewSystemMetricsService creates a service that fetches system metrics over

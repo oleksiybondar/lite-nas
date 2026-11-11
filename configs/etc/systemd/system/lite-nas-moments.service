@@ -43,7 +43,8 @@ AmbientCapabilities=
 MemoryHigh=2500M
 MemoryMax=3200M
 MemorySwapMax=0
-CPUQuota=200%
+# Safe one-core fallback; deployment scales this to 35% of all online CPUs.
+CPUQuota=35%
 TasksMax=128
 LimitCORE=0
 UMask=0027

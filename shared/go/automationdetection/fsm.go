@@ -1,5 +1,6 @@
-// Package detection compiles per-rule alert detectors over the shared FSM.
-package detection
+// Package automationdetection compiles reusable per-rule alert detectors over
+// the shared FSM. Callers own alert validation, matching, and effect delivery.
+package automationdetection
 
 import (
 	"context"

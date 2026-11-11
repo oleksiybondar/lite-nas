@@ -120,7 +120,8 @@ extra argument.
 
 ## FSM plugin names
 
-These are **Security Automation** plugin names to implement using `shared/go/fsm`. They are distinct from Log Analysis's
+These are shared automation detector plugins in `shared/go/automationdetection`, built using `shared/go/fsm`.
+Security Automation uses them today. They are distinct from Log Analysis's
 existing `immediate`, `threshold`, and `keyed_threshold` plugins, which evaluate raw log observations before publishing
 alerts.
 

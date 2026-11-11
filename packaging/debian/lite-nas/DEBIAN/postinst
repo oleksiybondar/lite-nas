@@ -23,6 +23,13 @@ configure_package_validation_mode() {
 	run_deploy_runtime validate
 }
 
+stop_service_watchdog_for_deploy() {
+	if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet lite-nas-service-watchdog.service; then
+		echo "[INFO] Stopping LiteNAS service watchdog for package deployment." >&2
+		systemctl stop lite-nas-service-watchdog.service
+	fi
+}
+
 configure_file_explorer() {
 	install -d -m 0755 /usr/share/lite-nas /usr/share/lite-nas/nginx
 	ln -sfn /usr/share/lite-nas/file-explorer/nginx/file-explorer.conf \
@@ -39,6 +46,11 @@ configure_package() {
 		configure_package_validation_mode
 		return 0
 	fi
+
+	# The installed postinst runs on the first upgrade too, when dpkg has called
+	# the previous package's prerm. Stop monitoring before runtime deployment
+	# restarts protected services; deploy-package-runtime starts it at the end.
+	stop_service_watchdog_for_deploy
 
 	if command -v debconf-communicate >/dev/null 2>&1; then
 		debconf_reply="$(printf 'GET lite-nas/replace-nats-config\n' | debconf-communicate lite-nas 2>/dev/null || true)"

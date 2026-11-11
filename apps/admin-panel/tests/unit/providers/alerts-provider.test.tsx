@@ -80,9 +80,10 @@ describe("AlertsProvider", () => {
       fireEvent.click(screen.getByTestId("acknowledge-many"));
     });
 
-    expect(mutateAsync).toHaveBeenCalledTimes(2);
+    expect(mutateAsync).toHaveBeenCalledTimes(3);
     expect(mutateAsync).toHaveBeenNthCalledWith(1, { id: "1" });
     expect(mutateAsync).toHaveBeenNthCalledWith(2, { id: "2" });
+    expect(mutateAsync).toHaveBeenNthCalledWith(3, { id: "3" });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["alerts", "system"] });
   });
 });

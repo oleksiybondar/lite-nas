@@ -20,6 +20,7 @@ type Controllers struct {
 	SystemAlerts       controllers.AlertsController
 	SecurityAlerts     controllers.AlertsController
 	SystemMetrics      controllers.SystemMetricsController
+	SensorMonitor      controllers.SensorMonitorController
 	ProcessMetrics     controllers.ProcessMetricsController
 	ServiceMetrics     controllers.ServiceMetricsController
 	DiskMetrics        controllers.DiskMetricsController
@@ -28,6 +29,7 @@ type Controllers struct {
 	BackupRestore      controllers.BackupRestoreController
 	SecurityTasks      controllers.SecurityTasksController
 	SecurityAutomation controllers.SecurityAutomationController
+	OperationalSafety  controllers.OperationalSafetyController
 	LogAudit           controllers.LogAuditController
 }
 
@@ -58,6 +60,7 @@ func NewControllersModule(
 		SystemAlerts:       controllers.NewSystemAlertsController(services.SystemAlerts),
 		SecurityAlerts:     controllers.NewSecurityAlertsController(services.SecurityAlerts),
 		SystemMetrics:      controllers.NewSystemMetricsController(services.SystemMetrics),
+		SensorMonitor:      controllers.NewSensorMonitorController(services.SensorMonitor),
 		ProcessMetrics:     controllers.NewProcessMetricsController(services.ProcessMetrics),
 		ServiceMetrics:     controllers.NewServiceMetricsController(services.ServiceMetrics),
 		DiskMetrics:        controllers.NewDiskMetricsController(services.DiskMetrics),
@@ -66,6 +69,7 @@ func NewControllersModule(
 		BackupRestore:      controllers.NewBackupRestoreController(services.BackupRestore),
 		SecurityTasks:      controllers.NewSecurityTasksController(services.SecurityTasks),
 		SecurityAutomation: controllers.NewSecurityAutomationController(services.SecurityAutomation),
+		OperationalSafety:  controllers.NewOperationalSafetyController(services.OperationalSafety),
 		LogAudit:           controllers.NewLogAuditController(services.LogAudit),
 	}
 }

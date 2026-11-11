@@ -11,25 +11,28 @@ import os
 import pathlib
 import sys
 
-MODEL_DIR = pathlib.Path("/usr/local/lib/lite-nas/moments/embeddinggemma-model")
-ONNX_MODEL = MODEL_DIR / "onnx/model_q4.onnx"
+MODEL_ROOT = pathlib.Path("/usr/local/lib/lite-nas/moments")
 MAX_TEXTS = 10001
 MAX_TEXT_BYTES = 2048
 EMBEDDING_SIZE = 768
 
 
-def embed(texts: list[str]) -> list[str]:
+def embed(texts: list[str], model: str = "e5") -> list[str]:
     """Return normalized float32 vectors encoded as base64 in input order."""
     import numpy as np
-    import onnxruntime as ort
     from transformers import AutoTokenizer
+    # Import Transformers first: loading ONNX Runtime first registers ONNX's
+    # protobuf descriptors twice with this pinned dependency set and aborts.
+    import onnxruntime as ort
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR, local_files_only=True, trust_remote_code=False)
+    model_dir = MODEL_ROOT / ("e5-model/onnx" if model == "e5" else "embeddinggemma-model")
+    model_file = model_dir / ("model.onnx" if model == "e5" else "onnx/model_q4.onnx")
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True, trust_remote_code=False)
     options = ort.SessionOptions()
     options.intra_op_num_threads = 2
     options.inter_op_num_threads = 1
     session = ort.InferenceSession(
-        str(ONNX_MODEL),
+        str(model_file),
         providers=["CPUExecutionProvider"],
         sess_options=options,
     )
@@ -40,15 +43,21 @@ def embed(texts: list[str]) -> list[str]:
             texts[start : start + 16],
             padding=True,
             truncation=True,
-            max_length=512,
+            max_length=256 if model == "e5" else 512,
             return_tensors="np",
         )
         inputs = {name: value for name, value in encoded.items() if name in input_names}
         outputs = session.run(None, inputs)
-        if len(outputs) < 2:
-            raise ValueError("embedding model did not return sentence embeddings")
-        embeddings = outputs[1]
-        if embeddings.shape != (len(texts[start : start + 16]), EMBEDDING_SIZE):
+        if model == "e5":
+            mask = encoded["attention_mask"][..., None].astype(np.float32)
+            embeddings = (outputs[0] * mask).sum(axis=1) / np.maximum(mask.sum(axis=1), 1)
+            size = 384
+        else:
+            if len(outputs) < 2:
+                raise ValueError("embedding model did not return sentence embeddings")
+            embeddings = outputs[1]
+            size = EMBEDDING_SIZE
+        if embeddings.shape != (len(texts[start : start + 16]), size):
             raise ValueError("embedding model returned an invalid vector shape")
         lengths = np.linalg.norm(embeddings, axis=1, keepdims=True)
         if not np.isfinite(embeddings).all() or np.any(lengths <= 1e-12):
@@ -64,6 +73,9 @@ def main() -> None:
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     request = json.loads(sys.stdin.buffer.readline(21 * 1024 * 1024))
     texts = request.get("texts")
+    model = request.get("model", "e5")
+    if model not in ("e5", "embeddinggemma"):
+        raise ValueError("invalid embedding model")
     if not isinstance(texts, list) or not 1 <= len(texts) <= MAX_TEXTS:
         raise ValueError("invalid text count")
     if any(
@@ -73,7 +85,7 @@ def main() -> None:
         for text in texts
     ):
         raise ValueError("invalid text")
-    print(json.dumps({"vectors": embed(texts)}, separators=(",", ":")), flush=True)
+    print(json.dumps({"vectors": embed(texts, model)}, separators=(",", ":")), flush=True)
 
 
 if __name__ == "__main__":

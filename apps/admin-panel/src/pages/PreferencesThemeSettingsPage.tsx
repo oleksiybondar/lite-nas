@@ -1,3 +1,4 @@
+import type { ApiContextValue } from "@dto/api/api";
 import { saveAdminSettings, saveSharedMode } from "@helpers/profile-settings";
 import { useApi } from "@hooks/useApi";
 import { useAuth } from "@hooks/useAuth";
@@ -8,10 +9,25 @@ import type { ThemeSettings } from "@theme/types";
 import type { ReactElement } from "react";
 import { useState } from "react";
 
+/** Persists a changed theme to the authenticated admin and shared UI profiles. */
+const persistThemePreferences = async (
+  api: Pick<ApiContextValue, "get" | "put">,
+  mode: ThemeSettings["mode"],
+  setError: (error: string | null) => void,
+): Promise<void> => {
+  try {
+    await Promise.all([saveAdminSettings(api), saveSharedMode(api, mode)]);
+    setError(null);
+  } catch (error) {
+    const cause = error instanceof Error ? ` ${error.message}` : "";
+    setError(`Saved in this browser, but the user file could not be updated.${cause}`);
+  }
+};
+
 /** Connects the shared appearance screen to admin theme state and profile persistence. */
 export const PreferencesThemeSettingsPage = (): ReactElement => {
   const theme = useThemeManager();
-  const { put } = useApi();
+  const { get, put } = useApi();
   const { isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const current: ThemeSettings = {
@@ -30,12 +46,7 @@ export const PreferencesThemeSettingsPage = (): ReactElement => {
     saveThemeSettings(current);
     setSaved(current);
     if (isAuthenticated) {
-      void Promise.all([saveAdminSettings({ put }), saveSharedMode({ put }, theme.resolvedMode)])
-        .then(() => setError(null))
-        .catch((error: unknown) => {
-          const cause = error instanceof Error ? ` ${error.message}` : "";
-          setError(`Saved in this browser, but the user file could not be updated.${cause}`);
-        });
+      void persistThemePreferences({ get, put }, theme.resolvedMode, setError);
     }
   };
 

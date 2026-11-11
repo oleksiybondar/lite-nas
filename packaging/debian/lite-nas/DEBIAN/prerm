@@ -2,7 +2,16 @@
 set -e
 
 case "$1" in
-remove | deconfigure | upgrade | failed-upgrade)
+upgrade)
+	# Keep the watchdog from treating the package's planned service restarts as
+	# unauthorized state changes. postinst starts it after the runtime deploy
+	# has finished bringing the protected services back up.
+	if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet lite-nas-service-watchdog.service; then
+		echo "[INFO] Stopping LiteNAS service watchdog for package upgrade." >&2
+		systemctl stop lite-nas-service-watchdog.service
+	fi
+	;;
+remove | deconfigure | failed-upgrade)
 	;;
 *)
 	echo "prerm called with unsupported argument: $1" >&2

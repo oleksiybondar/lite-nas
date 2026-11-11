@@ -182,8 +182,29 @@ test("feed search sends its query to the paged gallery API", async () => {
       1,
       undefined,
       expect.objectContaining({ q: "beach" }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     ),
   );
+});
+
+test("changing search cancels the previous model request", async () => {
+  renderHomeFeed();
+  fireEvent.change(screen.getByLabelText("Search galleries"), {
+    target: { value: "маленька дівчинка і квіти" },
+  });
+  await waitFor(() =>
+    expect(listGalleries).toHaveBeenCalledWith(
+      1,
+      undefined,
+      expect.objectContaining({ q: "маленька дівчинка і квіти" }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ),
+  );
+  const previousSignal = vi.mocked(listGalleries).mock.lastCall?.[3]?.signal;
+  fireEvent.change(screen.getByLabelText("Search galleries"), {
+    target: { value: "маленька дівчинка" },
+  });
+  await waitFor(() => expect(previousSignal?.aborted).toBe(true));
 });
 
 test("search shows galleries before individual photos", async () => {
@@ -252,7 +273,12 @@ test.each([
   fireEvent.mouseDown(screen.getByLabelText(label));
   fireEvent.click(screen.getByRole("option", { name: option }));
   await waitFor(() =>
-    expect(listGalleries).toHaveBeenCalledWith(1, undefined, expect.objectContaining(filter)),
+    expect(listGalleries).toHaveBeenCalledWith(
+      1,
+      undefined,
+      expect.objectContaining(filter),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ),
   );
 });
 
@@ -266,6 +292,7 @@ test("media filter sends multiple selected types to the backend", async () => {
       1,
       undefined,
       expect.objectContaining({ mediaType: ["IMAGE", "VIDEO"] }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     ),
   );
 });
@@ -278,6 +305,7 @@ test("location filter passes entered place names to the API", async () => {
       1,
       undefined,
       expect.objectContaining({ location: "Copenhagen" }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     ),
   );
 });
@@ -292,6 +320,7 @@ test("clear filters restores the unfiltered feed", async () => {
       1,
       undefined,
       expect.objectContaining({ type: undefined }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     ),
   );
 });

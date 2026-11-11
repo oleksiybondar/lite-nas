@@ -133,6 +133,9 @@ done
 if [ -d "$target_dir/lite-nas/log-analysis" ]; then
 	cp -a "$target_dir/lite-nas/log-analysis" "$security_monitor_saved/log-analysis"
 fi
+if [ -d "$target_dir/lite-nas/operational-safety-automation" ]; then
+	cp -a "$target_dir/lite-nas/operational-safety-automation" "$security_monitor_saved/operational-safety-automation"
+fi
 if [ -d "$target_dir/lite-nas/backup.d" ]; then
 	cp -a "$target_dir/lite-nas/backup.d" "$backup_specs_saved/backup.d"
 fi
@@ -150,6 +153,11 @@ for config_entry in "${config_entries[@]}"; do
 	if [ "$manage_nats_config" -eq 0 ] && { [ "$config_name" = "nats-server.conf" ] || [ "$config_name" = "nats-server" ]; }; then
 		continue
 	fi
+	# Postfix has a dedicated deploy helper that seeds missing defaults and
+	# preserves host-managed main.cf, master.cf, and relay configuration.
+	if [ "$config_name" = "postfix" ]; then
+		continue
+	fi
 	cp -a "$config_entry" "$target_dir/"
 done
 for original_config in "$service_configs_saved/"*.conf; do
@@ -160,6 +168,9 @@ for original_config in "$service_configs_saved/"*.conf; do
 done
 if [ -d "$security_monitor_saved/log-analysis" ]; then
 	cp -a "$security_monitor_saved/log-analysis" "$target_dir/lite-nas/"
+fi
+if [ -d "$security_monitor_saved/operational-safety-automation" ]; then
+	cp -a "$security_monitor_saved/operational-safety-automation" "$target_dir/lite-nas/"
 fi
 if [ -d "$backup_specs_saved/backup.d" ]; then
 	cp -a "$backup_specs_saved/backup.d" "$target_dir/lite-nas/"

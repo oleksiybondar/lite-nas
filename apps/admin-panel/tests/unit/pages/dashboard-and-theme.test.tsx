@@ -1,5 +1,7 @@
 import { App } from "@app/App";
+import { RbacContext } from "@contexts/rbac-context";
 import { ThemeManagerContext } from "@contexts/theme-manager-context";
+import type { RbacContextValue } from "@dto/rbac/rbac";
 import {
   buildMonitoringPollingSettingsStorageKey,
   loadMonitoringPollingSettings,
@@ -14,9 +16,9 @@ import { PreferencesThemeSettingsPage } from "@pages/PreferencesThemeSettingsPag
 import { SystemLandingPage } from "@pages/SystemLandingPage";
 import { SystemPerformanceLandingPage } from "@pages/SystemPerformanceLandingPage";
 import { SystemProcessesLandingPage } from "@pages/SystemProcessesLandingPage";
-import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
+import { QueryProvider } from "@providers/QueryProvider";
 import { router } from "@routes/router";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
@@ -31,6 +33,14 @@ import { getComponentOverrides } from "@theme/mui/components";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useState } from "react";
 
+const adminRbac: RbacContextValue = {
+  roles: ["admin"],
+  scopes: [],
+  requireAdmin: () => true,
+  requireOperator: () => true,
+  requireSecurity: () => true,
+};
+
 const categoryLandingPageCases = [
   {
     cardName: "Performance",
@@ -38,6 +48,10 @@ const categoryLandingPageCases = [
   },
   {
     cardName: "Sensors",
+    page: <SystemLandingPage />,
+  },
+  {
+    cardName: "Automation",
     page: <SystemLandingPage />,
   },
   {
@@ -69,26 +83,6 @@ const categoryLandingPageCases = [
     page: <SystemProcessesLandingPage />,
   },
   {
-    cardName: "Temperature",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Voltage",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Clock",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Throttling",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Fan",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
     cardName: "User profile",
     page: <PreferencesLandingPage />,
   },
@@ -107,40 +101,60 @@ const categoryLandingPageCases = [
 ];
 
 describe("dashboard page", () => {
-  test.each([
-    { title: "System Metrics", path: "/system/performance" },
-    { title: "Services", path: "/system/processes/services" },
-    { title: "Applications", path: "/applications" },
-    { title: "Preferences", path: "/preferences" },
-  ])("admin-panel-app/FR-002 links the $title card to its page", ({ title, path }) => {
-    renderWithThemeManager(
-      <TestMemoryRouter>
-        <DashboardPage />
-      </TestMemoryRouter>,
-    );
+  test.each([{ kind: "cpu" }, { kind: "ram" }, { kind: "zfs-io" }, { kind: "zfs-errors" }])(
+    "renders the default $kind dashboard widget",
+    ({ kind }) => {
+      const { container } = renderWithThemeManager(
+        <TestMemoryRouter>
+          <QueryProvider>
+            <DashboardPage />
+          </QueryProvider>
+        </TestMemoryRouter>,
+      );
 
-    expect(screen.getByRole("link", { name: new RegExp(title) })).toHaveAttribute("href", path);
-  });
+      expect(
+        container.querySelector(`[data-test-class="dashboard-widget"][data-test-name="${kind}"]`),
+      ).toBeInTheDocument();
+    },
+  );
 });
 
 describe("category landing pages", () => {
   test.each(categoryLandingPageCases)("renders $cardName category card", ({ cardName, page }) => {
-    render(<TestMemoryRouter>{page}</TestMemoryRouter>);
+    render(
+      <RbacContext.Provider value={adminRbac}>
+        <TestMemoryRouter>{page}</TestMemoryRouter>
+      </RbacContext.Provider>,
+    );
 
     expect(screen.getAllByRole("heading", { name: cardName }).length).toBeGreaterThan(0);
   });
 
   test("renders category cards as full-card links", () => {
     render(
-      <TestMemoryRouter>
-        <SystemLandingPage />
-      </TestMemoryRouter>,
+      <RbacContext.Provider value={adminRbac}>
+        <TestMemoryRouter>
+          <SystemLandingPage />
+        </TestMemoryRouter>
+      </RbacContext.Provider>,
     );
 
     expect(screen.getByRole("link", { name: /Performance/ })).toHaveAttribute(
       "href",
       "/system/performance",
     );
+  });
+
+  test("hides system automation from non-administrators", () => {
+    render(
+      <RbacContext.Provider value={{ ...adminRbac, roles: [], requireAdmin: () => false }}>
+        <TestMemoryRouter>
+          <SystemLandingPage />
+        </TestMemoryRouter>
+      </RbacContext.Provider>,
+    );
+
+    expect(screen.queryByRole("link", { name: /Automation/ })).not.toBeInTheDocument();
   });
 });
 

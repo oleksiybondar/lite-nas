@@ -46,8 +46,9 @@ export const hasValueLineChartData = (
 export const buildValueLineChartLines = (
   valuesByKey: Record<string, number[]>,
   capacity: number,
+  minimumMaximum = 0,
 ): ValueLineChartLine[] => {
-  const maxValue = resolveValueLineChartMax(valuesByKey);
+  const maxValue = Math.max(minimumMaximum, resolveValueLineChartMax(valuesByKey));
 
   return Object.entries(valuesByKey).map(([key, values], index) => {
     const color = chartSeriesPalette[index % chartSeriesPalette.length] ?? chartSeriesPalette[0];
@@ -105,8 +106,9 @@ export const buildValueLineChartAxisLabels = (
 export const buildValueLineChartYAxisLabels = (
   valuesByKey: Record<string, number[]>,
   formatValue: (value: number) => string,
+  minimumMaximum = 0,
 ): ValueLineChartYAxisLabel[] => {
-  const maxValue = resolveValueLineChartMax(valuesByKey);
+  const maxValue = Math.max(minimumMaximum, resolveValueLineChartMax(valuesByKey));
   const roundedMaxValue = roundValueLineChartMax(maxValue);
 
   return Array.from({ length: yGridSegments + 1 }, (_, index) => {

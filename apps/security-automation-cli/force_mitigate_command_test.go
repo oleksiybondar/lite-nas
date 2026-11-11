@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	safetycontract "lite-nas/shared/contracts/operationalsafety"
 	contract "lite-nas/shared/contracts/securityautomation"
 	"lite-nas/shared/testutil/messagingtest"
 )
@@ -15,6 +16,8 @@ type mitigationClient struct {
 	subject     string
 	request     contract.ForceMitigateRequest
 	lastRequest any
+	cpuRequest  safetycontract.OperationalSafetyCPUSetCapRequest
+	cpuState    safetycontract.OperationalSafetyOutcomeState
 	failOn      string
 }
 
@@ -37,6 +40,14 @@ func (client *mitigationClient) Request(_ context.Context, subject string, reque
 		client.subject = subject
 		client.request = request.(contract.ForceMitigateRequest)
 		*response.(*contract.OperationResponse) = contract.OperationResponse{Completed: true}
+	case safetycontract.CPUSetCapSubject:
+		client.subject = subject
+		client.cpuRequest = request.(safetycontract.OperationalSafetyCPUSetCapRequest)
+		state := client.cpuState
+		if state == "" {
+			state = safetycontract.OutcomeCompleted
+		}
+		*response.(*safetycontract.OperationalSafetyCPUSetCapResponse) = safetycontract.OperationalSafetyCPUSetCapResponse{State: state, CapKHz: client.cpuRequest.CapKHz}
 	default:
 		return errors.New("unexpected RPC subject")
 	}
@@ -58,6 +69,7 @@ func TestOperatorCommandsUseExpectedRPC(t *testing.T) {
 		{"enable", []string{"enable", "rule_1"}, contract.RuleSetEnabledSubject},
 		{"disable", []string{"disable", "rule_1"}, contract.RuleSetEnabledSubject},
 		{"cooldown reset", []string{"cooldown-reset", "rule_1", "alice"}, contract.CooldownResetSubject},
+		{"manual CPU cap", []string{"cpu-set-cap", "1900000", "--yes"}, safetycontract.CPUSetCapSubject},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -69,6 +81,25 @@ func TestOperatorCommandsUseExpectedRPC(t *testing.T) {
 				t.Fatalf("subject = %q, want %q", client.subject, test.subject)
 			}
 		})
+	}
+}
+
+// Requirements: operational-safety-automation/FR-CHAIN-012.
+func TestManualCPUCapCommandUsesKHzRPCOperand(t *testing.T) {
+	client := &mitigationClient{}
+	if err := executeCommand(context.Background(), client, "token", []string{"cpu-set-cap", "1900000", "--yes"}); err != nil {
+		t.Fatal(err)
+	}
+	if client.cpuRequest.CapKHz != 1900000 || client.cpuRequest.AccessToken != "token" {
+		t.Fatalf("manual cap RPC = %#v", client.cpuRequest)
+	}
+}
+
+// Requirements: operational-safety-automation/FR-CHAIN-012.
+func TestManualCPUCapCommandFailsWhenRPCBlocksChange(t *testing.T) {
+	client := &mitigationClient{cpuState: safetycontract.OutcomeBlocked}
+	if err := executeCommand(context.Background(), client, "token", []string{"cpu-set-cap", "1900000", "--yes"}); err == nil {
+		t.Fatal("blocked manual cap returned CLI success")
 	}
 }
 

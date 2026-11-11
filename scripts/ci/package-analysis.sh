@@ -48,6 +48,8 @@ create_systemd_validation_root() {
 		"$systemd_root/etc/systemd/system/lite-nas-backup-restore.service"
 	cp configs/etc/systemd/system/lite-nas-system-metrics.service \
 		"$systemd_root/etc/systemd/system/lite-nas-system-metrics.service"
+	cp configs/etc/systemd/system/lite-nas-sensor-monitor.service \
+		"$systemd_root/etc/systemd/system/lite-nas-sensor-monitor.service"
 	cp configs/etc/systemd/system/lite-nas-process-metrics.service \
 		"$systemd_root/etc/systemd/system/lite-nas-process-metrics.service"
 	cp configs/etc/systemd/system/lite-nas-disk-metrics.service \
@@ -82,9 +84,10 @@ create_systemd_validation_root() {
 	cp configs/etc/systemd/system/lite-nas-usb-manager.service "$systemd_root/etc/systemd/system/lite-nas-usb-manager.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.service "$systemd_root/etc/systemd/system/lite-nas-log-analysis.service"
 	cp configs/etc/systemd/system/lite-nas-network-security.service "$systemd_root/etc/systemd/system/lite-nas-network-security.service"
+	cp configs/etc/systemd/system/lite-nas-operational-safety-automation.service "$systemd_root/etc/systemd/system/lite-nas-operational-safety-automation.service"
 	cp configs/etc/systemd/system/lite-nas-log-analysis.socket "$systemd_root/etc/systemd/system/lite-nas-log-analysis.socket"
 
-	for binary in auth-service rbac-service system-metrics process-metrics disk-metrics service-metrics web-gateway file-service stream-service backup-restore system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager journal-manager usb-manager log-analysis network-security; do
+	for binary in auth-service rbac-service system-metrics sensor-monitor process-metrics disk-metrics service-metrics web-gateway file-service stream-service backup-restore system-logging-manager security-logging-manager system-email-notifier security-email-notifier resources-monitor litenas-integrity mount-monitor antivirus system-service-monitor service-watchdog services-manager session-manager journal-manager usb-manager log-analysis network-security operational-safety-automation; do
 		printf '#!/bin/sh\nexit 0\n' >"$systemd_root/usr/libexec/lite-nas/$binary"
 		chmod 0755 "$systemd_root/usr/libexec/lite-nas/$binary"
 	done
@@ -206,6 +209,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-system-email-notifier.service \
 		lite-nas-security-email-notifier.service \
 		lite-nas-system-metrics.service \
+		lite-nas-sensor-monitor.service \
 		lite-nas-process-metrics.service \
 		lite-nas-disk-metrics.service \
 		lite-nas-service-metrics.service \
@@ -221,6 +225,7 @@ if command -v systemd-analyze >/dev/null 2>&1; then
 		lite-nas-usb-manager.service \
 		lite-nas-log-analysis.service \
 		lite-nas-network-security.service \
+		lite-nas-operational-safety-automation.service \
 		lite-nas-log-analysis.socket \
 		lite-nas-web-gateway.service \
 		lite-nas-file-service.service \

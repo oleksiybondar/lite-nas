@@ -30,7 +30,7 @@ export const AlertsTable = (): ReactElement => {
       data-testid="alerts-table"
       sx={{ maxWidth: "100%", minWidth: 0, overflowX: "auto", width: "100%" }}
     >
-      <Table size="small" stickyHeader sx={{ minWidth: 1560 }}>
+      <Table size="small" stickyHeader sx={{ minWidth: "100%", width: "auto" }}>
         <TableHead>
           <TableRow>
             {columns.map((column) => {

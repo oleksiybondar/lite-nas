@@ -1,0 +1,24 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/sensor-monitor flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+
+  /usr/libexec/lite-nas/sensor-monitor mr,
+  /etc/lite-nas/sensor-monitor.conf r,
+  /etc/lite-nas/sensor-names.json r,
+  /var/log/lite-nas/sensor-monitor.log rw,
+  /sys/class/hwmon/ r,
+  /sys/class/hwmon/** r,
+  /sys/class/thermal/ r,
+  /sys/class/thermal/** r,
+  /sys/devices/** r,
+  /sys/firmware/devicetree/base/model r,
+  /usr/bin/vcgencmd ix,
+  /dev/vcio r,
+  /dev/vcio_gencmd r,
+
+  include if exists <local/usr.libexec.lite-nas.sensor-monitor>
+}

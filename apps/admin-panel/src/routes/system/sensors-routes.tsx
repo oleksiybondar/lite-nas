@@ -1,17 +1,18 @@
-import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
-import { SystemTelemetryPage } from "@pages/SystemTelemetryPage/SystemTelemetryPage";
+import { SensorsPage } from "@pages/SensorsPage";
+import { MonitoringPollingSettingsProvider } from "@providers/MonitoringPollingSettingsProvider";
+import { SensorMetricProvider } from "@providers/SensorMetricProvider";
 import type { RouteObject } from "react-router-dom";
 
-/**
- * Routes owned by Raspberry Pi sensor telemetry.
- */
+/** The complete sensor snapshot is rendered on one page. */
 export const sensorsRoutes: RouteObject[] = [
   {
-    element: <SystemSensorsLandingPage />,
     path: "/system/sensors",
-  },
-  {
-    element: <SystemTelemetryPage />,
-    path: "/system/sensors/:category",
+    element: (
+      <MonitoringPollingSettingsProvider storageKey="sensor-monitor">
+        <SensorMetricProvider>
+          <SensorsPage />
+        </SensorMetricProvider>
+      </MonitoringPollingSettingsProvider>
+    ),
   },
 ];

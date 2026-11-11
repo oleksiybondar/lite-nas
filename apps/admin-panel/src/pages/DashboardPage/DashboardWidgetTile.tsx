@@ -37,8 +37,12 @@ export const DashboardWidgetTile = ({
         )}
         <Paper sx={{ minHeight: widget.height === 2 ? 480 : 240, p: 2 }}>
           <Stack spacing={1}>
-            <Typography variant="h2">{getLabel(`admin.dashboard.${widget.kind}`)}</Typography>
-            <DashboardWidgetMetric kind={widget.kind} />
+            <Typography variant="h2">
+              {widget.kind === "sensor"
+                ? (widget.sensor?.split(":").at(-1) ?? getLabel("admin.dashboard.sensor"))
+                : getLabel(`admin.dashboard.${widget.kind}`)}
+            </Typography>
+            <DashboardWidgetMetric kind={widget.kind} sensor={widget.sensor} />
           </Stack>
         </Paper>
       </Stack>

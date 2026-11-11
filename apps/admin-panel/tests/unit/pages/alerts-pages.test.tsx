@@ -5,8 +5,8 @@ import { AlertsLandingPage } from "@pages/AlertsLandingPage";
 import { AlertsSecurityLandingPage } from "@pages/AlertsSecurityLandingPage";
 import { AlertsSystemLandingPage } from "@pages/AlertsSystemLandingPage";
 import { AlertsControlPanelProvider } from "@providers/AlertsControlPanelProvider";
-import { screen } from "@testing-library/react";
-import { createAlertsContextValue } from "@tests/unit/test-utils/alerts";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { createAlertListItem, createAlertsContextValue } from "@tests/unit/test-utils/alerts";
 import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { mockRbacAccess } from "@tests/unit/test-utils/rbac";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
@@ -109,26 +109,85 @@ describe("alerts domain landing pages", () => {
 });
 
 describe("AlertsDashboardPage", () => {
-  test.each([
-    {
-      category: "unacknowledged" as const,
-      domain: "system" as const,
-      heading: "Unacknowledged alerts",
-      label: "System",
-    },
-    {
-      category: "all" as const,
-      domain: "security" as const,
-      heading: "All alerts",
-      label: "Security",
-    },
-  ])("renders $domain route labels from params", ({ category, domain, heading, label }) => {
-    renderAlertsDashboardPage(createAlertsContextValue(domain, category));
+  test("acknowledges only unacknowledged alerts visible on the page", async () => {
+    const value = createAlertsContextValue("system", "all");
+    value.items = [
+      createAlertListItem({ EventID: "first" }),
+      createAlertListItem({ EventID: "done", Acknowledged: true }),
+      createAlertListItem({ EventID: "second" }),
+    ];
+    vi.mocked(value.acknowledgeMany).mockResolvedValue({ acknowledged: 2, failed: 0 });
+    renderAlertsDashboardPage(value);
 
-    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("alerts-acknowledge-all-button"));
+
+    await waitFor(() => expect(value.acknowledgeMany).toHaveBeenCalledWith(["first", "second"]));
+  });
+
+  test("disables bulk acknowledgement when the current page has no unacknowledged alerts", () => {
+    const value = createAlertsContextValue("system", "all");
+    value.items = [createAlertListItem({ Acknowledged: true })];
+    renderAlertsDashboardPage(value);
+
+    expect(screen.getByTestId("alerts-acknowledge-all-button")).toBeDisabled();
+  });
+
+  test("reports partial bulk acknowledgement in a notification", async () => {
+    const value = createAlertsContextValue("system", "all");
+    value.items = [
+      createAlertListItem({ EventID: "first" }),
+      createAlertListItem({ EventID: "second" }),
+    ];
+    vi.mocked(value.acknowledgeMany).mockResolvedValue({ acknowledged: 1, failed: 1 });
+    renderAlertsDashboardPage(value);
+
+    fireEvent.click(screen.getByTestId("alerts-acknowledge-all-button"));
+
+    expect(await screen.findByText("Acknowledged 1 alerts; 1 failed.")).toBeInTheDocument();
+  });
+});
+
+const alertRouteCases = [
+  {
+    category: "unacknowledged" as const,
+    domain: "system" as const,
+    heading: "Unacknowledged alerts",
+    label: "System",
+  },
+  {
+    category: "all" as const,
+    domain: "security" as const,
+    heading: "All alerts",
+    label: "Security",
+  },
+];
+
+describe("AlertsDashboardPage route content", () => {
+  test.each(alertRouteCases)(
+    "renders $domain heading from params",
+    ({ category, domain, heading }) => {
+      renderAlertsDashboardPage(createAlertsContextValue(domain, category));
+      expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    },
+  );
+
+  test.each(alertRouteCases)("renders $domain label from params", ({ category, domain, label }) => {
+    renderAlertsDashboardPage(createAlertsContextValue(domain, category));
     expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  test.each(alertRouteCases)("renders $domain controls", ({ category, domain }) => {
+    renderAlertsDashboardPage(createAlertsContextValue(domain, category));
     expect(screen.getByTestId("alerts-control-panel")).toBeInTheDocument();
+  });
+
+  test.each(alertRouteCases)("renders $domain pagination", ({ category, domain }) => {
+    renderAlertsDashboardPage(createAlertsContextValue(domain, category));
     expect(screen.getAllByTestId("alerts-pagination-control")).toHaveLength(2);
+  });
+
+  test.each(alertRouteCases)("renders $domain table", ({ category, domain }) => {
+    renderAlertsDashboardPage(createAlertsContextValue(domain, category));
     expect(screen.getByTestId("alerts-table")).toBeInTheDocument();
   });
 });

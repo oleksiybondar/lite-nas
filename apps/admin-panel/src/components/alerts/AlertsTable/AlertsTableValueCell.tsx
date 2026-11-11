@@ -1,5 +1,8 @@
 import { AlertOccurrencesDialog } from "@components/alerts/AlertOccurrencesDialog";
-import { formatAlertLastValue } from "@components/alerts/AlertsTable/helpers";
+import {
+  buildAlertsStickyColumnSx,
+  formatAlertLastValue,
+} from "@components/alerts/AlertsTable/helpers";
 import type { AlertDomain, AlertListItemDTO } from "@dto/alerts/alerts";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
@@ -24,7 +27,12 @@ export const AlertsTableValueCell = ({ domain, item }: AlertsTableValueCellProps
   const isNumericValue = item.LastValueNum !== null;
 
   return (
-    <TableCell data-test-class="alerts-table-cell" data-test-name="value" data-test-tone="primary">
+    <TableCell
+      data-test-class="alerts-table-cell"
+      data-test-name="value"
+      data-test-tone="primary"
+      sx={buildAlertsStickyColumnSx("value")}
+    >
       <AlertOccurrencesDialog
         domain={domain}
         eventId={item.EventID}

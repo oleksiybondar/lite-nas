@@ -1,8 +1,12 @@
-lite-nas (0.16.0) unstable; urgency=medium
+lite-nas (0.21.0) unstable; urgency=medium
 
   * Add Moments gallery metadata, scanning, and browser media workflows.
   * Add security monitoring, integrity, watchdog, and readable alert IDs.
   * Refresh requirements and documentation to match implemented services.
+  * Add sensor monitoring with sensor dashboards, history, and configurable
+    sensor-based resource alerts.
+  * Add Operational Safety Automation for staged CPU safety actions driven by
+    monitored conditions, with operator controls and audit events.
 
  -- Oleksiy Bondar <bondaroleksiyandroyovich@gmail.com>  Wed, 28 Oct 2026 12:00:00 +0000
 

@@ -41,7 +41,7 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 		return nil
 	}
 	places.captionMu.Lock()
-	command := exec.CommandContext(ctx, "python3", "-u", places.captionScript)
+	command := exec.CommandContext(ctx, "/usr/local/lib/lite-nas/moments/caption-venv/bin/python3", "-u", places.captionScript)
 	input, err := command.StdinPipe()
 	if err != nil {
 		places.captionMu.Unlock()

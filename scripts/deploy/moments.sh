@@ -46,6 +46,7 @@ deploy.moments.deploy() {
 		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_caption_model.py" /usr/share/lite-nas/moments/install_caption_model.py
 		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/embed_text.py" /usr/share/lite-nas/moments/embed_text.py
 		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_embedding_model.py" /usr/share/lite-nas/moments/install_embedding_model.py
+		install -m 0644 "$LITE_NAS_REPO_ROOT/services/moments/install_e5_model.py" /usr/share/lite-nas/moments/install_e5_model.py
 	elif [ ! -f /usr/share/lite-nas/moments/caption_image.py ] || [ ! -f /usr/share/lite-nas/moments/install_caption_model.py ]; then
 		log.error "Moments caption scripts are missing"
 		return 1
@@ -108,7 +109,9 @@ deploy.moments.installCaptionModel() {
 deploy.moments.installEmbeddingModel() {
 	local venv_dir=/usr/local/lib/lite-nas/moments/embedding-venv
 	local model_dir=/usr/local/lib/lite-nas/moments/embeddinggemma-model
+	local e5_dir=/usr/local/lib/lite-nas/moments/e5-model
 	local model_installer=/usr/share/lite-nas/moments/install_embedding_model.py
+	local e5_installer=/usr/share/lite-nas/moments/install_e5_model.py
 
 	install -d -m 0755 -o root -g root /usr/local/lib/lite-nas/moments || return 1
 	if ! python3 -c 'import venv' >/dev/null 2>&1; then
@@ -125,11 +128,21 @@ deploy.moments.installEmbeddingModel() {
 		onnxruntime_version="$(deploy.moments.onnxRuntimeVersion "$venv_dir/bin/python3")" || return 1
 		"$venv_dir/bin/python3" -m pip install --no-cache-dir --disable-pip-version-check "onnxruntime==$onnxruntime_version" || return 1
 	fi
-	"$venv_dir/bin/python3" "$model_installer" "$model_dir" || return 1
-	chown -R root:lite-nas-moments "$model_dir" || return 1
-	find "$model_dir" -type d -exec chmod 0750 {} + || return 1
-	find "$model_dir" -type f -exec chmod 0640 {} + || return 1
-	deploy.moments.smokeTestEmbedding "$venv_dir/bin/python3" || return 1
+	local directory installer model
+	for model in e5 embeddinggemma; do
+		if [ "$model" = e5 ]; then
+			directory="$e5_dir"
+			installer="$e5_installer"
+		else
+			directory="$model_dir"
+			installer="$model_installer"
+		fi
+		"$venv_dir/bin/python3" "$installer" "$directory" || return 1
+		chown -R root:lite-nas-moments "$directory" || return 1
+		find "$directory" -type d -exec chmod 0750 {} + || return 1
+		find "$directory" -type f -exec chmod 0640 {} + || return 1
+		deploy.moments.smokeTestEmbedding "$venv_dir/bin/python3" "$model" || return 1
+	done
 }
 
 # Prints the ONNX Runtime version to install for the given interpreter.
@@ -149,18 +162,55 @@ deploy.moments.onnxRuntimeVersion() {
 # caller, which downgrades it to a warning and keeps text search.
 deploy.moments.smokeTestEmbedding() {
 	local python_bin="$1"
+	local model="$2"
+	local size=384
+	local query_prefix='query: '
+	local passage_prefix='passage: '
+	if [ "$model" = embeddinggemma ]; then
+		size=768
+		query_prefix='task: search result | query: '
+		passage_prefix='title: none | text: '
+	fi
 	local response
-	response="$(printf '{"texts":["task: search result | query: LiteNAS smoke test"]}\n' |
+	response="$(printf '{"model":"%s","texts":["%sмаленька дівчинка і квіти","%sa little girl holding flowers","%sa mountain road"]}\n' "$model" "$query_prefix" "$passage_prefix" "$passage_prefix" |
 		"$python_bin" /usr/share/lite-nas/moments/embed_text.py)" || return 1
 	printf '%s' "$response" | "$python_bin" -c '
 import base64, json, math, struct, sys
-raw = base64.b64decode(json.load(sys.stdin)["vectors"][0])
-vec = struct.unpack("<%df" % (len(raw) // 4), raw)
-assert len(vec) == 768 and abs(math.sqrt(sum(v * v for v in vec)) - 1.0) < 1e-3
-' || return 1
+vectors = []
+for encoded in json.load(sys.stdin)["vectors"]:
+    raw = base64.b64decode(encoded)
+    vec = struct.unpack("<%df" % (len(raw) // 4), raw)
+    assert len(vec) == int(sys.argv[1]) and abs(math.sqrt(sum(v * v for v in vec)) - 1.0) < 1e-3
+    vectors.append(vec)
+assert len(vectors) == 3
+score = lambda left, right: sum(a * b for a, b in zip(left, right))
+assert score(vectors[0], vectors[1]) > score(vectors[0], vectors[2])
+ ' "$size" || return 1
 }
 
-# Enables the Moments service after all system dependencies are ready.
+# Print a systemd quota equal to 35% of all online CPU capacity.
+deploy.moments.cpuQuota() {
+	local online_cpus
+	online_cpus="$(getconf _NPROCESSORS_ONLN)" || return 1
+	case "$online_cpus" in
+	'' | *[!0-9]*) return 1 ;;
+	esac
+	if [ "$online_cpus" -lt 1 ] || [ "$online_cpus" -gt 4096 ]; then
+		return 1
+	fi
+	printf '%s%%\n' "$((35 * online_cpus))"
+}
+
+# Enables the Moments service with a quota shared by the API and model workers.
 deploy.moments.enableAndStart() {
+	if deploy.hasUsableSystemd; then
+		local quota dropin_dir
+		quota="$(deploy.moments.cpuQuota)" || quota=35%
+		dropin_dir=/etc/systemd/system/lite-nas-moments.service.d
+		install -d -m 0755 "$dropin_dir" || return 1
+		printf '[Service]\nCPUQuota=%s\n' "$quota" >"$dropin_dir/35-percent-total-cpu.conf" || return 1
+		chmod 0644 "$dropin_dir/35-percent-total-cpu.conf" || return 1
+		systemctl daemon-reload || return 1
+	fi
 	deploy.enableAndRefreshService lite-nas-moments.service
 }

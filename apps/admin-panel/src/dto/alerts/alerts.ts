@@ -225,7 +225,7 @@ export type AlertsContextValue = AlertsFilterState &
   AlertsFilterControls &
   AlertsPaginationState & {
     acknowledge: (id: string) => Promise<void>;
-    acknowledgeMany: (ids: string[]) => Promise<void>;
+    acknowledgeMany: (ids: string[]) => Promise<{ acknowledged: number; failed: number }>;
     apiPath: string;
     category: AlertCategory;
     domain: AlertDomain;

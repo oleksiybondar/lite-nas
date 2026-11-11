@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -448,14 +450,23 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 		}
 		where += ` AND EXISTS (SELECT 1 FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id WHERE gm.gallery_id=g.id AND t.category='LOCATION' AND (` + strings.Join(matches, " OR ") + `))`
 	}
+	baseWhere := where
+	baseArgs := append([]any(nil), args...)
 	if input.Q != "" {
 		where += ` AND (instr(lower(g.name),lower(?))>0 OR instr(lower(g.description),lower(?))>0
 			OR EXISTS (SELECT 1 FROM gallery_user_tags ut WHERE ut.gallery_id=g.id AND instr(ut.normalized_key,?)>0)
 			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_file_tags mt ON mt.path=gm.path JOIN tags t ON t.id=mt.tag_id WHERE gm.gallery_id=g.id AND instr(t.search_key,?)>0)
 			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_person_tags pt ON pt.path=gm.path WHERE gm.gallery_id=g.id AND instr(pt.search_key,?)>0)
-			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_captions mc ON mc.path=gm.path WHERE gm.gallery_id=g.id AND instr(mc.search_key,?)>0))`
+			OR EXISTS (SELECT 1 FROM gallery_media gm JOIN media_captions mc ON mc.path=gm.path WHERE gm.gallery_id=g.id AND instr(mc.search_key,?)>0)`
 		key := norm.NFC.String(strings.ToLower(input.Q))
 		args = append(args, input.Q, input.Q, key, searchKey(input.Q), searchKey(input.Q), searchKey(input.Q))
+		latinKey := ukrainianLatinKey(input.Q)
+		if latinKey != searchKey(input.Q) {
+			where += ` OR instr(lower(g.name),?)>0 OR instr(lower(g.description),?)>0
+				OR EXISTS (SELECT 1 FROM gallery_user_tags ut WHERE ut.gallery_id=g.id AND instr(ut.normalized_key,?)>0)`
+			args = append(args, latinKey, latinKey, latinKey)
+		}
+		where += `)`
 	}
 	output := &galleriesOutput{}
 	output.Body.Items = []galleryBody{}
@@ -463,8 +474,35 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 	if err := c.store.db.QueryRowContext(ctx, `SELECT count(*)`+where, args...).Scan(&output.Body.Metadata.TotalCount); err != nil {
 		return nil, huma.Error500InternalServerError("gallery list failed")
 	}
+	order := ` ORDER BY g.created_at DESC,g.id DESC`
+	if input.Q != "" && (wantsSemanticSearch(input.Q) || output.Body.Metadata.TotalCount == 0) {
+		if ids, err := c.semanticGalleryIDs(ctx, user, input); err == nil {
+			output.Body.Metadata.TotalCount = int64(len(ids))
+			where = baseWhere
+			args = baseArgs
+			if offset < len(ids) {
+				end := min(offset+size, len(ids))
+				selected := ids[offset:end]
+				where += ` AND g.id IN (` + strings.TrimSuffix(strings.Repeat("?,", len(selected)), ",") + `)`
+				for _, id := range selected {
+					args = append(args, id)
+				}
+				order = ` ORDER BY CASE g.id`
+				for index, id := range selected {
+					order += ` WHEN ? THEN ` + strconv.Itoa(index)
+					args = append(args, id)
+				}
+				order += ` END`
+			} else {
+				where += ` AND 0`
+			}
+		} else {
+			slog.Warn("gallery semantic search unavailable", "error", err)
+			offset = 0
+		}
+	}
 	output.Body.Metadata.TotalPages = (output.Body.Metadata.TotalCount + int64(size) - 1) / int64(size)
-	rows, err := c.store.db.QueryContext(ctx, `SELECT `+galleryColumns+where+` ORDER BY g.created_at DESC,g.id DESC LIMIT ? OFFSET ?`, append(args, size, offset)...)
+	rows, err := c.store.db.QueryContext(ctx, `SELECT `+galleryColumns+where+order+` LIMIT ? OFFSET ?`, append(args, size, offset)...)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("gallery list failed")
 	}

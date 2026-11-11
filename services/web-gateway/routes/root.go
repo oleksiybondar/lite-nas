@@ -45,6 +45,7 @@ func NewRouter(
 	mountBackupRestoreRouter(api, controllerModule, authentication)
 	mountSecurityTasksRouter(api, controllerModule, authentication)
 	mountSecurityAutomationRouter(api, controllerModule, authentication)
+	mountOperationalSafetyRouter(api, controllerModule, authentication)
 	mountLogAuditRouter(api, controllerModule, authentication)
 	mountMetricsRouters(api, controllerModule, authentication)
 	root.Mount("/api", apiRouter)
@@ -90,6 +91,7 @@ func mountMetricsRouters(
 	authentication middlewares.AuthenticationOptions,
 ) {
 	mountSystemMetricsRouter(api, controllerModule, authentication)
+	mountSensorMonitorRouter(api, controllerModule, authentication)
 	mountProcessMetricsRouter(api, controllerModule, authentication)
 	mountServiceMetricsRouter(api, controllerModule, authentication)
 	mountDiskMetricsRouter(api, controllerModule, authentication)

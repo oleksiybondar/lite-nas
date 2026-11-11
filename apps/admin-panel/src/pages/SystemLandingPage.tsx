@@ -1,6 +1,8 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
+import { useRbac } from "@hooks/useRbac";
 import { useLanguage } from "@lite-nas/language";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
+import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import TerminalIcon from "@mui/icons-material/Terminal";
 import type { ReactElement } from "react";
@@ -10,6 +12,7 @@ import type { ReactElement } from "react";
  */
 export const SystemLandingPage = (): ReactElement => {
   const { getLabel } = useLanguage();
+  const { requireAdmin } = useRbac();
   return (
     <CategoryLandingPage
       cards={[
@@ -31,6 +34,16 @@ export const SystemLandingPage = (): ReactElement => {
           path: "/system/sensors",
           title: getLabel("navigation.Sensors"),
         },
+        ...(requireAdmin()
+          ? [
+              {
+                description: getLabel("admin.landing.systemAutomation"),
+                icon: <PrecisionManufacturingIcon />,
+                path: "/system/automation",
+                title: getLabel("navigation.Automation"),
+              },
+            ]
+          : []),
       ]}
       overline={getLabel("navigation.System")}
       summary={getLabel("admin.landing.systemSummary")}

@@ -8,11 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 
 	"lite-nas/shared/cliauth"
 	"lite-nas/shared/config"
+	safetycontract "lite-nas/shared/contracts/operationalsafety"
 	contract "lite-nas/shared/contracts/securityautomation"
 	"lite-nas/shared/fileio"
 	"lite-nas/shared/messaging"
@@ -72,7 +74,7 @@ func run(ctx context.Context, args []string) error {
 
 // validateCommand rejects malformed or option-shaped identifiers before login.
 func validateCommand(args []string) error {
-	usage := errors.New("usage: security-automation-cli rules|active|rollback ID|force-normalize ID|enable RULE|disable RULE|cooldown-reset RULE KEY|force-mitigate RULE name=value... --yes")
+	usage := errors.New("usage: security-automation-cli rules|active|rollback ID|force-normalize ID|enable RULE|disable RULE|cooldown-reset RULE KEY|force-mitigate RULE name=value... --yes|cpu-set-cap KHZ --yes")
 	if len(args) == 0 {
 		return usage
 	}
@@ -109,6 +111,14 @@ func validateCommand(args []string) error {
 				return usage
 			}
 			seen[name] = true
+		}
+	case "cpu-set-cap":
+		if len(args) != 3 || args[2] != "--yes" {
+			return usage
+		}
+		capKHz, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil || capKHz == 0 || strconv.FormatUint(capKHz, 10) != args[1] {
+			return usage
 		}
 	default:
 		return usage
@@ -174,6 +184,14 @@ func executeCommand(ctx context.Context, client messaging.Client, token string, 
 		}
 		var response contract.OperationResponse
 		err = client.Request(ctx, contract.ForceMitigateSubject, contract.ForceMitigateRequest{AccessToken: token, RuleID: args[1], Operands: operands}, &response)
+		result = response
+	case "cpu-set-cap":
+		capKHz, _ := strconv.ParseUint(args[1], 10, 64)
+		var response safetycontract.OperationalSafetyCPUSetCapResponse
+		err = client.Request(ctx, safetycontract.CPUSetCapSubject, safetycontract.OperationalSafetyCPUSetCapRequest{AccessToken: token, CapKHz: capKHz}, &response)
+		if err == nil && response.State != safetycontract.OutcomeCompleted {
+			return fmt.Errorf("manual CPU cap %s: %s", response.State, response.Outcome)
+		}
 		result = response
 	}
 	if err != nil {

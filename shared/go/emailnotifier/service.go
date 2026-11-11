@@ -84,6 +84,12 @@ func RunService(ctx context.Context, config ServiceRuntimeConfig) error {
 	); err != nil {
 		return err
 	}
+	if len(infra.Config.Email.To)+len(infra.Config.Email.CC) == 0 {
+		infra.Logger.Warn(
+			"email notifier has no recipients; alert emails will not be delivered",
+			"config", config.ConfigPath,
+		)
+	}
 
 	infra.Logger.Info(
 		config.StartupMessage,

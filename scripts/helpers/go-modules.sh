@@ -20,6 +20,9 @@ readonly LITE_NAS_SYSTEM_METRICS_MODULE
 export LITE_NAS_NETWORK_METRICS_MODULE="./services/network-metrics"
 readonly LITE_NAS_NETWORK_METRICS_MODULE
 
+export LITE_NAS_SENSOR_MONITOR_MODULE="./services/sensor-monitor"
+readonly LITE_NAS_SENSOR_MONITOR_MODULE
+
 export LITE_NAS_PROCESS_METRICS_MODULE="./services/process-metrics"
 readonly LITE_NAS_PROCESS_METRICS_MODULE
 
@@ -114,6 +117,8 @@ export LITE_NAS_NETWORK_SECURITY_MODULE="./services/network-security"
 readonly LITE_NAS_NETWORK_SECURITY_MODULE
 
 export LITE_NAS_SECURITY_AUTOMATION_MODULE="./services/security-automation"
+export LITE_NAS_OPERATIONAL_SAFETY_AUTOMATION_MODULE="./services/operational-safety-automation"
+readonly LITE_NAS_OPERATIONAL_SAFETY_AUTOMATION_MODULE
 readonly LITE_NAS_SECURITY_AUTOMATION_MODULE
 
 export LITE_NAS_SECURITY_AUTOMATION_CLI_MODULE="./apps/security-automation-cli"

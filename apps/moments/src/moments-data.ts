@@ -107,15 +107,20 @@ export async function listGalleries(
   page: number,
   ownerId?: string,
   filters: z.input<typeof gallerySearchSchema> = {},
-  mediaOffset?: number,
+  options: { mediaOffset?: number; signal?: AbortSignal } = {},
 ): Promise<z.infer<typeof galleryListSchema>> {
   const parsedPage = z.number().int().positive().max(100000).parse(page);
   const query = new URLSearchParams({ page: String(parsedPage), size: "20" });
   if (ownerId) query.set("ownerId", z.string().min(1).max(160).parse(ownerId));
-  if (mediaOffset !== undefined)
-    query.set("mediaOffset", String(z.number().int().nonnegative().max(100000).parse(mediaOffset)));
+  if (options.mediaOffset !== undefined)
+    query.set(
+      "mediaOffset",
+      String(z.number().int().nonnegative().max(100000).parse(options.mediaOffset)),
+    );
   appendGalleryFilters(query, gallerySearchSchema.parse(filters));
-  return galleryListSchema.parse(await readJson(`${momentsApiPath("/api/galleries")}?${query}`));
+  return galleryListSchema.parse(
+    await readJson(`${momentsApiPath("/api/galleries")}?${query}`, { signal: options.signal }),
+  );
 }
 
 /** Loads one gallery after validating its identifier. */

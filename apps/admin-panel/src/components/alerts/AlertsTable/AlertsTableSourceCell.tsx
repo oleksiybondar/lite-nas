@@ -1,4 +1,5 @@
 import { AlertsTableTextCell } from "@components/alerts/AlertsTable/AlertsTableTextCell";
+import { buildAlertsStickyColumnSx } from "@components/alerts/AlertsTable/helpers";
 import type { AlertListItemDTO } from "@dto/alerts/alerts";
 import type { ReactElement } from "react";
 
@@ -13,5 +14,12 @@ type AlertsTableSourceCellProps = {
  * Renders the source cell with warning emphasis to surface alert provenance.
  */
 export const AlertsTableSourceCell = ({ item }: AlertsTableSourceCellProps): ReactElement => {
-  return <AlertsTableTextCell cellName="source" tone="warning" value={item.Source} />;
+  return (
+    <AlertsTableTextCell
+      cellName="source"
+      tone="warning"
+      value={item.Source}
+      sx={buildAlertsStickyColumnSx("source")}
+    />
+  );
 };

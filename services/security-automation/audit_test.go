@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"lite-nas/services/security-automation/detection"
+	detection "lite-nas/shared/automationdetection"
 	authcontract "lite-nas/shared/contracts/auth"
 	loggingcontract "lite-nas/shared/contracts/loggingmanager"
 	securitycontract "lite-nas/shared/contracts/securityloggingmanager"

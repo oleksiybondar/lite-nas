@@ -33,6 +33,7 @@ deploy.apparmor.installConfig() {
 deploy.apparmor.eachManagedProfile() {
 	find "$LITE_NAS_APPARMOR_TARGET_DIR" -maxdepth 1 -type f \
 		\( -name 'usr.libexec.lite-nas.*' -o -name 'usr.lib.postfix.sbin' -o -name 'usr.sbin.nginx' \) \
+		! -name '*.bak' \
 		-print0
 }
 

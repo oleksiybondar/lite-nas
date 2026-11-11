@@ -45,6 +45,7 @@ export type BackupRestoreContextValue = {
   contents: Record<string, BackupFileContent>;
   busy: boolean;
   backupProgress: number | null;
+  backupTaskResults: Array<{ application: string; status: "completed" | "skipped" | "failed" }>;
   error: string;
   message: string;
   setApplications: Dispatch<SetStateAction<string[]>>;

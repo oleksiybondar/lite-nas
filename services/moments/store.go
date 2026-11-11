@@ -120,6 +120,12 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			text_hash TEXT NOT NULL,
 			vector BLOB NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS gallery_embeddings (
+			gallery_id TEXT PRIMARY KEY REFERENCES galleries(id) ON DELETE CASCADE,
+			model TEXT NOT NULL,
+			text_hash TEXT NOT NULL,
+			vector BLOB NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS reverse_geocode_cache (
 			coordinate_key TEXT PRIMARY KEY,
 			place_name TEXT NOT NULL,

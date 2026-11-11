@@ -6,6 +6,7 @@ import (
 
 	diskmetricsdto "lite-nas/services/web-gateway/dto/disk_metrics"
 	networkmetricsdto "lite-nas/services/web-gateway/dto/network_metrics"
+	sensordto "lite-nas/services/web-gateway/dto/sensor_monitor"
 	servicemetricsdto "lite-nas/services/web-gateway/dto/service_metrics"
 	systemmetricsdto "lite-nas/services/web-gateway/dto/system_metrics"
 	zfsmetricsdto "lite-nas/services/web-gateway/dto/zfs_metrics"
@@ -17,6 +18,12 @@ import (
 type SystemMetricsService interface {
 	GetSnapshot(ctx context.Context) (metrics.SystemSnapshot, error)
 	GetHistory(ctx context.Context) ([]metrics.SystemSnapshot, error)
+}
+
+// SensorMonitorService defines the backend sensor data used by the controller.
+type SensorMonitorService interface {
+	GetSnapshot(ctx context.Context) (metrics.SensorSnapshot, error)
+	GetHistory(ctx context.Context) ([]metrics.SensorSnapshot, error)
 }
 
 // ServiceMetricsService defines the service metrics behavior required by the
@@ -61,6 +68,13 @@ type SystemMetricsController = metricsController[
 	metrics.SystemSnapshot,
 	systemmetricsdto.SnapshotOutput,
 	systemmetricsdto.HistoryOutput,
+]
+
+// SensorMonitorController exposes browser-facing sensor endpoints.
+type SensorMonitorController = metricsController[
+	metrics.SensorSnapshot,
+	sensordto.SensorSnapshotOutput,
+	sensordto.SensorHistoryOutput,
 ]
 
 // ServiceMetricsController exposes browser-facing service metrics endpoints.
@@ -126,6 +140,22 @@ func NewSystemMetricsController(service SystemMetricsService) SystemMetricsContr
 		},
 		"failed to fetch latest system metrics snapshot",
 		"failed to fetch system metrics history",
+	)
+}
+
+// NewSensorMonitorController creates the browser-facing sensor controller.
+func NewSensorMonitorController(service SensorMonitorService) SensorMonitorController {
+	return newMetricsController[metrics.SensorSnapshot, sensordto.SensorSnapshotOutput, sensordto.SensorHistoryOutput](
+		service.GetSnapshot,
+		service.GetHistory,
+		func(now time.Time, snapshot metrics.SensorSnapshot) sensordto.SensorSnapshotOutput {
+			return sensordto.SensorSnapshotOutput{Body: sensordto.NewSensorSnapshotBody(now, snapshot)}
+		},
+		func(now time.Time, history []metrics.SensorSnapshot) sensordto.SensorHistoryOutput {
+			return sensordto.SensorHistoryOutput{Body: sensordto.NewSensorHistoryBody(now, history)}
+		},
+		"failed to fetch latest sensor snapshot",
+		"failed to fetch sensor history",
 	)
 }
 

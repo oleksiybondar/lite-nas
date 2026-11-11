@@ -1,4 +1,5 @@
 import { monitoringPollingSettingsSchema } from "@schemas/monitoring/monitoring-polling-settings";
+import { sensorChartsSchema, sensorMarkersSchema } from "@schemas/monitoring/sensor";
 import { z } from "zod";
 
 /** Converts a saved four-column widget to the current six-column layout. */
@@ -15,7 +16,7 @@ const migrateWidget = (widget: {
   let width = 6;
   if (widget.width === 3) width = 2;
   if (widget.width === 6) width = 3;
-  return { id: widget.id, kind, width, height: widget.height };
+  return { id: widget.id, kind, sensor: undefined, width, height: widget.height };
 };
 
 /** Six-column dashboard document, including migration from saved four-column layouts. */
@@ -37,7 +38,9 @@ export const dashboardSchema = z
               "disk",
               "processes",
               "services",
+              "sensor",
             ]),
+            sensor: z.string().max(300).optional(),
             width: z.number().int().min(1).max(6),
             height: z.union([z.literal(1), z.literal(2)]).default(1),
           }),
@@ -70,6 +73,8 @@ export const dashboardSchema = z
 /** Runtime contract for the admin panel's own `.lite-nas/admin-panel.json`. */
 export const adminSettingsSchema = z.object({
   dashboard: dashboardSchema.optional(),
+  sensorMarkers: sensorMarkersSchema.optional(),
+  sensorCharts: sensorChartsSchema.optional(),
   theme: z.object({
     mode: z.enum(["light", "dark"]),
     source: z.enum(["default", "os", "user"]),
