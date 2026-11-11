@@ -18,12 +18,43 @@ import {
   latestGalleryScan,
   startCaptionScan,
   startGalleryScan,
+  startVectorScan,
 } from "./moments-data";
 import type { GalleryScan } from "./schemas";
 
 /** Active jobs need progress polling to renew the worker's access token. */
 const scanIsActive = (scan: GalleryScan | null): boolean =>
   scan?.status === "PENDING" || scan?.status === "DISCOVERING" || scan?.status === "RUNNING";
+
+/** Localized labels for the three supported gallery job kinds. */
+const scanTextKeys = {
+  MEDIA: {
+    title: "moments.scan.media",
+    description: "moments.scan.descriptionMedia",
+    start: "moments.scan.scanMedia",
+  },
+  CAPTION: {
+    title: "moments.scan.captions",
+    description: "moments.scan.descriptionCaptions",
+    start: "moments.scan.generateCaptions",
+  },
+  VECTOR: {
+    title: "moments.scan.vectors",
+    description: "moments.scan.descriptionVectors",
+    start: "moments.scan.generateVectors",
+  },
+} as const;
+
+/** Starts the selected gallery job through its validated API action. */
+const startSelectedScan = (
+  galleryId: string,
+  kind: GalleryScan["kind"],
+  force: boolean,
+): Promise<GalleryScan> => {
+  if (kind === "CAPTION") return startCaptionScan(galleryId, force);
+  if (kind === "VECTOR") return startVectorScan(galleryId);
+  return startGalleryScan(galleryId);
+};
 
 /** Starts, monitors, and cancels one kind of saved gallery scan. */
 export const GalleryScanControls = ({
@@ -41,7 +72,7 @@ export const GalleryScanControls = ({
   useEffect(() => {
     if (open) setHasOpened(true);
   }, [open]);
-  const label = getLabel(kind === "CAPTION" ? "moments.scan.captions" : "moments.scan.media");
+  const label = getLabel(scanTextKeys[kind].title);
   const adapter = useMemo(
     () => ({
       loadLatest: () => latestGalleryScan(galleryId, kind),
@@ -68,7 +99,6 @@ export const GalleryScanControls = ({
 
 /** Renders gallery-specific actions and counters using the shared task lifecycle. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Domain-specific start, cancellation, and scan counters belong in this control.
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The control keeps the scan summary beside its actions.
 function GalleryScanControlsContent({
   galleryId,
   kind,
@@ -84,7 +114,7 @@ function GalleryScanControlsContent({
 
   const start = async (): Promise<void> => {
     await execute(
-      () => (kind === "CAPTION" ? startCaptionScan(galleryId, force) : startGalleryScan(galleryId)),
+      () => startSelectedScan(galleryId, kind, force),
       getLabel("moments.scan.startFailed").replace("{kind}", label),
     );
   };
@@ -108,13 +138,9 @@ function GalleryScanControlsContent({
       data-testid="gallery-scan-controls"
       sx={{ borderTop: 1, borderColor: "divider", pt: 2 }}
     >
-      <Typography variant="h6">
-        {getLabel(kind === "CAPTION" ? "moments.scan.captions" : "moments.scan.media")}
-      </Typography>
+      <Typography variant="h6">{label}</Typography>
       <Typography variant="body2" color="text.secondary">
-        {kind === "CAPTION"
-          ? getLabel("moments.scan.descriptionCaptions")
-          : getLabel("moments.scan.descriptionMedia")}
+        {getLabel(scanTextKeys[kind].description)}
       </Typography>
       {kind === "CAPTION" && (
         <FormControlLabel
@@ -125,9 +151,7 @@ function GalleryScanControlsContent({
       <BackgroundTaskActions
         active={active}
         disabled={loading}
-        startLabel={getLabel(
-          kind === "CAPTION" ? "moments.scan.generateCaptions" : "moments.scan.scanMedia",
-        )}
+        startLabel={getLabel(scanTextKeys[kind].start)}
         cancelLabel={getLabel("moments.scan.cancel")}
         onStart={() => void start()}
         onCancel={() => void cancel()}

@@ -78,9 +78,8 @@ func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, 
 	if len(candidates) > 10000 {
 		return nil, errors.New("semantic search exceeds gallery limit")
 	}
-	modelID, size, queryPrefix, passagePrefix := embeddingSettings(model.embeddingModel)
+	modelID, size, queryPrefix, _ := embeddingSettings(model.embeddingModel)
 	texts := []string{queryPrefix + input.Q}
-	stale := []int{}
 	for index := range candidates {
 		candidate := &candidates[index]
 		var modelName, hash string
@@ -93,8 +92,7 @@ func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, 
 			candidate.vector = decodeVector(blob, size)
 		}
 		if len(candidate.vector) != size {
-			stale = append(stale, index)
-			texts = append(texts, passagePrefix+candidate.text)
+			return nil, errors.New("gallery vectors are still being generated")
 		}
 	}
 	vectors, err := runEmbeddingModel(ctx, model.embeddingScript, model.embeddingModel, size, texts)
@@ -103,13 +101,6 @@ func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, 
 	}
 	if len(vectors) != len(texts) {
 		return nil, errors.New("semantic model returned an unexpected vector count")
-	}
-	for offset, index := range stale {
-		candidate := &candidates[index]
-		candidate.vector = vectors[offset+1]
-		_, _ = c.store.db.ExecContext(ctx, `INSERT INTO gallery_embeddings(gallery_id,model,text_hash,vector) VALUES(?,?,?,?)
-			ON CONFLICT(gallery_id) DO UPDATE SET model=excluded.model,text_hash=excluded.text_hash,vector=excluded.vector`,
-			candidate.id, modelID, candidate.hash, encodeVector(candidate.vector))
 	}
 	for index := range candidates {
 		for dimension, value := range candidates[index].vector {
@@ -133,12 +124,16 @@ func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, 
 }
 
 // gallerySemanticCandidates applies the gallery list's visibility and filters before embedding metadata.
-func (c galleryController) gallerySemanticCandidates(ctx context.Context, user string, input *listGalleryInput) ([]gallerySemanticCandidate, error) {
+func (c galleryController) gallerySemanticCandidates(ctx context.Context, user string, input *listGalleryInput, galleryID ...string) ([]gallerySemanticCandidate, error) {
 	query := `SELECT g.id,g.name,g.description,COALESCE((SELECT group_concat(value,'; ') FROM
 		(SELECT value FROM gallery_user_tags WHERE gallery_id=g.id ORDER BY value)), '')
 		FROM galleries g WHERE (g.owner_id=? OR g.visibility='PUBLIC' OR EXISTS
 		(SELECT 1 FROM gallery_shares s WHERE s.gallery_id=g.id AND s.user_id=?))`
 	args := []any{user, user}
+	if len(galleryID) > 0 {
+		query += ` AND g.id=?`
+		args = append(args, galleryID[0])
+	}
 	for _, filter := range []struct {
 		column string
 		values []string
@@ -255,9 +250,8 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 	if len(candidates) > 10000 {
 		return nil, errors.New("semantic search exceeds image limit")
 	}
-	modelID, size, queryPrefix, passagePrefix := embeddingSettings(model.embeddingModel)
+	modelID, size, queryPrefix, _ := embeddingSettings(model.embeddingModel)
 	texts := []string{queryPrefix + input.Q}
-	stale := make([]int, 0, len(candidates))
 	for index := range candidates {
 		candidate := &candidates[index]
 		var modelName, hash string
@@ -270,8 +264,7 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 			candidate.vector = decodeVector(blob, size)
 		}
 		if len(candidate.vector) != size {
-			stale = append(stale, index)
-			texts = append(texts, passagePrefix+candidate.text)
+			return nil, errors.New("image vectors are still being generated")
 		}
 	}
 	vectors, err := runEmbeddingModel(ctx, model.embeddingScript, model.embeddingModel, size, texts)
@@ -280,13 +273,6 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 	}
 	if len(vectors) != len(texts) {
 		return nil, errors.New("semantic model returned an unexpected vector count")
-	}
-	for offset, index := range stale {
-		candidate := &candidates[index]
-		candidate.vector = vectors[offset+1]
-		_, _ = c.store.db.ExecContext(ctx, `INSERT INTO media_embeddings(path,model,text_hash,vector) VALUES(?,?,?,?)
-			ON CONFLICT(path) DO UPDATE SET model=excluded.model,text_hash=excluded.text_hash,vector=excluded.vector`,
-			candidate.path, modelID, candidate.hash, encodeVector(candidate.vector))
 	}
 	return rankSemanticCandidates(candidates, vectors[0]), nil
 }
@@ -336,11 +322,15 @@ func rankSemanticCandidates(candidates []semanticCandidate, query []float32) []s
 }
 
 // semanticCandidates collects only files in galleries visible to the caller.
-func (c galleryController) semanticCandidates(ctx context.Context, user string, input *listGalleryInput) ([]semanticCandidate, error) {
+func (c galleryController) semanticCandidates(ctx context.Context, user string, input *listGalleryInput, galleryID ...string) ([]semanticCandidate, error) {
 	query := `SELECT DISTINCT gm.path,COALESCE(mc.caption,'') FROM gallery_media gm JOIN galleries g ON g.id=gm.gallery_id
 		LEFT JOIN media_captions mc ON mc.path=gm.path WHERE gm.media_type IN ('IMAGE','LIVE_PHOTO') AND
 		(g.owner_id=? OR g.visibility='PUBLIC' OR EXISTS (SELECT 1 FROM gallery_shares s WHERE s.gallery_id=g.id AND s.user_id=?))`
 	args := []any{user, user}
+	if len(galleryID) > 0 {
+		query += ` AND gm.gallery_id=?`
+		args = append(args, galleryID[0])
+	}
 	for _, filter := range []struct {
 		column string
 		values []string

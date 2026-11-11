@@ -149,6 +149,22 @@ func openGalleryStore(path string) (*galleryStore, error) {
 			error_summary TEXT
 		)`,
 		`CREATE INDEX IF NOT EXISTS scan_jobs_gallery ON media_scan_jobs(gallery_id,created_at DESC)`,
+		`CREATE TABLE IF NOT EXISTS vector_scan_jobs (
+			id TEXT PRIMARY KEY,
+			gallery_id TEXT NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,
+			requested_by TEXT NOT NULL,
+			kind TEXT NOT NULL DEFAULT 'VECTOR',
+			status TEXT NOT NULL,
+			total_items INTEGER,
+			processed_items INTEGER NOT NULL DEFAULT 0,
+			successful_items INTEGER NOT NULL DEFAULT 0,
+			failed_items INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL,
+			started_at TEXT,
+			finished_at TEXT,
+			error_summary TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS vector_jobs_gallery ON vector_scan_jobs(gallery_id,created_at DESC)`,
 		`CREATE TABLE IF NOT EXISTS caption_scan_paths (
 			job_id TEXT NOT NULL REFERENCES media_scan_jobs(id) ON DELETE CASCADE,
 			position INTEGER NOT NULL,
@@ -205,6 +221,10 @@ func openGalleryStore(path string) (*galleryStore, error) {
 	if err := migrateCaptionGrants(db); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrate Moments caption jobs: %w", err)
+	}
+	if _, err := db.Exec(`UPDATE vector_scan_jobs SET status='FAILED',finished_at=datetime('now'),error_summary='interrupted by service restart' WHERE status IN ('PENDING','DISCOVERING','RUNNING')`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("recover Moments vector jobs: %w", err)
 	}
 	return &galleryStore{db: db}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"lite-nas/shared/browserauth"
+	"lite-nas/shared/servicetoken"
 )
 
 // scanJob is the durable, caller-visible snapshot of one media or caption scan.
@@ -49,7 +51,7 @@ type scanIDInput struct {
 type scanListInput struct {
 	GalleryAuth
 	ID     string `path:"galleryId" format:"uuid"`
-	Kind   string `query:"kind" enum:"MEDIA,CAPTION"`
+	Kind   string `query:"kind" enum:"MEDIA,CAPTION,VECTOR"`
 	Limit  int    `query:"limit" minimum:"1" maximum:"100"`
 	Offset int    `query:"offset" minimum:"0" maximum:"100000"`
 }
@@ -72,22 +74,26 @@ type scanListOutput struct {
 
 // activeScan holds the user token only in process memory and a cancellation handle.
 type activeScan struct {
-	jobID  string
-	kind   string
-	token  string
-	cancel context.CancelFunc
+	jobID     string
+	kind      string
+	token     string
+	automatic bool
+	cancel    context.CancelFunc
 }
 
 // scanManager bounds concurrent work and owns user-token renewal.
 type scanManager struct {
-	store  *galleryStore
-	auth   browserauth.AuthService
-	files  fileServiceClient
-	grants subjectLookup
-	mu     sync.Mutex
-	active map[string]*activeScan
-	seats  chan struct{}
-	places *cityIndex
+	store             *galleryStore
+	auth              browserauth.AuthService
+	files             fileServiceClient
+	grants            subjectLookup
+	mu                sync.Mutex
+	active            map[string]*activeScan
+	seats             chan struct{}
+	places            *cityIndex
+	tokens            *servicetoken.Manager
+	automaticCaptions bool
+	automaticVectors  bool
 }
 
 // newScanManager creates the bounded scan worker state.
@@ -104,6 +110,7 @@ func mountScanRoutes(api huma.API, c galleryController) {
 	api = taggedAPI(api, "scans")
 	huma.Post(api, "/api/galleries/{galleryId}/scans", c.startScan)
 	huma.Post(api, "/api/galleries/{galleryId}/caption-scans", c.startCaptionScan)
+	huma.Post(api, "/api/galleries/{galleryId}/vector-scans", c.startVectorScan)
 	huma.Get(api, "/api/galleries/{galleryId}/scans", c.listScans)
 	huma.Get(api, "/api/scans/{scanId}", c.getScan)
 	huma.Delete(api, "/api/scans/{scanId}", c.cancelScan)
@@ -154,7 +161,7 @@ const scanColumns = `id,gallery_id,requested_by,kind,status,total_items,processe
 
 // lookupScan enforces same-user polling and hides other users' job IDs.
 func (c galleryController) lookupScan(ctx context.Context, id, user string) (scanJob, error) {
-	job, owner, err := scanFromRow(c.store.db.QueryRowContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE id=?`, id))
+	job, owner, err := scanFromRow(c.store.db.QueryRowContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE id=? UNION ALL SELECT `+scanColumns+` FROM vector_scan_jobs WHERE id=?`, id, id))
 	if errors.Is(err, sql.ErrNoRows) || owner != user {
 		return scanJob{}, huma.Error404NotFound("scan not found")
 	}
@@ -193,7 +200,7 @@ func (c galleryController) listScans(ctx context.Context, input *scanListInput) 
 	if limit == 0 {
 		limit = 50
 	}
-	rows, err := c.store.db.QueryContext(ctx, `SELECT `+scanColumns+` FROM media_scan_jobs WHERE gallery_id=? AND requested_by=? AND (?='' OR kind=?) ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`, input.ID, user, input.Kind, input.Kind, limit, input.Offset)
+	rows, err := c.store.db.QueryContext(ctx, `SELECT `+scanColumns+` FROM (SELECT `+scanColumns+` FROM media_scan_jobs UNION ALL SELECT `+scanColumns+` FROM vector_scan_jobs) WHERE gallery_id=? AND requested_by=? AND (?='' OR kind=?) ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?`, input.ID, user, input.Kind, input.Kind, limit, input.Offset)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("scan history failed")
 	}
@@ -439,12 +446,28 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 // release frees one finished job's gallery reservation and worker seat.
 func (m *scanManager) release(job scanJob) {
 	m.mu.Lock()
+	automatic := false
 	if active := m.active[job.GalleryID]; active != nil && active.jobID == job.ID {
+		automatic = active.automatic
 		active.cancel()
 		delete(m.active, job.GalleryID)
 	}
 	m.mu.Unlock()
 	<-m.seats
+	if job.Kind == "CAPTION" && !automatic && m.automaticVectors && m.places != nil && m.places.embeddingScript != "" {
+		if _, err := m.startVector(job.GalleryID, m.jobOwner(job.ID)); err != nil {
+			slog.Warn("caption vectors could not be scheduled", "gallery_id", job.GalleryID, "error", err)
+		}
+	}
+}
+
+// jobOwner resolves the owner of a completed caption job for its follow-up vector pass.
+func (m *scanManager) jobOwner(id string) string {
+	var owner string
+	if err := m.store.db.QueryRow(`SELECT requested_by FROM media_scan_jobs WHERE id=?`, id).Scan(&owner); err != nil {
+		slog.Warn("caption job owner unavailable", "job_id", id, "error", err)
+	}
+	return owner
 }
 
 // confirmDeleted checks only previously linked paths missing from discovery.

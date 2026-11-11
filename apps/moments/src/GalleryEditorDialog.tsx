@@ -368,6 +368,14 @@ export function GalleryEditorDialog({
               kind="CAPTION"
             />
           )}
+          {gallery && (
+            <GalleryScanControls
+              key={`${gallery.id}-vector`}
+              galleryId={gallery.id}
+              open={open}
+              kind="VECTOR"
+            />
+          )}
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
       </StandardDialog>

@@ -359,6 +359,11 @@ func (c galleryController) create(ctx context.Context, input *createGalleryInput
 	if err != nil {
 		return nil, huma.Error500InternalServerError("gallery creation failed")
 	}
+	if c.scans != nil && c.scans.automaticVectors && c.scans.places != nil && c.scans.places.embeddingScript != "" {
+		if _, err := c.scans.startVector(g.ID, owner); err != nil {
+			slog.Warn("new gallery vector job deferred to hourly scan", "gallery_id", g.ID, "error", err)
+		}
+	}
 	return c.galleryOutput(ctx, g)
 }
 
@@ -603,6 +608,11 @@ func (c galleryController) patch(ctx context.Context, input *patchGalleryInput) 
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, huma.Error500InternalServerError("gallery update failed")
+	}
+	if c.scans != nil && c.scans.automaticVectors && c.scans.places != nil && c.scans.places.embeddingScript != "" {
+		if _, err := c.scans.startVector(g.ID, user); err != nil {
+			slog.Warn("updated gallery vector job deferred to hourly scan", "gallery_id", g.ID, "error", err)
+		}
 	}
 	return c.galleryOutput(ctx, g)
 }

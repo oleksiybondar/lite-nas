@@ -19,6 +19,7 @@ import (
 	"lite-nas/shared/fileaccess"
 	"lite-nas/shared/fileio"
 	"lite-nas/shared/modules"
+	"lite-nas/shared/servicetoken"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
@@ -29,20 +30,22 @@ const configPath = "/etc/lite-nas/moments.conf"
 
 // serviceConfig holds the existing LiteNAS infrastructure settings for Moments.
 type serviceConfig struct {
-	HTTP            sharedconfig.HTTPConfig
-	Messaging       sharedconfig.MessagingConfig
-	AuthTokens      sharedconfig.AuthTokenConfig
-	Logging         sharedconfig.LoggingConfig
-	CookieDomain    string
-	DatabasePath    string
-	FileServiceURL  string
-	ThumbnailDir    string
-	WorkingDir      string
-	PlaceDataPath   string
-	GeocoderURL     string
-	CaptionScript   string
-	EmbeddingScript string
-	EmbeddingModel  string
+	HTTP              sharedconfig.HTTPConfig
+	Messaging         sharedconfig.MessagingConfig
+	AuthTokens        sharedconfig.AuthTokenConfig
+	Logging           sharedconfig.LoggingConfig
+	CookieDomain      string
+	DatabasePath      string
+	FileServiceURL    string
+	ThumbnailDir      string
+	WorkingDir        string
+	PlaceDataPath     string
+	GeocoderURL       string
+	CaptionScript     string
+	EmbeddingScript   string
+	EmbeddingModel    string
+	AutomaticCaptions bool
+	AutomaticVectors  bool
 }
 
 // loadConfig reads the service listener, messaging, and browser cookie scope.
@@ -115,6 +118,22 @@ func loadConfig(path string) (serviceConfig, error) {
 	if embeddingModel != "e5" && embeddingModel != "embeddinggemma" {
 		return serviceConfig{}, errors.New("embedding_model must be e5 or embeddinggemma")
 	}
+	automaticCaptions := true
+	if iniFile.Section("storage").HasKey("automatic_captions") {
+		value := iniFile.Section("storage").Key("automatic_captions").String()
+		if value != "true" && value != "false" {
+			return serviceConfig{}, errors.New("automatic_captions must be true or false")
+		}
+		automaticCaptions = value == "true"
+	}
+	automaticVectors := true
+	if iniFile.Section("storage").HasKey("automatic_vectors") {
+		value := iniFile.Section("storage").Key("automatic_vectors").String()
+		if value != "true" && value != "false" {
+			return serviceConfig{}, errors.New("automatic_vectors must be true or false")
+		}
+		automaticVectors = value == "true"
+	}
 	parsed, err := url.Parse(fileServiceURL)
 	if err != nil || parsed.Scheme != "http" || parsed.Path != "" || parsed.RawQuery != "" || parsed.User != nil || parsed.Fragment != "" {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
@@ -122,7 +141,7 @@ func loadConfig(path string) (serviceConfig, error) {
 	if err := validateListener(parsed.Host); err != nil {
 		return serviceConfig{}, errors.New("file_service_url must be a loopback HTTP origin")
 	}
-	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript, EmbeddingScript: embeddingScript, EmbeddingModel: embeddingModel}, nil
+	return serviceConfig{HTTP: httpConfig, Messaging: authConfig.Messaging, AuthTokens: authConfig.AuthTokens, Logging: authConfig.Logging, CookieDomain: domain, DatabasePath: databasePath, FileServiceURL: fileServiceURL, ThumbnailDir: thumbnailDir, WorkingDir: workingDir, PlaceDataPath: placeDataPath, GeocoderURL: geocoderURL, CaptionScript: captionScript, EmbeddingScript: embeddingScript, EmbeddingModel: embeddingModel, AutomaticCaptions: automaticCaptions, AutomaticVectors: automaticVectors}, nil
 }
 
 // validateListener keeps the Moments API behind the local Nginx proxy.
@@ -186,9 +205,20 @@ func run(ctx context.Context, path string) error {
 	files := newFileServiceClient(cfg.FileServiceURL)
 	auth := browserauth.NewAuthService(infra.Client, verifier, "moments")
 	scans := newScanManager(store, auth, files, places)
+	scans.automaticCaptions = cfg.AutomaticCaptions
+	scans.automaticVectors = cfg.AutomaticVectors
 	scans.grants = infra.Client
+	scans.tokens, err = servicetoken.NewManager(infra.Client, servicetoken.Options{Service: "lite-nas-moments"})
+	if err != nil {
+		return err
+	}
 	if err := scans.resumeCaptionJobs(ctx); err != nil {
 		return err
+	}
+	if cfg.AutomaticCaptions || cfg.AutomaticVectors {
+		if err := scans.startAutomaticSearch(ctx); err != nil {
+			return err
+		}
 	}
 	server := &http.Server{
 		Addr:              cfg.HTTP.Address,

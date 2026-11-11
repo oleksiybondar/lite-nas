@@ -77,7 +77,7 @@ export const galleryLocationNames = (gallery: GalleryRecord): string[] =>
   gallery.tags?.filter((tag) => tag.category === "LOCATION").map((tag) => tag.value) ?? [];
 
 /** Supported durable gallery scan jobs. */
-export const galleryScanKindSchema = z.enum(["MEDIA", "CAPTION"]);
+export const galleryScanKindSchema = z.enum(["MEDIA", "CAPTION", "VECTOR"]);
 
 /** Durable owner-visible scan progress returned by Moments. */
 export const galleryScanSchema = z.object({

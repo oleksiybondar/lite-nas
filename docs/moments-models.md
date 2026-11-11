@@ -43,12 +43,18 @@ The configured worker scripts are in `/etc/lite-nas/moments.conf`:
 caption_script=/usr/share/lite-nas/moments/caption_image.py
 embedding_script=/usr/share/lite-nas/moments/embed_text.py
 embedding_model=e5
+automatic_captions=true
+automatic_vectors=true
 ```
 
 An empty `caption_script` disables BLIP; an empty `embedding_script` disables
 semantic search. The normal local deployment entry point is
 `./scripts/deploy-moments.sh` (run with the repository's deployment privileges).
 Its model setup failure is reported as a warning and does not stop deployment.
+Set `automatic_captions=false` to stop unattended caption jobs and
+`automatic_vectors=false` to stop hourly, gallery-save, and caption-follow-up
+vector jobs. Both settings default to `true` when omitted. Manual caption and
+vector scan actions remain available. Restart Moments after changing the file.
 
 ## Caption jobs
 
@@ -59,7 +65,13 @@ to regenerate them. `GET /api/scans/{scanId}` reports progress and
 that link the same physical file. BLIP is prompted to name the main visible
 subject; species or other detailed identification is best effort.
 
-At job start, Moments fixes an ordered list of up to 10,000 linked image paths
+When `automatic_captions` is enabled, an hourly worker also attempts missing captions, one gallery at a time when no
+other scan is active. It reads each source through File Service using a Moments
+service token. File Service applies that account's read scope and filesystem
+permissions; inaccessible images are skipped and may still be captioned by an
+owner-started scan. Automatic jobs and manual jobs share the scan history.
+
+For an owner-started job, Moments fixes an ordered list of up to 10,000 linked image paths
 and asks Auth Service over NATS for an opaque grant limited to those paths and
 File Service reads. File Service validates the grant with Auth Service for each
 source read, then applies the user's current RBAC and filesystem permissions.
@@ -93,9 +105,13 @@ descriptions, and user tags are embedded directly; image captions are not requir
 for translated gallery metadata search. The worker receives bounded text, never original image bytes,
 paths, tokens, or database handles. It processes up to 10,000 visible image
 candidates in batches of 16 and has a 180-second request deadline. Moments
-stores vectors for the model revision and the hash of the source text, so
-unchanged text reuses its vector. Search falls back to text matching if the
-model is unavailable, busy, or fails. Query text uses `task: search result |
+stores vectors for the model revision and the hash of the source text. When
+`automatic_vectors` is enabled, a vector job starts after a gallery save or
+manual caption scan, and the hourly worker refreshes missing or stale vectors.
+Owners can also start `POST /api/galleries/{galleryId}/vector-scans` and monitor
+or cancel the job through the scan routes. Search embeds only the query and
+uses saved vectors. Until all eligible vectors are ready, it falls back to
+ordinary text matching without translation. Query text uses `task: search result |
 query:` and image text uses `title: none | text:`, as required by the model's
 retrieval prompts.
 Ukrainian spellings of Latin gallery names and user tags also use direct

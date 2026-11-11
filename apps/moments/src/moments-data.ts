@@ -150,6 +150,15 @@ export async function startCaptionScan(galleryId: string, force: boolean): Promi
   );
 }
 
+/** Starts a background pass that refreshes missing gallery and image search vectors. */
+export async function startVectorScan(galleryId: string): Promise<GalleryScan> {
+  return galleryScanSchema.parse(
+    await readJson(momentsApiPath(`/api/galleries/${z.uuid().parse(galleryId)}/vector-scans`), {
+      method: "POST",
+    }),
+  );
+}
+
 /** Publishes metadata for one completed browser upload without replacing other files. */
 export async function scanUploadedMedia(galleryId: string, path: string): Promise<void> {
   await readJson(momentsApiPath(`/api/galleries/${z.uuid().parse(galleryId)}/media-metadata`), {
