@@ -49,7 +49,7 @@ export const SensorCard = ({
         <Button data-test-class="sensor-edit-chart" data-test-name={markerKey} onClick={onEdit}>
           {getLabel("admin.sensors.editChart")}
         </Button>
-        <details>
+        <details open>
           <summary>{getLabel("admin.sensors.historyAndColors")}</summary>
           <Stack spacing={2} sx={{ pt: 2 }}>
             <Typography color="text.secondary" sx={{ overflowWrap: "anywhere" }} variant="body2">

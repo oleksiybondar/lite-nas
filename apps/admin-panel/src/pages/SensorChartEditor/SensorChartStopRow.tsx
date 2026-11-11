@@ -6,6 +6,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import type { SensorChart } from "@schemas/monitoring/sensor";
 import type { ReactElement } from "react";
+import { SensorChartColorPicker } from "./SensorChartColorPicker";
 
 type Stop = SensorChart["stops"][number];
 type Props = {
@@ -30,11 +31,10 @@ export const SensorChartStopRow = ({ index, stop, onChange, onRemove }: Props): 
         />
       </TableCell>
       <TableCell>
-        <TextField
-          aria-label={getLabel("admin.sensors.color")}
-          onChange={(event) => onChange(index, { color: event.target.value })}
-          size="small"
-          value={stop.color}
+        <SensorChartColorPicker
+          color={stop.color}
+          index={index}
+          onChange={(color) => onChange(index, { color })}
         />
       </TableCell>
       <TableCell>

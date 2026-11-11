@@ -32,6 +32,7 @@ export const ChartSvgContainer = ({
   tooltip,
 }: ChartSvgContainerProps): ReactElement => {
   const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
+  const chartHeight = heightPx ?? frame.chartHeight;
 
   const handleMouseLeave = (): void => {
     setHoveredPoint(null);
@@ -57,11 +58,11 @@ export const ChartSvgContainer = ({
       data-testid={testId}
       onMouseLeave={handleMouseLeave}
       onMouseMove={handleMouseMove}
-      sx={{ height: heightPx, overflow: "visible", position: "relative", width: "100%" }}
+      sx={{ height: chartHeight, overflow: "visible", position: "relative", width: "100%" }}
     >
       <svg
         aria-label={ariaLabel}
-        height={heightPx}
+        height={chartHeight}
         preserveAspectRatio="none"
         viewBox={`0 0 ${frame.chartWidth} ${frame.chartHeight}`}
         width="100%"

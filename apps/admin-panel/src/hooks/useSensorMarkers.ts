@@ -2,10 +2,10 @@ import type { ApiContextValue } from "@dto/api/api";
 import { collectAdminSettings } from "@helpers/profile-settings";
 import { useApi } from "@hooks/useApi";
 import {
+  readSensorCharts,
   type SensorChart,
   sensorChartSchema,
   sensorChartsSchema,
-  sensorMarkersSchema,
 } from "@schemas/monitoring/sensor";
 import { adminSettingsSchema } from "@schemas/profile/admin-settings";
 import { useEffect, useState } from "react";
@@ -41,36 +41,6 @@ type SensorMarkersState = {
   saveChart: (key: string, chart: SensorChart) => Promise<void>;
 };
 
-/** Converts validated saved charts and legacy stops into chart settings. */
-const readSensorCharts = (raw: unknown): Record<string, SensorChart> => {
-  if (typeof raw !== "object" || raw === null) return {};
-  const document = raw as Record<string, unknown>;
-  const valid = readLegacyCharts(document.sensorMarkers);
-  const saved = document.sensorCharts;
-  if (typeof saved !== "object" || saved === null || Array.isArray(saved)) return valid;
-  for (const [key, value] of Object.entries(saved)) {
-    valid[key] = readSavedChart(key, value);
-  }
-  return valid;
-};
-
-/** Keeps valid legacy marker sets for profiles saved before chart settings existed. */
-const readLegacyCharts = (raw: unknown): Record<string, SensorChart> => {
-  const legacy = sensorMarkersSchema.safeParse(raw);
-  if (!legacy.success) return {};
-  const charts: Record<string, SensorChart> = {};
-  for (const [key, stops] of Object.entries(legacy.data)) {
-    if (stops.length > 0) charts[key] = { mode: "gradient", stops };
-  }
-  return charts;
-};
-
-/** Falls back to a sensor default when its stored chart is invalid. */
-const readSavedChart = (key: string, value: unknown): SensorChart => {
-  const parsed = sensorChartSchema.safeParse(value);
-  return parsed.success ? parsed.data : defaultSensorChart(key);
-};
-
 /** Loads a profile document and returns its chart presentation settings. */
 const loadSensorCharts = async (
   get: ApiContextValue["get"],
@@ -83,23 +53,33 @@ const loadSensorCharts = async (
 /** Saves validated chart settings while retaining other profile fields. */
 const persistSensorChart = async (
   api: Pick<ApiContextValue, "get" | "put">,
-  next: Record<string, SensorChart>,
+  key: string,
+  chart: SensorChart,
 ): Promise<Record<string, SensorChart>> => {
   const response = await api.get("/f/profile/admin-panel").execute();
-  const document = await mergeSensorChartDocument(response, next);
+  const document = await mergeSensorChartDocument(response, key, chart);
   const saved = await api.put("/f/profile/admin-panel", { document }).execute();
   if (!saved.ok) throw new Error("Save failed");
-  return next;
+  return document.sensorCharts ?? {};
 };
 
 /** Validates an existing profile before merging its sensor chart changes. */
-const mergeSensorChartDocument = async (response: Response, next: Record<string, SensorChart>) => {
+const mergeSensorChartDocument = async (response: Response, key: string, chart: SensorChart) => {
   if (!response.ok)
-    return adminSettingsSchema.parse({ ...collectAdminSettings(), sensorCharts: next });
+    return adminSettingsSchema.parse({
+      ...collectAdminSettings(),
+      sensorCharts: sensorChartsSchema.parse({ [key]: chart }),
+    });
   const raw: unknown = await response.json();
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     throw new Error("Invalid profile");
-  const parsed = adminSettingsSchema.safeParse({ ...raw, sensorCharts: next });
+  const charts = sensorChartsSchema.parse({ ...readSensorCharts(raw), [key]: chart });
+  const parsed = adminSettingsSchema.safeParse({
+    ...collectAdminSettings(),
+    ...raw,
+    sensorMarkers: undefined,
+    sensorCharts: charts,
+  });
   if (!parsed.success) throw new Error("Invalid profile");
   return parsed.data;
 };
@@ -124,9 +104,9 @@ export const useSensorMarkers = (): SensorMarkersState => {
 
   const saveChart = async (key: string, chart: SensorChart): Promise<void> => {
     try {
-      const next = sensorChartsSchema.parse({ ...charts, [key]: chart });
-      await persistSensorChart({ get, put }, next);
-      setCharts(next);
+      const validChart = sensorChartSchema.parse(chart);
+      const savedCharts = await persistSensorChart({ get, put }, key, validChart);
+      setCharts(savedCharts);
       setSaveError(false);
     } catch {
       setSaveError(true);

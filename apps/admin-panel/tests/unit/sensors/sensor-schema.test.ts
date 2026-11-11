@@ -1,4 +1,8 @@
-import { parseSensorHistory, sensorMarkersSchema } from "@schemas/monitoring/sensor";
+import {
+  parseSensorHistory,
+  readSensorCharts,
+  sensorMarkersSchema,
+} from "@schemas/monitoring/sensor";
 
 test("parses a complete sensor snapshot from the history envelope", () => {
   const snapshot = {
@@ -18,4 +22,35 @@ test.each(["red", "#fff", "#1234567"])("rejects invalid marker color %s", (color
   expect(sensorMarkersSchema.safeParse({ "voltages:core": [{ value: 5, color }] }).success).toBe(
     false,
   );
+});
+
+test("migrates legacy sensor stops without chart settings", () => {
+  expect(
+    readSensorCharts({ sensorMarkers: { "voltages:core": [{ value: 5, color: "#00ff00" }] } }),
+  ).toEqual({
+    "voltages:core": {
+      mode: "gradient",
+      stops: [{ value: 5, color: "#00ff00", label: "", showBar: false, showLabel: false }],
+    },
+  });
+});
+
+test("keeps valid legacy sensors when another entry is malformed", () => {
+  expect(
+    readSensorCharts({
+      sensorMarkers: {
+        "voltages:core": [{ value: 5, color: "#00ff00" }],
+        "voltages:bad": [{ value: 5, color: "green" }],
+      },
+    }),
+  ).toHaveProperty("voltages:core");
+});
+
+test("keeps valid legacy stops when the newer chart for the same sensor is malformed", () => {
+  expect(
+    readSensorCharts({
+      sensorMarkers: { "voltages:core": [{ value: 5, color: "#00ff00" }] },
+      sensorCharts: { "voltages:core": { mode: "gradient", stops: "invalid" } },
+    })["voltages:core"]?.stops[0]?.color,
+  ).toBe("#00ff00");
 });

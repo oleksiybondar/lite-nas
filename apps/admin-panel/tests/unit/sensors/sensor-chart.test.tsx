@@ -16,3 +16,33 @@ test("colors the sensor line from configured value stops", () => {
   const chart = screen.getByTestId("value-line-chart");
   expect(chart.querySelectorAll("linearGradient stop")).toHaveLength(2);
 });
+
+/** Renders a sensor chart with the guide settings saved by the chart editor. */
+const renderChartWithGuides = () =>
+  render(
+    <ValueLineChart
+      capacity={2}
+      guideStops={[
+        { value: 5, color: "#ff0000", label: "Maximum", showBar: true, showLabel: true },
+      ]}
+      stamps={["2026-11-11T12:00:00Z", "2026-11-11T12:01:00Z"]}
+      valuesByKey={{ voltage: [4.8, 5] }}
+    />,
+  );
+
+test("renders the edited sensor guide line", () => {
+  renderChartWithGuides();
+  const chart = screen.getByTestId("value-line-chart");
+  expect(chart.querySelector('line[stroke="#ff0000"]')).toBeInTheDocument();
+});
+
+test("renders the edited sensor guide label", () => {
+  renderChartWithGuides();
+  expect(screen.getByText("Maximum")).toBeInTheDocument();
+});
+
+test("gives the sensor SVG an explicit height", () => {
+  renderChartWithGuides();
+  const chart = screen.getByTestId("value-line-chart");
+  expect(chart.querySelector("svg")).toHaveAttribute("height", "280");
+});

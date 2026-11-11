@@ -32,7 +32,8 @@ export const sensorMarkerSchema = z.object({
   showLabel: z.boolean().default(false),
 });
 /** Saved color stops indexed by sensor category and key. */
-export const sensorMarkersSchema = z.record(z.string(), z.array(sensorMarkerSchema).max(32));
+const sensorMarkerListSchema = z.array(sensorMarkerSchema).max(32);
+export const sensorMarkersSchema = z.record(z.string(), sensorMarkerListSchema);
 /** Chart presentation stored for one sensor in the user profile. */
 export const sensorChartSchema = z.object({
   mode: z.enum(["regular", "gradient"]),
@@ -42,6 +43,43 @@ export const sensorChartsSchema = z.record(z.string(), sensorChartSchema);
 export type SensorChart = z.infer<typeof sensorChartSchema>;
 export type SensorSnapshot = z.infer<typeof sensorSnapshotSchema>;
 export type SensorMarker = z.infer<typeof sensorMarkerSchema>;
+
+/** Accepts only an object with named profile fields. */
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+/** Converts each valid legacy stop list without losing other sensors to one bad entry. */
+const readLegacySensorCharts = (raw: unknown): Record<string, SensorChart> =>
+  Object.fromEntries(
+    Object.entries(asRecord(raw) ?? {}).flatMap(([key, value]) => {
+      const stops = sensorMarkerListSchema.safeParse(value);
+      return stops.success && stops.data.length > 0
+        ? [[key, { mode: "gradient", stops: stops.data }]]
+        : [];
+    }),
+  );
+
+/** Keeps only valid current chart settings from a saved profile. */
+const readCurrentSensorCharts = (raw: unknown): Record<string, SensorChart> =>
+  Object.fromEntries(
+    Object.entries(asRecord(raw) ?? {}).flatMap(([key, value]) => {
+      const chart = sensorChartSchema.safeParse(value);
+      return chart.success ? [[key, chart.data]] : [];
+    }),
+  );
+
+/** Reads valid chart settings and converts legacy marker lists one sensor at a time. */
+export const readSensorCharts = (raw: unknown): Record<string, SensorChart> => {
+  const document = asRecord(raw);
+  if (document === null) return {};
+  return {
+    ...readLegacySensorCharts(document.sensorMarkers),
+    ...readCurrentSensorCharts(document.sensorCharts),
+  };
+};
+
 const historySchema = buildMonitoringResponseEnvelopeSchema(
   z.array(sensorSnapshotSchema).nullable(),
 );
