@@ -47,6 +47,13 @@ def embed(texts: list[str], model: str = "e5") -> list[str]:
             return_tensors="np",
         )
         inputs = {name: value for name, value in encoded.items() if name in input_names}
+        # The pinned E5 ONNX export requires segment IDs, but its tokenizer omits them.
+        if (
+            model == "e5"
+            and "token_type_ids" in input_names
+            and "token_type_ids" not in inputs
+        ):
+            inputs["token_type_ids"] = np.zeros_like(encoded["input_ids"])
         outputs = session.run(None, inputs)
         if model == "e5":
             mask = encoded["attention_mask"][..., None].astype(np.float32)
