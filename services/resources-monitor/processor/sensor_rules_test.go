@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	servicerules "lite-nas/services/resources-monitor/rules"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
@@ -83,19 +84,24 @@ func TestSensorAlertKeepsIdentityWhenArrayPositionChanges(t *testing.T) {
 }
 
 // TestSensorSeverityTransitionNormalizesLowerBand verifies an error reading
-// replaces its prior warning lifecycle instead of leaving two active alerts.
+// replaces its prior warning lifecycle after the configured cooldown.
 // Requirements: resources-monitor/FR-006.
 func TestSensorSeverityTransitionNormalizesLowerBand(t *testing.T) {
 	rules := mustLoadSensorRules(t)
 	client := &recordingClient{requestResponse: loggingmanagercontract.OKResponse{OK: true}}
 	manager := eventmanager.NewManager(0)
 	processor := New(rules, manager, client, sharedlogger.NewNop())
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	processor.clock = func() time.Time { return now }
 	processor.ProcessSnapshot(context.Background(), "sensor.monitor.events.snapshot", sensorVoltagePayload(
 		map[string]any{"key": "EXT5V_V", "value": 4.89},
 	))
+	now = now.Add(time.Second)
 	processor.ProcessSnapshot(context.Background(), "sensor.monitor.events.snapshot", sensorVoltagePayload(
 		map[string]any{"key": "EXT5V_V", "value": 4.84},
 	))
+	now = now.Add(29 * time.Second)
+	processor.ProcessCooldowns(context.Background())
 	_, warningActive := manager.FindEvent("sensor.monitor.events.snapshot", "snapshot.voltages[].value", "<", "EXT5V_V", "snsvwrn")
 	_, errorActive := manager.FindEvent("sensor.monitor.events.snapshot", "snapshot.voltages[].value", "<", "EXT5V_V", "snsverr")
 	if warningActive || !errorActive {

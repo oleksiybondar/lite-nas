@@ -11,6 +11,7 @@
     "category": "system.metrics.cpu.total",
     "match_window": 3,
     "min_matches": 5,
+    "cooldown": 30,
     "severity": "warning",
     "priority": 2,
     "source": "system-metrics"
@@ -27,6 +28,7 @@
     "category": "system.metrics.mem.used",
     "match_window": 10,
     "min_matches": 5,
+    "cooldown": 30,
     "severity": "warning",
     "priority": 2,
     "source": "system-metrics"
