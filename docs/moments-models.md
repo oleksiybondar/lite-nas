@@ -105,8 +105,9 @@ transliteration matching: `демо` finds `Demo` even if the model is unavailab
 
 The systemd unit limits the combined Go service and model worker to
 `MemoryHigh=2500M`, `MemoryMax=3200M`, and `MemorySwapMax=0`. Deployment
-sets a service-wide `CPUQuota` to 35% times the number of online CPUs (140%
-on a four-core Pi); the unit's 35% fallback applies if CPU detection fails.
+sets a service-wide `CPUQuota` to 200%, allowing the service and its model
+workers to use up to two CPUs of combined capacity. Exceeding the quota
+throttles the service until capacity is available; it does not terminate it.
 This quota includes the API and its BLIP and embedding child processes.
 The model workers share one lock, preventing BLIP and the selected embedding model from
 loading together.

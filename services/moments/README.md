@@ -132,8 +132,10 @@ are root-owned and read-only to Moments. The Python worker runs in a separate
 AppArmor child profile without network or Moments database access. The systemd
 service keeps `NoNewPrivileges=yes`; model child profiles are stacked with the
 parent profile so the kernel permits a strictly narrowing transition. The unit
-limits the combined Go service and caption worker to 3.2 GB of memory and
-200% CPU, and disables swap for that unit. A setup failure does not stop
+limits the combined Go service and model workers to 3.2 GB of memory and
+200% CPU, and disables swap for that unit. The quota allows up to two CPUs of
+combined capacity; exceeding it throttles the service rather than terminating it.
+A setup failure does not stop
 Moments deployment. Repeated deploys reuse a completed download; only caption
 scans load the model offline without writing model files. On upgrade, a model already in
 `/var/lib/lite-nas/moments/blip-model` is moved into the protected path when

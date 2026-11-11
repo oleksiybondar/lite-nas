@@ -188,28 +188,20 @@ assert score(vectors[0], vectors[1]) > score(vectors[0], vectors[2])
  ' "$size" || return 1
 }
 
-# Print a systemd quota equal to 35% of all online CPU capacity.
+# Print a systemd quota equal to two CPUs of total capacity.
 deploy.moments.cpuQuota() {
-	local online_cpus
-	online_cpus="$(getconf _NPROCESSORS_ONLN)" || return 1
-	case "$online_cpus" in
-	'' | *[!0-9]*) return 1 ;;
-	esac
-	if [ "$online_cpus" -lt 1 ] || [ "$online_cpus" -gt 4096 ]; then
-		return 1
-	fi
-	printf '%s%%\n' "$((35 * online_cpus))"
+	printf '200%%\n'
 }
 
 # Enables the Moments service with a quota shared by the API and model workers.
 deploy.moments.enableAndStart() {
 	if deploy.hasUsableSystemd; then
 		local quota dropin_dir
-		quota="$(deploy.moments.cpuQuota)" || quota=35%
+		quota="$(deploy.moments.cpuQuota)" || quota=200%
 		dropin_dir=/etc/systemd/system/lite-nas-moments.service.d
 		install -d -m 0755 "$dropin_dir" || return 1
-		printf '[Service]\nCPUQuota=%s\n' "$quota" >"$dropin_dir/35-percent-total-cpu.conf" || return 1
-		chmod 0644 "$dropin_dir/35-percent-total-cpu.conf" || return 1
+		printf '[Service]\nCPUQuota=%s\n' "$quota" >"$dropin_dir/200-percent-total-cpu.conf" || return 1
+		chmod 0644 "$dropin_dir/200-percent-total-cpu.conf" || return 1
 		systemctl daemon-reload || return 1
 	fi
 	deploy.enableAndRefreshService lite-nas-moments.service

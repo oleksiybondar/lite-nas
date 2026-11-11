@@ -433,7 +433,7 @@ func runEmbeddingModel(ctx context.Context, script, modelName string, size int, 
 	if err != nil {
 		return nil, err
 	}
-	modelCtx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	modelCtx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 	command := exec.CommandContext(modelCtx, embeddingPython, "-u", script)
 	command.Stdin = bytes.NewReader(append(request, '\n'))
