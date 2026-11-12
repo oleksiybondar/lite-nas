@@ -172,6 +172,7 @@ export const MomentsShell = ({
                       userId={me.user.id}
                       workingDir={workingDir}
                       disableE5Vectors={featureFlags.disableE5Vectors}
+                      searchSubmitCooldownMs={featureFlags.searchSubmitCooldownMs}
                       onOpen={(gallery) => navigate(`/galleries/${gallery.id}`)}
                     />
                   ) : (

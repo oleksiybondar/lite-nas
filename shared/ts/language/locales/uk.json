@@ -818,7 +818,7 @@
       "disableE5Vectors": "Вимкнути вектори E5",
       "disableImmediateSearch": "Вимкнути миттєвий пошук",
       "searchSubmitCooldown": "Затримка між запитами пошуку (мс)",
-      "searchSubmitCooldownHint": "Оберіть 0–60000 мс. Значення 0 вимикає затримку.",
+      "searchSubmitCooldownHint": "Введіть затримку від 0 до 60000 мілісекунд. Значення 0 залишає стандартний час пошуку.",
       "profileSaved": "Аватар збережено.",
       "profileSaveFailed": "Не вдалося зберегти аватар.",
       "uploading": "Завантаження…",

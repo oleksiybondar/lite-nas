@@ -818,7 +818,7 @@
       "disableE5Vectors": "Disable E5 vectors",
       "disableImmediateSearch": "Disable immediate search",
       "searchSubmitCooldown": "Search submit cooldown (ms)",
-      "searchSubmitCooldownHint": "Choose 0–60000 ms. Set to 0 for no cooldown.",
+      "searchSubmitCooldownHint": "Enter a delay from 0 to 60000 milliseconds. Set to 0 to keep the default search timing.",
       "profileSaved": "Avatar saved.",
       "profileSaveFailed": "Could not save avatar.",
       "uploading": "Uploading…",

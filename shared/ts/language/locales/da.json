@@ -818,7 +818,7 @@
       "disableE5Vectors": "Deaktiver E5-vektorer",
       "disableImmediateSearch": "Deaktiver øjeblikkelig søgning",
       "searchSubmitCooldown": "Ventetid mellem søgninger (ms)",
-      "searchSubmitCooldownHint": "Vælg 0–60000 ms. Vælg 0 for ingen ventetid.",
+      "searchSubmitCooldownHint": "Angiv en forsinkelse på 0–60000 millisekunder. Vælg 0 for at beholde den normale søgetiming.",
       "profileSaved": "Avatar gemt.",
       "profileSaveFailed": "Avatar kunne ikke gemmes.",
       "uploading": "Uploader…",

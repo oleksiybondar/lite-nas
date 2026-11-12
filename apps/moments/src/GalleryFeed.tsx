@@ -46,12 +46,14 @@ export function GalleryFeed({
   userId,
   workingDir,
   disableE5Vectors,
+  searchSubmitCooldownMs,
   onOpen,
 }: {
   scope: GalleryFeedScope;
   userId: string;
   workingDir: string;
   disableE5Vectors: boolean;
+  searchSubmitCooldownMs: number;
   onOpen: (gallery: GalleryRecord) => void;
 }): ReactElement {
   const { getLabel } = useLanguage();
@@ -86,22 +88,25 @@ export function GalleryFeed({
     setMediaError(null);
   };
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const value = searchDraft.trim();
-      if (value !== search) {
-        requestVersion.current += 1;
-        setSearch(value);
-        setPage(1);
-        setPages(1);
-        setItems([]);
-        setMediaMatches([]);
-        setMediaTotal(0);
-        setMediaBusy(false);
-        setMediaError(null);
-      }
-    }, 250);
+    const timer = window.setTimeout(
+      () => {
+        const value = searchDraft.trim();
+        if (value !== search) {
+          requestVersion.current += 1;
+          setSearch(value);
+          setPage(1);
+          setPages(1);
+          setItems([]);
+          setMediaMatches([]);
+          setMediaTotal(0);
+          setMediaBusy(false);
+          setMediaError(null);
+        }
+      },
+      searchSubmitCooldownMs > 0 ? searchSubmitCooldownMs : 250,
+    );
     return () => window.clearTimeout(timer);
-  }, [searchDraft, search]);
+  }, [searchDraft, search, searchSubmitCooldownMs]);
   useEffect(() => {
     let active = true;
     const controller = new AbortController();

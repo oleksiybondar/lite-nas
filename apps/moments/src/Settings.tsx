@@ -254,7 +254,7 @@ export const Settings = ({
                 helperText={getLabel("moments.settings.searchSubmitCooldownHint")}
                 type="number"
                 value={featureFlags.searchSubmitCooldownMs}
-                inputProps={{ min: 0, max: 60000, step: 100 }}
+                inputProps={{ min: 0, max: 60000, step: 1 }}
                 onChange={(event) => {
                   const result = searchSubmitCooldownSchema.safeParse(Number(event.target.value));
                   if (result.success)
