@@ -1,6 +1,7 @@
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: the feed keeps pagination, filters, and create/edit modal transitions together.
 
 import { useLanguage } from "@lite-nas/language";
+import SearchIcon from "@mui/icons-material/Search";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -14,7 +15,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GalleryEditorDialog } from "./GalleryEditorDialog";
 import { GalleryFeedCard } from "./GalleryFeedCard";
 import { GallerySearchMediaCard } from "./GallerySearchMediaCard";
@@ -46,6 +47,7 @@ export function GalleryFeed({
   userId,
   workingDir,
   disableE5Vectors,
+  disableImmediateSearch,
   searchSubmitCooldownMs,
   onOpen,
 }: {
@@ -53,6 +55,7 @@ export function GalleryFeed({
   userId: string;
   workingDir: string;
   disableE5Vectors: boolean;
+  disableImmediateSearch: boolean;
   searchSubmitCooldownMs: number;
   onOpen: (gallery: GalleryRecord) => void;
 }): ReactElement {
@@ -87,26 +90,30 @@ export function GalleryFeed({
     setMediaBusy(false);
     setMediaError(null);
   };
+  const applySearch = useCallback(
+    (draft: string): void => {
+      const value = draft.trim();
+      if (value === search) return;
+      requestVersion.current += 1;
+      setSearch(value);
+      setPage(1);
+      setPages(1);
+      setItems([]);
+      setMediaMatches([]);
+      setMediaTotal(0);
+      setMediaBusy(false);
+      setMediaError(null);
+    },
+    [search],
+  );
   useEffect(() => {
+    if (disableImmediateSearch) return;
     const timer = window.setTimeout(
-      () => {
-        const value = searchDraft.trim();
-        if (value !== search) {
-          requestVersion.current += 1;
-          setSearch(value);
-          setPage(1);
-          setPages(1);
-          setItems([]);
-          setMediaMatches([]);
-          setMediaTotal(0);
-          setMediaBusy(false);
-          setMediaError(null);
-        }
-      },
+      () => applySearch(searchDraft),
       searchSubmitCooldownMs > 0 ? searchSubmitCooldownMs : 250,
     );
     return () => window.clearTimeout(timer);
-  }, [searchDraft, search, searchSubmitCooldownMs]);
+  }, [searchDraft, searchSubmitCooldownMs, disableImmediateSearch, applySearch]);
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -218,13 +225,27 @@ export function GalleryFeed({
         </Button>
       </Stack>
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
-        <TextField
-          label={getLabel("moments.feed.search")}
-          value={searchDraft}
-          onChange={(event) => setSearchDraft(event.target.value)}
-          size="small"
-          sx={{ minWidth: 230, flexGrow: 1 }}
-        />
+        <Box
+          component="form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            applySearch(searchDraft);
+          }}
+          sx={{ display: "flex", gap: 1, flexGrow: 1, minWidth: 230 }}
+        >
+          <TextField
+            label={getLabel("moments.feed.search")}
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            size="small"
+            sx={{ minWidth: 0, flexGrow: 1 }}
+          />
+          {disableImmediateSearch && (
+            <Button type="submit" variant="contained" startIcon={<SearchIcon />}>
+              {getLabel("moments.feed.searchSubmit")}
+            </Button>
+          )}
+        </Box>
         <TextField
           select
           label={getLabel("moments.feed.type")}

@@ -740,6 +740,7 @@
     "sharedCollections": "Спільні колекції",
     "loading": "Завантаження Moments…",
     "feed": {
+      "searchSubmit": "Шукати",
       "home": "Головна",
       "mine": "Мої колекції",
       "shared": "Спільні колекції",

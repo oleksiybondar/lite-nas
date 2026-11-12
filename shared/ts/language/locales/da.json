@@ -740,6 +740,7 @@
     "sharedCollections": "Delte samlinger",
     "loading": "Indlæser Moments…",
     "feed": {
+      "searchSubmit": "Søg",
       "home": "Hjem",
       "mine": "Mine samlinger",
       "shared": "Delte samlinger",

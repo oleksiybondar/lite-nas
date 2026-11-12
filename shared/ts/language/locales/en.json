@@ -740,6 +740,7 @@
     "sharedCollections": "Shared collections",
     "loading": "Loading Moments…",
     "feed": {
+      "searchSubmit": "Search",
       "home": "Home",
       "mine": "My collections",
       "shared": "Shared collections",
