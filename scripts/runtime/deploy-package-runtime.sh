@@ -240,6 +240,8 @@ log.popTask
 
 log.pushTask "Starting LiteNAS services"
 systemctl daemon-reload
+LITE_NAS_SYSTEMD_UNITS_RELOADED=1
+export LITE_NAS_SYSTEMD_UNITS_RELOADED
 systemctl enable --now lite-nas-before-startup.service
 deploy.authService.enableAndStart
 deploy.rbacService.enableAndStart
@@ -273,5 +275,8 @@ deploy.enableAndRefreshService "lite-nas-security-automation.service"
 deploy.enableAndRefreshService "lite-nas-operational-safety-automation.service"
 deploy.enableAndRefreshService "lite-nas-service-watchdog.service"
 log.popTask
+
+# Re-exec once after the package has finished changing units and starting services.
+systemctl daemon-reexec
 
 log.info "LiteNAS package runtime deployment completed."

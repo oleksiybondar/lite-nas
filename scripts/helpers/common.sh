@@ -90,7 +90,7 @@ deploy.installMergedConfig() {
 deploy.hasUsableSystemd() {
 	command -v systemctl >/dev/null 2>&1 &&
 		[ -d /run/systemd/system ] &&
-		systemctl daemon-reload >/dev/null 2>&1
+		systemctl show-environment >/dev/null 2>&1
 }
 
 deploy.hasServiceCommand() {
@@ -148,6 +148,9 @@ deploy.enableAndRefreshService() {
 	local service="$1"
 
 	if deploy.hasUsableSystemd; then
+		if [ "${LITE_NAS_SYSTEMD_UNITS_RELOADED:-0}" != "1" ]; then
+			systemctl daemon-reload
+		fi
 		systemctl enable "$service"
 
 		if systemctl is-active --quiet "$service"; then

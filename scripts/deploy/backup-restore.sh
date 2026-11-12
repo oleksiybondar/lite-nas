@@ -28,7 +28,6 @@ deploy.backupRestore.deploy() {
 		"$LITE_NAS_REPO_ROOT/configs/etc/systemd/system/lite-nas-backup-restore.service" \
 		/etc/systemd/system/lite-nas-backup-restore.service
 	apparmor_parser -r /etc/apparmor.d/usr.libexec.lite-nas.backup-restore
-	systemctl daemon-reload
 	if [ "$should_start" = "1" ]; then
 		deploy.enableAndRefreshService lite-nas-backup-restore.service
 	else
