@@ -72,7 +72,8 @@ func TestGallerySemanticCandidatesBoundsAllMetadata(t *testing.T) {
 
 // TestSemanticPathsRequiresConfiguredModel preserves lexical search fallback.
 func TestSemanticPathsRequiresConfiguredModel(t *testing.T) {
-	_, err := (galleryController{}).semanticPaths(t.Context(), "alice", &listGalleryInput{Q: "blue sky"})
+	var queryVector []float32
+	_, err := (galleryController{}).semanticPaths(t.Context(), "alice", &listGalleryInput{Q: "blue sky"}, &queryVector)
 	if err == nil {
 		t.Fatal("semantic search accepted an unconfigured model")
 	}
@@ -81,9 +82,20 @@ func TestSemanticPathsRequiresConfiguredModel(t *testing.T) {
 // TestSemanticPathsRejectsMissingScript checks its local executable boundary.
 func TestSemanticPathsRejectsMissingScript(t *testing.T) {
 	controller := galleryController{scans: &scanManager{places: &cityIndex{embeddingScript: "/nonexistent/lite-nas-embedding.py"}}}
-	_, err := controller.semanticPaths(t.Context(), "alice", &listGalleryInput{Q: "blue sky"})
+	var queryVector []float32
+	_, err := controller.semanticPaths(t.Context(), "alice", &listGalleryInput{Q: "blue sky"}, &queryVector)
 	if err == nil {
 		t.Fatal("semantic search accepted a missing model script")
+	}
+}
+
+// TestSemanticQueryVectorReusesRequestVector avoids a second model process for photo ranking.
+func TestSemanticQueryVectorReusesRequestVector(t *testing.T) {
+	cached := make([]float32, 384)
+	model := &cityIndex{embeddingModel: "e5", embeddingScript: "/nonexistent/lite-nas-embedding.py"}
+	got, err := semanticQueryVector(t.Context(), model, "весілля", &cached)
+	if err != nil || &got[0] != &cached[0] {
+		t.Fatalf("reused vector = %v, error = %v", got, err)
 	}
 }
 

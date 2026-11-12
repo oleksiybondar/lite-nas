@@ -56,7 +56,7 @@ type gallerySemanticCandidate struct {
 
 // semanticGalleryIDs ranks visible gallery metadata with the existing local model.
 // A failed or busy model leaves the caller's lexical results untouched.
-func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, input *listGalleryInput) ([]string, error) {
+func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, input *listGalleryInput, queryVector *[]float32) ([]string, error) {
 	if c.scans == nil || c.scans.places == nil || c.scans.places.embeddingScript == "" {
 		return nil, errors.New("semantic model unavailable")
 	}
@@ -78,8 +78,7 @@ func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, 
 	if len(candidates) > 10000 {
 		return nil, errors.New("semantic search exceeds gallery limit")
 	}
-	modelID, size, queryPrefix, _ := embeddingSettings(model.embeddingModel)
-	texts := []string{queryPrefix + input.Q}
+	modelID, size, _, _ := embeddingSettings(model.embeddingModel)
 	for index := range candidates {
 		candidate := &candidates[index]
 		var modelName, hash string
@@ -95,16 +94,13 @@ func (c galleryController) semanticGalleryIDs(ctx context.Context, user string, 
 			return nil, errors.New("gallery vectors are still being generated")
 		}
 	}
-	vectors, err := runEmbeddingModel(ctx, model.embeddingScript, model.embeddingModel, size, texts)
+	vector, err := semanticQueryVector(ctx, model, input.Q, queryVector)
 	if err != nil {
 		return nil, fmt.Errorf("semantic model failed: %w", err)
 	}
-	if len(vectors) != len(texts) {
-		return nil, errors.New("semantic model returned an unexpected vector count")
-	}
 	for index := range candidates {
 		for dimension, value := range candidates[index].vector {
-			candidates[index].score += value * vectors[0][dimension]
+			candidates[index].score += value * vector[dimension]
 		}
 	}
 	sort.Slice(candidates, func(left, right int) bool {
@@ -228,7 +224,7 @@ func wantsSemanticSearch(query string) bool {
 
 // semanticPaths ranks visible image paths by an optional local text model.
 // An unavailable or busy model returns an error so callers retain lexical search.
-func (c galleryController) semanticPaths(ctx context.Context, user string, input *listGalleryInput) ([]string, error) {
+func (c galleryController) semanticPaths(ctx context.Context, user string, input *listGalleryInput, queryVector *[]float32) ([]string, error) {
 	if c.scans == nil || c.scans.places == nil || c.scans.places.embeddingScript == "" {
 		return nil, errors.New("semantic model unavailable")
 	}
@@ -250,8 +246,7 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 	if len(candidates) > 10000 {
 		return nil, errors.New("semantic search exceeds image limit")
 	}
-	modelID, size, queryPrefix, _ := embeddingSettings(model.embeddingModel)
-	texts := []string{queryPrefix + input.Q}
+	modelID, size, _, _ := embeddingSettings(model.embeddingModel)
 	for index := range candidates {
 		candidate := &candidates[index]
 		var modelName, hash string
@@ -267,14 +262,37 @@ func (c galleryController) semanticPaths(ctx context.Context, user string, input
 			return nil, errors.New("image vectors are still being generated")
 		}
 	}
-	vectors, err := runEmbeddingModel(ctx, model.embeddingScript, model.embeddingModel, size, texts)
+	vector, err := semanticQueryVector(ctx, model, input.Q, queryVector)
 	if err != nil {
 		return nil, fmt.Errorf("semantic model failed: %w", err)
 	}
-	if len(vectors) != len(texts) {
+	return rankSemanticCandidates(candidates, vector), nil
+}
+
+// semanticQueryVector embeds a request's query once for gallery and photo ranking.
+func semanticQueryVector(ctx context.Context, model *cityIndex, query string, cached *[]float32) ([]float32, error) {
+	_, size, prefix, _ := embeddingSettings(model.embeddingModel)
+	if len(*cached) == size {
+		return *cached, nil
+	}
+	vectors, err := runConfiguredEmbeddingModel(ctx, model, size, []string{prefix + query})
+	if err != nil {
+		return nil, err
+	}
+	if len(vectors) != 1 {
 		return nil, errors.New("semantic model returned an unexpected vector count")
 	}
-	return rankSemanticCandidates(candidates, vectors[0]), nil
+	*cached = vectors[0]
+	return *cached, nil
+}
+
+// runConfiguredEmbeddingModel prefers the resident worker and keeps the
+// one-shot path available when optional model startup failed.
+func runConfiguredEmbeddingModel(ctx context.Context, model *cityIndex, size int, texts []string) ([][]float32, error) {
+	if model.embeddingWorker != nil {
+		return model.embeddingWorker.embed(ctx, model.embeddingModel, texts, size)
+	}
+	return runEmbeddingModel(ctx, model.embeddingScript, model.embeddingModel, size, texts)
 }
 
 // acquireSemanticModel briefly waits for an older search to release the shared model.
@@ -435,13 +453,19 @@ func runEmbeddingModel(ctx context.Context, script, modelName string, size int, 
 	if len(output) > 48<<20 {
 		return nil, errors.New("embedding worker output too large")
 	}
+	return decodeEmbeddingReply(output, len(texts), size)
+}
+
+// decodeEmbeddingReply validates one response and its fixed-width normalized vectors.
+func decodeEmbeddingReply(output []byte, count, size int) ([][]float32, error) {
 	var response struct {
 		Vectors []string `json:"vectors"`
+		Error   string   `json:"error"`
 	}
-	if json.Unmarshal(output, &response) != nil || len(response.Vectors) != len(texts) {
+	if json.Unmarshal(output, &response) != nil || response.Error != "" || len(response.Vectors) != count {
 		return nil, errors.New("invalid embedding worker response")
 	}
-	vectors := make([][]float32, len(texts))
+	vectors := make([][]float32, count)
 	for index, encoded := range response.Vectors {
 		blob, err := base64.StdEncoding.DecodeString(encoded)
 		if err != nil {

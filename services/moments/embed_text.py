@@ -1,8 +1,8 @@
-"""Embed bounded search text with a pinned local Google EmbeddingGemma model.
+"""Embed bounded search text with a pinned local E5 or EmbeddingGemma model.
 
-The service starts this process on demand. It accepts one JSON request on stdin,
-prints one JSON response, and exits; no media bytes, paths, tokens, or database
-handles enter the model process.
+Deployment smoke checks use one-shot mode. Moments starts the resident mode,
+which loads the configured weights once and exchanges newline-delimited JSON
+through stdin and stdout.
 """
 
 import base64
@@ -17,9 +17,8 @@ MAX_TEXT_BYTES = 2048
 EMBEDDING_SIZE = 768
 
 
-def embed(texts: list[str], model: str = "e5") -> list[str]:
-    """Return normalized float32 vectors encoded as base64 in input order."""
-    import numpy as np
+def load_model(model: str):
+    """Load the configured tokenizer and ONNX session once for a resident worker."""
     from transformers import AutoTokenizer
     # Import Transformers first: loading ONNX Runtime first registers ONNX's
     # protobuf descriptors twice with this pinned dependency set and aborts.
@@ -37,6 +36,13 @@ def embed(texts: list[str], model: str = "e5") -> list[str]:
         sess_options=options,
     )
     input_names = {item.name for item in session.get_inputs()}
+    return tokenizer, session, input_names
+
+
+def embed(texts: list[str], model: str = "e5", loaded=None) -> list[str]:
+    """Return normalized float32 vectors encoded as base64 in input order."""
+    import numpy as np
+    tokenizer, session, input_names = loaded or load_model(model)
     vectors: list[str] = []
     for start in range(0, len(texts), 16):
         encoded = tokenizer(
@@ -75,9 +81,12 @@ def embed(texts: list[str], model: str = "e5") -> list[str]:
 
 
 def main() -> None:
-    """Validate the single local request before loading model dependencies."""
+    """Serve one-shot deployment checks or a persistent configured model worker."""
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    if len(sys.argv) == 3 and sys.argv[1] == "--serve":
+        serve(sys.argv[2])
+        return
     request = json.loads(sys.stdin.buffer.readline(21 * 1024 * 1024))
     texts = request.get("texts")
     model = request.get("model", "e5")
@@ -93,6 +102,40 @@ def main() -> None:
     ):
         raise ValueError("invalid text")
     print(json.dumps({"vectors": embed(texts, model)}, separators=(",", ":")), flush=True)
+
+
+def validate_request(request: dict, model: str) -> list[str]:
+    """Validate one bounded request before passing text to the resident model."""
+    texts = request.get("texts")
+    if request.get("model", model) != model:
+        raise ValueError("request model does not match resident model")
+    if not isinstance(texts, list) or not 1 <= len(texts) <= MAX_TEXTS:
+        raise ValueError("invalid text count")
+    if any(
+        not isinstance(text, str)
+        or not text
+        or len(text.encode("utf-8")) > MAX_TEXT_BYTES
+        for text in texts
+    ):
+        raise ValueError("invalid text")
+    return texts
+
+
+def serve(model: str) -> None:
+    """Keep one embedding model resident and answer newline-delimited requests."""
+    if model not in ("e5", "embeddinggemma"):
+        raise ValueError("invalid embedding model")
+    loaded = load_model(model)
+    print('{"ready":true}', flush=True)
+    while line := sys.stdin.buffer.readline(21 * 1024 * 1024):
+        try:
+            request = json.loads(line)
+            vectors = embed(validate_request(request, model), model, loaded)
+            response = {"vectors": vectors}
+        except Exception as error:  # Keep a bad input or inference failure from desynchronizing the stream.
+            print(f"embedding request failed: {type(error).__name__}: {error}", file=sys.stderr)
+            response = {"error": "embedding request failed"}
+        print(json.dumps(response, separators=(",", ":")), flush=True)
 
 
 if __name__ == "__main__":

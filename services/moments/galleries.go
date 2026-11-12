@@ -480,8 +480,9 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 		return nil, huma.Error500InternalServerError("gallery list failed")
 	}
 	order := ` ORDER BY g.created_at DESC,g.id DESC`
+	var queryVector []float32
 	if input.Q != "" && (wantsSemanticSearch(input.Q) || output.Body.Metadata.TotalCount == 0) {
-		if ids, err := c.semanticGalleryIDs(ctx, user, input); err == nil {
+		if ids, err := c.semanticGalleryIDs(ctx, user, input, &queryVector); err == nil {
 			output.Body.Metadata.TotalCount = int64(len(ids))
 			where = baseWhere
 			args = baseArgs
@@ -532,7 +533,7 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 		}
 		output.Body.Items[index].Tags = tags
 	}
-	if err := c.searchMedia(ctx, user, input, &output.Body.MatchingMedia); err != nil {
+	if err := c.searchMedia(ctx, user, input, &output.Body.MatchingMedia, &queryVector); err != nil {
 		return nil, err
 	}
 	return output, nil

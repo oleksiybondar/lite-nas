@@ -74,11 +74,12 @@ type scanListOutput struct {
 
 // activeScan holds the user token only in process memory and a cancellation handle.
 type activeScan struct {
-	jobID     string
-	kind      string
-	token     string
-	automatic bool
-	cancel    context.CancelFunc
+	jobID        string
+	kind         string
+	token        string
+	automatic    bool
+	followVector bool
+	cancel       context.CancelFunc
 }
 
 // scanManager bounds concurrent work and owns user-token renewal.
@@ -446,15 +447,46 @@ func (m *scanManager) run(ctx context.Context, job scanJob, user string) {
 // release frees one finished job's gallery reservation and worker seat.
 func (m *scanManager) release(job scanJob) {
 	m.mu.Lock()
-	automatic := false
+	automatic, followVector := false, false
 	if active := m.active[job.GalleryID]; active != nil && active.jobID == job.ID {
-		automatic = active.automatic
+		automatic, followVector = active.automatic, active.followVector
 		active.cancel()
 		delete(m.active, job.GalleryID)
 	}
 	m.mu.Unlock()
 	<-m.seats
-	if job.Kind == "CAPTION" && !automatic && m.automaticVectors && m.places != nil && m.places.embeddingScript != "" {
+	var status string
+	statusTable := "media_scan_jobs"
+	if job.Kind == "VECTOR" {
+		statusTable = "vector_scan_jobs"
+	}
+	if err := m.store.db.QueryRow(`SELECT status FROM `+statusTable+` WHERE id=?`, job.ID).Scan(&status); err != nil {
+		slog.Warn("completed Moments scan status unavailable", "job_id", job.ID, "error", err)
+		return
+	}
+	if job.Kind == "MEDIA" && status == "COMPLETED" && m.automaticCaptions && m.places != nil && m.places.captionScript != "" {
+		var owner string
+		if err := m.store.db.QueryRow(`SELECT owner_id FROM galleries WHERE id=?`, job.GalleryID).Scan(&owner); err != nil {
+			slog.Warn("uploaded image caption owner unavailable", "gallery_id", job.GalleryID, "error", err)
+			return
+		}
+		if _, err := m.startAutomaticCaption(job.GalleryID, owner, true); err != nil {
+			// The hourly background pass will pick up images if another model job
+			// is using the worker when the media scan finishes.
+			slog.Info("uploaded image captioning deferred", "gallery_id", job.GalleryID, "error", err)
+		}
+	}
+	if job.Kind == "MEDIA" && status == "COMPLETED" && m.automaticVectors && (!m.automaticCaptions || m.places == nil || m.places.captionScript == "") && m.places != nil && m.places.embeddingScript != "" {
+		var owner string
+		if err := m.store.db.QueryRow(`SELECT owner_id FROM galleries WHERE id=?`, job.GalleryID).Scan(&owner); err != nil {
+			slog.Warn("uploaded image vector owner unavailable", "gallery_id", job.GalleryID, "error", err)
+			return
+		}
+		if _, err := m.startVector(job.GalleryID, owner); err != nil {
+			slog.Info("uploaded image vectoring deferred", "gallery_id", job.GalleryID, "error", err)
+		}
+	}
+	if job.Kind == "CAPTION" && status == "COMPLETED" && (!automatic || followVector) && m.automaticVectors && m.places != nil && m.places.embeddingScript != "" {
 		if _, err := m.startVector(job.GalleryID, m.jobOwner(job.ID)); err != nil {
 			slog.Warn("caption vectors could not be scheduled", "gallery_id", job.GalleryID, "error", err)
 		}

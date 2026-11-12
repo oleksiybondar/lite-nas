@@ -2,7 +2,9 @@
 
 Moments uses two optional local models. BLIP generates captions for still images;
 The configured E5 or EmbeddingGemma model ranks photo search results from text already attached to
-those images. Both run on demand in separate Python processes. Missing
+those images. Each model runs in a separate persistent Python worker. Moments
+warms BLIP first, waits until it is ready, then warms the configured embedding
+model. Both workers keep their weights resident until shutdown. Missing
 dependencies or weights do not prevent Moments from serving galleries.
 
 | Model                                               | Used when                                       | Input                                                | Saved result                                          |
@@ -87,14 +89,20 @@ ten images or thirty minutes and at job end. A restart resumes from the last
 counter checkpoint and can repeat images processed after it. Old active jobs
 without a saved grant cannot resume. Media scans have a separate 20-minute
 deadline and still use an in-memory user token; their interrupted jobs fail on
-restart.
+restart. Completed media scans schedule missing captions when automatic
+captioning is enabled, followed by vector generation when automatic vectors are
+enabled. If captioning is disabled or unconfigured, completed media scans can
+schedule vector generation directly. If another gallery job is active, the
+hourly background pass retries the work.
 
 BLIP reads a source through File Service into bounded process memory and sends
-it to Python through a pipe. The compressed source is capped at 64 MiB, the
+it to Python through its input pipe; captions return through the output pipe.
+Embedding requests use bounded Go input and output channels to serialize work
+through the resident embedding process. The compressed source is capped at 64 MiB, the
 input line at 96 MiB, and decoded images at 100 million pixels. Python reduces
-the image to a 1024-pixel thumbnail before inference. The worker loads its
-weights once per caption job and exits afterward. One model worker runs at a
-time; the caption job deadline is seven days.
+the image to a 1024-pixel thumbnail before inference. The BLIP worker loads its
+weights once when Moments starts and stays alive until shutdown. The caption
+job deadline is seven days.
 
 ## Semantic search
 
@@ -110,7 +118,8 @@ stores vectors for the model revision and the hash of the source text. When
 manual caption scan, and the hourly worker refreshes missing or stale vectors.
 Owners can also start `POST /api/galleries/{galleryId}/vector-scans` and monitor
 or cancel the job through the scan routes. Search embeds only the query and
-uses saved vectors. Until all eligible vectors are ready, it falls back to
+uses saved vectors. Gallery and photo ranking reuse one query embedding within
+the same gallery-list request. Until all eligible vectors are ready, it falls back to
 ordinary text matching without translation. Query text uses `task: search result |
 query:` and image text uses `title: none | text:`, as required by the model's
 retrieval prompts.
@@ -120,13 +129,13 @@ transliteration matching: `демо` finds `Demo` even if the model is unavailab
 ## Resource and storage limits
 
 The systemd unit limits the combined Go service and model worker to
-`MemoryHigh=2500M`, `MemoryMax=3200M`, and `MemorySwapMax=0`. Deployment
+`MemoryHigh=2800M`, `MemoryMax=3000M`, and `MemorySwapMax=0`. Deployment
 sets a service-wide `CPUQuota` to 200%, allowing the service and its model
 workers to use up to two CPUs of combined capacity. Exceeding the quota
 throttles the service until capacity is available; it does not terminate it.
 This quota includes the API and its BLIP and embedding child processes.
 The model workers share one lock, preventing BLIP and the selected embedding model from
-loading together.
+running inference together.
 Moments already has a private, size-limited 64 MiB tmpfs at `/tmp`. Model
 weights are read from protected storage, and image bytes pass through memory
 and a pipe; neither is staged in `/tmp`. SQLite stores derived captions,

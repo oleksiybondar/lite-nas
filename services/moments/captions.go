@@ -27,7 +27,7 @@ type captionWorker struct {
 	command       *exec.Cmd
 	input         io.WriteCloser
 	output        *bufio.Reader
-	unlock        func()
+	places        *cityIndex
 	failed        bool
 	grantRejected bool
 }
@@ -37,20 +37,20 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 	if places == nil || places.captionScript == "" {
 		return nil
 	}
+	if places.captionWorker != nil {
+		return places.captionWorker
+	}
 	if _, err := os.Stat(places.captionScript); err != nil {
 		return nil
 	}
-	places.captionMu.Lock()
 	command := exec.CommandContext(ctx, "/usr/local/lib/lite-nas/moments/caption-venv/bin/python3", "-u", places.captionScript)
 	input, err := command.StdinPipe()
 	if err != nil {
-		places.captionMu.Unlock()
 		return nil
 	}
 	output, err := command.StdoutPipe()
 	if err != nil {
 		_ = input.Close()
-		places.captionMu.Unlock()
 		return nil
 	}
 	// Model import and AppArmor failures belong in the service journal.
@@ -58,10 +58,9 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 	if err := command.Start(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "moments: BLIP worker could not start: %v\n", err)
 		_ = input.Close()
-		places.captionMu.Unlock()
 		return nil
 	}
-	worker := &captionWorker{command: command, input: input, output: bufio.NewReader(output), unlock: places.captionMu.Unlock}
+	worker := &captionWorker{command: command, input: input, output: bufio.NewReader(output), places: places}
 	var ready struct {
 		Ready bool `json:"ready"`
 	}
@@ -76,6 +75,7 @@ func startCaptionWorker(ctx context.Context, places *cityIndex) *captionWorker {
 		worker.close()
 		return nil
 	}
+	places.captionWorker = worker
 	return worker
 }
 
@@ -91,9 +91,6 @@ func (worker *captionWorker) captionWithGrant(ctx context.Context, files fileSer
 
 // captionWithRequest streams one authorized image into the local model.
 func (worker *captionWorker) captionWithRequest(ctx context.Context, files fileServiceClient, token, path string, grant bool) *string {
-	if worker.failed {
-		return nil
-	}
 	var response *http.Response
 	var err error
 	for {
@@ -133,6 +130,11 @@ func (worker *captionWorker) captionWithRequest(ctx context.Context, files fileS
 		Image string `json:"image"`
 	}{Image: base64.StdEncoding.EncodeToString(data)})
 	if err != nil {
+		return nil
+	}
+	worker.places.captionMu.Lock()
+	defer worker.places.captionMu.Unlock()
+	if worker.failed {
 		return nil
 	}
 	if _, err := io.Copy(worker.input, bytes.NewReader(append(request, '\n'))); err != nil {
@@ -202,5 +204,7 @@ func (worker *captionWorker) readLine(ctx context.Context, timeout time.Duration
 func (worker *captionWorker) close() {
 	_ = worker.input.Close()
 	_ = worker.command.Wait()
-	worker.unlock()
+	if worker.places != nil && worker.places.captionWorker == worker {
+		worker.places.captionWorker = nil
+	}
 }

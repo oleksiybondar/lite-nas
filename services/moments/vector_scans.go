@@ -91,7 +91,7 @@ func (m *scanManager) runVectorScan(ctx context.Context, job scanJob, user strin
 		var blob []byte
 		err := m.store.db.QueryRowContext(ctx, `SELECT model,text_hash,vector FROM gallery_embeddings WHERE gallery_id=?`, gallery.id).Scan(&cachedModel, &hash, &blob)
 		if errors.Is(err, sql.ErrNoRows) || (err == nil && (cachedModel != modelID || hash != gallery.hash || len(decodeVector(blob, size)) != size)) {
-			vectors, vectorErr := runEmbeddingModel(ctx, m.places.embeddingScript, m.places.embeddingModel, size, []string{prefix + gallery.text})
+			vectors, vectorErr := runConfiguredEmbeddingModel(ctx, m.places, size, []string{prefix + gallery.text})
 			if vectorErr == nil {
 				_, vectorErr = m.store.db.ExecContext(ctx, `INSERT INTO gallery_embeddings(gallery_id,model,text_hash,vector) VALUES(?,?,?,?) ON CONFLICT(gallery_id) DO UPDATE SET model=excluded.model,text_hash=excluded.text_hash,vector=excluded.vector`, gallery.id, modelID, gallery.hash, encodeVector(vectors[0]))
 			}
@@ -128,7 +128,7 @@ func (m *scanManager) runVectorScan(ctx context.Context, job scanJob, user strin
 			texts = append(texts, prefix+item.text)
 		}
 		if len(texts) > 0 {
-			vectors, vectorErr := runEmbeddingModel(ctx, m.places.embeddingScript, m.places.embeddingModel, size, texts)
+			vectors, vectorErr := runConfiguredEmbeddingModel(ctx, m.places, size, texts)
 			for offset, index := range stale {
 				processed++
 				if vectorErr != nil {

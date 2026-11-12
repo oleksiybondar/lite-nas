@@ -86,7 +86,6 @@ func (m *scanManager) runCaptionScan(ctx context.Context, job scanJob, user stri
 		m.finish(job.ID, "FAILED", "BLIP caption worker unavailable")
 		return
 	}
-	defer worker.close()
 	succeeded, failed, processed := 0, 0, 0
 	if resume {
 		if err := m.store.db.QueryRowContext(ctx, `SELECT processed_items,successful_items,failed_items FROM media_scan_jobs WHERE id=?`, job.ID).Scan(&processed, &succeeded, &failed); err != nil || processed > len(paths) {

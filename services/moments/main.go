@@ -202,6 +202,21 @@ func run(ctx context.Context, path string) error {
 	places.captionScript = cfg.CaptionScript
 	places.embeddingScript = cfg.EmbeddingScript
 	places.embeddingModel = cfg.EmbeddingModel
+	if cfg.CaptionScript != "" {
+		if worker := startCaptionWorker(ctx, places); worker != nil {
+			defer worker.close()
+		} else {
+			_, _ = fmt.Fprintln(os.Stderr, "moments: BLIP model prewarm unavailable; caption scans will retry on demand")
+		}
+	}
+	if cfg.EmbeddingScript != "" {
+		if worker, workerErr := startEmbeddingWorker(ctx, places); workerErr == nil {
+			places.embeddingWorker = worker
+			defer worker.close()
+		} else {
+			_, _ = fmt.Fprintf(os.Stderr, "moments: embedding model prewarm unavailable; semantic searches will retry on demand: %v\n", workerErr)
+		}
+	}
 	files := newFileServiceClient(cfg.FileServiceURL)
 	auth := browserauth.NewAuthService(infra.Client, verifier, "moments")
 	scans := newScanManager(store, auth, files, places)
@@ -225,7 +240,7 @@ func run(ctx context.Context, path string) error {
 		Handler:           newRouterWithScanManager(auth, cfg.CookieDomain, store, files, cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, scans),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		// Gallery and image search embed the query in separate model runs.
+		// Semantic queries may wait behind one serialized resident-model request.
 		// Keep the response deadline below Nginx's 310-second proxy timeout.
 		WriteTimeout: 300 * time.Second,
 		IdleTimeout:  30 * time.Second,

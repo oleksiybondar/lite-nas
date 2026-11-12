@@ -40,8 +40,8 @@ LockPersonality=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 CapabilityBoundingSet=
 AmbientCapabilities=
-MemoryHigh=2500M
-MemoryMax=3200M
+MemoryHigh=2800M
+MemoryMax=3000M
 MemorySwapMax=0
 # Safe one-core fallback; deployment scales this to 35% of all online CPUs.
 CPUQuota=35%

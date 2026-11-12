@@ -34,7 +34,7 @@ type mediaMatchPage struct {
 }
 
 // searchMedia finds visible gallery image links whose path-keyed tags match the query.
-func (c galleryController) searchMedia(ctx context.Context, user string, input *listGalleryInput, page *mediaMatchPage) error {
+func (c galleryController) searchMedia(ctx context.Context, user string, input *listGalleryInput, page *mediaMatchPage, queryVector *[]float32) error {
 	page.Items = []mediaMatch{}
 	page.Limit = input.MediaLimit
 	if page.Limit == 0 {
@@ -88,7 +88,7 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 	order := ` ORDER BY max(g.created_at) DESC,gm.path`
 	queryOffset := page.Offset
 	if len(terms) != 0 && (wantsSemanticSearch(input.Q) || page.Total == 0) {
-		if paths, err := c.semanticPaths(ctx, user, input); err == nil {
+		if paths, err := c.semanticPaths(ctx, user, input, queryVector); err == nil {
 			page.Total = int64(len(paths))
 			if page.Offset >= len(paths) {
 				return nil

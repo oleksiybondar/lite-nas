@@ -71,7 +71,7 @@ func (m *scanManager) processAutomaticSearch(ctx context.Context) error {
 			return err
 		}
 		if m.automaticCaptions && len(paths) > 0 && len(paths) <= 10000 && m.places != nil && m.places.captionScript != "" {
-			job, err := m.startAutomaticCaption(item.id, item.owner)
+			job, err := m.startAutomaticCaption(item.id, item.owner, false)
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func (m *scanManager) waitForSearchJob(ctx context.Context, job scanJob) error {
 }
 
 // startAutomaticCaption records a service-account caption pass for one gallery.
-func (m *scanManager) startAutomaticCaption(galleryID, owner string) (scanJob, error) {
+func (m *scanManager) startAutomaticCaption(galleryID, owner string, followVector bool) (scanJob, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.active) > 0 {
@@ -140,7 +140,7 @@ func (m *scanManager) startAutomaticCaption(galleryID, owner string) (scanJob, e
 		<-m.seats
 		return scanJob{}, err
 	}
-	m.active[galleryID] = &activeScan{jobID: job.ID, kind: job.Kind, automatic: true, cancel: cancel}
+	m.active[galleryID] = &activeScan{jobID: job.ID, kind: job.Kind, automatic: true, followVector: followVector, cancel: cancel}
 	go m.runAutomaticCaption(ctx, job)
 	return job, nil
 }
@@ -169,7 +169,6 @@ func (m *scanManager) runAutomaticCaption(ctx context.Context, job scanJob) {
 		finish("FAILED", "BLIP caption worker unavailable")
 		return
 	}
-	defer worker.close()
 	failed := 0
 	for index, path := range paths {
 		if ctx.Err() != nil {

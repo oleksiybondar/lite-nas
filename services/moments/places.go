@@ -27,8 +27,10 @@ type cityIndex struct {
 	online          *reverseGeocoder
 	captionScript   string
 	captionMu       sync.Mutex
+	captionWorker   *captionWorker
 	embeddingScript string
 	embeddingModel  string
+	embeddingWorker *embeddingWorker
 }
 
 // loadCityIndex reads the packaged GeoNames extract once at service startup.
