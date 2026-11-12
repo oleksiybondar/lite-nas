@@ -44,6 +44,11 @@ function renderMomentsApp(concurrency = 10, imageUiCooldownMs = 100): void {
   vi.mocked(loadGallerySettings).mockResolvedValue({
     maxConcurrentImageLoads: concurrency,
     imageUiCooldownMs,
+    featureFlags: {
+      disableE5Vectors: false,
+      disableImmediateSearch: false,
+      searchSubmitCooldownMs: 0,
+    },
   });
   vi.mocked(saveGallerySettings).mockResolvedValue(undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

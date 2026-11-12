@@ -80,8 +80,25 @@ function mockFirstPage(items: GalleryRecord[]): void {
 
 /** Renders the home feed with its standard test identity and directory. */
 function renderHomeFeed(onOpen = vi.fn()): void {
-  render(<GalleryFeed scope="home" userId="alice" workingDir="/home" onOpen={onOpen} />);
+  render(
+    <GalleryFeed
+      scope="home"
+      userId="alice"
+      workingDir="/home"
+      disableE5Vectors={false}
+      disableImmediateSearch={false}
+      searchSubmitCooldownMs={0}
+      onOpen={onOpen}
+    />,
+  );
 }
+
+/** Supplies the default search feature flags to direct feed renders. */
+const defaultSearchFeatureFlags = {
+  disableE5Vectors: false,
+  disableImmediateSearch: false,
+  searchSubmitCooldownMs: 0,
+};
 
 beforeEach(() => {
   mockFirstPage([]);
@@ -139,7 +156,15 @@ test("home feed loads the next backend page when its end becomes visible", async
       items: [{ ...album, id: "00000000-0000-4000-8000-000000000002", name: "Second album" }],
       metadata: { page: 2, size: 20, total_count: 21, total_pages: 2 },
     });
-  render(<GalleryFeed scope="home" userId="alice" workingDir="/NASPool/Photos" onOpen={vi.fn()} />);
+  render(
+    <GalleryFeed
+      scope="home"
+      userId="alice"
+      workingDir="/NASPool/Photos"
+      {...defaultSearchFeatureFlags}
+      onOpen={vi.fn()}
+    />,
+  );
   await screen.findByText("First album");
   await waitFor(() => expect(enter).toBeDefined());
   const notify = enter;
@@ -153,7 +178,13 @@ test("home feed loads the next backend page when its end becomes visible", async
 test("shared feed excludes the signed-in user's galleries", async () => {
   mockFirstPage([album]);
   render(
-    <GalleryFeed scope="shared" userId="alice" workingDir="/NASPool/Photos" onOpen={vi.fn()} />,
+    <GalleryFeed
+      scope="shared"
+      userId="alice"
+      workingDir="/NASPool/Photos"
+      {...defaultSearchFeatureFlags}
+      onOpen={vi.fn()}
+    />,
   );
   expect(await screen.findByText("No galleries yet.", {}, { timeout: 10000 })).toBeTruthy();
 }, 15000);
@@ -215,17 +246,8 @@ test("search shows galleries before individual photos", async () => {
   expect(galleries.compareDocumentPosition(photos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-test.each([
-  { scope: "home" as const, expected: [album.id, "00000000-0000-4000-8000-000000000002"] },
-  { scope: "shared" as const, expected: ["00000000-0000-4000-8000-000000000002"] },
-])("matching photo links follow the $scope gallery scope", async ({ scope, expected }) => {
-  const collection = {
-    ...album,
-    id: "00000000-0000-4000-8000-000000000002",
-    name: "City trip",
-    type: "COLLECTION" as const,
-    ownerId: "bob",
-  };
+/** Returns galleries with one matching photo linked to both supplied records. */
+function mockMatchingPhotoSearch(collection: GalleryRecord): void {
   vi.mocked(listGalleries).mockResolvedValue({
     items: [album, collection],
     metadata: { page: 1, size: 20, total_count: 2, total_pages: 1 },
@@ -233,15 +255,12 @@ test.each([
       items: [
         {
           galleryId: album.id,
-          linkedGalleries: [
-            { id: album.id, name: album.name, type: album.type, ownerId: album.ownerId },
-            {
-              id: collection.id,
-              name: collection.name,
-              type: collection.type,
-              ownerId: collection.ownerId,
-            },
-          ],
+          linkedGalleries: [album, collection].map(({ id, name, type, ownerId }) => ({
+            id,
+            name,
+            type,
+            ownerId,
+          })),
           path: "/NASPool/Photos/dog.jpg",
           mediaType: "IMAGE",
           width: 640,
@@ -256,7 +275,29 @@ test.each([
       offset: 0,
     },
   });
-  render(<GalleryFeed scope={scope} userId="alice" workingDir="/home" onOpen={vi.fn()} />);
+}
+
+test.each([
+  { scope: "home" as const, expected: [album.id, "00000000-0000-4000-8000-000000000002"] },
+  { scope: "shared" as const, expected: ["00000000-0000-4000-8000-000000000002"] },
+])("matching photo links follow the $scope gallery scope", async ({ scope, expected }) => {
+  const collection = {
+    ...album,
+    id: "00000000-0000-4000-8000-000000000002",
+    name: "City trip",
+    type: "COLLECTION" as const,
+    ownerId: "bob",
+  };
+  mockMatchingPhotoSearch(collection);
+  render(
+    <GalleryFeed
+      scope={scope}
+      userId="alice"
+      workingDir="/home"
+      {...defaultSearchFeatureFlags}
+      onOpen={vi.fn()}
+    />,
+  );
   fireEvent.change(screen.getByLabelText("Search galleries"), { target: { value: "dog" } });
   const card = await screen.findByTestId("moments-media-search-card");
   const links = within(card).getAllByRole("link");

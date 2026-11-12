@@ -292,7 +292,11 @@ export const momentsSettingsSchema = z.object({
     maxConcurrentImageLoads: imageConcurrencySchema,
     imageUiCooldownMs: imageUiCooldownSchema.default(defaultImageUiCooldownMs),
   }),
-  featureFlags: momentsFeatureFlagsSchema.default({}),
+  featureFlags: momentsFeatureFlagsSchema.default({
+    disableE5Vectors: false,
+    disableImmediateSearch: false,
+    searchSubmitCooldownMs: defaultSearchSubmitCooldownMs,
+  }),
 });
 
 /** Persisted Moments settings after runtime validation. */
