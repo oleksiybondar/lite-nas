@@ -225,8 +225,10 @@ func run(ctx context.Context, path string) error {
 		Handler:           newRouterWithScanManager(auth, cfg.CookieDomain, store, files, cfg.ThumbnailDir, cfg.WorkingDir, infra.Client, scans),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      90 * time.Second,
-		IdleTimeout:       30 * time.Second,
+		// Gallery and image search embed the query in separate model runs.
+		// Keep the response deadline below Nginx's 310-second proxy timeout.
+		WriteTimeout: 300 * time.Second,
+		IdleTimeout:  30 * time.Second,
 	}
 	results := make(chan error, 1)
 	go func() { results <- server.ListenAndServe() }()
