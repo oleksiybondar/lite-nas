@@ -1,0 +1,3 @@
+# Protect host and LiteNAS configuration under /etc.
+/etc(/.*)?$ LiteNASIntegrity
+/usr/local/etc(/.*)?$ LiteNASIntegrity

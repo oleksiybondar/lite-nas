@@ -9,10 +9,13 @@ import (
 
 	authdto "lite-nas/services/web-gateway/dto/auth"
 	"lite-nas/services/web-gateway/services"
+	"lite-nas/shared/browserauth"
+	authcontract "lite-nas/shared/contracts/auth"
 )
 
 type stubAuthService struct {
 	loginResult   services.Session
+	beginResult   browserauth.PasswordResult
 	refreshResult services.Session
 	logoutResult  services.Session
 	meResult      services.Session
@@ -30,6 +33,36 @@ func (s stubAuthService) Login(
 	services.AuthRequestContext,
 ) (services.Session, error) {
 	return s.loginResult, s.loginErr
+}
+
+func (s stubAuthService) BeginLogin(context.Context, time.Time, string, string, services.AuthRequestContext) (browserauth.PasswordResult, error) {
+	if s.beginResult.Status != "" {
+		return s.beginResult, s.loginErr
+	}
+	return browserauth.PasswordResult{Session: s.loginResult, Status: authcontract.StatusAuthenticated}, s.loginErr
+}
+
+// TestExpiredPasswordLoginDoesNotIssueCookies keeps the browser anonymous.
+func TestExpiredPasswordLoginDoesNotIssueCookies(t *testing.T) {
+	controller := NewAuthController(stubAuthService{beginResult: browserauth.PasswordResult{
+		Status:       authcontract.StatusPasswordChangeRequired,
+		Conversation: &authcontract.PasswordConversation{ID: "pending", Sequence: 1, Prompt: "New password", Secret: true},
+	}})
+	output, err := controller.Login(t.Context(), authLoginInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output.SetCookie) != 0 {
+		t.Fatalf("cookies = %d, want none", len(output.SetCookie))
+	}
+}
+
+func (s stubAuthService) BeginPasswordChange(context.Context, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, nil
+}
+
+func (s stubAuthService) ReplyPasswordChange(context.Context, time.Time, string, int32, string) (browserauth.PasswordResult, error) {
+	return browserauth.PasswordResult{}, nil
 }
 
 func (s stubAuthService) Refresh(
@@ -72,6 +105,19 @@ func authSessionFixture() services.Session {
 
 func newAuthControllerWithLoginResult() AuthController {
 	return NewAuthController(stubAuthService{loginResult: authSessionFixture()})
+}
+
+// Requirements: browserauth/FR-003
+func TestLoginUsesConfiguredCookieDomain(t *testing.T) {
+	t.Parallel()
+	controller := NewAuthController(stubAuthService{loginResult: authSessionFixture()}, "example.com")
+	output, err := controller.Login(context.Background(), authLoginInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output.SetCookie[0].Domain != "example.com" {
+		t.Fatalf("cookie domain = %q, want example.com", output.SetCookie[0].Domain)
+	}
 }
 
 func newAuthControllerWithRefreshResult() AuthController {
@@ -252,13 +298,25 @@ func TestAuthControllerRefreshMapsMissingRefreshTokenToUnauthorized(t *testing.T
 }
 
 // Requirements: web-gateway/TR-001
-func TestAuthControllerLogoutMapsMissingRefreshTokenToUnauthorized(t *testing.T) {
+func TestAuthControllerLogoutClearsCookiesWithoutRefreshToken(t *testing.T) {
 	t.Parallel()
 
-	assertAuthControllerUnauthorizedError(t, stubAuthService{logoutErr: services.ErrMissingRefreshToken()}, func(controller AuthController) error {
-		_, err := controller.Logout(context.Background(), authLogoutInput("RT-token"))
-		return err
-	})
+	controller := NewAuthController(stubAuthService{})
+	output := mustLogout(t, controller, authLogoutInput(""))
+	if len(output.SetCookie) != 2 {
+		t.Fatalf("cookie count = %d, want 2", len(output.SetCookie))
+	}
+}
+
+// Requirements: web-gateway/TR-001
+func TestAuthControllerLogoutClearsCookiesForRevokedRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	controller := NewAuthController(stubAuthService{logoutErr: services.ErrUnauthorized})
+	output := mustLogout(t, controller, authLogoutInput("RT-token"))
+	if len(output.SetCookie) != 2 {
+		t.Fatalf("cookie count = %d, want 2", len(output.SetCookie))
+	}
 }
 
 // Requirements: web-gateway/TR-001
@@ -286,7 +344,7 @@ func TestAuthControllerMapsUnexpectedServiceErrorToInternalError(t *testing.T) {
 func TestBuildSessionBodyReturnsAuthenticatedEnvelope(t *testing.T) {
 	t.Parallel()
 
-	body := buildSessionBody(time.Unix(100, 0), authSessionFixture())
+	body := buildSessionBody(time.Unix(100, 0), authSessionFixture(), "")
 	if !body.Data.Authenticated {
 		t.Fatalf("Authenticated = false, want true")
 	}

@@ -26,7 +26,7 @@ Template directories:
 - `/etc/lite-nas/system-email-notifier/alert.html`
 - `/etc/lite-nas/security-email-notifier/alert.html`
 
-Postfix managed config:
+Postfix default config (seeded only when absent; local files are preserved):
 
 - `/etc/postfix/main.cf`
 - `/etc/postfix/master.cf`
@@ -40,6 +40,18 @@ The relay authentication file is intentionally local-only:
 - deploy creates it from a placeholder if it does not exist
 - later deploys do not overwrite it
 - credentials must not be committed to git
+
+Existing `/etc/postfix/main.cf` and `master.cf` are preserved by package and
+runtime deployments. When all relay-authentication fields are empty, deploy
+also leaves any existing relay settings unchanged. Set all four relay fields
+to configure or replace an authenticated relay; clear relay settings directly
+with `postconf` or in `main.cf` if you intend to disable an existing relay.
+
+Deployments also retain values already set in the two notifier INI files and
+add newly introduced template keys. Set `to` or `cc` on the host at least once;
+the merge cannot recover recipient addresses that were previously overwritten.
+If both recipient lists are empty, the notifier logs a warning and skips mail
+delivery; alert events can still be stored in the logging manager.
 
 ## Service Config Shape
 
@@ -88,6 +100,9 @@ subject_prefix=[LiteNAS]
 Behavior:
 
 - if both `to` and `cc` are empty, the notifier skips delivery
+- the security email notifier sends every security alert, including alerts
+  whose publisher sets `email=false`
+- the system email notifier respects the alert's optional email preference
 - `from` should use a sender domain that is verified with the SMTP relay
 - the notifier always sends to local Postfix, not directly to the external
   provider

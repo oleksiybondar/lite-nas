@@ -18,10 +18,12 @@ System tests are grouped into four top-level categories:
 - `ui/`
   Browser UI, visual, and end-to-end administration flows.
 
-Test files inside each category should represent suites for a focused feature
-or workflow, for example `api/test_auth.py` or `infra/test_services.py`.
-UI page objects are stored under `ui/page_objects/` and are imported by UI test
-suites in `ui/`.
+Within `api/`, `cli/`, and `ui/`, service or app suites live in named folders,
+for example `api/web_gateway/test_auth.py`, `api/file_service/`,
+`cli/file_writer/`, and `ui/admin_panel/`. Shared logging manager and email
+notifier CLI suites cover both system and security variants in their family
+folders. Cross-service host checks remain directly under `infra/`.
+UI page objects stay under `ui/page_objects/` and are imported by the UI suites.
 
 The Python test runner executes categories in this fast-fail order:
 
@@ -92,6 +94,92 @@ authorization before it reaches the final observable result.
 That is expected. The test should still assert one main outcome while relying
 on the integrated runtime path to provide broader system coverage implicitly.
 
+## Security monitoring CLI tests
+
+The authentication cases use the configured security-manager account for normal
+account failures and a unique nonexistent account for unknown-account guessing.
+Mount lifecycle, ramfs, and EICAR cases create temporary mounts below `/mnt`.
+The clean ext4 fixture waits for Antivirus to report a normal informational scan
+event before it unmounts, so cleanup cannot interrupt the scan under test.
+Pytest runs as the current user. The mount fixture switches a separate shell to
+the restricted `testsudouser` account. Its test-only sudoers rule permits
+passwordless `sudo` for the mount utilities (`mkdir`, `mount`, `rmdir`, and
+`umount`) and logging-manager CLI checks. The mount utilities accept their
+normal arguments, so use this account only on disposable or dedicated test
+hosts.
+
+From the repository root, prepare the normal accounts and the sudo account with
+their test-only permissions on a local test host:
+
+```sh
+sudo ./scripts/ci/prepare-system-test-users.sh
+sudo ./scripts/ci/prepare-system-test-sudo-user.sh
+```
+
+The default accounts are `testuser`, `testoperator`, `testsecurityuser`,
+`testadmin`, `testpasswduser`, and `testsudouser`, with password `testpassword`.
+The password account is created only by the test-host setup script. Its initial
+hash is installed directly, and the script gives the test runner passwordless
+sudo access only to `passwd testpasswduser` and `passwd -e testpasswduser`.
+The password-change API cases reset that account before each case. The scripts and
+fixtures share the `LITENAS_*` overrides in `constants.py`; use the same values
+for preparation and execution. CI uses `testsecurity` explicitly in both steps.
+To run only the PAM API cases on a prepared, running test host, use
+`cd tests && ../.venv/bin/pytest -c pytest.ini api/web_gateway/test_password_change.py`.
+
+The SSH authentication test requires a running local SSH server accepting
+password attempts. On a dedicated test host, prepare it with:
+
+```sh
+sudo bash ./scripts/ci/prepare-system-test-ssh.sh
+```
+
+This installs OpenSSH Server and enables password authentication for loopback
+connections in `/etc/ssh/sshd_config.d/00-lite-nas-system-tests.conf`, then
+restarts SSH. CI runs the same preparation after installing the package. These
+scripts are test-host setup, not LiteNAS production deployment. Run pytest as
+the normal user; the fixtures authenticate to the required account and use
+restricted sudo for privileged commands:
+
+```sh
+cd tests
+../.venv/bin/pytest -c pytest.ini cli/security_monitoring cli/logging_manager -q
+```
+
+An existing installation may retain older configuration during local redeploys.
+The current authentication tests require `event_id_prefix` to be `secauth` in
+`/etc/lite-nas/log-analysis/rules.json`; a newly detected `SEC_...` event means
+the installed rules still use the older prefix. Update that setting and restart
+`lite-nas-log-analysis` before rerunning. Historical stored IDs remain unchanged.
+The EICAR tests also require `ext4` in the installed Antivirus `scan.fs_types`
+setting. Keep installed monitor binaries and configuration aligned with the
+checked-out source; the deployment scripts preserve existing configuration.
+
+The local port-scan test uses the root-owned helper installed by
+`prepare-system-test-sudo-user.sh`. It creates a temporary network namespace and
+veth pair, sends blocked TCP probes through UFW, and removes both resources.
+Run it only on a dedicated test host with `iproute2`, UFW logging, Log Analysis,
+Network Security, and Security Logging Manager active. The helper spaces the
+last probes to accommodate UFW log rate limiting; the test can take about a
+minute before alert polling starts.
+
+## Security Automation effect enrollment
+
+The gateway authorization and rule-list cases run against the normal installed
+service. The UFW and SSH effect cases require a dedicated test host with the
+relevant rules permanently enrolled in its installed `rules.json` and the
+service restarted. Set `LITENAS_AUTOMATION_ENROLLMENT=1` only after the host has
+verified `network_reconnaissance` (single scan alert, source IP block and exact
+rollback) and `repeated_sudo_denial` (SSH session attribution and one-way
+termination). The tests then inspect the real UFW rules and SSH disconnect,
+rather than accepting an RPC success response as proof. The source-IP fixtures
+normalize their own incident after each case. The test runner needs
+passwordless `sudo -n /usr/sbin/ufw status` for read-only effect checks. The
+packaged host-changing candidate rules are disabled; the current service does
+not yet execute or restore host effects, so the effect suite remains gated
+until enrollment. The two alert-only startup defaults can be temporarily
+suspended and resumed through the operator UI without changing `rules.json`.
+
 ## UI Page Objects
 
 UI system tests use HyperionTF page objects for browser automation. Store those
@@ -156,3 +244,61 @@ HyperionTF logs therefore resolve predictably to `tests/logs`.
 
 The runner clears `tests/logs` once before the first category starts. CI uploads
 those logs as `system_tests_logs.zip` for post-failure review.
+
+## Gateway payload API checks
+
+The gateway backup and restore payload suite uses the same configured
+administrator account as the File Service admin cases. It creates one named
+`lite-nas` archive, verifies the stored metadata, and deletes that version in
+fixture cleanup. Its restore-all check uses a unique name with no matching
+archive, so it verifies the JSON request path without changing live files.
+The remaining payload checks submit invalid values and expect gateway
+validation before backup restore, Antivirus, or USBGuard actions run.
+
+## Backup and restore CLI checks
+
+`cli/backup_restore/` runs the installed CLI as the dedicated administrator.
+Set `LITENAS_FILE_SERVICE_ADMIN_LOGIN` and
+`LITENAS_FILE_SERVICE_ADMIN_PASSWORD` to that account's credentials. The
+account needs its normal `/run/user/<uid>` runtime directory for the CLI token
+cache. The suite checks application inventory, a named `lite-nas` backup, and
+`backup all`. The backup cases use unique names and delete newly created
+versions reported by the CLI or carrying that name through the gateway API
+during cleanup.
+
+## File Service API checks
+
+The `api/file_service/` suites log in through `/api/auth/login` and send file
+requests through Nginx's `/f/`, `/d/`, and `/ls/` mounts. Upload, operation,
+and listing tests create unique paths in the test operator's home directory
+and remove them afterward. Set
+`LITENAS_FILE_SERVICE_ADMIN_LOGIN` and `LITENAS_FILE_SERVICE_ADMIN_PASSWORD`
+to a dedicated admin test account before running the admin cases. The suite
+fails clearly when either value is missing rather than treating the default
+`testuser` account as an admin. CI provisions `testadmin` in the `admin` group
+through `scripts/ci/prepare-system-test-users.sh`; it remains a nonroot Unix
+account, so admin reads still obey Unix file and directory permissions.
+Critical-path upload checks use the configured admin and operator accounts.
+REST client logs redact access and refresh cookie
+values and shorten large transfer bodies before they are written to the
+HyperionTF report.
+
+## Moments API and REST contracts
+
+`api/moments/` checks the authenticated working directory on standalone and
+embedded hosts, gallery search, album and collection lifecycle, collection
+file and directory membership, and search/path injection behavior on an installed
+Moments host. It creates operator-owned temporary source paths and removes the
+gallery metadata and paths after each case. Set `LITENAS_MOMENTS_API_URL` when
+the standalone Moments host is not `https://moments.localhost`. The suite uses
+the configured `LITENAS_OPERATOR_LOGIN` and `LITENAS_OPERATOR_PASSWORD` account.
+
+`api/test_rest_contracts.py` marks live JSON Schema checks with `contract`. The
+gateway current-user, File Service stat, and Moments gallery-list checks
+validate actual JSON responses with HyperionTF's
+`response.validate_json_schema()`. Stream Service serves media bytes, so its
+contract case validates its published OpenAPI JSON document instead. Schemas
+live in `schemas/rest_contracts.py` and reflect the service DTOs and published
+route definitions. From `tests/`, run
+`../.venv/bin/pytest -c pytest.ini api/moments api/test_rest_contracts.py` on an
+installed system.

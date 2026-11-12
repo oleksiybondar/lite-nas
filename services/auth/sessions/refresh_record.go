@@ -11,6 +11,7 @@ type RefreshRecord struct {
 	SessionID string
 	Subject   string
 	Login     string
+	Source    string
 
 	ClientIP  string
 	UserAgent string
@@ -35,6 +36,7 @@ type CreateInput struct {
 	SessionID string
 	Subject   string
 	Login     string
+	Source    string
 	Context   RefreshContext
 	TTL       time.Duration
 }

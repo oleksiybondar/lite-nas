@@ -1,7 +1,10 @@
 import { ChartSvgContainer } from "@components/monitoring/ChartSvgContainer";
 import { MonitoringChartTooltip } from "@components/monitoring/MonitoringChartTooltip";
-import { formatChartStamp } from "@components/monitoring/percent-chart-shared";
-import type { ReactElement } from "react";
+import {
+  type ChartHoverPoint,
+  formatChartStamp,
+} from "@components/monitoring/percent-chart-shared";
+import { type ReactElement, useId } from "react";
 import { valueLineChartFrame } from "./helpers";
 import type {
   ValueLineChartAxisLabel,
@@ -18,10 +21,15 @@ type ValueLineChartSvgProps = {
    * Maximum number of values represented by the fixed X scale.
    */
   capacity: number;
+  /** Optional value/color stops for a single plotted series. */
+  colorStops?: { value: number; color: string }[] | undefined;
   /**
    * Formatter reused for hover tooltip values.
    */
   formatValue: (value: number) => string;
+  guideStops?:
+    | { value: number; color: string; label: string; showBar: boolean; showLabel: boolean }[]
+    | undefined;
   /**
    * Precomputed line paths and colors for each rendered series.
    */
@@ -93,24 +101,124 @@ const renderValueLineChartAxisLabels = (axisLabels: ValueLineChartAxisLabel[]): 
 /**
  * Renders one SVG path per colored value series.
  */
-const renderValueLineChartLines = (lines: ValueLineChartLine[]): ReactElement[] => {
+const renderValueLineChartLines = (
+  lines: ValueLineChartLine[],
+  gradientId?: string,
+): ReactElement[] => {
   return lines.map((line) => {
-    return <path d={line.path} fill="none" key={line.key} stroke={line.color} strokeWidth="2" />;
+    const singlePoint = /^M ([\d.]+) ([\d.]+)$/.exec(line.path);
+    const color = gradientId ? `url(#${gradientId})` : line.color;
+    return (
+      <g key={line.key}>
+        <path d={line.path} fill="none" stroke={color} strokeWidth="2" />
+        {singlePoint && <circle cx={singlePoint[1]} cy={singlePoint[2]} fill={color} r="4" />}
+      </g>
+    );
   });
 };
 
-/**
- * SVG frame rendered by the dynamic value line chart component.
- */
+/** Builds hover content from the series values at one timestamp. */
+const renderValueLineChartTooltip = (
+  hoveredPoint: ChartHoverPoint | null,
+  {
+    stamps,
+    lines,
+    valuesByKey,
+    formatValue,
+  }: Pick<ValueLineChartSvgProps, "stamps" | "lines" | "valuesByKey" | "formatValue">,
+): ReactElement | null => {
+  if (hoveredPoint === null) return null;
+  const hoveredStamp = stamps[hoveredPoint.index];
+  if (hoveredStamp === undefined) return null;
+  return (
+    <MonitoringChartTooltip
+      chartWidth={valueLineChartFrame.chartWidth}
+      items={lines.flatMap((line) => {
+        const value = valuesByKey[line.key]?.[hoveredPoint.index];
+        if (value === undefined) return [];
+        return [{ color: line.color, label: line.key, value: formatValue(value) }];
+      })}
+      label={formatChartStamp(hoveredStamp)}
+      x={hoveredPoint.x}
+    />
+  );
+};
+
+/** Draws optional horizontal sensor guides against the current vertical domain. */
+const renderValueLineChartGuides = (
+  guideStops: ValueLineChartSvgProps["guideStops"],
+  maxValue: number,
+  formatValue: (value: number) => string,
+): ReactElement[] =>
+  (guideStops ?? [])
+    .filter((stop) => stop.showBar || stop.showLabel)
+    .map((stop) => {
+      const y =
+        valueLineChartFrame.topPadding +
+        valueLineChartFrame.innerHeight * (1 - Math.max(0, Math.min(1, stop.value / maxValue)));
+      return (
+        <g key={`${stop.value}-${stop.color}-${stop.label}`}>
+          {stop.showBar && (
+            <line
+              stroke={stop.color}
+              strokeDasharray="6 4"
+              x1={valueLineChartFrame.leftPadding}
+              x2={valueLineChartFrame.chartWidth - valueLineChartFrame.rightPadding}
+              y1={y}
+              y2={y}
+            />
+          )}
+          {stop.showLabel && (
+            <text
+              fill={stop.color}
+              fontSize="11"
+              textAnchor="end"
+              x={valueLineChartFrame.chartWidth - valueLineChartFrame.rightPadding}
+              y={y - 4}
+            >
+              {stop.label || formatValue(stop.value)}
+            </text>
+          )}
+        </g>
+      );
+    });
+
+/** Fills the area beneath each line when a color gradient is configured. */
+const renderValueLineChartFills = (
+  lines: ValueLineChartLine[],
+  gradientId: string,
+): Array<ReactElement | null> =>
+  lines.map((line) => {
+    const points = [...line.path.matchAll(/[ML] ([\d.]+) ([\d.]+)/g)];
+    const first = points[0]?.[1];
+    const last = points.at(-1)?.[1];
+    if (!first || !last) return null;
+    const baseline = valueLineChartFrame.topPadding + valueLineChartFrame.innerHeight;
+    return (
+      <path
+        d={`${line.path} L ${last} ${baseline} L ${first} ${baseline} Z`}
+        fill={`url(#${gradientId})`}
+        key={`${line.key}-fill`}
+        opacity="0.25"
+      />
+    );
+  });
+
+/** SVG frame rendered by the dynamic value line chart component. */
 export const ValueLineChartSvg = ({
   axisLabels,
   capacity,
+  colorStops,
   formatValue,
+  guideStops,
   lines,
   stamps,
   valuesByKey,
   yAxisLabels,
 }: ValueLineChartSvgProps): ReactElement => {
+  const gradientId = useId().replaceAll(":", "");
+  const maxValue = yAxisLabels[0]?.value ?? 1;
+  const stops = [...(colorStops ?? [])].sort((a, b) => a.value - b.value);
   return (
     <ChartSvgContainer
       ariaLabel="Value line chart"
@@ -118,44 +226,35 @@ export const ValueLineChartSvg = ({
       frame={valueLineChartFrame}
       length={stamps.length}
       testId="value-line-chart"
-      tooltip={(hoveredPoint) => {
-        if (hoveredPoint === null) {
-          return null;
-        }
-
-        const hoveredStamp = stamps[hoveredPoint.index];
-
-        if (hoveredStamp === undefined) {
-          return null;
-        }
-
-        return (
-          <MonitoringChartTooltip
-            chartWidth={valueLineChartFrame.chartWidth}
-            items={lines.flatMap((line) => {
-              const value = valuesByKey[line.key]?.[hoveredPoint.index];
-
-              if (value === undefined) {
-                return [];
-              }
-
-              return [
-                {
-                  color: line.color,
-                  label: line.key,
-                  value: formatValue(value),
-                },
-              ];
-            })}
-            label={formatChartStamp(hoveredStamp)}
-            x={hoveredPoint.x}
-          />
-        );
-      }}
+      tooltip={(hoveredPoint) =>
+        renderValueLineChartTooltip(hoveredPoint, { stamps, lines, valuesByKey, formatValue })
+      }
     >
+      {stops.length > 0 && (
+        <defs>
+          <linearGradient
+            gradientUnits="userSpaceOnUse"
+            id={gradientId}
+            x1="0"
+            x2="0"
+            y1={valueLineChartFrame.topPadding + valueLineChartFrame.innerHeight}
+            y2={valueLineChartFrame.topPadding}
+          >
+            {stops.map((stop) => (
+              <stop
+                key={`${stop.value}-${stop.color}`}
+                offset={`${Math.max(0, Math.min(100, (stop.value / maxValue) * 100))}%`}
+                stopColor={stop.color}
+              />
+            ))}
+          </linearGradient>
+        </defs>
+      )}
       {renderValueLineChartGrid(yAxisLabels)}
       {renderValueLineChartAxisLabels(axisLabels)}
-      {renderValueLineChartLines(lines)}
+      {stops.length > 0 && renderValueLineChartFills(lines, gradientId)}
+      {renderValueLineChartLines(lines, stops.length > 0 ? gradientId : undefined)}
+      {renderValueLineChartGuides(guideStops, maxValue, formatValue)}
     </ChartSvgContainer>
   );
 };

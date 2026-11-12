@@ -1,0 +1,44 @@
+[Unit]
+Description=LiteNAS USBGuard manager
+AssertSecurity=apparmor
+After=network-online.target nats-server.service usbguard.service lite-nas-before-startup.service
+Requires=nats-server.service usbguard.service lite-nas-before-startup.service
+
+[Service]
+Type=simple
+User=lite-nas-usb-manager
+Group=lite-nas-usb-manager
+ExecStart=/usr/libexec/lite-nas/usb-manager
+AppArmorProfile=/usr/libexec/lite-nas/usb-manager
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=no
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectSystem=strict
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectProc=invisible
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+UMask=0027
+ReadWritePaths=/var/log/lite-nas/usb-manager.log -/run/sudo -/var/lib/sudo -/var/db/sudo
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

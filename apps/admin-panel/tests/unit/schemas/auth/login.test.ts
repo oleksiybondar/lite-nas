@@ -1,6 +1,9 @@
 import { loginRequestSchema } from "@schemas/auth/login";
 
 describe("loginRequestSchema", () => {
+  test("leaves password length policy to PAM", () => {
+    expect(loginRequestSchema.parse({ login: "john", password: "x" }).password).toBe("x");
+  });
   test("accepts local login names", () => {
     expect(
       loginRequestSchema.parse({

@@ -16,7 +16,7 @@ const (
 )
 
 // run assembles the security-email-notifier runtime and keeps the process alive
-// until shutdown while the notifier contract surface is being added.
+// while delivering every Security Logging Manager alert by email.
 func run(ctx context.Context) error {
 	return sharedemailnotifier.RunService(ctx, sharedemailnotifier.ServiceRuntimeConfig{
 		ConfigPath:      packagedConfigPath,
@@ -26,5 +26,6 @@ func run(ctx context.Context) error {
 		StartupMessage:  "security email notifier service started",
 		ShutdownMessage: "security email notifier service stopping",
 		InputBufferSize: inputBufferSize,
+		ForceEmail:      true,
 	})
 }

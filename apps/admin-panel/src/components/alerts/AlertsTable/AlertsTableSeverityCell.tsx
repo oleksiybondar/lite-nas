@@ -3,6 +3,7 @@ import {
   formatAlertSeverityLabel,
 } from "@components/alerts/AlertsTable/helpers";
 import type { AlertListItemDTO } from "@dto/alerts/alerts";
+import { useLanguage } from "@lite-nas/language";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
@@ -23,13 +24,14 @@ type AlertsTableSeverityCellProps = {
  * Renders the typed severity cell with icon and color treatment.
  */
 export const AlertsTableSeverityCell = ({ item }: AlertsTableSeverityCellProps): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <TableCell
       data-test-class="alerts-table-cell"
       data-test-name="severity"
       sx={buildAlertsStickyColumnSx("severity")}
     >
-      <Tooltip title={formatAlertSeverityLabel(item.Severity)}>
+      <Tooltip title={formatAlertSeverityLabel(item.Severity, getLabel)}>
         <Stack
           alignItems="center"
           color={resolveSeverityColor(item.Severity)}

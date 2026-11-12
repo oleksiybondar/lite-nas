@@ -9,5 +9,5 @@ cd "$(git rev-parse --show-toplevel)"
 
 log.pushTask "Installing CI Debian packaging dependencies"
 sudo apt-get update
-sudo apt-get install -y debconf jq lintian nats-server unzip
+sudo apt-get install -y apparmor debconf jq lintian nats-server unzip
 log.popTask

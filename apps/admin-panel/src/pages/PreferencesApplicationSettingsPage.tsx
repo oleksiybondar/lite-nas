@@ -1,4 +1,5 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
+import { useLanguage } from "@lite-nas/language";
 import MonitorHeartRoundedIcon from "@mui/icons-material/MonitorHeartRounded";
 import PaletteRoundedIcon from "@mui/icons-material/PaletteRounded";
 import type { ReactElement } from "react";
@@ -7,27 +8,26 @@ import type { ReactElement } from "react";
  * Landing page for admin-panel application settings categories.
  */
 export const PreferencesApplicationSettingsPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <CategoryLandingPage
       cards={[
         {
-          description:
-            "Adjust the admin-panel theme source, mode, and template for this browser session.",
+          description: getLabel("admin.landing.themeSettingsOverview"),
           icon: <PaletteRoundedIcon />,
           path: "/preferences/application/theme",
-          title: "Theme",
+          title: getLabel("navigation.Theme"),
         },
         {
-          description:
-            "Configure monitoring polling mode, intervals, cache size, and history reset behavior.",
+          description: getLabel("admin.landing.monitoringSettingsOverview"),
           icon: <MonitorHeartRoundedIcon />,
           path: "/preferences/application/monitoring",
-          title: "Monitoring",
+          title: getLabel("navigation.Monitoring"),
         },
       ]}
-      overline="Preferences"
-      summary="Manage application-level behavior and presentation without mixing independent settings into one page."
-      title="Application settings"
+      overline={getLabel("navigation.Preferences")}
+      summary={getLabel("admin.landing.applicationSettingsSummary")}
+      title={getLabel("navigation.Application settings")}
     />
   );
 };

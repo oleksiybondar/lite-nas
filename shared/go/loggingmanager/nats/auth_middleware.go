@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"lite-nas/shared/authtoken"
 	sharedmessaging "lite-nas/shared/messaging"
@@ -84,8 +85,9 @@ func NewRoleAuthorizationSubscriptionMiddleware(
 		next sharedmessaging.MessageNext,
 	) error {
 		requiredRoles, protected := policy.SubscriptionRolesBySubject[envelope.Subject]
-		if protected && !roleauth.HasAnyRole(claimsFromContext(ctx).Roles, requiredRoles) {
-			return errInsufficientRole
+		claims := claimsFromContext(ctx)
+		if protected && !roleauth.HasAnyRole(claims.Roles, requiredRoles) {
+			return insufficientRoleError(envelope.Subject, claims, requiredRoles)
 		}
 		return next(ctx, envelope)
 	}
@@ -102,11 +104,18 @@ func NewRoleAuthorizationRPCMiddleware(
 		next sharedmessaging.RPCNext,
 	) (any, error) {
 		requiredRoles, protected := policy.RPCRolesBySubject[envelope.Subject]
-		if protected && !roleauth.HasAnyRole(claimsFromContext(ctx).Roles, requiredRoles) {
-			return nil, errInsufficientRole
+		claims := claimsFromContext(ctx)
+		if protected && !roleauth.HasAnyRole(claims.Roles, requiredRoles) {
+			return nil, insufficientRoleError(envelope.Subject, claims, requiredRoles)
 		}
 		return next(ctx, envelope)
 	}
+}
+
+// insufficientRoleError preserves the authorization sentinel and adds the
+// principal context needed to identify which caller needs a role correction.
+func insufficientRoleError(subject string, claims authtoken.AccessClaims, requiredRoles []string) error {
+	return fmt.Errorf("%w: subject=%q login=%q roles=%q required_roles=%q", errInsufficientRole, subject, claims.Login, claims.Roles, requiredRoles)
 }
 
 // validateAccessToken decodes and validates one access token payload against

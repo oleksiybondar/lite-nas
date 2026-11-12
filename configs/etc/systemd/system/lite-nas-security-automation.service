@@ -1,0 +1,45 @@
+[Unit]
+Description=LiteNAS security automation service
+After=network-online.target nats-server.service lite-nas-security-logging-manager.service lite-nas-system-logging-manager.service lite-nas-before-startup.service
+Wants=network-online.target
+Requires=nats-server.service lite-nas-before-startup.service
+
+[Service]
+Type=simple
+User=lite-nas-security-automation
+Group=lite-nas-security-automation
+ExecStart=/usr/libexec/lite-nas/security-automation
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=no
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas/security-automation.conf /etc/lite-nas/security-automation /etc/lite-nas/certificates/transport /etc/lite-nas/certificates/auth
+ReadWritePaths=/var/log/lite-nas/security-automation.log /var/lib/lite-nas/security-automation /etc/ufw -/run/sudo -/var/lib/sudo -/var/db/sudo
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

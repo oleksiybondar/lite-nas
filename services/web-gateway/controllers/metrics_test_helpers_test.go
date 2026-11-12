@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+// assertWrappedData verifies one DTO envelope data payload matches the expected snapshot value.
 func assertWrappedData[T any](t *testing.T, got T, want T) {
 	t.Helper()
 
@@ -15,6 +16,7 @@ func assertWrappedData[T any](t *testing.T, got T, want T) {
 	}
 }
 
+// assertWrappedSlice verifies one DTO envelope data payload matches the expected history values.
 func assertWrappedSlice[T any](t *testing.T, got []T, want []T) {
 	t.Helper()
 
@@ -29,6 +31,7 @@ func assertWrappedSlice[T any](t *testing.T, got []T, want []T) {
 	}
 }
 
+// assertBackendFailureMapped verifies one controller method maps a backend failure into an error result.
 func assertBackendFailureMapped[T any](t *testing.T, got *T, err error, methodName string) {
 	t.Helper()
 
@@ -41,10 +44,12 @@ func assertBackendFailureMapped[T any](t *testing.T, got *T, err error, methodNa
 	}
 }
 
+// backendFailure returns one stable backend error for controller failure mapping tests.
 func backendFailure() error {
 	return errors.New("backend failed")
 }
 
+// assertSnapshotWrapped verifies one snapshot endpoint returns a successful envelope and expected data.
 func assertSnapshotWrapped[T any, O any](
 	t *testing.T,
 	snapshot T,
@@ -64,6 +69,7 @@ func assertSnapshotWrapped[T any, O any](
 	assertWrappedData(t, data(got), snapshot)
 }
 
+// assertHistoryWrapped verifies one history endpoint returns a successful envelope and expected data.
 func assertHistoryWrapped[T any, O any](
 	t *testing.T,
 	history []T,
@@ -81,4 +87,32 @@ func assertHistoryWrapped[T any, O any](
 
 	assertSuccessfulSystemMetricsEnvelope(t, success(got), timestampIsZero(got))
 	assertWrappedSlice(t, data(got), history)
+}
+
+// runSnapshotEnvelopeTest constructs one controller and verifies its snapshot envelope response.
+func runSnapshotEnvelopeTest[T any, O any](
+	t *testing.T,
+	snapshot T,
+	newGetSnapshot func(T) func(context.Context, *struct{}) (*O, error),
+	success func(*O) bool,
+	timestampIsZero func(*O) bool,
+	data func(*O) T,
+) {
+	t.Helper()
+
+	assertSnapshotWrapped(t, snapshot, newGetSnapshot(snapshot), success, timestampIsZero, data)
+}
+
+// runHistoryEnvelopeTest constructs one controller and verifies its history envelope response.
+func runHistoryEnvelopeTest[T any, O any](
+	t *testing.T,
+	history []T,
+	newGetHistory func([]T) func(context.Context, *struct{}) (*O, error),
+	success func(*O) bool,
+	timestampIsZero func(*O) bool,
+	data func(*O) []T,
+) {
+	t.Helper()
+
+	assertHistoryWrapped(t, history, newGetHistory(history), success, timestampIsZero, data)
 }

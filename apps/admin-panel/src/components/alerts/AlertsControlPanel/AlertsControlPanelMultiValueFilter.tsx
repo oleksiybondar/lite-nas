@@ -19,6 +19,7 @@ type MultiValueFilterOption = {
  */
 type AlertsControlPanelMultiValueFilterProps = {
   label: string;
+  formatSelection?: (values: string[]) => string;
   name: string;
   onChange: (value: string[]) => void;
   options: MultiValueFilterOption[];
@@ -30,6 +31,7 @@ type AlertsControlPanelMultiValueFilterProps = {
  */
 export const AlertsControlPanelMultiValueFilter = ({
   label,
+  formatSelection,
   name,
   onChange,
   options,
@@ -50,7 +52,8 @@ export const AlertsControlPanelMultiValueFilter = ({
           onChange(readSelectValues(event));
         }}
         renderValue={(selected) => {
-          return formatFilterSelection(selected as string[]);
+          const values = selected as string[];
+          return formatSelection?.(values) ?? formatFilterSelection(values);
         }}
         value={value.map(String)}
       >

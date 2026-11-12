@@ -87,9 +87,15 @@ Deploy repository-managed files from `configs/etc` into `/etc`:
 sudo ./scripts/deploy-configs.sh
 ```
 
-The deployment script overwrites matching files under `/etc`, normalizes
-permissions for LiteNAS-managed NATS config paths, and restarts affected
-services. The currently affected service list contains `nats-server`.
+The deployment script merges INI service configs under `/etc/lite-nas`: values
+already on the host remain in place, and new keys from repository templates are
+added. Other matching files under `/etc` are copied as before. The script
+normalizes permissions for LiteNAS-managed NATS config paths and restarts
+affected services. The currently affected service list contains `nats-server`.
+This also deploys the LiteNAS logrotate policy at
+`/etc/logrotate.d/lite-nas`, including the File Service and Stream Service logs.
+The root-owned [before-startup hook](before-startup.md) is preserved across
+config deployments and runs before LiteNAS services start.
 
 For validation without touching `/etc`, deploy to another target directory and
 skip service restarts:
@@ -216,13 +222,18 @@ repository-managed LiteNAS defaults.
 Build the current LiteNAS package set:
 
 ```bash
-./scripts/package/build-all-debs.sh --version=0.2.0+local
+./scripts/package/build-all-debs.sh --version=0.4.0~alpha.1
 ```
+
+This creates the main `lite-nas` package and a separate
+`lite-nas-file-explorer` package. The latter contains the static app and its
+Nginx location snippet. The main package requires the matching File Explorer
+package, so both are installed together.
 
 Build the native-architecture LiteNAS package directly when needed:
 
 ```bash
-./scripts/package/build-lite-nas-deb.sh --version=0.2.0+local
+./scripts/package/build-lite-nas-deb.sh --version=0.4.0~alpha.1
 ./scripts/package/build-lite-nas-deb.sh --system-metrics-binary=/tmp/system-metrics --resources-monitor-binary=/tmp/resources-monitor
 ```
 
@@ -236,19 +247,21 @@ By default this writes the Vite build output to `.build/admin-panel`. The
 gateway deploy and package flows normalize that output into the flat static
 asset layout served from `/usr/share/lite-nas/web-gateway/assets`.
 
-The package output currently contains one native-architecture package:
+The package output contains one native-architecture base package and one
+architecture-independent File Explorer package:
 
 - `lite-nas`: bootstrap/profile package that bundles the currently packaged
   LiteNAS services, CLIs, and web assets
+- `lite-nas-file-explorer`: separately packaged Nginx-served File Explorer app
 
 The `lite-nas` package:
 
-- depends on `aide`, `libpam0g`, `zfsutils-linux`, `nats-server`, `nginx`,
-  `openssl`, `systemd`, and `ufw`
+- depends on `acl`, `aide`, `apparmor`, `libc6`, `libpam0g`, `postfix`, `sudo`,
+  `zfsutils-linux`, `nats-server`, `nginx`, `openssl`, `systemd`, and `ufw`
 - installs the AIDE binary as a platform dependency, but LiteNAS does not
   initialize an AIDE database or use the distribution default AIDE config during
   package installation
-- recommends future hardening packages such as `clamav` and `usbguard`
+- depends on `clamav`, `usbguard`, `ffmpeg`, `rsyslog`, and `libheif` support packages
 - shows a GPLv3 notice during installation
 - explains that it applies a managed LiteNAS host profile
 - asks whether LiteNAS may replace the local NATS configuration
@@ -267,33 +280,152 @@ The `lite-nas` package currently installs:
 - `rbac-service`
 - `system-logging-manager`
 - `security-logging-manager`
+- `system-email-notifier`
+- `security-email-notifier`
+- `network-metrics`
+- `process-metrics`
+- `disk-metrics`
+- `service-metrics`
 - `system-metrics`
+- `zfs-metrics`
 - `resources-monitor`
+- `litenas-integrity`
 - `system-logging-manager-cli`
 - `security-logging-manager-cli`
 - `system-metrics-cli`
+- `network-metrics-cli`
+- `zfs-metrics-cli`
+- `lite-nas-file-writer`
+- `file-service`
 - `web-gateway`
 - packaged `admin-panel` assets
 
-`zfs-metrics` and `zfs-metrics-cli` already exist in the repository and local
-deploy flows, but they are not yet part of the packaged runtime path described
-in this section.
+File Service is implemented and available in local deployment and the
+single-package build. Deploy it with
+`sudo ./scripts/deploy-file-service.sh`; use `--skip-bootstrap` when refreshing
+an already bootstrapped system. The script builds the binary, installs its
+systemd unit, sudoers rule, AppArmor profile, and config, then restarts the
+service. It uses `lite-nas-file-writer` for user-scoped upload
+stage creation, bounded writes, inspection, checksum, truncation, publication,
+and cleanup. The writer's command contract is in
+`apps/file-writer/README.md` and `apps/file-writer/requirements.md`.
+Stream Service is implemented in `services/stream-service/`.
 
-Install a built package with dependency resolution:
+File Service listens on `127.0.0.1:8082`. Nginx includes its separate
+`lite-nas-file-service.conf` snippet in the LiteNAS server blocks and exposes
+`/f/` for content/file operations, `/d/` for explicit downloads, and `/ls/`
+for directory listings. Stream Service is exposed at `/s/`. Internal service
+calls use NATS. For example,
+`/f/home/alice/photo.jpg` and `/d/home/alice/photo.jpg` map to
+`/home/alice/photo.jpg`, and `/s/media/movie.avi` maps to `/media/movie.avi`;
+RBAC checks the resolved host paths. File Service also provides public
+`GET /ls/{absolute-path...}`, separately from the `/f/` file-operation mount.
+For example, `/ls/abs/path?recursive&files-only` lists RBAC-authorized files
+below host `/abs/path`. Successful responses contain JSON `files` and
+`directories` arrays of absolute host paths; `files-only` returns an empty
+`directories` array. Errors use a non-success HTTP status and JSON with an
+`error` code.
+
+File Service also supports `DELETE /f/{absolute-path...}` for authorized
+regular files. It checks an explicit RBAC delete decision and rejects targets
+inside protected system paths before changing the filesystem. Installed
+protected roots include `/etc` and platform-critical runtime directories in
+the packaged `filesystem.protected_paths` setting. Operators can edit that
+list without rebuilding File Service.
+The same `/etc/lite-nas/file-service.conf` file has separate
+`filesystem.non_admin_denied_paths` and
+`filesystem.all_denied_paths` lists, plus
+`filesystem.read_roots` for additional non-admin storage roots and
+`filesystem.known_path_directories` for traverse-only (`0771`) creation.
+Entries in those lists can use a whole-component `*`, such as
+`/home/*/.litenas`. Edit the file and restart File Service to apply policy
+changes. Mode rules do not alter existing directories.
+For a shared file under `/home/<user>/.litenas`, every ancestor, including
+`/home/<user>`, must permit traversal by the intended readers. A known-path
+directory permits traversal without listing its contents.
+Directory and symbolic-link deletion are outside the initial scope.
+
+File downloads use standard HTTP byte ranges. A regular browser download can
+resume or seek when its client uses `Range`. A download manager could fetch
+separate ranges concurrently (16 per file by default), then reassemble them
+locally. That accelerated mode belongs in the client;
+the service simply answers ordinary `HEAD` and `GET` requests. Strong ETags
+keep all segments tied to the same file version if an upload replaces it while
+the download is running. `/f/` uses inline headers for recognized PDFs/images
+and attachment headers for other content; `/d/` always uses
+`application/octet-stream` with attachment. Neither route redirects.
+
+File Service supports ordinary browser/form uploads at `/f/upload`
+with `multipart/form-data` and a separate resumable protocol for the
+File Explorer app under `/f/proprietary/upload`. Resumable chunks default to
+1 MiB and can be configured from 1 MiB through 16 MiB; the effective size is
+saved per upload.
+Concurrency is limited by a 60 MiB chunk-buffer budget in a 64 MiB tmpfs, with
+4 MiB reserved for metadata working files. A failed chunk resumes from the last
+committed offset; when buffers are full the service returns a retryable on-hold
+response and the app probes `/f/proprietary/upload-window`. Both upload modes
+create and write a user-owned `<destination>.upload` file in the destination
+directory through `lite-nas-file-writer`, invoked as the verified Unix user
+through restricted noninteractive sudo. Exclusive creation by the writer is
+the Unix permission check; no preliminary `touch` is needed. After size and
+SHA-256 verification and a fresh RBAC decision, the writer attempts the
+final rename as the verified Unix user. A successful upload atomically replaces
+an existing regular file; a failed rename leaves the old file intact and
+triggers staged-file cleanup. Uploads and deletes are denied under configured
+`filesystem.protected_paths`.
+
+File Service runs non-root; Stream Service is designed to do the same.
+`lite-nas-fs-rd` grants file read and directory read plus search/traverse in
+provisioned file-backed storage
+roots, with no write permission. Neither service has a general host write
+group. System-critical paths are excluded, and existing content and new mounts
+need read/search group/ACL provisioning. RBAC still decides each requesting
+user's potential access. The user owns the completed file because the writer
+creates and writes the stage under that identity; its group, mode, and ACL
+become the final file's metadata even on overwrite. The previous file's
+permissions and ACL are not copied. The writer has a separate enforce-mode
+AppArmor profile. File Service's systemd unit retains only `CAP_SETUID` and
+`CAP_SETGID` in its capability bounding set so its restricted `sudo -u` reader
+and writer can become the RBAC-verified Unix user. Its AppArmor profile permits
+those capabilities and the PAM configuration needed by sudo. If an authorized
+download returns `read_failed`, inspect `journalctl -u lite-nas-file-service`
+and AppArmor denials in `journalctl -k`; the HTTP error intentionally omits
+command details. The current private-file reader uses fixed `/bin/cat` through
+`sudo -u` and has the pathname replacement race recorded in
+`services/file-service/requirements.md`.
+
+The service exposes its authenticated Swagger UI at `/f/docs` and its OpenAPI
+document at `/f/openapi.json` when `api_docs.enabled=true`. The packaged
+configuration enables it; both routes still require authentication.
+The standalone Moments host serves `/api/docs` and `/api/openapi.json`.
+Stream Service serves `/s/docs` and `/s/openapi.json` on both hosts.
+
+In the browser flow, the file mounts use the existing `lite-nas-at` access
+cookie on the same HTTPS origin. The cookie is `Secure`, `HttpOnly`,
+`SameSite=Lax`, and scoped to `/`; Nginx forwards it to the matching service,
+which validates the token itself.
+
+Install the single LiteNAS package with dependency resolution:
 
 ```bash
-sudo ./scripts/package/install-lite-nas-deb.sh --package .build/packages/lite-nas_0.2.0_amd64.deb
+sudo ./scripts/package/install-lite-nas-deb.sh
 ```
 
-For local testing, prefer `apt-get install <package.deb>` or the helper above
-instead of `dpkg -i`. The package already declares dependencies such as
-`zfsutils-linux` and `nats-server`, but `dpkg` does not resolve or install
-them automatically.
+For a package copied onto another host, use APT so it installs the package's
+dependencies before running its maintainer scripts:
+
+```bash
+sudo apt install ./lite-nas_<version>_arm64.deb
+```
+
+The package declares runtime dependencies including `zfsutils-linux`,
+`nats-server`, and the Python Pillow, PyTorch, and venv packages used to set up
+BLIP captions. `dpkg -i` unpacks the package but does not resolve dependencies.
 
 Lint a built package with:
 
 ```bash
-./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.2.0_amd64.deb
+./scripts/package/lint-lite-nas-deb.sh .build/packages/lite-nas_0.4.0_amd64.deb
 ```
 
 ## Rotate NATS certificates
@@ -346,6 +478,28 @@ The script stores `token-signing.key` and `token-signing.crt` under
 `/etc/lite-nas/certificates/auth/`. The private key is readable only by root;
 the certificate is readable by the shared LiteNAS group so gateway services can
 verify access tokens.
+
+## Rotate a user password
+
+Install `libpwquality-tools` if running from the checkout without the LiteNAS
+package, then run:
+
+```bash
+sudo ./scripts/rotate-user-password.sh alice
+```
+
+The script generates a temporary password with `pwmake` using the host's
+`/etc/security/pwquality.conf` settings, sets it through `chpasswd`, expires
+it for the next login, and prints the username and password to the console.
+Run it in a private terminal and give the password only to the intended user.
+The installed package includes the script at
+`/usr/libexec/lite-nas/scripts/rotate-user-password.sh`. After installing the
+package or running `sudo ./scripts/deploy-lite-nas.sh` or
+`sudo ./scripts/deploy-all.sh`, use the command from any directory:
+
+```bash
+sudo lite-nas-rotate-password test_user
+```
 
 ## Git hooks
 

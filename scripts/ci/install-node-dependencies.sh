@@ -18,10 +18,6 @@ install_node_dependencies() {
 	npm --prefix "$package_dir" install
 }
 
-log.pushTask "Installing root CI Node dependencies"
+log.pushTask "Installing workspace CI Node dependencies"
 install_node_dependencies .
-log.popTask
-
-log.pushTask "Installing admin-panel CI Node dependencies"
-install_node_dependencies apps/admin-panel
 log.popTask

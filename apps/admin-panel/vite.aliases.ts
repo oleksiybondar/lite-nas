@@ -17,6 +17,6 @@ export const createViteAliases = (rootDir: string): Record<string, string> => {
     "@routes": path.resolve(rootDir, "src/routes"),
     "@schemas": path.resolve(rootDir, "src/schemas"),
     "@tests": path.resolve(rootDir, "tests"),
-    "@theme": path.resolve(rootDir, "src/theme"),
+    "@theme": path.resolve(rootDir, "../../shared/ts/theme"),
   };
 };

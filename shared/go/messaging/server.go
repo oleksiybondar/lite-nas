@@ -240,7 +240,7 @@ func (s *server) handleRPC(
 }
 
 func (s *server) publishRPCError(replySubject string, cause error) error {
-	payload, err := s.codec.Marshal(rpcErrorPayload{Error: cause.Error()})
+	payload, err := s.codec.Marshal(rpcErrorPayload{Error: cause.Error(), RPCError: true})
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrEncodeFailed, err)
 	}

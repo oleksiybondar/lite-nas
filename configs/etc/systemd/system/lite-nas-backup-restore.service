@@ -1,0 +1,45 @@
+[Unit]
+Description=LiteNAS backup and restore service
+After=network-online.target nats-server.service lite-nas-before-startup.service
+Requires=nats-server.service lite-nas-before-startup.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/libexec/lite-nas/backup-restore
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+# UFW policy replay uses sysctl and netlink while activating restored rules.
+ProtectKernelTunables=no
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_CHOWN CAP_FOWNER CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=
+UMask=0077
+# File restore creates atomic temporary siblings, including directly under /etc.
+# AppArmor limits the individual writable paths inside this mount namespace.
+ReadWritePaths=/var/log/lite-nas/backup-restore.log /var/lib/lite-nas/backup /var/lib/aide /etc /proc/sys -/usr/local/etc/cloudflared
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

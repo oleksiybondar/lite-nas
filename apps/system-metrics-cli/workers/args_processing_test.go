@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Requirements: system-metrics-cli/FR-001, system-metrics-cli/FR-003, system-metrics-cli/IR-001
+// Requirements: system-metrics-cli/FR-001
 func TestArgsProcessorDefaultsToCurrentMode(t *testing.T) {
 	t.Parallel()
 
@@ -21,7 +21,7 @@ func TestArgsProcessorDefaultsToCurrentMode(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-001, system-metrics-cli/FR-003, system-metrics-cli/IR-001
+// Requirements: system-metrics-cli/FR-003
 func TestArgsProcessorDefaultsToCPUSelection(t *testing.T) {
 	t.Parallel()
 
@@ -37,7 +37,7 @@ func TestArgsProcessorDefaultsToCPUSelection(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-001, system-metrics-cli/FR-003, system-metrics-cli/IR-001
+// Requirements: system-metrics-cli/FR-003
 func TestArgsProcessorDefaultsToRAMSelection(t *testing.T) {
 	t.Parallel()
 
@@ -53,7 +53,7 @@ func TestArgsProcessorDefaultsToRAMSelection(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/FR-004, system-metrics-cli/IR-001
+// Requirements: system-metrics-cli/FR-004
 func TestArgsProcessorParsesHistoryMode(t *testing.T) {
 	t.Parallel()
 
@@ -69,7 +69,7 @@ func TestArgsProcessorParsesHistoryMode(t *testing.T) {
 	}
 }
 
-// Requirements: system-metrics-cli/IR-001
+// Requirements: system-metrics-cli/OR-001
 func TestArgsProcessorParsesExplicitConfigPath(t *testing.T) {
 	t.Parallel()
 

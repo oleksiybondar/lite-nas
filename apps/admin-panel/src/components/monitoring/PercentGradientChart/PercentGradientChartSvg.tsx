@@ -1,7 +1,10 @@
 import { ChartSvgContainer } from "@components/monitoring/ChartSvgContainer";
 import { MonitoringChartTooltip } from "@components/monitoring/MonitoringChartTooltip";
-import { formatChartStamp } from "@components/monitoring/percent-chart-shared";
-import type { ReactElement } from "react";
+import {
+  type ChartHoverPoint,
+  formatChartStamp,
+} from "@components/monitoring/percent-chart-shared";
+import type { ReactElement, ReactNode } from "react";
 import {
   formatPercentGradientChartValue,
   mapPercentGradientChartGuideY,
@@ -52,6 +55,8 @@ const gradientStops = [
   { color: "#dc2626", offset: "100%" },
 ] as const;
 const gridValues = [0, 25, 50, 75, 100] as const;
+const gradientStartY = percentGradientChartFrame.topPadding + percentGradientChartFrame.innerHeight;
+const gradientEndY = percentGradientChartFrame.topPadding;
 
 /**
  * Renders the fixed horizontal guides and Y-axis labels for the percent chart.
@@ -106,6 +111,33 @@ const renderPercentGradientChartAxisLabels = (
 };
 
 /**
+ * Renders the hover tooltip for the currently selected percent chart point.
+ */
+const renderPercentGradientChartTooltip = (
+  hoveredPoint: ChartHoverPoint | null,
+  stamps: string[],
+  values: number[],
+): ReactNode => {
+  if (hoveredPoint === null) {
+    return null;
+  }
+
+  return (
+    <MonitoringChartTooltip
+      chartWidth={percentGradientChartFrame.chartWidth}
+      items={[
+        {
+          label: "Value",
+          value: formatPercentGradientChartValue(values[hoveredPoint.index] ?? 0),
+        },
+      ]}
+      label={formatChartStamp(stamps[hoveredPoint.index] ?? "")}
+      x={hoveredPoint.x}
+    />
+  );
+};
+
+/**
  * SVG frame rendered by the percent gradient chart component.
  */
 export const PercentGradientChartSvg = ({
@@ -127,27 +159,18 @@ export const PercentGradientChartSvg = ({
       length={values.length}
       testId="percent-gradient-chart"
       tooltip={(hoveredPoint) => {
-        if (hoveredPoint === null) {
-          return null;
-        }
-
-        return (
-          <MonitoringChartTooltip
-            chartWidth={percentGradientChartFrame.chartWidth}
-            items={[
-              {
-                label: "Value",
-                value: formatPercentGradientChartValue(values[hoveredPoint.index] ?? 0),
-              },
-            ]}
-            label={formatChartStamp(stamps[hoveredPoint.index] ?? "")}
-            x={hoveredPoint.x}
-          />
-        );
+        return renderPercentGradientChartTooltip(hoveredPoint, stamps, values);
       }}
     >
       <defs>
-        <linearGradient id="percent-gradient-chart-fill" x1="0" x2="0" y1="1" y2="0">
+        <linearGradient
+          gradientUnits="userSpaceOnUse"
+          id="percent-gradient-chart-fill"
+          x1="0"
+          x2="0"
+          y1={gradientStartY}
+          y2={gradientEndY}
+        >
           {gradientStops.map((stop) => {
             return <stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />;
           })}

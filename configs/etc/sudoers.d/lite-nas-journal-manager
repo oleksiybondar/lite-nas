@@ -1,0 +1,1 @@
+lite-nas-journal-manager ALL=(root) NOPASSWD: /usr/libexec/lite-nas/journal-manager vacuum *

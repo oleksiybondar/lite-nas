@@ -8,23 +8,24 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"lite-nas/shared/testutil/authtokentest"
+	"lite-nas/shared/testutil/cryptotest"
 	"lite-nas/shared/testutil/testcasetest"
 )
 
 func TestIssuerIssueAndVerifierVerifyAccessToken(t *testing.T) {
 	t.Parallel()
 
-	publicKey, privateKey := authtokentest.MustGenerateEd25519Key(t)
+	publicKey, privateKey := cryptotest.MustGenerateEd25519Key(t)
 	issuedAt := time.Unix(1000, 0)
 	issuer := mustNewIssuer(t, privateKey).withClock(func() time.Time { return issuedAt })
 	verifier := mustNewVerifier(t, publicKey).withClock(func() time.Time { return issuedAt.Add(time.Minute) })
 
 	tokenText, issuedClaims, err := issuer.Issue(Principal{
-		Subject: "1000",
-		Login:   "alice",
-		Scopes:  []string{"monitoring.read"},
-		Roles:   []string{"operator"},
+		Subject:     "1000",
+		Login:       "alice",
+		Application: "moments",
+		Scopes:      []string{"monitoring.read"},
+		Roles:       []string{"operator"},
 	})
 	if err != nil {
 		t.Fatalf("Issue() error = %v", err)
@@ -34,6 +35,9 @@ func TestIssuerIssueAndVerifierVerifyAccessToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify() error = %v", err)
 	}
+	if verifiedClaims.Application != "moments" {
+		t.Fatalf("verified application = %q, want moments", verifiedClaims.Application)
+	}
 
 	assertAccessClaims(t, verifiedClaims, issuedClaims)
 }
@@ -41,7 +45,7 @@ func TestIssuerIssueAndVerifierVerifyAccessToken(t *testing.T) {
 func TestIssuerIssueRejectsMissingPrincipalFields(t *testing.T) {
 	t.Parallel()
 
-	_, privateKey := authtokentest.MustGenerateEd25519Key(t)
+	_, privateKey := cryptotest.MustGenerateEd25519Key(t)
 	issuer := mustNewIssuer(t, privateKey)
 
 	testCases := []struct {
@@ -67,7 +71,7 @@ func TestIssuerIssueRejectsMissingPrincipalFields(t *testing.T) {
 func TestVerifierRejectsExpiredToken(t *testing.T) {
 	t.Parallel()
 
-	publicKey, privateKey := authtokentest.MustGenerateEd25519Key(t)
+	publicKey, privateKey := cryptotest.MustGenerateEd25519Key(t)
 	issuedAt := time.Unix(1000, 0)
 	issuer := mustNewIssuer(t, privateKey).withClock(func() time.Time { return issuedAt })
 	verifier := mustNewVerifier(t, publicKey).withClock(func() time.Time { return issuedAt.Add(20 * time.Minute) })
@@ -81,7 +85,7 @@ func TestVerifierRejectsExpiredToken(t *testing.T) {
 func TestVerifierRejectsWrongAudience(t *testing.T) {
 	t.Parallel()
 
-	publicKey, privateKey := authtokentest.MustGenerateEd25519Key(t)
+	publicKey, privateKey := cryptotest.MustGenerateEd25519Key(t)
 	issuer := mustNewIssuer(t, privateKey)
 	cfg := authTokenConfigFixture()
 	cfg.Audience = "other-audience"
@@ -96,7 +100,7 @@ func TestVerifierRejectsWrongAudience(t *testing.T) {
 func TestVerifierRejectsUnexpectedSigningAlgorithm(t *testing.T) {
 	t.Parallel()
 
-	publicKey, _ := authtokentest.MustGenerateEd25519Key(t)
+	publicKey, _ := cryptotest.MustGenerateEd25519Key(t)
 	verifier := mustNewVerifier(t, publicKey)
 	claims := AccessClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -188,6 +192,7 @@ func assertAccessClaims(t *testing.T, got AccessClaims, want AccessClaims) {
 		{Name: "subject", Got: func(claims AccessClaims) any { return claims.Subject }, Want: want.Subject},
 		{Name: "id", Got: func(claims AccessClaims) any { return claims.ID }, Want: want.ID},
 		{Name: "login", Got: func(claims AccessClaims) any { return claims.Login }, Want: want.Login},
+		{Name: "application", Got: func(claims AccessClaims) any { return claims.Application }, Want: want.Application},
 		{Name: "scopes", Got: func(claims AccessClaims) any { return claims.Scopes }, Want: want.Scopes},
 		{Name: "roles", Got: func(claims AccessClaims) any { return claims.Roles }, Want: want.Roles},
 	}

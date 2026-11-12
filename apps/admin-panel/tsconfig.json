@@ -24,7 +24,7 @@
       "@routes/*": ["src/routes/*"],
       "@schemas/*": ["src/schemas/*"],
       "@tests/*": ["tests/*"],
-      "@theme/*": ["src/theme/*"]
+      "@theme/*": ["../../shared/ts/theme/*"]
     },
     "types": ["node", "vite/client", "vitest/globals"],
     "strict": true,

@@ -2,17 +2,20 @@ package contracts
 
 import (
 	authcontract "lite-nas/shared/contracts/auth"
+	diskmetricscontract "lite-nas/shared/contracts/diskmetrics"
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	mountmonitorcontract "lite-nas/shared/contracts/mountmonitor"
+	networkmetricscontract "lite-nas/shared/contracts/networkmetrics"
+	networksecuritycontract "lite-nas/shared/contracts/networksecurity"
 	securityloggingmanagercontract "lite-nas/shared/contracts/securityloggingmanager"
+	servicemetricscontract "lite-nas/shared/contracts/servicemetrics"
+	servicemonitorcontract "lite-nas/shared/contracts/servicemonitor"
 	systemloggingmanagercontract "lite-nas/shared/contracts/systemloggingmanager"
 	systemmetricscontract "lite-nas/shared/contracts/systemmetrics"
 	zfsmetricscontract "lite-nas/shared/contracts/zfsmetrics"
 )
 
 // SubscriptionContract describes one fire-and-forget messaging contract.
-//
-// Payload is a zero-value typed placeholder that encodes payload ownership in
-// one registry map.
 type SubscriptionContract struct {
 	Subject string
 	Payload any
@@ -21,10 +24,28 @@ type SubscriptionContract struct {
 // SubscriptionsByService defines known subscribed subjects per service
 // identity.
 var SubscriptionsByService = map[string]map[string]SubscriptionContract{
+	ServiceAntivirus: {
+		"mount_lifecycle": {Subject: mountmonitorcontract.LifecycleSubject, Payload: mountmonitorcontract.LifecycleEvent{}},
+	},
+	ServiceWatchdog: {
+		"service_state": {Subject: servicemonitorcontract.StateSubject, Payload: servicemonitorcontract.StateEvent{}},
+	},
 	ServiceResourcesMonitor: {
+		"network_metrics_snapshot": {
+			Subject: networkmetricscontract.SnapshotEventSubject,
+			Payload: networkmetricscontract.SnapshotUpdatedEvent{},
+		},
 		"system_metrics_snapshot": {
 			Subject: systemmetricscontract.SnapshotEventSubject,
 			Payload: systemmetricscontract.SnapshotUpdatedEvent{},
+		},
+		"service_metrics_snapshot": {
+			Subject: servicemetricscontract.SnapshotEventSubject,
+			Payload: servicemetricscontract.SnapshotUpdatedEvent{},
+		},
+		"disk_metrics_snapshot": {
+			Subject: diskmetricscontract.SnapshotEventSubject,
+			Payload: diskmetricscontract.SnapshotUpdatedEvent{},
 		},
 		"zfs_metrics_snapshot": {
 			Subject: zfsmetricscontract.SnapshotEventSubject,
@@ -50,6 +71,10 @@ var SubscriptionsByService = map[string]map[string]SubscriptionContract{
 			Subject: securityloggingmanagercontract.AlertOccurrenceSubject,
 			Payload: loggingmanagercontract.AlertOccurrencePayload{},
 		},
+	},
+	ServiceNetworkSecurity: {
+		"firewall_attempt":         {Subject: networksecuritycontract.FirewallAttemptSubject, Payload: networksecuritycontract.FirewallAttempt{}},
+		"network_metrics_snapshot": {Subject: networkmetricscontract.SnapshotEventSubject, Payload: networkmetricscontract.SnapshotUpdatedEvent{}},
 	},
 	ServiceAuth: {
 		"lockdown_changed": {

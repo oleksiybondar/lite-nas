@@ -1,0 +1,38 @@
+[Unit]
+Description=LiteNAS ClamAV signature database updater
+After=network-online.target lite-nas-before-startup.service
+Wants=network-online.target
+
+Requires=lite-nas-before-startup.service
+
+[Service]
+Type=oneshot
+User=clamav
+Group=clamav
+ExecStart=/usr/bin/freshclam --config-file=/etc/clamav/freshclam.conf --stdout
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressAllow=any
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/clamav
+ReadWritePaths=/var/lib/clamav /var/log/clamav/freshclam.log
+StandardOutput=journal
+StandardError=journal

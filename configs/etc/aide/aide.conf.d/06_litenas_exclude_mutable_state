@@ -1,0 +1,17 @@
+# Debian's package rules cover changing runtime state; do not traverse it for
+# the host integrity baseline. This includes /var/lib/lite-nas/moments, logs,
+# databases, backups, and caches.
+-/var
+-/snap
+-/srv
+-/root
+-/swap.img
+-/lost+found
+
+# Headers, source trees, and shared package data are not executable code.
+-/usr/include
+-/usr/share
+-/usr/src
+-/usr/local/include
+-/usr/local/share
+-/usr/local/src

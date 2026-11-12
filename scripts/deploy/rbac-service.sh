@@ -7,6 +7,7 @@ source "$DEPLOY_HELPER_DIR/../helpers/common.sh"
 readonly LITE_NAS_RBAC_SERVICE_NAME="${LITE_NAS_RBAC_SERVICE_NAME:-lite-nas-rbac}"
 readonly LITE_NAS_RBAC_RUNTIME_USER="${LITE_NAS_RBAC_RUNTIME_USER:-lite-nas-rbac}"
 readonly LITE_NAS_RBAC_RUNTIME_GROUP="${LITE_NAS_RBAC_RUNTIME_GROUP:-$LITE_NAS_RBAC_RUNTIME_USER}"
+readonly LITE_NAS_RBAC_READ_GROUP="lite-nas-fs-rd"
 readonly LITE_NAS_RBAC_CERT_USER="${LITE_NAS_RBAC_CERT_USER:-lite-nas-rbac-service}"
 readonly LITE_NAS_RBAC_CONFIG_GROUP="${LITE_NAS_GROUP:-lite-nas}"
 readonly LITE_NAS_RBAC_BINARY_TARGET="${LITE_NAS_RBAC_BINARY_TARGET:-/usr/libexec/lite-nas/rbac-service}"
@@ -70,6 +71,7 @@ deploy.rbacService.ensureGroup() {
 deploy.rbacService.ensureRuntimeUser() {
 	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_CONFIG_GROUP"
 	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_RUNTIME_GROUP"
+	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_READ_GROUP"
 	deploy.rbacService.ensureGroup "$LITE_NAS_RBAC_CERT_USER"
 
 	if ! id "$LITE_NAS_RBAC_RUNTIME_USER" >/dev/null 2>&1; then
@@ -80,7 +82,7 @@ deploy.rbacService.ensureRuntimeUser() {
 			--home-dir /nonexistent \
 			--shell /usr/sbin/nologin \
 			--gid "$LITE_NAS_RBAC_RUNTIME_GROUP" \
-			--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER" \
+			--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER,$LITE_NAS_RBAC_READ_GROUP" \
 			"$LITE_NAS_RBAC_RUNTIME_USER"
 		return 0
 	fi
@@ -89,7 +91,7 @@ deploy.rbacService.ensureRuntimeUser() {
 	usermod \
 		--gid "$LITE_NAS_RBAC_RUNTIME_GROUP" \
 		--append \
-		--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER" \
+		--groups "$LITE_NAS_RBAC_CONFIG_GROUP,$LITE_NAS_RBAC_CERT_USER,$LITE_NAS_RBAC_READ_GROUP" \
 		"$LITE_NAS_RBAC_RUNTIME_USER"
 }
 
@@ -120,9 +122,7 @@ deploy.rbacService.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_RBAC_CONFIG_GROUP" "$LITE_NAS_RBAC_CONFIG_DIR"
-	install -m 0640 -o "$LITE_NAS_RBAC_RUNTIME_USER" -g "$LITE_NAS_RBAC_CONFIG_GROUP" \
-		"$LITE_NAS_RBAC_CONFIG_SOURCE" \
-		"$LITE_NAS_RBAC_CONFIG_TARGET"
+	deploy.installMergedConfig "$LITE_NAS_RBAC_CONFIG_SOURCE" "$LITE_NAS_RBAC_CONFIG_TARGET" "$LITE_NAS_RBAC_RUNTIME_USER" "$LITE_NAS_RBAC_CONFIG_GROUP"
 }
 
 deploy.rbacService.installSudoers() {
@@ -131,9 +131,7 @@ deploy.rbacService.installSudoers() {
 		exit 1
 	fi
 
-	install -d -m 0750 -o root -g root "$(dirname "$LITE_NAS_RBAC_SUDOERS_TARGET")"
-	install -m 0440 -o root -g root "$LITE_NAS_RBAC_SUDOERS_TEMPLATE" "$LITE_NAS_RBAC_SUDOERS_TARGET"
-	visudo -c -f "$LITE_NAS_RBAC_SUDOERS_TARGET" >/dev/null
+	deploy.installSudoersTemplate "$LITE_NAS_RBAC_SUDOERS_TEMPLATE" "$LITE_NAS_RBAC_SUDOERS_TARGET"
 }
 
 deploy.rbacService.installLogTarget() {

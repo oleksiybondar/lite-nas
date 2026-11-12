@@ -41,8 +41,16 @@ deploy.postfix.installConfig() {
 
 	install -d -m 0755 "$LITE_NAS_POSTFIX_CONFIG_TARGET_DIR"
 	install -d -m 0755 "$LITE_NAS_POSTFIX_AUTH_CONFIG_TARGET_DIR"
-	install -m 0644 "$LITE_NAS_POSTFIX_MAIN_CF_SOURCE" "$LITE_NAS_POSTFIX_MAIN_CF_TARGET"
-	install -m 0644 "$LITE_NAS_POSTFIX_MASTER_CF_SOURCE" "$LITE_NAS_POSTFIX_MASTER_CF_TARGET"
+	if [ ! -f "$LITE_NAS_POSTFIX_MAIN_CF_TARGET" ]; then
+		install -m 0644 "$LITE_NAS_POSTFIX_MAIN_CF_SOURCE" "$LITE_NAS_POSTFIX_MAIN_CF_TARGET"
+	else
+		log.info "Preserving existing Postfix main.cf."
+	fi
+	if [ ! -f "$LITE_NAS_POSTFIX_MASTER_CF_TARGET" ]; then
+		install -m 0644 "$LITE_NAS_POSTFIX_MASTER_CF_SOURCE" "$LITE_NAS_POSTFIX_MASTER_CF_TARGET"
+	else
+		log.info "Preserving existing Postfix master.cf."
+	fi
 
 	if [ ! -f "$LITE_NAS_POSTFIX_AUTH_CONFIG_TARGET" ]; then
 		if [ ! -f "$LITE_NAS_POSTFIX_AUTH_CONFIG_SOURCE" ]; then
@@ -70,12 +78,7 @@ deploy.postfix.applyAuthenticationConfig() {
 	sasl_passwd_db="${LITE_NAS_POSTFIX_SASL_PASSWD_TARGET}.db"
 
 	if [ -z "$postfix_relay_host" ] && [ -z "$postfix_relay_port" ] && [ -z "$postfix_relay_username" ] && [ -z "$postfix_relay_password" ]; then
-		postconf -X relayhost >/dev/null 2>&1 || true
-		postconf -X smtp_sasl_auth_enable >/dev/null 2>&1 || true
-		postconf -X smtp_sasl_password_maps >/dev/null 2>&1 || true
-		postconf -X smtp_sasl_security_options >/dev/null 2>&1 || true
-		postconf -X smtp_sasl_tls_security_options >/dev/null 2>&1 || true
-		rm -f "$LITE_NAS_POSTFIX_SASL_PASSWD_TARGET" "$sasl_passwd_db"
+		log.info "Postfix relay authentication fields are empty; preserving existing relay settings."
 		return 0
 	fi
 

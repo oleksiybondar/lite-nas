@@ -1,0 +1,239 @@
+package backuprestore
+
+import (
+	"archive/tar"
+	"compress/gzip"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+// Requirements: backup-restore/FR-004.
+func TestStoreRestoreRejectsInvalidMode(t *testing.T) {
+	if err := (Store{Root: t.TempDir()}).Restore(Spec{Application: "example"}, "1", "invalid"); err == nil {
+		t.Fatal("invalid restore mode was accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-004.
+func TestStoreRestoreReplacesSelectedFile(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(path, []byte("before"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: path}}}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("after"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "before" {
+		t.Fatalf("restored content = %q", content)
+	}
+}
+
+// TestRestoreRegularKeepsLiveFileWhenOwnershipCannotBeApplied covers backup-restore/SR-004.
+func TestRestoreRegularKeepsLiveFileWhenOwnershipCannotBeApplied(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("requires a non-root caller")
+	}
+	root := t.TempDir()
+	stage := filepath.Join(root, "stage")
+	target := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(stage, []byte("snapshot"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("live"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := restoreRegular(stagedEntry{path: target, stage: stage, header: &tar.Header{Uid: 0, Gid: 0, Mode: 0o600}})
+	content, readErr := os.ReadFile(target)
+	if err == nil || readErr != nil || string(content) != "live" {
+		t.Fatalf("restore = %v, live content = %q, read = %v", err, content, readErr)
+	}
+}
+
+// Requirements: backup-restore/FR-004.
+func TestStoreRestorePreservesLiveOptionalDirectoryAbsentFromSnapshot(t *testing.T) {
+	root := t.TempDir()
+	required := filepath.Join(root, "main.conf")
+	optional := filepath.Join(root, "dropins")
+	if err := os.WriteFile(required, []byte("main"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: required}, {Path: optional, Directory: true, Optional: true}}}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(optional, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	live := filepath.Join(optional, "later.conf")
+	if err := os.WriteFile(live, []byte("later"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(live); err != nil {
+		t.Fatalf("live optional file was removed: %v", err)
+	}
+}
+
+// Requirements: backup-restore/SR-003.
+func TestRestoreRejectsOptionalDirectoryChildWithoutRoot(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "dropins")
+	entries := []stagedEntry{{path: filepath.Join(directory, "override.conf"), header: &tar.Header{Typeflag: tar.TypeReg}}}
+	spec := Spec{Selections: []Selection{{Path: directory, Directory: true, Optional: true}}}
+	if err := validateRestoreEntries(entries, spec); err == nil {
+		t.Fatal("optional directory child without root was accepted")
+	}
+}
+
+// Requirements: backup-restore/FR-002, backup-restore/FR-004.
+func TestRestoreWritesArchivedDropInSpec(t *testing.T) {
+	root := t.TempDir()
+	selected := filepath.Join(root, "settings.conf")
+	if err := os.WriteFile(selected, []byte("enabled=yes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(root, "example.conf")
+	original := []byte("[backup]\nplugin=file\n[file.main]\npath=" + selected + "\n")
+	if err := os.WriteFile(source, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{Application: "example", SourcePath: source, Selections: []Selection{{Path: selected}}}
+	store := Store{Root: filepath.Join(root, "backups")}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("changed spec\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("restored spec = %q", got)
+	}
+}
+
+// Requirements: backup-restore/FR-004, backup-restore/SR-003.
+func TestRestoreRejectsWrongDirectoryArchiveTypeBeforeDeleting(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "settings")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	extra := filepath.Join(directory, "keep.conf")
+	if err := os.WriteFile(extra, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	archiveDir := filepath.Join(store.Root, "example")
+	if err := os.MkdirAll(archiveDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	archive, err := os.Create(filepath.Join(archiveDir, "1.tar.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	compressed := gzip.NewWriter(archive)
+	written := tar.NewWriter(compressed)
+	if err := written.WriteHeader(&tar.Header{Name: directory[1:], Typeflag: tar.TypeReg, Mode: 0o600}); err != nil {
+		t.Fatal(err)
+	}
+	if err := written.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := compressed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: directory, Directory: true}}}
+	_ = store.Restore(spec, "1", ReplaceMode)
+	if _, err := os.Lstat(extra); err != nil {
+		t.Fatalf("live file was deleted: %v", err)
+	}
+}
+
+// Requirements: backup-restore/FR-004.
+func TestStoreRestoreRemovesAbsentDirectoryEntry(t *testing.T) {
+	root := t.TempDir()
+	directory := filepath.Join(root, "settings")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: directory, Directory: true}}}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := filepath.Join(directory, "extra.conf")
+	if err := os.WriteFile(extra, []byte("new"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(extra); !os.IsNotExist(err) {
+		t.Fatalf("extra file remains: %v", err)
+	}
+}
+
+// Requirements: backup-restore/FR-004.
+func TestStoreRestoreSymlinkChain(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target.conf")
+	middle := filepath.Join(root, "middle.conf")
+	link := filepath.Join(root, "linked.conf")
+	if err := os.WriteFile(target, []byte("before"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, middle); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(middle, link); err != nil {
+		t.Fatal(err)
+	}
+	store := Store{Root: filepath.Join(root, "backups")}
+	spec := Spec{Application: "example", Selections: []Selection{{Path: link}}}
+	version, err := store.Backup(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("after"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Restore(spec, version, ReplaceMode); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "before" {
+		t.Fatalf("restored linked content = %q", content)
+	}
+}

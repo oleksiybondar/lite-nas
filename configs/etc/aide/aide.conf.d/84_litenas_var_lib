@@ -1,0 +1,4 @@
+# Retire earlier LiteNAS rules that monitored mutable application state.
+# /var is pruned by 06_litenas_exclude_mutable_state; keep this exclusion
+# explicit so an existing deployment never retains the previous positive rule.
+-/var/lib/lite-nas

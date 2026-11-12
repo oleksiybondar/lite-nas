@@ -18,6 +18,7 @@ The auth service owns:
 - access-token issuance and refresh-token rotation
 - service-to-service token issuance and rotation for internal callers
 - refresh-token revocation and volatile in-memory refresh-session state
+- administrator session inventory and revocation over NATS
 - lockdown state and lockdown event publication
 - online token validation for critical backend flows
 
@@ -73,6 +74,20 @@ The current intended session model is:
 
 This is intentionally a volatile single-node session model.
 
+## Password Changes
+
+When PAM requires a change during login, auth-service keeps that PAM
+transaction in a bounded worker for up to five minutes. Each browser answer
+travels through the gateway and NATS to the next PAM prompt. A successful
+expired-password conversation issues a session; an unsuccessful or expired one
+does not. After three PAM-reported password rejections, the worker ends the
+conversation even if the PAM stack would allow more retries.
+
+Signed-in users may start the same PAM prompt flow on demand. Their current
+session remains active after a successful change. The auth-service logs only
+password-conversation lifecycle events and outcomes, never answers or password
+values.
+
 ## Trust Model
 
 The trust model is intentionally split:
@@ -85,6 +100,15 @@ The trust model is intentionally split:
 
 This allows bounded local trust for routine requests while keeping an online
 credibility check available when revocation-sensitive behavior matters.
+
+Browser access tokens carry the LiteNAS refresh-session ID. Logout and the
+administrator `auth.rpc.session.revoke` RPC revoke that session's refresh token
+and make `auth.rpc.token.validate` reject its access tokens. Administrators can
+discover active IDs through `auth.rpc.session.list`. Revocation entries remain
+in Auth memory for at least one hour, or longer when the configured access-token
+lifetime and clock skew require it. An Auth restart clears this in-memory state.
+System service, session, USBGuard, journal, and backup/restore request handlers
+ask Auth to validate user tokens before accepting privileged operations.
 
 ## Lockdown Model
 

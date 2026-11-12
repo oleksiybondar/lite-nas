@@ -1,0 +1,8 @@
+Name: LiteNAS failed authentication tally
+Default: no
+Priority: 1
+Auth-Type: Primary
+Auth:
+	[default=die] pam_faillock.so authfail
+Auth-Initial:
+	[default=die] pam_faillock.so authfail

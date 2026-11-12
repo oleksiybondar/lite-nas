@@ -48,6 +48,7 @@ done
 
 sudo.guard.requireRoot "scripts/package/install-lite-nas-deb.sh"
 log.requireCommand "apt-get" "Install apt-get and retry."
+log.requireCommand "dpkg-deb" "Install Debian packaging tools and retry."
 
 if [ -z "$package_path" ]; then
 	package_path="$(find "$LITE_NAS_REPO_ROOT/.build/packages" -maxdepth 1 -type f -name 'lite-nas_*.deb' | LC_ALL=C sort | tail -n1)"

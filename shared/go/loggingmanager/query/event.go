@@ -4,7 +4,9 @@ import (
 	"lite-nas/shared/loggingmanager/dto"
 )
 
-// UpsertEvent builds an upsert query for one events row.
+// UpsertEvent builds an idempotent upsert keyed by the externally supplied event ID.
+// A repeated event keeps the existing row identity so lifecycle and state rows
+// remain attached to the retained event.
 //
 // Contract:
 //   - row.EventID must follow the configured generated-ID policy and stay
@@ -17,8 +19,7 @@ func UpsertEvent(row dto.EventRow) Query {
 	return Query{
 		SQL: "INSERT INTO events (rec_id, event_id, category, severity, priority, created_at, source) " +
 			"VALUES (?, ?, ?, ?, ?, ?, ?) " +
-			"ON CONFLICT(rec_id) DO UPDATE SET " +
-			"event_id = excluded.event_id, " +
+			"ON CONFLICT(event_id) DO UPDATE SET " +
 			"category = excluded.category, " +
 			"severity = excluded.severity, " +
 			"priority = excluded.priority, " +

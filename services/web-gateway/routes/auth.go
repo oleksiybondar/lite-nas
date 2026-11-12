@@ -24,8 +24,10 @@ func mountAuthRouter(
 	huma.Post(authGroup, "/login", controller.Login)
 	huma.Post(authGroup, "/logout", controller.Logout)
 	huma.Post(authGroup, "/refresh", controller.Refresh)
+	huma.Post(authGroup, "/password/reply", controller.ReplyPasswordChange)
 
 	protected := huma.NewGroup(authGroup)
 	protected.UseMiddleware(middlewares.RequireAuthentication(api, authentication))
 	huma.Get(protected, "/me", controller.Me)
+	huma.Post(protected, "/password/start", controller.StartPasswordChange)
 }

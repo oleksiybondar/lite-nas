@@ -71,7 +71,8 @@ operation on a specific filesystem path.
 
 - Subject UID
 - Target path
-- Requested operation (read, write, modify)
+- Requested operation: existing-path read, write, or execute; or create,
+  replace, delete, or traverse through the operation RPC
 
 #### FR-002 Output
 
@@ -79,9 +80,57 @@ operation on a specific filesystem path.
 
 #### FR-002 Acceptance Criteria
 
-- The service resolves symlinks and evaluates the resolved target path
-- Decision evaluation includes owner/group mode bits and POSIX ACLs
-- The response contains a boolean decision suitable for internal service use
+- `rbac.rpc.path.read.check` permits an existing regular file only when its
+  resolved inode is readable and every directory on the supplied route and
+  resolved symlink route is searchable. For an existing directory, listing
+  requires both read and search on that directory. Other inode types deny.
+- `rbac.rpc.path.write.check` permits writing the content of an existing
+  regular file when its resolved inode is writable and all route directories
+  are searchable. It does not authorize creating, replacing, or unlinking a
+  directory entry. Missing targets and other inode types deny.
+- `rbac.rpc.path.exec.check` checks execute on an existing regular file or
+  search on an existing directory, plus search on all route directories. It
+  does not by itself express an entire directory traversal to a target.
+- `rbac.rpc.path.operation.check` takes `uid`, `path`, and one of `create`,
+  `replace`, `delete`, or `traverse`; it returns `{ "allowed": boolean }`.
+  `traverse` requires an existing searchable directory at the requested path
+  and search on every directory from `/` through it, including resolved
+  symlink targets. `create` requires an absent final entry and write plus
+  search on its existing parent. `replace` and `delete` require an existing
+  regular final entry, parent write plus search, and the POSIX sticky-directory
+  rule: the user owns the parent or old entry. All mutation decisions reject a
+  final symlink or unsupported inode type. Replacement and deletion do not
+  require write permission on the old file. The verified user is non-root.
+- All paths are clean absolute host paths. The final component of a mutation
+  path is checked without following a symlink; symlinks in its parent route
+  are resolved and their original and resolved ancestor routes are searched.
+  For read, write, and execute, the final symlink is followed and the resolved
+  target's ancestors are searched. Missing or inaccessible required ancestors,
+  invalid or unresolved UID, invalid path, symlink loop, ACL error, and other
+  uncertain evaluations deny. The service does not cache these path decisions.
+- The decision is a snapshot of a path, not a stable file handle or a race
+  prevention guarantee. File Service and Stream Service must bind the decision
+  to the inode or parent they operate on through descriptor-relative or
+  equivalent race-resistant operations, and reject a changed target.
+- File Service asks `create` for an absent destination or `replace` for an
+  existing regular destination at upload initialization, each resumed write,
+  and publication. It must recheck the destination kind and identity each
+  time; a changed target is rejected, not silently switched to the other
+  operation. The destination-adjacent `.upload` stage is created exclusively
+  and later written as the verified user by the writer. Parent write/search
+  authorizes creating that entry; the writer verifies its owner, identity,
+  regular-file type, and write access on every resumed action. Cleanup of an
+  existing stage requests `delete` for the stage path before user-scoped
+  unlink. Sticky directories permit cleanup of the user-owned stage; a changed
+  stage or denied parent still fails closed. Publication requests a fresh
+  destination `create` or `replace` decision; an earlier stage-write allow is
+  never a publication grant.
+- File Service requests `delete` for an existing regular destination before
+  unlinking, and separately applies its protected-path policy. File Service
+  and Stream Service request `read` for existing files; a directory listing
+  uses `read` on the directory. Every allow also includes caller traversal.
+- The response contains a boolean decision suitable for internal service use.
+  RPC failures remain distinct from a deny and callers fail closed on either.
 
 ---
 

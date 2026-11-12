@@ -1,0 +1,4 @@
+# The antivirus service may start the signature updater and run read-only scans.
+# The end-of-options delimiter makes every wildcard match a scan path, not a flag.
+lite-nas-antivirus ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block lite-nas-antivirus-updater.service
+lite-nas-antivirus ALL=(root) NOPASSWD: /usr/bin/clamscan --recursive=yes --cross-fs=no --follow-dir-symlinks=0 --follow-file-symlinks=0 --suppress-ok-results -- *

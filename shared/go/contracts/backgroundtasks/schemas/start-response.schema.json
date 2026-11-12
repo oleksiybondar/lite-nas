@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lite-nas.local/contracts/backgroundtasks/start-response.schema.json",
+  "title": "Background task start response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "state"],
+  "properties": {
+    "task_id": { "$ref": "#/$defs/taskId" },
+    "state": { "$ref": "#/$defs/state" }
+  },
+  "$defs": {
+    "taskId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "state": { "type": "string", "enum": ["queued", "running", "succeeded", "failed", "cancelled"] }
+  }
+}

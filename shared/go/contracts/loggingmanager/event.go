@@ -15,7 +15,11 @@ type AlertPayload struct {
 	CreatedAt    string        `json:"created_at,omitempty" validate:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
 	Source       string        `json:"source,omitempty" validate:"omitempty,min=1,max=128,printascii"`
 	Message      string        `json:"message,omitempty" validate:"omitempty,max=256"`
+	Mitigate     string        `json:"mitigate,omitempty" validate:"omitempty,max=4096"`
 	TriggerValue string        `json:"trigger_value,omitempty" validate:"omitempty,max=512"`
+	// Email selects notifier delivery for this alert. Nil preserves the
+	// existing notifier behavior for publishers that do not set a policy.
+	Email *bool `json:"email,omitempty"`
 }
 
 // ToDTO converts contract payload into core DTO input.
@@ -27,6 +31,8 @@ func (payload AlertPayload) ToDTO() loggingmanagerdto.CreateEventInput {
 		Priority:  payload.Priority,
 		CreatedAt: payload.CreatedAt,
 		Source:    payload.Source,
+		Message:   payload.Message,
+		Mitigate:  payload.Mitigate,
 	}
 }
 

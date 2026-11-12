@@ -1,3 +1,4 @@
+import { useLanguage } from "@lite-nas/language";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
@@ -17,6 +18,7 @@ export const AppSidebarFlyoutTree = ({
   item: AppNavigationPageItem;
   selectedPath: string | null;
 }): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <>
       <ListItemButton
@@ -40,7 +42,7 @@ export const AppSidebarFlyoutTree = ({
         <ListItemText
           data-test-class="sidebar-flyout-tree-item-label"
           data-test-name={item.title}
-          primary={item.title}
+          primary={getLabel(`navigation.${item.title}`)}
         />
       </ListItemButton>
       {item.children?.map((child) => {

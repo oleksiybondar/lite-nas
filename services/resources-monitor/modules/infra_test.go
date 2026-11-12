@@ -9,6 +9,7 @@ import (
 	"time"
 
 	loggingmanagercontract "lite-nas/shared/contracts/loggingmanager"
+	"lite-nas/shared/loggingmanagerauth"
 )
 
 func TestNewInfraModuleReturnsErrorForMissingConfig(t *testing.T) {
@@ -56,7 +57,7 @@ func TestAuthTokenClientPublishInjectsAccessToken(t *testing.T) {
 		tokenValue: "token-1",
 		tokenErrs:  []error{nil},
 	}
-	client := authTokenClient{client: clientStub, tokenManager: tokenManager}
+	client := loggingmanagerauth.NewClient(clientStub, tokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
 	err := client.Publish(context.Background(), "system-alert", loggingmanagercontract.AlertPayload{
 		Category: "disk",
@@ -85,7 +86,7 @@ func TestAuthTokenClientRequestInjectsAccessToken(t *testing.T) {
 		tokenValue: "token-2",
 		tokenErrs:  []error{nil},
 	}
-	client := authTokenClient{client: clientStub, tokenManager: tokenManager}
+	client := loggingmanagerauth.NewClient(clientStub, tokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
 	var response any
 	err := client.Request(context.Background(), "system-logging-manager.updateAlertState", loggingmanagercontract.UpdateAlertStateInput{
@@ -112,7 +113,7 @@ func TestAuthTokenClientDrainDelegates(t *testing.T) {
 	t.Parallel()
 
 	clientStub := &messagingClientStub{}
-	client := authTokenClient{client: clientStub, tokenManager: &tokenManagerStub{}}
+	client := loggingmanagerauth.NewClient(clientStub, &tokenManagerStub{}, loggingmanagerauth.InjectAlertAccessToken)
 
 	if err := client.Drain(); err != nil {
 		t.Fatalf("Drain() error = %v", err)
@@ -126,7 +127,7 @@ func TestAuthTokenClientCloseDelegates(t *testing.T) {
 	t.Parallel()
 
 	clientStub := &messagingClientStub{}
-	client := authTokenClient{client: clientStub, tokenManager: &tokenManagerStub{}}
+	client := loggingmanagerauth.NewClient(clientStub, &tokenManagerStub{}, loggingmanagerauth.InjectAlertAccessToken)
 
 	client.Close()
 	if clientStub.closeCalls != 1 {
@@ -141,9 +142,9 @@ func TestCurrentTokenReturnsExistingToken(t *testing.T) {
 		tokenValue: "token-existing",
 		tokenErrs:  []error{nil},
 	}
-	client := authTokenClient{client: &messagingClientStub{}, tokenManager: tokenManager}
+	client := loggingmanagerauth.NewClient(&messagingClientStub{}, tokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
-	token, err := client.currentToken(context.Background())
+	token, err := client.CurrentToken(context.Background())
 	if err != nil {
 		t.Fatalf("currentToken() error = %v", err)
 	}
@@ -160,9 +161,9 @@ func TestCurrentTokenFallsBackToRefresh(t *testing.T) {
 		tokenErrs:  []error{errors.New("missing"), nil},
 		refreshErr: nil,
 	}
-	client := authTokenClient{client: &messagingClientStub{}, tokenManager: tokenManager}
+	client := loggingmanagerauth.NewClient(&messagingClientStub{}, tokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
-	token, err := client.currentToken(context.Background())
+	token, err := client.CurrentToken(context.Background())
 	if err != nil {
 		t.Fatalf("currentToken() error = %v", err)
 	}
@@ -183,9 +184,9 @@ func TestCurrentTokenFallsBackToLogin(t *testing.T) {
 		refreshErr: errors.New("refresh-failed"),
 		loginErr:   nil,
 	}
-	client := authTokenClient{client: &messagingClientStub{}, tokenManager: tokenManager}
+	client := loggingmanagerauth.NewClient(&messagingClientStub{}, tokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
-	token, err := client.currentToken(context.Background())
+	token, err := client.CurrentToken(context.Background())
 	if err != nil {
 		t.Fatalf("currentToken() error = %v", err)
 	}
@@ -205,9 +206,9 @@ func TestCurrentTokenReturnsLoginError(t *testing.T) {
 		refreshErr: errors.New("refresh-failed"),
 		loginErr:   errors.New("login-failed"),
 	}
-	client := authTokenClient{client: &messagingClientStub{}, tokenManager: tokenManager}
+	client := loggingmanagerauth.NewClient(&messagingClientStub{}, tokenManager, loggingmanagerauth.InjectAlertAccessToken)
 
-	_, err := client.currentToken(context.Background())
+	_, err := client.CurrentToken(context.Background())
 	if !errors.Is(err, tokenManager.loginErr) {
 		t.Fatalf("currentToken() error = %v, want %v", err, tokenManager.loginErr)
 	}
@@ -217,7 +218,7 @@ func TestWithAccessTokenReturnsOriginalForUnknownPayload(t *testing.T) {
 	t.Parallel()
 
 	input := struct{ Value string }{Value: "x"}
-	output := withAccessToken(input, "token-ignored")
+	output := loggingmanagerauth.InjectAlertAccessToken(input, "token-ignored")
 
 	typed, ok := output.(struct{ Value string })
 	if !ok {

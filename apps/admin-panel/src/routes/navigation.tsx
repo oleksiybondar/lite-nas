@@ -1,23 +1,32 @@
 import type { RbacContextValue } from "@dto/rbac/rbac";
+import AppsRoundedIcon from "@mui/icons-material/AppsRounded";
+import BackupRoundedIcon from "@mui/icons-material/BackupRounded";
+import CoronavirusIcon from "@mui/icons-material/Coronavirus";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import DeviceThermostatRoundedIcon from "@mui/icons-material/DeviceThermostatRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
-import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
+import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import ManageAccountsRoundedIcon from "@mui/icons-material/ManageAccountsRounded";
 import MemoryIcon from "@mui/icons-material/Memory";
 import MemoryRoundedIcon from "@mui/icons-material/MemoryRounded";
+import MiscellaneousServicesIcon from "@mui/icons-material/MiscellaneousServices";
 import MonitorHeartRoundedIcon from "@mui/icons-material/MonitorHeartRounded";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import PaletteRoundedIcon from "@mui/icons-material/PaletteRounded";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import PrecisionManufacturingIcon from "@mui/icons-material/PrecisionManufacturing";
 import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 import SecurityIcon from "@mui/icons-material/Security";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
+import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import TableRowsIcon from "@mui/icons-material/TableRows";
+import TerminalIcon from "@mui/icons-material/Terminal";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
-import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import UsbIcon from "@mui/icons-material/Usb";
 import type { ReactNode } from "react";
 
 /**
@@ -50,7 +59,8 @@ export type AppNavigationItem = AppNavigationPageItem;
 /**
  * RBAC guards used when building role-aware dashboard navigation.
  */
-export type AppNavigationRbac = Pick<RbacContextValue, "requireOperator" | "requireSecurity">;
+export type AppNavigationRbac = Pick<RbacContextValue, "requireOperator" | "requireSecurity"> &
+  Partial<Pick<RbacContextValue, "requireAdmin">>;
 
 /**
  * RBAC fallback used by static navigation tests and anonymous states.
@@ -67,16 +77,88 @@ const denyAllNavigationRbac: AppNavigationRbac = {
  * Material-only draft can be replaced by `DashboardLayout` later without
  * changing route ownership.
  */
-export const buildAppNavigationItems = ({
-  requireOperator,
-  requireSecurity,
-}: AppNavigationRbac): AppNavigationItem[] => {
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The navigation tree is kept together so its role gates remain visible.
+export const buildAppNavigationItems = (
+  rbac: AppNavigationRbac,
+  momentsAvailable = false,
+): AppNavigationItem[] => {
+  const { requireOperator, requireSecurity, requireAdmin } = rbac;
   return [
     buildDashboardNavigationItem(),
+    buildApplicationsNavigationItem(momentsAvailable),
     ...buildAlertsNavigationItems({ requireOperator, requireSecurity }),
-    buildSystemNavigationItem(),
+    buildSystemNavigationItem(requireAdmin),
+    ...(requireSecurity() || requireAdmin?.()
+      ? [
+          {
+            children: [
+              {
+                icon: <SupervisorAccountIcon />,
+                path: "/security/sessions",
+                title: "Sessions",
+                children: [
+                  {
+                    icon: <SupervisorAccountIcon />,
+                    path: "/security/sessions/loginctl",
+                    title: "Loginctl",
+                  },
+                  ...(requireAdmin?.()
+                    ? [
+                        {
+                          icon: <SupervisorAccountIcon />,
+                          path: "/security/sessions/litenas-auth",
+                          title: "LiteNAS Auth",
+                        },
+                      ]
+                    : []),
+                ],
+              },
+              {
+                icon: <TableRowsIcon />,
+                path: "/security/logs",
+                title: "Logs",
+                children: [
+                  { icon: <TableRowsIcon />, path: "/security/logs/journal", title: "Journal" },
+                  {
+                    icon: <FactCheckIcon />,
+                    path: "/security/logs/automated-audit",
+                    title: "Automated Audit",
+                  },
+                ],
+              },
+              { icon: <UsbIcon />, path: "/security/usb-devices", title: "USBDevices" },
+              { icon: <SecurityIcon />, path: "/security/integrity", title: "Integrity" },
+              { icon: <CoronavirusIcon />, path: "/security/antivirus", title: "Antivirus" },
+              {
+                icon: <PrecisionManufacturingIcon />,
+                path: "/security/automation",
+                title: "Automation",
+              },
+            ],
+            icon: <SecurityIcon />,
+            path: "/security",
+            title: "Security",
+          },
+        ]
+      : []),
+    ...(requireAdmin?.()
+      ? [{ icon: <BackupRoundedIcon />, path: "/backup-restore", title: "Backup and restore" }]
+      : []),
   ];
 };
+
+/** Adds separately served applications under the Applications category. */
+const buildApplicationsNavigationItem = (momentsAvailable: boolean): AppNavigationItem => ({
+  children: [
+    { icon: <FolderOpenIcon />, path: "/applications/file-explorer", title: "File Explorer" },
+    ...(momentsAvailable
+      ? [{ icon: <PhotoLibraryIcon />, path: "/applications/moments", title: "Moments" }]
+      : []),
+  ],
+  icon: <AppsRoundedIcon />,
+  path: "/applications",
+  title: "Applications",
+});
 
 /**
  * Builds the dashboard root navigation entry.
@@ -177,9 +259,24 @@ const buildAlertStatusNavigationItems = (domainPath: string): AppNavigationItem[
 /**
  * Builds the system metrics and sensors navigation branch.
  */
-const buildSystemNavigationItem = (): AppNavigationItem => {
+const buildSystemNavigationItem = (
+  isAdmin: AppNavigationRbac["requireAdmin"],
+): AppNavigationItem => {
   return {
-    children: [buildPerformanceNavigationItem(), buildSensorsNavigationItem()],
+    children: [
+      buildPerformanceNavigationItem(),
+      buildProcessesNavigationItem(),
+      buildSensorsNavigationItem(),
+      ...(isAdmin?.()
+        ? [
+            {
+              icon: <PrecisionManufacturingIcon />,
+              path: "/system/automation",
+              title: "Automation",
+            },
+          ]
+        : []),
+    ],
     icon: <MemoryRoundedIcon />,
     path: "/system",
     title: "System",
@@ -222,38 +319,32 @@ const buildPerformanceNavigationItem = (): AppNavigationItem => {
 /**
  * Builds the Raspberry Pi sensors navigation branch.
  */
-const buildSensorsNavigationItem = (): AppNavigationItem => {
+const buildSensorsNavigationItem = (): AppNavigationItem => ({
+  icon: <DeviceThermostatRoundedIcon />,
+  path: "/system/sensors",
+  title: "Sensors",
+});
+
+/**
+ * Builds the system processes navigation branch.
+ */
+const buildProcessesNavigationItem = (): AppNavigationItem => {
   return {
     children: [
       {
-        icon: <DeviceThermostatRoundedIcon />,
-        path: "/system/sensors/temperature",
-        title: "Temperature",
+        icon: <TerminalIcon />,
+        path: "/system/processes/processes",
+        title: "Processes",
       },
       {
-        icon: <ElectricBoltRoundedIcon />,
-        path: "/system/sensors/voltage",
-        title: "Voltage",
-      },
-      {
-        icon: <SpeedRoundedIcon />,
-        path: "/system/sensors/clock",
-        title: "Clock",
-      },
-      {
-        icon: <WarningAmberRoundedIcon />,
-        path: "/system/sensors/throttling",
-        title: "Throttling",
-      },
-      {
-        icon: <SpeedRoundedIcon />,
-        path: "/system/sensors/fan",
-        title: "Fan",
+        icon: <MiscellaneousServicesIcon />,
+        path: "/system/processes/services",
+        title: "Services",
       },
     ],
-    icon: <DeviceThermostatRoundedIcon />,
-    path: "/system/sensors",
-    title: "Sensors",
+    icon: <TerminalIcon />,
+    path: "/system/processes",
+    title: "Processes",
   };
 };
 
@@ -276,6 +367,11 @@ export const preferencesNavigationItems: AppNavigationItem[] = [
     icon: <ManageAccountsRoundedIcon />,
     path: "/preferences/profile",
     title: "User profile",
+  },
+  {
+    icon: <SecurityIcon />,
+    path: "/preferences/security",
+    title: "Security",
   },
   {
     children: [
@@ -302,16 +398,22 @@ export const preferencesNavigationItems: AppNavigationItem[] = [
 export const resolveNavigationItems = (
   pathname: string,
   rbac: AppNavigationRbac = denyAllNavigationRbac,
+  momentsAvailable = false,
 ): AppNavigationItem[] => {
   if (pathname === "/preferences" || pathname.startsWith("/preferences/")) {
     return preferencesNavigationItems;
   }
 
-  if (!rbac.requireOperator() && !rbac.requireSecurity()) {
+  if (
+    !momentsAvailable &&
+    !rbac.requireOperator() &&
+    !rbac.requireSecurity() &&
+    !rbac.requireAdmin?.()
+  ) {
     return appNavigationItems;
   }
 
-  return buildAppNavigationItems(rbac);
+  return buildAppNavigationItems(rbac, momentsAvailable);
 };
 
 /**

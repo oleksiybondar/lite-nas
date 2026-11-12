@@ -10,12 +10,16 @@ import (
 // Principal contains the authenticated identity and optional authorization
 // labels copied into an access token.
 type Principal struct {
+	// SessionID identifies the browser authentication session, when present.
+	SessionID string
 	// Subject is the stable principal identifier written to the JWT "sub"
 	// claim. Prefer a stable host identity such as UID when available.
 	Subject string
 	// Login is the authenticated host login name written to the custom
 	// "login" claim.
 	Login string
+	// Application identifies the trusted application that established the session.
+	Application string
 	// Scopes contains optional fine-grained authorization labels copied into
 	// the token. Empty scopes mean authenticated identity only.
 	Scopes []string

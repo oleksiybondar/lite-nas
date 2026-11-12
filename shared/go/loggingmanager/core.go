@@ -208,7 +208,12 @@ func (core *Core) CreateEvent(input dto.CreateEventInput) (string, error) {
 		Source:    source,
 	})
 
-	core.enqueueCreateEventWrites(recID, seq, eventID, createdAt, eventQuery)
+	core.enqueueCreateEventWrites(recID, seq, eventID, createdAt, input.Message, eventQuery)
+	if input.Mitigate != "" {
+		core.writerInputCh <- WriteRequest{Query: query.UpsertEventMeta(dto.EventMetaRow{
+			EventID: eventID, MetaKey: "mitigate", MetaValue: input.Mitigate,
+		})}
+	}
 
 	return eventID, nil
 }
@@ -403,6 +408,7 @@ func (core *Core) enqueueCreateEventWrites(
 	seq uint32,
 	eventID string,
 	createdAt string,
+	message string,
 	eventQuery query.Query,
 ) {
 	lifecycleQuery := query.UpsertLifecycle(dto.LifecycleRow{
@@ -422,7 +428,7 @@ func (core *Core) enqueueCreateEventWrites(
 		EventID:    eventID,
 		EventRecID: recID,
 		Status:     enum.StatusActive,
-		Message:    "",
+		Message:    message,
 	})
 
 	runtimeStateUpdates := []dto.RuntimeStateRow{

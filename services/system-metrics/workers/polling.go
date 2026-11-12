@@ -7,6 +7,7 @@ import (
 	"lite-nas/services/system-metrics/parser"
 	"lite-nas/shared/fileio"
 	"lite-nas/shared/metrics"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 // PollingWorker periodically reads system metric sources and emits raw system
@@ -45,59 +46,24 @@ func NewPollingWorker(
 	}
 }
 
+// sharedWorker binds service collection to the common polling lifecycle.
+func (w PollingWorker) sharedWorker() sharedworkers.PollingWorker[metrics.RawSystemSnapshot] {
+	return sharedworkers.NewPollingWorker(w.ticks, w.output, nil, func(_ context.Context) (metrics.RawSystemSnapshot, error) { return w.poll() })
+}
+
 // Start launches the polling worker in a separate goroutine.
-//
-// The worker runs until the provided context is canceled.
 func (w PollingWorker) Start(ctx context.Context) {
-	go w.run(ctx)
+	w.sharedWorker().Start(ctx)
 }
 
-// run executes the polling loop until the provided context is canceled.
-//
-// A polling cycle is executed for each incoming tick signal.
-func (w PollingWorker) run(ctx context.Context) {
-	for {
-		if !w.waitNextPoll(ctx) {
-			return
-		}
-
-		w.pollAndSend(ctx)
-	}
-}
-
-// waitNextPoll blocks until the next poll tick arrives or the context is
-// canceled.
-//
-// It returns true when the next polling cycle should proceed. It returns false
-// when the worker should stop.
+// waitNextPoll blocks until the next tick, cancellation, or channel closure.
 func (w PollingWorker) waitNextPoll(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case _, ok := <-w.ticks:
-		if !ok {
-			return false
-		}
-		return true
-	}
+	return w.sharedWorker().WaitNextPoll(ctx)
 }
 
-// pollAndSend performs one polling cycle and sends the resulting raw system
-// snapshot to the output channel.
-//
-// If polling or parsing fails, the cycle is skipped. If the context is
-// canceled before the send completes, the snapshot is dropped.
+// pollAndSend runs one service collection cycle and forwards its result.
 func (w PollingWorker) pollAndSend(ctx context.Context) {
-	snapshot, err := w.poll()
-	if err != nil {
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		return
-	case w.output <- snapshot:
-	}
+	w.sharedWorker().PollAndSend(ctx)
 }
 
 // poll reads and parses CPU and memory data for one polling cycle.

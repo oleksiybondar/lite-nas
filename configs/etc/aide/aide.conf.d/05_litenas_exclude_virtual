@@ -1,0 +1,5 @@
+# Device nodes and kernel-managed virtual filesystems change independently of host files.
+-/dev
+-/proc
+-/run
+-/sys

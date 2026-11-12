@@ -1,0 +1,338 @@
+package browserauth
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"lite-nas/shared/authtoken"
+	authcontract "lite-nas/shared/contracts/auth"
+	"lite-nas/shared/messaging"
+)
+
+const (
+	authTypeJWT    = "jwt"
+	pamRPCDeadline = 5 * time.Minute
+)
+
+// Session contains verified browser session state for a LiteNAS web app.
+type Session struct {
+	UserID        string
+	Login         string
+	AccessToken   string
+	RefreshToken  string
+	AccessExpires time.Time
+	RefreshExpiry time.Time
+	AuthType      string
+	Roles         []string
+	Scopes        []string
+}
+
+var (
+	errMissingCredentials  = errors.New("missing login credentials")
+	errMissingRefreshToken = errors.New("missing refresh token")
+)
+
+// AuthRequestContext contains caller metadata passed through to auth-service
+// token lifecycle RPCs.
+type AuthRequestContext struct {
+	ClientIP  string
+	UserAgent string
+}
+
+// AccessTokenVerifier defines local JWT verification for browser sessions.
+type AccessTokenVerifier interface {
+	Verify(tokenText string) (authtoken.AccessClaims, error)
+}
+
+// AuthService defines the browser auth lifecycle shared by LiteNAS web apps.
+type AuthService interface {
+	Login(ctx context.Context, now time.Time, login string, password string, requestContext AuthRequestContext) (Session, error)
+	BeginLogin(ctx context.Context, now time.Time, login string, password string, requestContext AuthRequestContext) (PasswordResult, error)
+	BeginPasswordChange(ctx context.Context, accessToken string) (PasswordResult, error)
+	ReplyPasswordChange(ctx context.Context, now time.Time, conversationID string, sequence int32, answer string) (PasswordResult, error)
+	Refresh(ctx context.Context, now time.Time, refreshToken string, requestContext AuthRequestContext) (Session, error)
+	Logout(ctx context.Context, now time.Time, refreshToken string, requestContext AuthRequestContext) (Session, error)
+	Me(now time.Time, accessToken string) (Session, error)
+}
+
+// PasswordResult is either an issued session or the next PAM prompt.
+type PasswordResult struct {
+	Session      Session
+	Status       authcontract.Status
+	Username     string
+	Conversation *authcontract.PasswordConversation
+	Messages     []authcontract.Message
+}
+
+// authService delegates token lifecycle operations to Auth Service RPCs.
+type authService struct {
+	client   messaging.Client
+	verifier AccessTokenVerifier
+	source   string
+}
+
+// NewAuthService creates an auth service backed by auth-service RPCs and local
+// access-token verification.
+//
+// Parameters:
+//   - client: messaging client used for auth-service request/reply calls
+//   - verifier: local verifier for JWT access tokens returned by auth-service
+//   - source: optional server-owned application name recorded with new login sessions
+func NewAuthService(client messaging.Client, verifier AccessTokenVerifier, source ...string) AuthService {
+	applicationSource := ""
+	if len(source) > 0 {
+		applicationSource = source[0]
+	}
+	return authService{
+		client:   client,
+		verifier: verifier,
+		source:   applicationSource,
+	}
+}
+
+// Login authenticates credentials through auth-service and maps the issued
+// token pair into a browser session.
+//
+// Parameters:
+//   - ctx: request-scoped context used for RPC cancellation
+//   - now: clock value used for responses that do not carry token expirations
+//   - login: submitted login identifier
+//   - password: submitted password
+//   - requestContext: caller metadata forwarded to auth-service
+func (s authService) Login(
+	ctx context.Context,
+	now time.Time,
+	login string,
+	password string,
+	requestContext AuthRequestContext,
+) (Session, error) {
+	result, err := s.BeginLogin(ctx, now, login, password, requestContext)
+	if err != nil {
+		return Session{}, err
+	}
+	if result.Status != authcontract.StatusAuthenticated {
+		return Session{}, ErrUnauthorized
+	}
+	return result.Session, nil
+}
+
+// BeginLogin preserves a PAM password-change prompt without issuing cookies.
+func (s authService) BeginLogin(ctx context.Context, now time.Time, login string, password string, requestContext AuthRequestContext) (PasswordResult, error) {
+	if strings.TrimSpace(login) == "" || strings.TrimSpace(password) == "" {
+		return PasswordResult{}, errMissingCredentials
+	}
+
+	var response authcontract.LoginResponse
+	pamCtx, cancel := context.WithTimeout(ctx, pamRPCDeadline)
+	defer cancel()
+	if err := s.client.Request(pamCtx, authcontract.LoginRPCSubject, authcontract.LoginRequest{
+		Username:  strings.TrimSpace(login),
+		Password:  password,
+		ClientIP:  requestContext.ClientIP,
+		UserAgent: requestContext.UserAgent,
+		Source:    s.source,
+	}, &response); err != nil {
+		return PasswordResult{}, err
+	}
+	return s.passwordResult(now, response)
+}
+
+// BeginPasswordChange verifies the existing access token at auth-service and
+// starts PAM; the current session remains active.
+func (s authService) BeginPasswordChange(ctx context.Context, accessToken string) (PasswordResult, error) {
+	if strings.TrimSpace(accessToken) == "" {
+		return PasswordResult{}, ErrUnauthorized
+	}
+	var response authcontract.LoginResponse
+	pamCtx, cancel := context.WithTimeout(ctx, pamRPCDeadline)
+	defer cancel()
+	if err := s.client.Request(pamCtx, authcontract.PasswordChangeStartRPCSubject, authcontract.PasswordChangeStartRequest{AccessToken: accessToken}, &response); err != nil {
+		return PasswordResult{}, err
+	}
+	return s.passwordResult(time.Now(), response)
+}
+
+// ReplyPasswordChange sends one answer to the PAM worker that owns the prompt.
+func (s authService) ReplyPasswordChange(ctx context.Context, now time.Time, conversationID string, sequence int32, answer string) (PasswordResult, error) {
+	if conversationID == "" || answer == "" {
+		return PasswordResult{}, ErrUnauthorized
+	}
+	var response authcontract.LoginResponse
+	pamCtx, cancel := context.WithTimeout(ctx, pamRPCDeadline)
+	defer cancel()
+	if err := s.client.Request(pamCtx, authcontract.PasswordChangeReplyRPCSubject, authcontract.PasswordChangeReplyRequest{ConversationID: conversationID, Sequence: sequence, Answer: answer}, &response); err != nil {
+		return PasswordResult{}, err
+	}
+	return s.passwordResult(now, response)
+}
+
+// passwordResult maps the auth-service status without treating PAM prompts as sessions.
+func (s authService) passwordResult(now time.Time, response authcontract.LoginResponse) (PasswordResult, error) {
+	result := PasswordResult{Status: response.Status, Username: response.Username, Conversation: response.Conversation, Messages: response.Messages}
+	if response.Status == authcontract.StatusServiceUnavailable {
+		return result, ErrAuthServiceUnavailable
+	}
+	if response.Status == authcontract.StatusPasswordChangeRequired && response.Conversation != nil {
+		return result, nil
+	}
+	if response.Status != authcontract.StatusAuthenticated {
+		return result, nil
+	}
+	if response.AccessToken == "" && response.RefreshToken == "" {
+		return result, nil
+	}
+	session, err := s.sessionFromTokens(now, response.AccessToken, response.RefreshToken)
+	result.Session = session
+	return result, err
+}
+
+// Refresh rotates the token pair through auth-service.
+//
+// Parameters:
+//   - ctx: request-scoped context used for RPC cancellation
+//   - now: clock value used for responses that do not carry token expirations
+//   - refreshToken: submitted refresh token value
+//   - requestContext: caller metadata forwarded to auth-service
+func (s authService) Refresh(
+	ctx context.Context,
+	now time.Time,
+	refreshToken string,
+	requestContext AuthRequestContext,
+) (Session, error) {
+	if strings.TrimSpace(refreshToken) == "" {
+		return Session{}, errMissingRefreshToken
+	}
+
+	var response authcontract.RefreshResponse
+	if err := s.client.Request(ctx, authcontract.RefreshRPCSubject, authcontract.RefreshRequest{
+		RefreshToken: strings.TrimSpace(refreshToken),
+		ClientIP:     requestContext.ClientIP,
+		UserAgent:    requestContext.UserAgent,
+	}, &response); err != nil {
+		return Session{}, err
+	}
+
+	return s.sessionFromTokens(now, response.AccessToken, response.RefreshToken)
+}
+
+// Logout revokes the submitted refresh token through auth-service and returns
+// cookie timestamps that force browser-side token expiry.
+//
+// Parameters:
+//   - ctx: request-scoped context used for RPC cancellation
+//   - now: clock value used to compute expired cookie timestamps
+//   - refreshToken: submitted refresh token value
+//   - requestContext: caller metadata forwarded to auth-service
+func (s authService) Logout(
+	ctx context.Context,
+	now time.Time,
+	refreshToken string,
+	requestContext AuthRequestContext,
+) (Session, error) {
+	if strings.TrimSpace(refreshToken) == "" {
+		return Session{}, errMissingRefreshToken
+	}
+
+	var response authcontract.LogoutResponse
+	if err := s.client.Request(ctx, authcontract.LogoutRPCSubject, authcontract.LogoutRequest{
+		RefreshToken: strings.TrimSpace(refreshToken),
+		ClientIP:     requestContext.ClientIP,
+		UserAgent:    requestContext.UserAgent,
+	}, &response); err != nil {
+		return Session{}, err
+	}
+	if !response.LoggedOut {
+		return Session{}, ErrUnauthorized
+	}
+
+	return Session{
+		AccessExpires: now,
+		RefreshExpiry: now,
+	}, nil
+}
+
+// Me locally verifies the access token and returns the authenticated principal
+// represented by its JWT claims.
+//
+// Parameters:
+//   - now: clock value used to compute access-token expiry in the response
+//   - accessToken: caller-provided access token extracted by transport logic
+func (s authService) Me(now time.Time, accessToken string) (Session, error) {
+	claims, err := s.verifyAccessToken(accessToken)
+	if err != nil {
+		return Session{}, ErrUnauthorized
+	}
+
+	return sessionFromClaims(now, strings.TrimSpace(accessToken), "", claims)
+}
+
+func (s authService) sessionFromTokens(now time.Time, accessToken string, refreshToken string) (Session, error) {
+	if strings.TrimSpace(refreshToken) == "" {
+		return Session{}, errMissingRefreshToken
+	}
+
+	claims, err := s.verifyAccessToken(accessToken)
+	if err != nil {
+		return Session{}, ErrUnauthorized
+	}
+
+	return sessionFromClaims(now, strings.TrimSpace(accessToken), strings.TrimSpace(refreshToken), claims)
+}
+
+func (s authService) verifyAccessToken(accessToken string) (authtoken.AccessClaims, error) {
+	token := strings.TrimSpace(accessToken)
+	if token == "" {
+		return authtoken.AccessClaims{}, ErrUnauthorized
+	}
+	if s.verifier == nil {
+		return authtoken.AccessClaims{}, ErrUnauthorized
+	}
+
+	return s.verifier.Verify(token)
+}
+
+func sessionFromClaims(
+	now time.Time,
+	accessToken string,
+	refreshToken string,
+	claims authtoken.AccessClaims,
+) (Session, error) {
+	if claims.ExpiresAt == nil {
+		return Session{}, ErrUnauthorized
+	}
+
+	roles := claims.Roles
+	if roles == nil {
+		roles = []string{}
+	}
+	scopes := claims.Scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+
+	return Session{
+		UserID:        claims.Subject,
+		Login:         claims.Login,
+		AccessToken:   accessToken,
+		RefreshToken:  refreshToken,
+		AccessExpires: claims.ExpiresAt.Time,
+		RefreshExpiry: now.Add(24 * time.Hour),
+		AuthType:      authTypeJWT,
+		Roles:         roles,
+		Scopes:        scopes,
+	}, nil
+}
+
+// ErrUnauthorized indicates an invalid or missing access token.
+var ErrUnauthorized = errors.New("unauthorized")
+
+// ErrAuthServiceUnavailable indicates that PAM could not start or continue.
+var ErrAuthServiceUnavailable = errors.New("authentication service unavailable")
+
+// ErrMissingRefreshToken identifies an absent refresh credential.
+func ErrMissingRefreshToken() error { return errMissingRefreshToken }
+
+// ErrMissingCredentials identifies an absent login or password.
+func ErrMissingCredentials() error { return errMissingCredentials }

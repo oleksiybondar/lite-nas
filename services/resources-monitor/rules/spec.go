@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	validation "github.com/go-playground/validator/v10"
 
@@ -19,22 +20,32 @@ var (
 	errRuleValueType           = errors.New("rule values type is invalid for condition")
 	errRulePrefixTooLong       = errors.New("rule event_prefix must be at most 8 characters")
 	errRuleNumericValuesNeeded = errors.New("numeric condition requires numeric rule values")
+	errRuleSecondaryPair       = errors.New("secondary_condition and secondary_values must be set together")
+	errRuleSensorKeyField      = errors.New("sensor_key requires a sensor array value field")
+	errRuleCooldownTooLarge    = errors.New("rule cooldown is too large")
 )
 
 // Rule defines one threshold rule loaded from a JSON rules file.
 type Rule struct {
-	Event         string                     `json:"event" validate:"required,min=1,max=128"`
-	EventPrefix   string                     `json:"event_prefix" validate:"required,min=1,max=8"`
-	Field         string                     `json:"field" validate:"required,min=1,max=256"`
-	Condition     string                     `json:"condition" validate:"required,oneof=> >= == <= < in !="`
-	Values        any                        `json:"values" validate:"required"`
-	Message       string                     `json:"message" validate:"required,min=1,max=256"`
-	Description   string                     `json:"description,omitempty" validate:"omitempty,max=512"`
-	NormalMessage string                     `json:"normal_message,omitempty" validate:"omitempty,max=256"`
-	Category      string                     `json:"category" validate:"required,min=1,max=128"`
-	Severity      sharedloggingenum.Severity `json:"severity" validate:"required,oneof=info warning error critical"`
-	Priority      int                        `json:"priority" validate:"gte=0,lte=5"`
-	Source        string                     `json:"source" validate:"required,min=1,max=128"`
+	Event              string                     `json:"event" validate:"required,min=1,max=128"`
+	EventPrefix        string                     `json:"event_prefix" validate:"required,min=1,max=8"`
+	Field              string                     `json:"field" validate:"required,min=1,max=256"`
+	Condition          string                     `json:"condition" validate:"required,oneof=> >= == <= < in !="`
+	Values             any                        `json:"values" validate:"required"`
+	SecondaryCondition string                     `json:"secondary_condition,omitempty" validate:"omitempty,oneof=> >= == <= <"`
+	SecondaryValues    any                        `json:"secondary_values,omitempty"`
+	SensorKey          string                     `json:"sensor_key,omitempty" validate:"omitempty,max=256"`
+	Cooldown           int64                      `json:"cooldown,omitempty" validate:"gte=0"`
+	MatchWindow        int64                      `json:"match_window,omitempty" validate:"gte=0"`
+	MinMatches         int                        `json:"min_matches,omitempty" validate:"gte=0"`
+	Email              *bool                      `json:"email,omitempty"`
+	Message            string                     `json:"message" validate:"required,min=1,max=256"`
+	Description        string                     `json:"description,omitempty" validate:"omitempty,max=512"`
+	NormalMessage      string                     `json:"normal_message,omitempty" validate:"omitempty,max=256"`
+	Category           string                     `json:"category" validate:"required,min=1,max=128"`
+	Severity           sharedloggingenum.Severity `json:"severity" validate:"required,oneof=info warning error critical"`
+	Priority           int                        `json:"priority" validate:"gte=0,lte=5"`
+	Source             string                     `json:"source" validate:"required,min=1,max=128"`
 }
 
 // LoadRules loads and validates rules from one or more JSON files.
@@ -104,8 +115,23 @@ func loadRulesFile(file string) ([]Rule, error) {
 
 // validateRuleValues enforces condition-specific rule values contract.
 func validateRuleValues(rule Rule) error {
+	if rule.Cooldown > int64((1<<63-1)/int64(time.Second)) {
+		return errRuleCooldownTooLarge
+	}
+	if rule.MatchWindow > int64((1<<63-1)/int64(time.Second)) || (rule.MatchWindow == 0) != (rule.MinMatches == 0) || rule.MinMatches == 1 {
+		return errors.New("match_window and min_matches must be set together and min_matches must be at least 2")
+	}
 	if len(strings.TrimSpace(rule.EventPrefix)) > 8 {
 		return errRulePrefixTooLong
+	}
+	if (rule.SecondaryCondition == "") != (rule.SecondaryValues == nil) {
+		return errRuleSecondaryPair
+	}
+	if rule.SecondaryCondition != "" && !isNumber(rule.SecondaryValues) {
+		return errRuleNumericValuesNeeded
+	}
+	if rule.SensorKey != "" && (!strings.Contains(rule.Field, "[].") || !strings.HasSuffix(rule.Field, ".value")) {
+		return errRuleSensorKeyField
 	}
 
 	if rule.Condition == "in" {
@@ -116,7 +142,7 @@ func validateRuleValues(rule Rule) error {
 		return nil
 	}
 
-	if !slices.Contains([]string{">", ">=", "<", "<=", "=="}, rule.Condition) {
+	if !slices.Contains([]string{">", ">=", "<", "<="}, rule.Condition) {
 		return nil
 	}
 

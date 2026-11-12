@@ -11,7 +11,7 @@ func TestLoadRulesSuccess(t *testing.T) {
 
 	path := writeRulesFile(t, `[
 		{
-			"event":"system.metrics.events.stats",
+			"event":"system.metrics.events.snapshot",
 			"event_prefix":"syscpu",
 			"field":"snapshot.cpu.totalUsagePct",
 			"condition":">=",
@@ -38,7 +38,7 @@ func TestLoadRulesRejectsInvalidInValues(t *testing.T) {
 
 	path := writeRulesFile(t, `[
 		{
-			"event":"system.metrics.events.stats",
+			"event":"system.metrics.events.snapshot",
 			"event_prefix":"syscpu",
 			"field":"snapshot.cpu.totalUsagePct",
 			"condition":"in",
@@ -61,7 +61,7 @@ func TestLoadRulesRejectsNonNumericComparisonValue(t *testing.T) {
 
 	path := writeRulesFile(t, `[
 		{
-			"event":"system.metrics.events.stats",
+			"event":"system.metrics.events.snapshot",
 			"event_prefix":"syscpu",
 			"field":"snapshot.cpu.totalUsagePct",
 			"condition":">=",
@@ -76,6 +76,33 @@ func TestLoadRulesRejectsNonNumericComparisonValue(t *testing.T) {
 
 	if _, err := LoadRules([]string{path}); err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestLoadRulesAllowsStringEqualityValue(t *testing.T) {
+	t.Parallel()
+
+	path := writeRulesFile(t, `[
+		{
+			"event":"zfs.metrics.events.snapshot",
+			"event_prefix":"zfsdeg",
+			"field":"snapshot.Pools[].Health",
+			"condition":"==",
+			"values":"DEGRADED",
+			"message":"pool degraded",
+			"category":"zfs.metrics.pool.health",
+			"severity":"warning",
+			"priority":2,
+			"source":"zfs-metrics"
+		}
+	]`)
+
+	loadedRules, err := LoadRules([]string{path})
+	if err != nil {
+		t.Fatalf("LoadRules() error = %v", err)
+	}
+	if len(loadedRules) != 1 {
+		t.Fatalf("len(loadedRules) = %d, want 1", len(loadedRules))
 	}
 }
 

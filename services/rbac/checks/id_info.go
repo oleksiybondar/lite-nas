@@ -3,18 +3,18 @@ package checks
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	getfaclparser "lite-nas/shared/parsers/acl/getfacl"
 	idparser "lite-nas/shared/parsers/id/identity"
 )
 
-var evalSymlinks = filepath.EvalSymlinks
-
 // ResolveIdentityByUID resolves identity information for one UID.
 func ResolveIdentityByUID(ctx context.Context, runner Runner, uid string) (idparser.Identity, error) {
-	idOutput, err := runner.Run(ctx, "id", uid)
+	if err := ValidateIdentityOperand(uid); err != nil {
+		return idparser.Identity{}, err
+	}
+	idOutput, err := runner.Run(ctx, "id", "--", uid)
 	if err != nil {
 		return idparser.Identity{}, fmt.Errorf("id failed: %w", err)
 	}
@@ -27,13 +27,12 @@ func ResolveIdentityByUID(ctx context.Context, runner Runner, uid string) (idpar
 	return identity, nil
 }
 
-func readACLForPath(ctx context.Context, runner Runner, path string) (getfaclparser.Document, error) {
-	resolvedPath, err := evalSymlinks(path)
-	if err != nil {
-		return getfaclparser.Document{}, fmt.Errorf("resolve symlink target failed: %w", err)
+// readACLForResolvedPath reads the access ACL of an already resolved inode.
+func readACLForResolvedPath(ctx context.Context, runner Runner, resolvedPath string) (getfaclparser.Document, error) {
+	if err := validateACLPath(resolvedPath); err != nil {
+		return getfaclparser.Document{}, err
 	}
-
-	output, err := runner.Run(ctx, "getfacl", "-p", resolvedPath)
+	output, err := runner.Run(ctx, "getfacl", "-p", "--", resolvedPath)
 	if err != nil {
 		return getfaclparser.Document{}, fmt.Errorf("getfacl failed: %w", err)
 	}
@@ -102,8 +101,8 @@ func evaluateAccess(identity idparser.Identity, acl getfaclparser.Document, oper
 		return isPermissionAllowed(namedUserPermission, operation)
 	}
 
-	if groupPermissionAllows(identity, acl, operation) {
-		return true
+	if permission, matched := groupPermission(identity, acl); matched {
+		return isPermissionAllowed(permission, operation)
 	}
 
 	return isPermissionAllowed(acl.Other, operation)
@@ -124,9 +123,15 @@ func matchedNamedUserPermission(identity idparser.Identity, acl getfaclparser.Do
 	return applyMask(permission, acl.Mask), true
 }
 
-func groupPermissionAllows(identity idparser.Identity, acl getfaclparser.Document, operation string) bool {
+// groupPermission reports whether any owning or named group entry matches.
+// A matching group with insufficient rights must not fall through to other.
+func groupPermission(identity idparser.Identity, acl getfaclparser.Document) (getfaclparser.Permission, bool) {
+	matched := hasGroup(identity, acl.Group)
+	for name := range acl.NamedGroups {
+		matched = matched || hasGroup(identity, name)
+	}
 	maskedGroupPermission := applyMask(matchedGroupPermission(identity, acl), acl.Mask)
-	return isPermissionAllowed(maskedGroupPermission, operation)
+	return maskedGroupPermission, matched
 }
 
 func matchedGroupPermission(identity idparser.Identity, acl getfaclparser.Document) getfaclparser.Permission {

@@ -4,38 +4,49 @@ import type { SxProps, Theme } from "@mui/material/styles";
 type AlertsTableColumn = {
   key: string;
   label: string;
+  title?: string;
 };
 
 const severityColumnWidth = 44;
 const priorityColumnWidth = 44;
 
-const baseAlertsTableColumns: AlertsTableColumn[] = [
-  { key: "severity", label: "S" },
-  { key: "priority", label: "P" },
-  { key: "event-id", label: "Event ID" },
-  { key: "message", label: "Message" },
-  { key: "value", label: "Value" },
-  { key: "source", label: "Source" },
-  { key: "status", label: "Status" },
-  { key: "acknowledgement", label: "Acknowledged" },
-  { key: "category", label: "Category" },
-  { key: "created-at", label: "Created at" },
-  { key: "acknowledged-at", label: "Acknowledged at" },
-];
-
 /**
  * Returns the alerts table columns for one concrete alert domain.
  */
-export const buildAlertsTableColumns = (domain: AlertDomain): AlertsTableColumn[] => {
+export const buildAlertsTableColumns = (
+  domain: AlertDomain,
+  getLabel: (key: string) => string,
+): AlertsTableColumn[] => {
+  const columns: AlertsTableColumn[] = [
+    {
+      key: "severity",
+      label: "S",
+      title: getLabel("admin.alertTable.severityShortTitle"),
+    },
+    {
+      key: "priority",
+      label: "P",
+      title: getLabel("admin.alertTable.priorityShortTitle"),
+    },
+    { key: "event-id", label: getLabel("admin.alertTable.eventId") },
+    { key: "message", label: getLabel("admin.alertTable.message") },
+    { key: "value", label: getLabel("admin.alertTable.value") },
+    { key: "source", label: getLabel("admin.alertTable.source") },
+    { key: "status", label: getLabel("admin.alertTable.columnStatus") },
+    { key: "acknowledgement", label: getLabel("admin.alertTable.acknowledged") },
+    { key: "category", label: getLabel("admin.alertTable.category") },
+    { key: "created-at", label: getLabel("admin.alertTable.createdAt") },
+    { key: "acknowledged-at", label: getLabel("admin.alertTable.acknowledgedAt") },
+  ];
   if (domain === "security") {
     return [
-      ...baseAlertsTableColumns.slice(0, 7),
-      { key: "mitigate", label: "Mitigate" },
-      ...baseAlertsTableColumns.slice(7),
+      ...columns.slice(0, 7),
+      { key: "mitigate", label: getLabel("admin.alertTable.mitigate") },
+      ...columns.slice(7),
     ];
   }
 
-  return baseAlertsTableColumns;
+  return columns;
 };
 
 /**
@@ -53,6 +64,25 @@ export const formatAlertsTimestamp = (value: string | null): string => {
  * Returns sticky column styling for supported alerts table columns.
  */
 export const buildAlertsStickyColumnSx = (columnKey: string, isHeader = false): SxProps<Theme> => {
+  const textWidths: Record<string, [number, number, number]> = {
+    "event-id": [150, 190, 230],
+    message: [180, 360, 520],
+    value: [110, 140, 180],
+    source: [110, 140, 180],
+    category: [130, 160, 210],
+    mitigate: [110, 240, 360],
+  };
+  const widths = textWidths[columnKey];
+  if (widths) {
+    return {
+      minWidth: widths[0],
+      width: widths[1],
+      maxWidth: widths[2],
+      overflowWrap: "anywhere",
+      whiteSpace: "normal",
+    };
+  }
+  if (columnKey === "acknowledgement") return acknowledgementColumnSx(isHeader);
   const stickyConfig = resolveStickyColumnConfig(columnKey);
 
   if (stickyConfig === null) {
@@ -69,11 +99,27 @@ export const buildAlertsStickyColumnSx = (columnKey: string, isHeader = false): 
   };
 };
 
+/** Pins the acknowledgement control at the right edge of the alerts table. */
+const acknowledgementColumnSx = (isHeader: boolean): SxProps<Theme> => ({
+  backgroundColor: "background.paper",
+  position: "sticky",
+  right: 0,
+  minWidth: 150,
+  width: 150,
+  zIndex: isHeader ? 4 : 2,
+});
+
 /**
  * Formats one severity value for display in typed severity cells.
  */
-export const formatAlertSeverityLabel = (severity: string): string => {
-  return severity.slice(0, 1).toUpperCase() + severity.slice(1);
+export const formatAlertSeverityLabel = (
+  severity: string,
+  getLabel: (key: string) => string,
+): string => {
+  const knownSeverity = ["critical", "error", "warning", "info"].find(
+    (value) => value === severity.toLowerCase(),
+  );
+  return knownSeverity ? getLabel(`admin.alertTable.severity.${knownSeverity}`) : severity;
 };
 
 /**

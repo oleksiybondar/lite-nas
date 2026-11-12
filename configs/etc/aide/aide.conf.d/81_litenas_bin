@@ -1,0 +1,5 @@
+# Cover traditional executable directories and their usr-merged targets.
+/(bin|sbin)(/.*)?$ LiteNASIntegrity
+/usr/(bin|sbin)(/.*)?$ LiteNASIntegrity
+/usr/local/(bin|sbin|games)(/.*)?$ LiteNASIntegrity
+/usr/games(/.*)?$ LiteNASIntegrity

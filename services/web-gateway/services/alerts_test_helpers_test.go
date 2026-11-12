@@ -44,6 +44,24 @@ func newAlertsActionClientStub(t *testing.T, okResponse bool) *alertsClientStub 
 	}
 }
 
+func newAlertsOccurrencesClientStub(
+	t *testing.T,
+	items []loggingmanagercontract.AlertOccurrenceItem,
+) *alertsClientStub {
+	t.Helper()
+
+	return &alertsClientStub{
+		requestFunc: func(_ context.Context, _ string, _ any, response any) error {
+			typed, ok := response.(*loggingmanagercontract.GetAlertOccurrencesResponse)
+			if !ok {
+				t.Fatalf("response type = %T, want *GetAlertOccurrencesResponse", response)
+			}
+			typed.Items = items
+			return nil
+		},
+	}
+}
+
 func assertAlertsListRequest(
 	t *testing.T,
 	request any,
@@ -75,6 +93,30 @@ func assertAcknowledgeRequest(t *testing.T, request any, wantToken string, wantI
 	}
 	if typed.AccessToken != wantToken || typed.EventID != wantID || typed.AcknowledgedBy != wantActor {
 		t.Fatalf("request = %#v, want forwarded access token, id, and actor", typed)
+	}
+}
+
+func assertAlertsOccurrencesRequest(t *testing.T, request any, wantToken string, wantID string) {
+	t.Helper()
+
+	typed, ok := request.(loggingmanagercontract.GetAlertOccurrencesInput)
+	if !ok {
+		t.Fatalf("request type = %T, want GetAlertOccurrencesInput", request)
+	}
+	if typed.AccessToken != wantToken || typed.EventID != wantID {
+		t.Fatalf("request = %#v, want forwarded access token and id", typed)
+	}
+}
+
+func assertAlertsOccurrencesResult(
+	t *testing.T,
+	got []loggingmanagercontract.AlertOccurrenceItem,
+	want []loggingmanagercontract.AlertOccurrenceItem,
+) {
+	t.Helper()
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("items = %#v, want %#v", got, want)
 	}
 }
 

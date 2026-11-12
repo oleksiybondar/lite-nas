@@ -39,6 +39,42 @@ func TestListEventsReturnsCreatedEvent(t *testing.T) {
 	}
 }
 
+// TestCreateEventStoresMitigationGuidance verifies that alert guidance reaches the existing metadata read model.
+func TestCreateEventStoresMitigationGuidance(t *testing.T) {
+	t.Parallel()
+	rig := newRunningCoreRig(t)
+	eventID, err := rig.core.CreateEvent(dto.CreateEventInput{Category: "security", Mitigate: "Review the affected account."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rig.flush(t)
+	item, found, err := rig.core.GetEvent(dto.GetEventHistoryInput{EventID: eventID})
+	if err != nil || !found {
+		t.Fatalf("GetEvent() = %v, %v", found, err)
+	}
+	if len(item.Meta) != 1 || item.Meta[0].MetaKey != "mitigate" || item.Meta[0].MetaValue != "Review the affected account." {
+		t.Fatalf("event metadata = %+v", item.Meta)
+	}
+}
+
+// TestListEventsTreatsSQLSyntaxAsCategoryData verifies that a browser-reachable filter cannot alter the SQLite predicate.
+func TestListEventsTreatsSQLSyntaxAsCategoryData(t *testing.T) {
+	t.Parallel()
+
+	rig := newRunningCoreRig(t)
+	mustCreateEvent(t, rig, "system")
+
+	page, err := rig.core.ListEventsPage(dto.ListEventsInput{Page: 1, Filters: []dto.Filter{{
+		Key: dto.FilterKeyCategory, Condition: dto.FilterConditionEQ, Values: []string{"' OR 1=1 --"},
+	}}})
+	if err != nil {
+		t.Fatalf("ListEventsPage() error = %v", err)
+	}
+	if page.TotalCount != 0 {
+		t.Fatalf("SQL-shaped category matched %d seeded alerts, want 0", page.TotalCount)
+	}
+}
+
 func TestListEventsPageReturnsTotalCountIndependentOfPageSize(t *testing.T) {
 	t.Parallel()
 
@@ -114,7 +150,7 @@ func TestAcknowledgeRemovesEventFromUnacknowledgedList(t *testing.T) {
 	rig := newRunningCoreRig(t)
 	eventID := mustCreateEvent(t, rig, "system")
 
-	err := rig.core.AcknowledgeEvent(dto.AcknowledgeEventInput{
+	err := rig.core.AcknowledgeEvent(context.Background(), dto.AcknowledgeEventInput{
 		EventID:        eventID,
 		AcknowledgedBy: "ops",
 	})
@@ -275,7 +311,7 @@ func TestCoreMethodsReturnNotFoundForUnknownEvent(t *testing.T) {
 		t.Fatalf("SetState() err = %v, want %v", err, errEventNotFound)
 	}
 
-	err = core.AcknowledgeEvent(dto.AcknowledgeEventInput{
+	err = core.AcknowledgeEvent(context.Background(), dto.AcknowledgeEventInput{
 		EventID:        "event_1",
 		AcknowledgedBy: "ops",
 	})

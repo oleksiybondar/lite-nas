@@ -1,0 +1,1 @@
+lite-nas-session-manager ALL=(root) NOPASSWD: /usr/bin/loginctl terminate-session -- *, /usr/bin/loginctl lock-session -- *, /usr/bin/loginctl unlock-session -- *

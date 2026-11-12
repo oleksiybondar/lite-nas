@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = configure ] && command -v nginx >/dev/null 2>&1; then
+    install -d -m 0755 /usr/share/lite-nas/nginx
+    ln -sfn /usr/share/lite-nas/file-explorer/nginx/file-explorer.conf \
+        /usr/share/lite-nas/nginx/file-explorer.conf
+    nginx -t
+    if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx; then
+        systemctl reload nginx
+    fi
+fi

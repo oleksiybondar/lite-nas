@@ -11,15 +11,23 @@ import (
 )
 
 func (core *Core) listEventsQuery(ctx context.Context, builtQuery query.Query) ([]model.Event, error) {
-	rows, err := core.db.QueryContext(ctx, builtQuery.SQL, builtQuery.Args...)
+	return listRows(ctx, core.db, builtQuery, scanEvent)
+}
+
+func (core *Core) listOccurrencesQuery(ctx context.Context, builtQuery query.Query) ([]dto.OccurrenceRow, error) {
+	return listRows(ctx, core.db, builtQuery, scanOccurrence)
+}
+
+func listRows[T any](ctx context.Context, db *sql.DB, builtQuery query.Query, scan func(*sql.Rows) (T, error)) ([]T, error) {
+	rows, err := db.QueryContext(ctx, builtQuery.SQL, builtQuery.Args...)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
-	items := make([]model.Event, 0)
+	items := make([]T, 0)
 	for rows.Next() {
-		item, scanErr := scanEvent(rows)
+		item, scanErr := scan(rows)
 		if scanErr != nil {
 			return nil, scanErr
 		}
@@ -39,6 +47,36 @@ func scanEvent(rows *sql.Rows) (model.Event, error) {
 	return buildEvent(scanned), nil
 }
 
+func scanOccurrence(rows *sql.Rows) (dto.OccurrenceRow, error) {
+	var occurrence dto.OccurrenceRow
+	var valueTypeRaw string
+	var valueNum sql.NullFloat64
+	var valueText sql.NullString
+	var valueBool sql.NullInt64
+	var valueUnit sql.NullString
+
+	if err := rows.Scan(
+		&occurrence.RecID,
+		&occurrence.EventID,
+		&occurrence.EventRecID,
+		&occurrence.Timestamp,
+		&valueTypeRaw,
+		&valueNum,
+		&valueText,
+		&valueBool,
+		&valueUnit,
+	); err != nil {
+		return dto.OccurrenceRow{}, err
+	}
+
+	occurrence.ValueType = enum.ValueType(valueTypeRaw)
+	setOccurrenceNumber(&occurrence, valueNum)
+	setOccurrenceText(&occurrence, valueText)
+	setOccurrenceBool(&occurrence, valueBool)
+	setOccurrenceUnit(&occurrence, valueUnit)
+	return occurrence, nil
+}
+
 type eventScanResult struct {
 	event model.Event
 
@@ -54,6 +92,7 @@ type eventScanResult struct {
 	lastValueBool sql.NullInt64
 	lastValueUnit sql.NullString
 	stateMessage  sql.NullString
+	mitigate      sql.NullString
 	createdAt     string
 	ackAt         string
 	mutedAt       string
@@ -82,6 +121,7 @@ func scanEventRow(rows *sql.Rows, scanned *eventScanResult) error {
 		&scanned.lastValueText,
 		&scanned.lastValueBool,
 		&scanned.lastValueUnit,
+		&scanned.mitigate,
 	)
 }
 
@@ -89,6 +129,9 @@ func buildEvent(scanned eventScanResult) model.Event {
 	row := scanned.event
 	applyCoreEventFields(&row, scanned)
 	applyStateMessage(&row, scanned.stateMessage)
+	if scanned.mitigate.Valid {
+		row.Meta = []dto.EventMetaRow{{EventID: row.Event.EventID, MetaKey: "mitigate", MetaValue: scanned.mitigate.String}}
+	}
 	row.LastValue = scanLastOccurrence(
 		row.Event.EventID,
 		row.Event.RecID,

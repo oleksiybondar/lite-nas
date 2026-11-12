@@ -1,0 +1,2 @@
+# Apply Debian's full metadata and checksum policy to LiteNAS-managed paths.
+LiteNASIntegrity = Full

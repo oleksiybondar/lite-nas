@@ -2,6 +2,7 @@ package eventmanager
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -109,4 +110,15 @@ func (manager *Manager) NextCounter() uint64 {
 
 	manager.counter++
 	return manager.counter
+}
+
+// NextEventID allocates a bounded, zero-padded monitor ID. Callers supply a
+// validated readable prefix and retain the returned ID for retries and updates.
+// Allocation is atomic across workers sharing this manager; the counter wraps
+// to one after 99,999,999, matching the resources monitor convention.
+func (manager *Manager) NextEventID(prefix string) string {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	manager.counter = manager.counter%99_999_999 + 1
+	return fmt.Sprintf("%s_%08d", prefix, manager.counter)
 }

@@ -1,5 +1,8 @@
 import { AlertsTableTextCell } from "@components/alerts/AlertsTable/AlertsTableTextCell";
-import { formatMitigateValue } from "@components/alerts/AlertsTable/helpers";
+import {
+  buildAlertsStickyColumnSx,
+  formatMitigateValue,
+} from "@components/alerts/AlertsTable/helpers";
 import type { AlertListItemDTO } from "@dto/alerts/alerts";
 import type { ReactElement } from "react";
 
@@ -21,6 +24,7 @@ export const AlertsTableMitigateCell = ({ item }: AlertsTableMitigateCellProps):
       cellName="mitigate"
       tone={value === "-" ? "default" : "primary"}
       value={value}
+      sx={buildAlertsStickyColumnSx("mitigate")}
     />
   );
 };

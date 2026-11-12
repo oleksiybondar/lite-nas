@@ -7,9 +7,22 @@ import { useAlertsFiltersState } from "@domain/alerts/hooks/useAlertsFiltersStat
 import { useAlertsList } from "@domain/alerts/hooks/useAlertsList";
 import { useAlertsPaginationState } from "@domain/alerts/hooks/useAlertsPaginationState";
 import { useAlertsSearchState } from "@domain/alerts/hooks/useAlertsSearchState";
-import type { AlertCategory, AlertDomain, AlertsContextValue } from "@dto/alerts/alerts";
+import { useServerPagination } from "@domain/pagination/hooks/useServerPagination";
+import type {
+  AlertCategory,
+  AlertDomain,
+  AlertListItemDTO,
+  AlertsContextValue,
+} from "@dto/alerts/alerts";
+import type { ServerPaginationController } from "@dto/pagination";
 import { buildAlertsListPath, buildAlertsQueryKey, buildAlertsRoutePath } from "@helpers/alerts";
-import type { QueryObserverResult, RefetchOptions, UseMutationResult } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  type QueryObserverResult,
+  type RefetchOptions,
+  type UseMutationResult,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { PropsWithChildren, ReactElement } from "react";
 
 type AlertsProviderProps = PropsWithChildren<{
@@ -31,7 +44,8 @@ export const AlertsProvider = ({
   children,
   domain,
 }: AlertsProviderProps): ReactElement => {
-  const value = useAlertsProviderValue(domain, category);
+  const queryClient = useQueryClient();
+  const value = useAlertsProviderValue(domain, category, queryClient);
 
   return <AlertsContext.Provider value={value}>{children}</AlertsContext.Provider>;
 };
@@ -42,21 +56,32 @@ export const AlertsProvider = ({
 const useAlertsProviderValue = (
   domain: AlertDomain,
   category: AlertCategory,
+  queryClient: QueryClient,
 ): AlertsContextValue => {
-  const pagination = useAlertsPaginationState();
+  const paginationState = useAlertsPaginationState();
   const filters = useAlertsFiltersState();
   const searchState = useAlertsSearchState();
   const alertsQuery = useAlertsList({
     category,
     categoryFilter: filters.categoryFilter,
     domain,
-    page: pagination.page,
-    pageSize: pagination.pageSize,
+    page: paginationState.page,
+    pageSize: paginationState.pageSize,
     priorityFilter: filters.priorityFilter,
     severityFilter: filters.severityFilter,
     sourceFilter: filters.sourceFilter,
   });
   const acknowledgeMutation = useAcknowledgeAlert(domain);
+  const pagination = useServerPagination<AlertListItemDTO>({
+    data: alertsQuery.data
+      ? {
+          records: alertsQuery.data.items,
+          totalCount: alertsQuery.data.metadata.total_count,
+          totalPages: alertsQuery.data.metadata.total_pages,
+        }
+      : null,
+    pagination: paginationState,
+  });
   const queryState = {
     category,
     categoryFilter: filters.categoryFilter,
@@ -75,6 +100,7 @@ const useAlertsProviderValue = (
     domain,
     filters,
     pagination,
+    queryClient,
     queryState,
     searchState,
   });
@@ -86,7 +112,8 @@ type BuildAlertsContextValueOptions = {
   category: AlertCategory;
   domain: AlertDomain;
   filters: ReturnType<typeof useAlertsFiltersState>;
-  pagination: ReturnType<typeof useAlertsPaginationState>;
+  pagination: ServerPaginationController<AlertListItemDTO>;
+  queryClient: QueryClient;
   queryState: Parameters<typeof buildAlertsListPath>[0];
   searchState: ReturnType<typeof useAlertsSearchState>;
 };
@@ -98,25 +125,28 @@ const buildAlertsContextValue = ({
   domain,
   filters,
   pagination,
+  queryClient,
   queryState,
   searchState,
 }: BuildAlertsContextValueOptions): AlertsContextValue => {
   const refetch = createAlertsRefetch(alertsQuery.refetch);
 
   return {
-    acknowledge: createAcknowledge(acknowledgeMutation.mutateAsync, refetch),
-    acknowledgeMany: createAcknowledgeMany(domain, acknowledgeMutation.mutateAsync, refetch),
+    acknowledge: createAcknowledge(domain, acknowledgeMutation.mutateAsync, queryClient),
+    acknowledgeMany: createAcknowledgeMany(domain, acknowledgeMutation.mutateAsync, queryClient),
     apiPath: buildAlertsListPath(queryState),
     category,
     categoryFilter: filters.categoryFilter,
     clearFilters: createClearFilters(filters.clearFilters, pagination.resetPage),
     domain,
     error: alertsQuery.error ?? null,
+    hasNextPage: pagination.hasNextPage,
+    hasPreviousPage: pagination.hasPreviousPage,
     isAcknowledging: acknowledgeMutation.isPending,
     isError: alertsQuery.isError,
     isFetching: alertsQuery.isFetching,
     isLoading: alertsQuery.isLoading,
-    items: alertsQuery.data?.items ?? [],
+    items: pagination.records,
     nextPage: pagination.nextPage,
     page: pagination.page,
     pageSize: pagination.pageSize,
@@ -124,6 +154,8 @@ const buildAlertsContextValue = ({
     priorityFilter: filters.priorityFilter,
     queryKey: buildAlertsQueryKey(queryState),
     refetch,
+    resetPage: pagination.resetPage,
+    resetPagination: pagination.resetPagination,
     routePath: buildAlertsRoutePath(domain, category),
     search: searchState.search,
     setCategoryFilter: createFilterSetter(filters.setCategoryFilter, pagination.resetPage),
@@ -135,8 +167,8 @@ const buildAlertsContextValue = ({
     setSourceFilter: createFilterSetter(filters.setSourceFilter, pagination.resetPage),
     severityFilter: filters.severityFilter,
     sourceFilter: filters.sourceFilter,
-    totalCount: alertsQuery.data?.metadata.total_count ?? 0,
-    totalPages: alertsQuery.data?.metadata.total_pages ?? 0,
+    totalCount: pagination.totalCount,
+    totalPages: pagination.totalPages,
   };
 };
 
@@ -151,47 +183,55 @@ const acknowledgeSingle = async (
 };
 
 const createAcknowledge = (
+  domain: AlertDomain,
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  refetch: () => Promise<unknown>,
+  queryClient: QueryClient,
 ): ((id: string) => Promise<void>) => {
   return async (id: string): Promise<void> => {
     await acknowledgeSingle({ id }, mutateAsync);
-    await refetch();
+    await queryClient.invalidateQueries({ queryKey: ["alerts", domain] });
   };
 };
 
 const createAcknowledgeMany = (
   domain: AlertDomain,
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  refetch: () => Promise<unknown>,
-): ((ids: string[]) => Promise<void>) => {
-  return async (ids: string[]): Promise<void> => {
-    const hasSucceeded = await acknowledgeManyUntilFailure(ids, mutateAsync, domain);
-
-    if (hasSucceeded) {
-      await refetch();
+  queryClient: QueryClient,
+): ((ids: string[]) => Promise<{ acknowledged: number; failed: number }>) => {
+  return async (ids: string[]): Promise<{ acknowledged: number; failed: number }> => {
+    const { acknowledged, failed } = await acknowledgeBatch(ids, mutateAsync);
+    if (acknowledged > 0) {
+      await queryClient.invalidateQueries({ queryKey: ["alerts", domain] });
     }
+    return { acknowledged, failed };
   };
 };
 
-const acknowledgeManyUntilFailure = async (
+/** Acknowledges each selected alert and counts individual failures. */
+const acknowledgeBatch = async (
   ids: string[],
   mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  domain: AlertDomain,
-): Promise<boolean> => {
-  let hasSucceeded = false;
-
+): Promise<{ acknowledged: number; failed: number }> => {
+  let acknowledged = 0;
+  let failed = 0;
   for (const id of ids) {
-    const itemSucceeded = await acknowledgeOneUntilFailure(id, mutateAsync, domain);
-
-    if (!itemSucceeded) {
-      return hasSucceeded;
-    }
-
-    hasSucceeded = true;
+    if (await tryAcknowledge(id, mutateAsync)) acknowledged += 1;
+    else failed += 1;
   }
+  return { acknowledged, failed };
+};
 
-  return hasSucceeded;
+/** Reports whether one alert was acknowledged without aborting a bulk request. */
+const tryAcknowledge = async (
+  id: string,
+  mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
+): Promise<boolean> => {
+  try {
+    await mutateAsync({ id });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const createAlertsRefetch = (
@@ -211,20 +251,6 @@ const createClearFilters = (clearFilters: () => void, resetPage: () => void): ((
   };
 };
 
-const acknowledgeOneUntilFailure = async (
-  id: string,
-  mutateAsync: (input: AcknowledgeAlertInput) => Promise<void>,
-  domain: AlertDomain,
-): Promise<boolean> => {
-  try {
-    await acknowledgeSingle({ id }, mutateAsync);
-    return true;
-  } catch (error) {
-    notifyError(error instanceof Error ? error.message : `Failed to acknowledge ${domain} alerts.`);
-    return false;
-  }
-};
-
 const createFilterSetter = <T,>(
   setter: (value: T) => void,
   resetPage: () => void,
@@ -233,11 +259,4 @@ const createFilterSetter = <T,>(
     setter(value);
     resetPage();
   };
-};
-
-/**
- * Temporary centralized error reporting stub until snackbar context is added.
- */
-const notifyError = (message: string): void => {
-  void message;
 };

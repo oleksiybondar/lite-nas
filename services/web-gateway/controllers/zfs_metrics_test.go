@@ -15,6 +15,7 @@ type stubZFSMetricsService struct {
 	err      error
 }
 
+// GetSnapshot returns the configured snapshot or one injected test error.
 func (s stubZFSMetricsService) GetSnapshot(context.Context) (metrics.ZFSSnapshot, error) {
 	if s.err != nil {
 		return metrics.ZFSSnapshot{}, s.err
@@ -23,6 +24,7 @@ func (s stubZFSMetricsService) GetSnapshot(context.Context) (metrics.ZFSSnapshot
 	return s.snapshot, nil
 }
 
+// GetHistory returns the configured history or one injected test error.
 func (s stubZFSMetricsService) GetHistory(context.Context) ([]metrics.ZFSSnapshot, error) {
 	if s.err != nil {
 		return nil, s.err
@@ -35,15 +37,15 @@ func (s stubZFSMetricsService) GetHistory(context.Context) ([]metrics.ZFSSnapsho
 func TestZFSMetricsControllerGetSnapshotWrapsResponseInEnvelope(t *testing.T) {
 	t.Parallel()
 
-	snapshot := zfsSnapshotFixture(123)
-	controller := NewZFSMetricsController(stubZFSMetricsService{snapshot: snapshot})
-	assertSnapshotWrapped(
+	runSnapshotEnvelopeTest(
 		t,
-		snapshot,
-		controller.GetSnapshot,
-		func(output *zfsmetricsdto.ZFSSnapshotOutput) bool { return output.Body.Success },
-		func(output *zfsmetricsdto.ZFSSnapshotOutput) bool { return output.Body.Timestamp.IsZero() },
-		func(output *zfsmetricsdto.ZFSSnapshotOutput) metrics.ZFSSnapshot { return output.Body.Data },
+		zfsSnapshotFixture(123),
+		func(snapshot metrics.ZFSSnapshot) func(context.Context, *struct{}) (*zfsmetricsdto.ZFSSnapshotOutput, error) {
+			return NewZFSMetricsController(stubZFSMetricsService{snapshot: snapshot}).GetSnapshot
+		},
+		zfsSnapshotOutputSuccess,
+		zfsSnapshotTimestampIsZero,
+		zfsSnapshotOutputData,
 	)
 }
 
@@ -51,18 +53,18 @@ func TestZFSMetricsControllerGetSnapshotWrapsResponseInEnvelope(t *testing.T) {
 func TestZFSMetricsControllerGetHistoryWrapsResponseInEnvelope(t *testing.T) {
 	t.Parallel()
 
-	history := []metrics.ZFSSnapshot{
-		zfsSnapshotFixture(123),
-		zfsSnapshotFixture(124),
-	}
-	controller := NewZFSMetricsController(stubZFSMetricsService{history: history})
-	assertHistoryWrapped(
+	runHistoryEnvelopeTest(
 		t,
-		history,
-		controller.GetHistory,
-		func(output *zfsmetricsdto.ZFSHistoryOutput) bool { return output.Body.Success },
-		func(output *zfsmetricsdto.ZFSHistoryOutput) bool { return output.Body.Timestamp.IsZero() },
-		func(output *zfsmetricsdto.ZFSHistoryOutput) []metrics.ZFSSnapshot { return output.Body.Data },
+		[]metrics.ZFSSnapshot{
+			zfsSnapshotFixture(123),
+			zfsSnapshotFixture(124),
+		},
+		func(history []metrics.ZFSSnapshot) func(context.Context, *struct{}) (*zfsmetricsdto.ZFSHistoryOutput, error) {
+			return NewZFSMetricsController(stubZFSMetricsService{history: history}).GetHistory
+		},
+		zfsHistoryOutputSuccess,
+		zfsHistoryTimestampIsZero,
+		zfsHistoryOutputData,
 	)
 }
 
@@ -76,6 +78,7 @@ func TestZFSMetricsControllerGetSnapshotMapsBackendFailure(t *testing.T) {
 	assertBackendFailureMapped(t, got, err, "GetSnapshot()")
 }
 
+// zfsSnapshotFixture returns one representative ZFS metrics snapshot for controller tests.
 func zfsSnapshotFixture(unixSeconds int64) metrics.ZFSSnapshot {
 	return metrics.ZFSSnapshot{
 		Timestamp: time.Unix(unixSeconds, 0).UTC(),
@@ -112,4 +115,34 @@ func zfsSnapshotFixture(unixSeconds int64) metrics.ZFSSnapshot {
 			},
 		},
 	}
+}
+
+// zfsSnapshotOutputSuccess reads the success flag from one ZFS snapshot output envelope.
+func zfsSnapshotOutputSuccess(output *zfsmetricsdto.ZFSSnapshotOutput) bool {
+	return output.Body.Success
+}
+
+// zfsSnapshotTimestampIsZero reports whether one ZFS snapshot output missed its timestamp.
+func zfsSnapshotTimestampIsZero(output *zfsmetricsdto.ZFSSnapshotOutput) bool {
+	return output.Body.Timestamp.IsZero()
+}
+
+// zfsSnapshotOutputData extracts the ZFS snapshot data payload from one snapshot envelope.
+func zfsSnapshotOutputData(output *zfsmetricsdto.ZFSSnapshotOutput) metrics.ZFSSnapshot {
+	return output.Body.Data
+}
+
+// zfsHistoryOutputSuccess reads the success flag from one ZFS history output envelope.
+func zfsHistoryOutputSuccess(output *zfsmetricsdto.ZFSHistoryOutput) bool {
+	return output.Body.Success
+}
+
+// zfsHistoryTimestampIsZero reports whether one ZFS history output missed its timestamp.
+func zfsHistoryTimestampIsZero(output *zfsmetricsdto.ZFSHistoryOutput) bool {
+	return output.Body.Timestamp.IsZero()
+}
+
+// zfsHistoryOutputData extracts the ZFS history data payload from one history envelope.
+func zfsHistoryOutputData(output *zfsmetricsdto.ZFSHistoryOutput) []metrics.ZFSSnapshot {
+	return output.Body.Data
 }

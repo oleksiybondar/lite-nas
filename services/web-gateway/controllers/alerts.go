@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	alertsdto "lite-nas/services/web-gateway/dto/alerts"
@@ -151,6 +152,22 @@ func (c AlertsController) Get(ctx context.Context, input *alertsdto.GetInput) (*
 	}
 
 	return &alertsdto.GetOutput{Body: alertsdto.NewGetBody(now, item)}, nil
+}
+
+// GetOccurrences returns the full browser-facing occurrence history for one alert.
+func (c AlertsController) GetOccurrences(ctx context.Context, input *alertsdto.OccurrencesInput) (*alertsdto.OccurrencesOutput, error) {
+	now := time.Now()
+	request, err := extractAlertGetInput(ctx, &alertsdto.GetInput{ID: input.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := c.service.GetOccurrences(ctx, request)
+	if err != nil {
+		return nil, mapAlertBackendError(err, "failed to fetch alert occurrences")
+	}
+
+	return &alertsdto.OccurrencesOutput{Body: alertsdto.NewOccurrencesBody(now, items)}, nil
 }
 
 // Acknowledge acknowledges one alert in the configured domain.
@@ -305,6 +322,8 @@ func newListMetadata(page int, size int, totalCount int) alertsdto.ListMetadata 
 }
 
 func mapAlertBackendError(err error, message string) error {
+	slog.Error("alert backend request failed", "operation", message, "error", err)
+
 	if errors.Is(err, services.ErrAlertActionFailed) {
 		return huma.Error502BadGateway(message)
 	}

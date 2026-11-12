@@ -44,6 +44,25 @@ readability, maintenance, and consistent review quality.
 - This approach ensures that all functionality is traceable back to a specific
   requirement and is inherently testable.
 
+## Monitor Event IDs
+
+Services that publish system, security, or performance alerts must allocate
+human-readable event IDs at the producer, following the resources monitor:
+`<prefix>_<eight-digit decimal counter>`, for example `sysmnt_00000001` or
+`secauth_00000001`. Use a short, stable domain prefix (at most eight alphanumeric
+characters), such as `syscpu`, `sysram`, `sysmnt`, `syssvc`, `secauth`, or `secav`.
+Do not use opaque random/hash prefixes or rely on Logging Manager to generate
+these IDs.
+
+Use `shared/go/eventmanager.Manager.NextEventID` for atomic bounded allocation.
+Workers and plugin instances publishing under the same prefix must share their
+counter. Retain an allocated ID across publication retries, occurrences, and
+lifecycle updates. Following the existing resources monitor, current counters
+are seeded from startup Unix seconds modulo 99,999,999 and wrap to one at that
+limit; this is volatile state, not a persistent uniqueness guarantee.
+Tests must cover the readable format, sequencing, and lifecycle correlation
+where applicable. Historical stored event IDs are not renamed.
+
 ## Boundary Validation
 
 - Every user-facing or service-facing input boundary must validate received
@@ -76,8 +95,10 @@ readability, maintenance, and consistent review quality.
 
 - Prefer requirement-traceable tests; use source-qualified IDs such as
   `system-metrics-svc/FR-001`.
-- Prefer small, single-purpose tests. A test should usually verify one
-  behavior and use at most 2-3 closely related assertions.
+- Keep each test to one verification point and one assertion. When the same
+  rule needs several input variants, use separate parameterized cases. Move
+  shared preparation and expected successful actions into fixtures or
+  `must...` helpers instead of asserting several outcomes in one test.
 - When a matching requirement exists, annotate the test with the requirement
   identifier in a short comment directly above the test.
 - Requirement references in tests should use a source-qualified form so the ID
@@ -138,8 +159,9 @@ readability, maintenance, and consistent review quality.
   Python HyperionTF suite by default so infra, CLI, API, UI, and visual checks
   share one logging and execution ecosystem.
 - Keep system tests grouped by category under `tests/infra`, `tests/cli`,
-  `tests/api`, and `tests/ui`. Test files inside those folders should be
-  focused suites for one feature, service, or workflow.
+  `tests/api`, and `tests/ui`. Group service and app suites in named folders
+  within their category; keep cross-service infrastructure suites under
+  `tests/infra`. Each test file should cover one focused feature or workflow.
 - Store HyperionTF UI page objects under `tests/ui/page_objects`. UI tests
   should import those page objects instead of declaring browser locators inline.
 - Model UI page-object composition as a hierarchy that follows the real

@@ -25,15 +25,12 @@ func TestLoadConfigRulesFields(t *testing.T) {
 	t.Parallel()
 
 	cfg := loadConfigFixture(t)
-	if len(cfg.Rules.Files) != 2 {
-		t.Fatalf("len(cfg.Rules.Files) = %d, want 2", len(cfg.Rules.Files))
-	}
-	if cfg.Rules.Files[0] != "/etc/lite-nas/resources-monitor/rules/system-metrics.json" {
-		t.Fatalf("cfg.Rules.Files[0] = %q", cfg.Rules.Files[0])
-	}
-	if cfg.Rules.Files[1] != "/etc/lite-nas/resources-monitor/rules/network-metrics.json" {
-		t.Fatalf("cfg.Rules.Files[1] = %q", cfg.Rules.Files[1])
-	}
+	assertRuleFiles(t, cfg.Rules.Files, []string{
+		"/etc/lite-nas/resources-monitor/rules/system-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/network-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/disk-metrics.json",
+		"/etc/lite-nas/resources-monitor/rules/zfs-metrics.json",
+	})
 }
 
 func TestLoadConfigLoggingFields(t *testing.T) {
@@ -86,7 +83,7 @@ func loadConfigFixture(t *testing.T) Config {
 	cfg, err := LoadConfig(fileiotest.Reader{
 		Data: []byte(
 			"[rules]\n" +
-				"files=/etc/lite-nas/resources-monitor/rules/system-metrics.json,/etc/lite-nas/resources-monitor/rules/network-metrics.json\n" +
+				"files=/etc/lite-nas/resources-monitor/rules/system-metrics.json,/etc/lite-nas/resources-monitor/rules/network-metrics.json,/etc/lite-nas/resources-monitor/rules/disk-metrics.json,/etc/lite-nas/resources-monitor/rules/zfs-metrics.json\n" +
 				"[messaging]\n" +
 				"url=nats://localhost:4222\n" +
 				"client_name=resources-monitor\n" +
@@ -112,6 +109,19 @@ func loadConfigFixture(t *testing.T) Config {
 	}
 
 	return cfg
+}
+
+func assertRuleFiles(t *testing.T, got []string, want []string) {
+	t.Helper()
+
+	if len(got) != len(want) {
+		t.Fatalf("len(cfg.Rules.Files) = %d, want %d", len(got), len(want))
+	}
+	for index, wantFile := range want {
+		if got[index] != wantFile {
+			t.Fatalf("cfg.Rules.Files[%d] = %q, want %q", index, got[index], wantFile)
+		}
+	}
 }
 
 func assertMessagingConfig(t *testing.T, cfg Config) {

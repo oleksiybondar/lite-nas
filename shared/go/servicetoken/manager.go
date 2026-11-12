@@ -3,6 +3,7 @@ package servicetoken
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	authcontract "lite-nas/shared/contracts/auth"
@@ -35,8 +36,10 @@ type State struct {
 
 // Manager keeps one active service token and refreshes it before expiry.
 type Manager struct {
-	client  AuthClient
-	options Options
+	client      AuthClient
+	options     Options
+	lifecycleMu sync.Mutex
+	stateMu     sync.RWMutex
 
 	state State
 }
@@ -58,6 +61,9 @@ func NewManager(client AuthClient, options Options) (*Manager, error) {
 
 // Token returns the current access token and expiry.
 func (m *Manager) Token() (string, time.Time, error) {
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
+
 	if m.state.AccessToken == "" {
 		return "", time.Time{}, ErrTokenUnavailable
 	}
@@ -67,6 +73,9 @@ func (m *Manager) Token() (string, time.Time, error) {
 
 // RefreshToken returns the current refresh token.
 func (m *Manager) RefreshToken() (string, error) {
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
+
 	if m.state.RefreshToken == "" {
 		return "", ErrTokenUnavailable
 	}
@@ -76,6 +85,9 @@ func (m *Manager) RefreshToken() (string, error) {
 
 // Login requests an initial S2S token pair from auth-service.
 func (m *Manager) Login(ctx context.Context) error {
+	m.lifecycleMu.Lock()
+	defer m.lifecycleMu.Unlock()
+
 	var response authcontract.ServiceTokenLoginResponse
 	if err := m.client.Request(ctx, authcontract.ServiceTokenLoginRPCSubject, authcontract.ServiceTokenLoginRequest{
 		Service: m.options.Service,
@@ -93,14 +105,18 @@ func (m *Manager) Login(ctx context.Context) error {
 
 // Refresh rotates the current S2S token pair through auth-service.
 func (m *Manager) Refresh(ctx context.Context) error {
-	if m.state.RefreshToken == "" {
-		return ErrTokenUnavailable
+	m.lifecycleMu.Lock()
+	defer m.lifecycleMu.Unlock()
+
+	refreshToken, err := m.RefreshToken()
+	if err != nil {
+		return err
 	}
 
 	var response authcontract.ServiceTokenRefreshResponse
 	if err := m.client.Request(ctx, authcontract.ServiceTokenRefreshRPCSubject, authcontract.ServiceTokenRefreshRequest{
 		Service:      m.options.Service,
-		RefreshToken: m.state.RefreshToken,
+		RefreshToken: refreshToken,
 	}, &response); err != nil {
 		return err
 	}
@@ -115,5 +131,8 @@ func (m *Manager) Refresh(ctx context.Context) error {
 
 // setState updates current state and emits it to subscribers.
 func (m *Manager) setState(state State) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
 	m.state = state
 }

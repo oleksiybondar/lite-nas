@@ -1,7 +1,6 @@
+import { PaginationControl } from "@components/pagination";
 import { useAlertsControlPanel } from "@hooks/useAlertsControlPanel";
-import Pagination from "@mui/material/Pagination";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
+import { useLanguage } from "@lite-nas/language";
 import type { ReactElement } from "react";
 
 /**
@@ -9,27 +8,20 @@ import type { ReactElement } from "react";
  */
 export const AlertsControlPanelPagination = (): ReactElement => {
   const { page, setPage, totalCount, totalPages } = useAlertsControlPanel();
+  const { getLabel } = useLanguage();
 
   return (
-    <Stack
-      alignItems={{ md: "center", xs: "flex-start" }}
-      data-testid="alerts-pagination-control"
-      direction={{ md: "row", xs: "column" }}
-      justifyContent="space-between"
-      spacing={2}
-    >
-      <Typography color="text.secondary" data-testid="alerts-pagination-summary" variant="body2">
-        {`${totalCount} alerts across ${Math.max(totalPages, 1)} pages`}
-      </Typography>
-      <Pagination
-        count={Math.max(totalPages, 1)}
-        data-testid="alerts-pagination"
-        onChange={(_, nextPage) => {
-          setPage(nextPage);
-        }}
-        page={Math.min(page, Math.max(totalPages, 1))}
-        shape="rounded"
-      />
-    </Stack>
+    <PaginationControl
+      pagination={{
+        page,
+        setPage,
+        totalCount,
+        totalPages,
+      }}
+      summary={getLabel("admin.alerts.paginationSummary")
+        .replace("{count}", String(totalCount))
+        .replace("{pages}", String(Math.max(totalPages, 1)))}
+      testIdPrefix="alerts"
+    />
   );
 };

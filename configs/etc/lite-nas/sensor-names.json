@@ -1,0 +1,80 @@
+{
+  "temperature": {
+    "thermal:cpu-thermal": {
+      "hdr": "CPU temperature"
+    },
+    "cpu_thermal:temp1_input": {
+      "hdr": "CPU thermal sensor"
+    },
+    "rp1_adc:temp1_input": {
+      "hdr": "RP1 controller temperature"
+    },
+    "cpu_thermal:virtual/thermal/thermal_zone0:temp1_input": {
+      "hdr": "CPU thermal sensor"
+    },
+    "rp1_adc:platform/axi/1000120000.pcie/1f000c8000.adc:temp1_input": {
+      "hdr": "RP1 controller temperature"
+    }
+  },
+  "voltage": {
+    "EXT5V_V": {
+      "hdr": "5 V input supply"
+    },
+    "rp1_adc:in1_input": {
+      "hdr": "RP1 ADC input 1"
+    },
+    "rp1_adc:in2_input": {
+      "hdr": "RP1 ADC input 2"
+    },
+    "rp1_adc:in3_input": {
+      "hdr": "RP1 ADC input 3"
+    },
+    "rp1_adc:in4_input": {
+      "hdr": "RP1 ADC input 4"
+    },
+    "rp1_adc:platform/axi/1000120000.pcie/1f000c8000.adc:in1_input": {
+      "hdr": "RP1 ADC input 1"
+    },
+    "rp1_adc:platform/axi/1000120000.pcie/1f000c8000.adc:in2_input": {
+      "hdr": "RP1 ADC input 2"
+    },
+    "rp1_adc:platform/axi/1000120000.pcie/1f000c8000.adc:in3_input": {
+      "hdr": "RP1 ADC input 3"
+    },
+    "rp1_adc:platform/axi/1000120000.pcie/1f000c8000.adc:in4_input": {
+      "hdr": "RP1 ADC input 4"
+    }
+  },
+  "fan": {},
+  "clock": {
+    "cpu:policy0": {
+      "hdr": "CPU clock"
+    }
+  },
+  "throttling": {
+    "under_voltage_now": {
+      "hdr": "Undervoltage detected"
+    },
+    "frequency_capped_now": {
+      "hdr": "CPU frequency capped"
+    },
+    "throttled_now": {
+      "hdr": "Currently throttled"
+    },
+    "soft_temperature_limit_now": {
+      "hdr": "Temperature limit active"
+    },
+    "under_voltage_occurred": {
+      "hdr": "Undervoltage occurred since boot"
+    },
+    "frequency_capped_occurred": {
+      "hdr": "Frequency capping occurred since boot"
+    },
+    "throttled_occurred": {
+      "hdr": "Throttling occurred since boot"
+    },
+    "soft_temperature_limit_occurred": {
+      "hdr": "Temperature limit occurred since boot"
+    }
+  }
+}

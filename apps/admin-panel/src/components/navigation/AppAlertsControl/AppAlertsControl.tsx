@@ -1,3 +1,4 @@
+import { alertsRefetchIntervalMilliseconds } from "@domain/alerts/constants";
 import { useAlertsCount } from "@domain/alerts/hooks/useAlertsCount";
 import { useAuth } from "@hooks/useAuth";
 import { useRbac } from "@hooks/useRbac";
@@ -13,14 +14,6 @@ import type { MouseEvent, ReactElement } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppAlertsIndicator } from "./AppAlertsIndicator";
-
-/**
- * Polling interval used by the header alerts control.
- *
- * This value is local to the current draft until application settings own the
- * user-configurable polling cadence for live dashboard counters.
- */
-const alertsRefetchIntervalMilliseconds = 30_000;
 
 /**
  * Header alerts control shown for authenticated sessions.

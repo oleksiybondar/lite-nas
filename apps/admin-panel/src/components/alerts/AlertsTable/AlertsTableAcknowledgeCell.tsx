@@ -1,5 +1,9 @@
-import { formatAcknowledgedByValue } from "@components/alerts/AlertsTable/helpers";
+import {
+  buildAlertsStickyColumnSx,
+  formatAcknowledgedByValue,
+} from "@components/alerts/AlertsTable/helpers";
 import { useAlerts } from "@hooks/useAlerts";
+import { useLanguage } from "@lite-nas/language";
 import Button from "@mui/material/Button";
 import TableCell from "@mui/material/TableCell";
 import type { ReactElement } from "react";
@@ -20,6 +24,7 @@ type AlertsTableAcknowledgeCellProps = {
 export const AlertsTableAcknowledgeCell = ({
   eventId,
 }: AlertsTableAcknowledgeCellProps): ReactElement => {
+  const { getLabel } = useLanguage();
   const { acknowledge, isAcknowledging, items } = useAlerts();
   const item = items.find((currentItem) => currentItem.EventID === eventId);
 
@@ -29,7 +34,11 @@ export const AlertsTableAcknowledgeCell = ({
         data-test-class="alerts-table-cell"
         data-test-name="acknowledgement"
         data-test-tone="primary"
-        sx={{ color: "primary.main", fontWeight: 600 }}
+        sx={{
+          ...buildAlertsStickyColumnSx("acknowledgement"),
+          color: "primary.main",
+          fontWeight: 600,
+        }}
       >
         {formatAcknowledgedByValue(item.AcknowledgedBy)}
       </TableCell>
@@ -37,7 +46,11 @@ export const AlertsTableAcknowledgeCell = ({
   }
 
   return (
-    <TableCell data-test-class="alerts-table-cell" data-test-name="acknowledgement">
+    <TableCell
+      data-test-class="alerts-table-cell"
+      data-test-name="acknowledgement"
+      sx={buildAlertsStickyColumnSx("acknowledgement")}
+    >
       <Button
         data-testid={`alerts-acknowledge-button-${eventId}`}
         disabled={isAcknowledging || item === undefined}
@@ -47,7 +60,7 @@ export const AlertsTableAcknowledgeCell = ({
         size="small"
         variant="outlined"
       >
-        Acknowledge
+        {getLabel("admin.alertTable.acknowledge")}
       </Button>
     </TableCell>
   );

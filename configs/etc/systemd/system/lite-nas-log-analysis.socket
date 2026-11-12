@@ -1,0 +1,20 @@
+[Unit]
+Description=LiteNAS log analysis rsyslog ingress socket
+Before=rsyslog.service
+
+[Socket]
+# rsyslog forwards JSON records here (see /etc/rsyslog.d/30-lite-nas-log-analysis.conf).
+# systemd owns the socket, so records queue while Log Analysis restarts.
+ListenDatagram=/run/lite-nas-log-analysis/rsyslog.sock
+SocketUser=lite-nas-log-analysis
+# rsyslogd runs as syslog (member of adm) on Ubuntu and as root on Debian.
+# Log Analysis additionally verifies each sender's kernel credentials.
+SocketGroup=adm
+SocketMode=0620
+DirectoryMode=0755
+PassCredentials=yes
+ReceiveBuffer=1M
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

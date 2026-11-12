@@ -1,0 +1,48 @@
+[Unit]
+Description=LiteNAS sensor monitor service
+After=network-online.target nats-server.service lite-nas-before-startup.service
+Wants=network-online.target
+Requires=nats-server.service lite-nas-before-startup.service
+
+[Service]
+Type=simple
+User=lite-nas-sensor-monitor
+Group=lite-nas-sensor-monitor
+SupplementaryGroups=lite-nas
+ExecStart=/usr/libexec/lite-nas/sensor-monitor
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=yes
+# Firmware-only Pi readings need /dev/vcio; access remains restricted by
+# device permissions and the dedicated AppArmor profile.
+PrivateDevices=no
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas /sys/class/hwmon /sys/class/thermal /sys/devices
+ReadWritePaths=/var/log/lite-nas/sensor-monitor.log
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

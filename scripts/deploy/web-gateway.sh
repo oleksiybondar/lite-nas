@@ -125,9 +125,7 @@ deploy.webGateway.installConfig() {
 	fi
 
 	install -d -m 0711 -o root -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" "$LITE_NAS_WEB_GATEWAY_CONFIG_DIR"
-	install -m 0640 -o "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" -g "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP" \
-		"$LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE" \
-		"$LITE_NAS_WEB_GATEWAY_CONFIG_TARGET"
+	deploy.installMergedConfig "$LITE_NAS_WEB_GATEWAY_CONFIG_SOURCE" "$LITE_NAS_WEB_GATEWAY_CONFIG_TARGET" "$LITE_NAS_WEB_GATEWAY_RUNTIME_USER" "$LITE_NAS_WEB_GATEWAY_CONFIG_GROUP"
 }
 
 deploy.webGateway.installSharedAssets() {
@@ -188,6 +186,7 @@ deploy.webGateway.deploy() {
 	deploy.nginx.deploy 0
 
 	if [ "$should_start" = "1" ]; then
+		deploy.nginx.validateConfig
 		deploy.webGateway.enableAndStart
 		deploy.nginx.enableAndStart
 		return 0

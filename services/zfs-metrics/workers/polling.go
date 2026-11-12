@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	listparser "lite-nas/shared/parsers/zfs/list"
 	snapshotcomposer "lite-nas/shared/parsers/zfs/snapshot"
 	statusparser "lite-nas/shared/parsers/zfs/status"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 var (
@@ -22,8 +24,9 @@ var (
 	zpoolStatusArgs = []string{"status", "-P", "-L"}
 	// zpoolListArgs fetches capacity/health values in stable numeric format.
 	zpoolListArgs = []string{"list", "-H", "-p", "-o", strings.Join(listparser.DefaultHeaders, ",")}
-	// zpoolIostatArgs fetches per-pool operations and bandwidth counters.
-	zpoolIostatArgs = []string{"iostat", "-H", "-p"}
+	// zpoolIostatArgs samples current per-pool operations and bandwidth over one second.
+	// Without an interval, zpool iostat reports the average since boot or pool import.
+	zpoolIostatArgs = []string{"iostat", "-H", "-p", "-y", "1", "1"}
 
 	// zpoolCommandTimeout bounds one zpool subprocess execution.
 	zpoolCommandTimeout = 15 * time.Second
@@ -59,49 +62,24 @@ func NewPollingWorker(
 	}
 }
 
-// Start launches the worker loop in a dedicated goroutine.
+// sharedWorker binds service collection to the common polling lifecycle.
+func (w PollingWorker) sharedWorker() sharedworkers.PollingWorker[metrics.ZFSSnapshot] {
+	return sharedworkers.NewPollingWorker(w.ticks, w.output, w.errors, w.poll)
+}
+
+// Start launches the polling worker in a separate goroutine.
 func (w PollingWorker) Start(ctx context.Context) {
-	go w.run(ctx)
+	w.sharedWorker().Start(ctx)
 }
 
-// run drives the polling loop until context cancelation or channel closure.
-func (w PollingWorker) run(ctx context.Context) {
-	for {
-		if !w.waitNextPoll(ctx) {
-			return
-		}
-		w.pollAndSend(ctx)
-	}
-}
-
-// waitNextPoll blocks until next tick or context cancellation.
+// waitNextPoll blocks until the next tick, cancellation, or channel closure.
 func (w PollingWorker) waitNextPoll(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case _, ok := <-w.ticks:
-		return ok
-	}
+	return w.sharedWorker().WaitNextPoll(ctx)
 }
 
-// pollAndSend executes one polling cycle and emits output/error non-blockingly.
+// pollAndSend runs one service collection cycle and forwards its result.
 func (w PollingWorker) pollAndSend(ctx context.Context) {
-	snapshot, err := w.poll(ctx)
-	if err != nil {
-		select {
-		case <-ctx.Done():
-			return
-		case w.errors <- err:
-		default:
-		}
-		return
-	}
-
-	select {
-	case <-ctx.Done():
-		return
-	case w.output <- snapshot:
-	}
+	w.sharedWorker().PollAndSend(ctx)
 }
 
 // poll collects raw command output and composes one normalized snapshot.
@@ -160,6 +138,9 @@ func runZpoolCommand(ctx context.Context, zpoolPath string, args ...string) (str
 	if err != nil {
 		return "", err
 	}
+	if err := validateZpoolArguments(args); err != nil {
+		return "", err
+	}
 
 	cmdCtx, cancel := context.WithTimeout(ctx, zpoolCommandTimeout)
 	defer cancel()
@@ -174,6 +155,16 @@ func runZpoolCommand(ctx context.Context, zpoolPath string, args ...string) (str
 		return "", fmt.Errorf("zpool command failed: %s %s: %w", resolvedPath, strings.Join(args, " "), err)
 	}
 	return string(output), nil
+}
+
+// validateZpoolArguments permits only the three read-only polling commands.
+func validateZpoolArguments(args []string) error {
+	if slices.Equal(args, []string{"status", "-P", "-L"}) ||
+		slices.Equal(args, []string{"list", "-H", "-p", "-o", strings.Join(listparser.DefaultHeaders, ",")}) ||
+		slices.Equal(args, []string{"iostat", "-H", "-p", "-y", "1", "1"}) {
+		return nil
+	}
+	return errors.New("unsupported zpool arguments")
 }
 
 // validateZpoolPath validates path shape and allowlist policy for zpool binary.

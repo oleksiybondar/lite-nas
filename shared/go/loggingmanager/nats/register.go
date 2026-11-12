@@ -29,6 +29,7 @@ func RegisterRPCHandlers(
 	handlers := []rpcRegistration{
 		{subject: subjects.GetAlertsRPCSubject, handler: handleGetAlertsRPC(core)},
 		{subject: subjects.GetAlertRPCSubject, handler: handleGetAlertRPC(core)},
+		{subject: subjects.GetAlertOccurrencesRPCSubject, handler: handleGetAlertOccurrencesRPC(core)},
 		{subject: subjects.GetActiveAlertsRPCSubject, handler: handleGetActiveAlertsRPC(core)},
 		{subject: subjects.GetUnacknowledgedActiveAlertsRPCSubject, handler: handleGetUnacknowledgedActiveAlertsRPC(core)},
 		{subject: subjects.UpdateAlertStateRPCSubject, handler: handleUpdateAlertStateRPC(core)},

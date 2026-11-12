@@ -1,0 +1,46 @@
+[Unit]
+Description=LiteNAS operational safety automation service
+After=network-online.target nats-server.service lite-nas-system-logging-manager.service lite-nas-before-startup.service
+Wants=network-online.target
+Requires=nats-server.service lite-nas-before-startup.service
+
+[Service]
+Type=simple
+User=lite-nas-ops-automation
+Group=lite-nas-ops-automation
+SupplementaryGroups=lite-nas lite-nas-security lite-nas-operator
+ExecStart=/usr/libexec/lite-nas/operational-safety-automation
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/
+NoNewPrivileges=no
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=no
+ProtectProc=invisible
+ProtectSystem=strict
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1
+IPAddressAllow=::1
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+UMask=0027
+ReadOnlyPaths=/etc/lite-nas/operational-safety-automation.conf /etc/lite-nas/operational-safety-automation /etc/lite-nas/certificates/transport /etc/lite-nas/certificates/auth
+ReadWritePaths=/var/log/lite-nas/operational-safety-automation.log /var/lib/lite-nas/operational-safety-automation -/sys/devices/system/cpu/cpufreq -/run/sudo -/var/lib/sudo -/var/db/sudo
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

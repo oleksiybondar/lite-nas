@@ -1,0 +1,19 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/system-service-monitor flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+  include <abstractions/lite-nas-auth-client>
+
+  /usr/libexec/lite-nas/system-service-monitor mr,
+  /etc/lite-nas/system-service-monitor.conf r,
+  /var/log/lite-nas/system-service-monitor.log rw,
+  /usr/bin/systemctl ix,
+  /run/systemd/** rw,
+  /run/dbus/system_bus_socket rw,
+  dbus (send, receive) bus=system peer=(name="org.freedesktop.systemd1"),
+
+  include if exists <local/usr.libexec.lite-nas.system-service-monitor>
+}

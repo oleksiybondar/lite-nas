@@ -24,6 +24,11 @@ PROFILE_CA["system-metrics-cli"]="/etc/lite-nas/certificates/transport/root-ca.c
 PROFILE_CERT["system-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-system-metrics-cli/client.crt"
 PROFILE_KEY["system-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-system-metrics-cli/client.key"
 
+PROFILE_SERVER["network-metrics-cli"]="tls://127.0.0.1:4222"
+PROFILE_CA["network-metrics-cli"]="/etc/lite-nas/certificates/transport/root-ca.crt"
+PROFILE_CERT["network-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-network-metrics-cli/client.crt"
+PROFILE_KEY["network-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-network-metrics-cli/client.key"
+
 PROFILE_SERVER["auth-service"]="tls://127.0.0.1:4222"
 PROFILE_CA["auth-service"]="/etc/lite-nas/certificates/transport/root-ca.crt"
 PROFILE_CERT["auth-service"]="/etc/lite-nas/certificates/transport/lite-nas-auth-service/client.crt"
@@ -50,7 +55,7 @@ PROFILE_CERT["zfs-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-z
 PROFILE_KEY["zfs-metrics-cli"]="/etc/lite-nas/certificates/transport/lite-nas-zfs-metrics-cli/client.key"
 
 supported_subscriptions=(
-	"system.metrics.events.stats"
+	"system.metrics.events.snapshot"
 	"system.metrics.rpc.stats.get"
 	"system.metrics.rpc.history.get"
 	"auth.rpc.login"
@@ -80,6 +85,8 @@ supported_subscriptions=(
 	"zfs.metrics.events.snapshot"
 	"zfs.metrics.rpc.snapshot.get"
 	"zfs.metrics.rpc.history.get"
+	"network.metrics.rpc.snapshot.get"
+	"network.metrics.rpc.history.get"
 )
 
 for subject in "${supported_subscriptions[@]}"; do
@@ -112,6 +119,8 @@ SUBJECT_PROFILE["security-logging-manager.muteAlert"]="security-logging-manager-
 SUBJECT_PROFILE["zfs.metrics.events.snapshot"]="zfs-metrics-cli"
 SUBJECT_PROFILE["zfs.metrics.rpc.snapshot.get"]="zfs-metrics-cli"
 SUBJECT_PROFILE["zfs.metrics.rpc.history.get"]="zfs-metrics-cli"
+SUBJECT_PROFILE["network.metrics.rpc.snapshot.get"]="network-metrics-cli"
+SUBJECT_PROFILE["network.metrics.rpc.history.get"]="network-metrics-cli"
 
 usage() {
 	cat <<'MSG'
@@ -130,11 +139,12 @@ Options:
   -h, --help               Show this help.
 
 Examples:
-  scripts/nats-test-subscribe.sh --subscription system.metrics.events.stats
+  scripts/nats-test-subscribe.sh --subscription system.metrics.events.snapshot
   scripts/nats-test-subscribe.sh --subscription auth.events.lockdown.changed --profile auth-service
 
 Profiles:
   - system-metrics-cli
+  - network-metrics-cli
   - auth-service
   - system-logging-manager-cli
   - security-logging-manager-cli
@@ -142,7 +152,7 @@ Profiles:
   - zfs-metrics-cli
 
 Supported subscriptions:
-  - system.metrics.events.stats
+  - system.metrics.events.snapshot
   - system.metrics.rpc.stats.get
   - system.metrics.rpc.history.get
   - auth.rpc.login
@@ -172,6 +182,8 @@ Supported subscriptions:
   - zfs.metrics.events.snapshot
   - zfs.metrics.rpc.snapshot.get
   - zfs.metrics.rpc.history.get
+  - network.metrics.rpc.snapshot.get
+  - network.metrics.rpc.history.get
 MSG
 }
 

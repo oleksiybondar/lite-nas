@@ -1,0 +1,25 @@
+{
+  "name": "@lite-nas/file-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./schemas": "./schemas.ts",
+    "./paths": "./paths.ts",
+    "./file-service": "./file-service.ts",
+    "./FileExplorerContext": "./FileExplorerContext.tsx",
+    "./ExplorerPanel": "./ExplorerPanel.tsx",
+    "./FileEntryItem": "./FileEntryItem.tsx",
+    "./FileEntryIcon": "./FileEntryIcon.tsx"
+  },
+  "dependencies": {
+    "@lite-nas/formatting": "file:../formatting",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@mui/icons-material": "^7.3.9",
+    "@mui/material": "^7.3.9",
+    "react": "^18.3.1"
+  }
+}

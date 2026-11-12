@@ -43,6 +43,7 @@ export const useAlertsCount = (
       return alertCountResponseSchema.parse(responseJson).data;
     },
     queryKey: getAlertsCountQueryKey(alertDomain),
+    refetchOnWindowFocus: true,
     refetchInterval,
   });
 };

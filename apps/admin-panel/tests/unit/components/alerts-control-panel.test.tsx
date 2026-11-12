@@ -1,10 +1,11 @@
 import { AlertsControlPanel } from "@components/alerts/AlertsControlPanel";
 import { AlertsControlPanelPagination } from "@components/alerts/AlertsControlPanel/AlertsControlPanelPagination";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import {
   AlertsProvidersTestHarness,
   createAlertsContextValue,
 } from "@tests/unit/test-utils/alerts";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 
 describe("AlertsControlPanel", () => {

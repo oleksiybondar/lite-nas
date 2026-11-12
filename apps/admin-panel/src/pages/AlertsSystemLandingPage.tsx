@@ -1,4 +1,5 @@
 import { CategoryLandingPage } from "@components/navigation/CategoryLandingPage";
+import { useLanguage } from "@lite-nas/language";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 import TableRowsIcon from "@mui/icons-material/TableRows";
@@ -8,32 +9,32 @@ import type { ReactElement } from "react";
  * Landing page for system alert dashboards.
  */
 export const AlertsSystemLandingPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <CategoryLandingPage
       cards={[
         {
-          description: "System alerts that still need acknowledgement from an operator.",
+          description: getLabel("admin.landing.systemAlertsUnacknowledged"),
           icon: <NotificationImportantIcon />,
           path: "/alerts/system/unacknowledged",
-          title: "Unacknowledged alerts",
+          title: getLabel("navigation.Unacknowledged alerts"),
         },
         {
-          description: "Currently active system alerts that still affect runtime operations.",
+          description: getLabel("admin.landing.systemAlertsActive"),
           icon: <PrivacyTipIcon />,
           path: "/alerts/system/active",
-          title: "Active alerts",
+          title: getLabel("navigation.Active alerts"),
         },
         {
-          description:
-            "Full system alert history across acknowledged, cleared, and active entries.",
+          description: getLabel("admin.landing.systemAlertsHistory"),
           icon: <TableRowsIcon />,
           path: "/alerts/system/all",
-          title: "All alerts",
+          title: getLabel("navigation.All alerts"),
         },
       ]}
-      overline="Alerts"
-      summary="Inspect system alert queues by lifecycle state, from immediate operator action to complete history."
-      title="System"
+      overline={getLabel("navigation.Alerts")}
+      summary={getLabel("admin.landing.systemAlertsSummary")}
+      title={getLabel("navigation.System")}
     />
   );
 };

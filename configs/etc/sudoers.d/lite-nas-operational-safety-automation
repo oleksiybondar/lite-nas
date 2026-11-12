@@ -1,0 +1,3 @@
+# Only the fixed root-validating CPU cap helper may run as root.
+lite-nas-ops-automation ALL=(root) NOPASSWD: /usr/libexec/lite-nas/operational-safety-automation cpu-cap-helper *
+lite-nas-ops-automation ALL=(root) NOPASSWD: /usr/libexec/lite-nas/operational-safety-automation manual-cpu-cap-helper *

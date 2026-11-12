@@ -1,44 +1,45 @@
 import { MonitoringPollingSettingsCard } from "@components/monitoring/MonitoringPollingSettingsCard";
+import { MonitoringSettingsTabs } from "@components/monitoring/MonitoringSettingsTabs";
+import { useLanguage } from "@lite-nas/language";
+import { PreferencesPageHeader } from "@lite-nas/settings";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import type { ReactElement } from "react";
 
 /**
- * Preferences page for monitoring polling behavior used by telemetry pages.
+ * Preferences page for metrics-oriented monitoring polling behavior.
  */
 export const PreferencesMonitoringSettingsPage = (): ReactElement => {
+  const { getLabel } = useLanguage();
   return (
     <Stack data-testid="preferences-monitoring-settings-page" maxWidth="720px" spacing={3}>
-      <Stack data-testid="preferences-monitoring-settings-header" spacing={1}>
-        <Typography
-          color="primary"
-          data-testid="preferences-monitoring-settings-overline"
-          variant="overline"
-        >
-          Preferences
-        </Typography>
-        <Typography data-testid="preferences-monitoring-settings-title" variant="h1">
-          Monitoring
-        </Typography>
-        <Typography
-          color="text.secondary"
-          data-testid="preferences-monitoring-settings-summary"
-          variant="body1"
-        >
-          Configure how telemetry charts bootstrap history, poll live updates, and retain cached
-          points in this browser.
-        </Typography>
+      <PreferencesPageHeader
+        testIdPrefix="preferences-monitoring-settings"
+        title={getLabel("navigation.Monitoring")}
+        summary={getLabel("admin.landing.monitoringPageSummary")}
+      />
+      <MonitoringSettingsTabs value="metrics" />
+      <Stack data-testid="preferences-monitoring-settings-performance-section" spacing={2}>
+        <MonitoringPollingSettingsCard
+          description={getLabel("admin.landing.pollSystem")}
+          storageKey="system-metrics"
+          title={getLabel("admin.landing.systemMetrics")}
+        />
+        <MonitoringPollingSettingsCard
+          description={getLabel("admin.landing.pollNetwork")}
+          storageKey="network-metrics"
+          title={getLabel("admin.landing.networkMetrics")}
+        />
+        <MonitoringPollingSettingsCard
+          description={getLabel("admin.landing.pollDisk")}
+          storageKey="disk-metrics"
+          title={getLabel("admin.landing.diskMetrics")}
+        />
+        <MonitoringPollingSettingsCard
+          description={getLabel("admin.landing.pollZfs")}
+          storageKey="zfs-metrics"
+          title={getLabel("admin.landing.zfsMetrics")}
+        />
       </Stack>
-      <MonitoringPollingSettingsCard
-        description="Polling settings used by host CPU and memory telemetry views."
-        storageKey="system-metrics"
-        title="System metrics"
-      />
-      <MonitoringPollingSettingsCard
-        description="Polling settings used by ZFS pool and storage telemetry views."
-        storageKey="zfs-metrics"
-        title="ZFS metrics"
-      />
     </Stack>
   );
 };

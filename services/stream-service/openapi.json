@@ -1,0 +1,120 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LiteNAS Stream Service API",
+    "version": "0.1.0",
+    "description": "Authorized original media, video transcoding, and HEIC/HEIF previews. The absolutePath parameter is the host path without its leading slash; preserve its slash separators in the URL."
+  },
+  "servers": [{ "url": "/", "description": "Same-origin LiteNAS Nginx" }],
+  "components": {
+    "securitySchemes": {
+      "accessCookie": { "type": "apiKey", "in": "cookie", "name": "lite-nas-at" },
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "parameters": {
+      "absolutePath": {
+        "name": "absolutePath",
+        "in": "path",
+        "required": true,
+        "description": "Absolute host path without the leading slash, for example home/alice/movie.mov.",
+        "schema": { "type": "string", "minLength": 1 }
+      },
+      "range": {
+        "name": "Range",
+        "in": "header",
+        "description": "One byte range for the original media route.",
+        "schema": { "type": "string", "example": "bytes=0-1023" }
+      }
+    },
+    "responses": {
+      "unauthorized": { "description": "Missing or invalid access token" },
+      "notFound": { "description": "Missing, denied, or out-of-scope source file" },
+      "unavailable": {
+        "description": "Authentication, authorization, storage, or conversion dependency unavailable"
+      }
+    }
+  },
+  "security": [{ "accessCookie": [] }, { "bearerAuth": [] }],
+  "paths": {
+    "/s/{absolutePath}": {
+      "parameters": [{ "$ref": "#/components/parameters/absolutePath" }],
+      "get": {
+        "operationId": "getOriginal",
+        "summary": "Stream original media",
+        "parameters": [{ "$ref": "#/components/parameters/range" }],
+        "responses": {
+          "200": {
+            "description": "Original bytes",
+            "content": {
+              "application/octet-stream": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "206": { "description": "Requested byte range" },
+          "400": { "description": "Invalid path" },
+          "401": { "$ref": "#/components/responses/unauthorized" },
+          "404": { "$ref": "#/components/responses/notFound" },
+          "416": { "description": "Invalid or unsatisfiable byte range" },
+          "503": { "$ref": "#/components/responses/unavailable" }
+        }
+      },
+      "head": {
+        "operationId": "headOriginal",
+        "summary": "Read original media headers",
+        "parameters": [{ "$ref": "#/components/parameters/range" }],
+        "responses": {
+          "200": { "description": "Original media headers" },
+          "206": { "description": "Requested byte range headers" },
+          "400": { "description": "Invalid path" },
+          "401": { "$ref": "#/components/responses/unauthorized" },
+          "404": { "$ref": "#/components/responses/notFound" },
+          "416": { "description": "Invalid or unsatisfiable byte range" },
+          "503": { "$ref": "#/components/responses/unavailable" }
+        }
+      }
+    },
+    "/s/preview/{absolutePath}": {
+      "parameters": [{ "$ref": "#/components/parameters/absolutePath" }],
+      "get": {
+        "operationId": "getPreview",
+        "summary": "Convert a HEIC or HEIF still to JPEG",
+        "responses": {
+          "200": {
+            "description": "JPEG preview",
+            "content": { "image/jpeg": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "400": { "description": "Invalid path or unsupported Range header" },
+          "401": { "$ref": "#/components/responses/unauthorized" },
+          "404": { "$ref": "#/components/responses/notFound" },
+          "422": { "description": "Source cannot be converted" },
+          "503": { "$ref": "#/components/responses/unavailable" }
+        }
+      }
+    },
+    "/s/transcode/{absolutePath}": {
+      "parameters": [{ "$ref": "#/components/parameters/absolutePath" }],
+      "get": {
+        "operationId": "getTranscodedVideo",
+        "summary": "Transcode video to fragmented MP4",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Start offset in whole seconds.",
+            "schema": { "type": "integer", "minimum": 0, "maximum": 86400, "default": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fragmented H.264/AAC MP4 stream",
+            "content": { "video/mp4": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "400": { "description": "Invalid path, start, or HEIC seek" },
+          "401": { "$ref": "#/components/responses/unauthorized" },
+          "404": { "$ref": "#/components/responses/notFound" },
+          "422": { "description": "Source cannot be transcoded" },
+          "503": { "$ref": "#/components/responses/unavailable" }
+        }
+      }
+    }
+  }
+}

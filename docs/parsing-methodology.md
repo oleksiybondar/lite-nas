@@ -23,8 +23,9 @@ This methodology applies to:
 
 - CLI output parsers, including `zpool` and `zfs` outputs used for metrics and
   diagnostics snapshots.
-- Configuration parsers used by hardening and compliance workflows, including
-  domains such as `sshd`, `pam`, `ufw`, `aide`, `usbguard`, and similar tools.
+- Configuration parsers needed by implemented service boundaries. OpenSCAP
+  handles compliance assessment; LiteNAS does not require custom benchmark
+  parsers for that purpose.
 
 ## Rationale
 

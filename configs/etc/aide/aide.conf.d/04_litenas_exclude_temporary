@@ -1,0 +1,4 @@
+# Temporary directories contain mutable runtime data, not system baseline files.
+-/tmp
+-/temp
+-/var/tmp

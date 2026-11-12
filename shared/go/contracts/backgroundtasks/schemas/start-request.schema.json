@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lite-nas.local/contracts/backgroundtasks/start-request.schema.json",
+  "title": "Background task start request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_type", "parameters"],
+  "properties": {
+    "task_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "parameters": { "type": "object" }
+  }
+}

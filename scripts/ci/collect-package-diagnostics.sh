@@ -107,8 +107,12 @@ for unit in \
 	lite-nas-system-email-notifier \
 	lite-nas-security-email-notifier \
 	lite-nas-system-metrics \
+	lite-nas-disk-metrics \
+	lite-nas-service-metrics \
 	lite-nas-zfs-metrics \
 	lite-nas-web-gateway \
+	lite-nas-file-service \
+	lite-nas-stream-service \
 	lite-nas-resources-monitor; do
 	write_root_output "systemctl-status-${unit}.txt" systemctl status "$unit"
 	write_root_output "journalctl-${unit}.txt" journalctl -u "$unit" --no-pager -n 400

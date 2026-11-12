@@ -1,0 +1,13 @@
+Name: LiteNAS account lockout precheck
+Default: no
+Priority: 2048
+Auth-Type: Primary
+Auth:
+	requisite pam_faillock.so preauth
+Auth-Initial:
+	requisite pam_faillock.so preauth
+Account-Type: Primary
+Account:
+	required pam_faillock.so
+Account-Initial:
+	required pam_faillock.so

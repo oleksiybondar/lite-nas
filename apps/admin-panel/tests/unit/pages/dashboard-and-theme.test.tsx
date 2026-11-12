@@ -1,5 +1,7 @@
 import { App } from "@app/App";
+import { RbacContext } from "@contexts/rbac-context";
 import { ThemeManagerContext } from "@contexts/theme-manager-context";
+import type { RbacContextValue } from "@dto/rbac/rbac";
 import {
   buildMonitoringPollingSettingsStorageKey,
   loadMonitoringPollingSettings,
@@ -8,15 +10,20 @@ import { DashboardPage } from "@pages/DashboardPage";
 import { PreferencesApplicationSettingsPage } from "@pages/PreferencesApplicationSettingsPage";
 import { PreferencesLandingPage } from "@pages/PreferencesLandingPage";
 import { PreferencesMonitoringSettingsPage } from "@pages/PreferencesMonitoringSettingsPage";
+import { PreferencesProcessesPollingSettingsPage } from "@pages/PreferencesProcessesPollingSettingsPage";
 import { PreferencesProfilePage } from "@pages/PreferencesProfilePage";
 import { PreferencesThemeSettingsPage } from "@pages/PreferencesThemeSettingsPage";
 import { SystemLandingPage } from "@pages/SystemLandingPage";
 import { SystemPerformanceLandingPage } from "@pages/SystemPerformanceLandingPage";
-import { SystemSensorsLandingPage } from "@pages/SystemSensorsLandingPage";
+import { SystemProcessesLandingPage } from "@pages/SystemProcessesLandingPage";
 import { AppProviders } from "@providers/AppProviders";
 import { AppThemeProvider } from "@providers/AppThemeProvider";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryProvider } from "@providers/QueryProvider";
+import { router } from "@routes/router";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { renderWithLanguage as render } from "@tests/unit/test-utils/language";
 import { selectMuiOption } from "@tests/unit/test-utils/mui";
+import { TestProfileBoundary } from "@tests/unit/test-utils/profile-boundary";
 import { responseWithJson, responseWithStatus } from "@tests/unit/test-utils/responses";
 import { TestMemoryRouter } from "@tests/unit/test-utils/router";
 import { renderWithThemeManager } from "@tests/unit/test-utils/theme-manager";
@@ -26,6 +33,14 @@ import { getComponentOverrides } from "@theme/mui/components";
 import type { PropsWithChildren, ReactElement } from "react";
 import { useState } from "react";
 
+const adminRbac: RbacContextValue = {
+  roles: ["admin"],
+  scopes: [],
+  requireAdmin: () => true,
+  requireOperator: () => true,
+  requireSecurity: () => true,
+};
+
 const categoryLandingPageCases = [
   {
     cardName: "Performance",
@@ -33,6 +48,14 @@ const categoryLandingPageCases = [
   },
   {
     cardName: "Sensors",
+    page: <SystemLandingPage />,
+  },
+  {
+    cardName: "Automation",
+    page: <SystemLandingPage />,
+  },
+  {
+    cardName: "Processes",
     page: <SystemLandingPage />,
   },
   {
@@ -52,24 +75,12 @@ const categoryLandingPageCases = [
     page: <SystemPerformanceLandingPage />,
   },
   {
-    cardName: "Temperature",
-    page: <SystemSensorsLandingPage />,
+    cardName: "Processes",
+    page: <SystemProcessesLandingPage />,
   },
   {
-    cardName: "Voltage",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Clock",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Throttling",
-    page: <SystemSensorsLandingPage />,
-  },
-  {
-    cardName: "Fan",
-    page: <SystemSensorsLandingPage />,
+    cardName: "Services",
+    page: <SystemProcessesLandingPage />,
   },
   {
     cardName: "User profile",
@@ -90,28 +101,42 @@ const categoryLandingPageCases = [
 ];
 
 describe("dashboard page", () => {
-  test("renders the initial dashboard sections", () => {
-    renderWithThemeManager(<DashboardPage />);
+  test.each([{ kind: "cpu" }, { kind: "ram" }, { kind: "zfs-io" }, { kind: "zfs-errors" }])(
+    "renders the default $kind dashboard widget",
+    ({ kind }) => {
+      const { container } = renderWithThemeManager(
+        <TestMemoryRouter>
+          <QueryProvider>
+            <DashboardPage />
+          </QueryProvider>
+        </TestMemoryRouter>,
+      );
 
-    expect(screen.getByRole("heading", { name: "LiteNAS operations" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "System Metrics" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Access" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Services" })).toBeInTheDocument();
-  });
+      expect(
+        container.querySelector(`[data-test-class="dashboard-widget"][data-test-name="${kind}"]`),
+      ).toBeInTheDocument();
+    },
+  );
 });
 
 describe("category landing pages", () => {
   test.each(categoryLandingPageCases)("renders $cardName category card", ({ cardName, page }) => {
-    render(<TestMemoryRouter>{page}</TestMemoryRouter>);
+    render(
+      <RbacContext.Provider value={adminRbac}>
+        <TestMemoryRouter>{page}</TestMemoryRouter>
+      </RbacContext.Provider>,
+    );
 
-    expect(screen.getByRole("heading", { name: cardName })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: cardName }).length).toBeGreaterThan(0);
   });
 
   test("renders category cards as full-card links", () => {
     render(
-      <TestMemoryRouter>
-        <SystemLandingPage />
-      </TestMemoryRouter>,
+      <RbacContext.Provider value={adminRbac}>
+        <TestMemoryRouter>
+          <SystemLandingPage />
+        </TestMemoryRouter>
+      </RbacContext.Provider>,
     );
 
     expect(screen.getByRole("link", { name: /Performance/ })).toHaveAttribute(
@@ -119,13 +144,38 @@ describe("category landing pages", () => {
       "/system/performance",
     );
   });
+
+  test("hides system automation from non-administrators", () => {
+    render(
+      <RbacContext.Provider value={{ ...adminRbac, roles: [], requireAdmin: () => false }}>
+        <TestMemoryRouter>
+          <SystemLandingPage />
+        </TestMemoryRouter>
+      </RbacContext.Provider>,
+    );
+
+    expect(screen.queryByRole("link", { name: /Automation/ })).not.toBeInTheDocument();
+  });
 });
 
-describe("preferences pages", () => {
+describe("preferences page rendering", () => {
   test("renders the profile preferences page", () => {
     renderWithThemeManager(<PreferencesProfilePage />);
 
     expect(screen.getByRole("heading", { name: "User profile" })).toBeInTheDocument();
+  });
+
+  test("links account security from preferences", () => {
+    renderWithThemeManager(
+      <TestMemoryRouter>
+        <PreferencesLandingPage />
+      </TestMemoryRouter>,
+    );
+
+    expect(screen.getByRole("link", { name: /Security/ })).toHaveAttribute(
+      "href",
+      "/preferences/security",
+    );
   });
 
   test("renders the application settings preferences page", () => {
@@ -143,7 +193,9 @@ describe("preferences pages", () => {
 
     expect(screen.getByRole("heading", { name: "Theme" })).toBeInTheDocument();
   });
+});
 
+describe("theme settings persistence", () => {
   test("persists changed theme settings on apply", () => {
     window.localStorage.clear();
     render(
@@ -157,32 +209,137 @@ describe("preferences pages", () => {
 
     expect(loadThemeSettings().source).toBe("os");
   });
+});
 
-  test("persists changed monitoring settings for one resource scope on apply", () => {
-    window.localStorage.clear();
+test("persists changed monitoring settings for one resource scope on apply", () => {
+  window.localStorage.clear();
 
-    render(<PreferencesMonitoringSettingsPage />);
+  render(
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesMonitoringSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
+  );
 
-    const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
+  const systemMetricsCard = screen.getByTestId("monitoring-settings-card-system-metrics");
 
-    fireEvent.mouseDown(within(systemMetricsCard).getByRole("combobox", { name: "Polling mode" }));
-    fireEvent.click(screen.getByRole("option", { name: "Snapshot" }));
-    fireEvent.change(within(systemMetricsCard).getByRole("spinbutton", { name: "Max records" }), {
-      target: { value: "180" },
-    });
-    fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-system-metrics"));
+  fireEvent.mouseDown(within(systemMetricsCard).getByRole("combobox", { name: "Polling mode" }));
+  fireEvent.click(screen.getByRole("option", { name: "History" }));
+  fireEvent.change(
+    within(systemMetricsCard).getByRole("spinbutton", { name: "History interval (ms)" }),
+    {
+      target: { value: "20000" },
+    },
+  );
+  fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-system-metrics"));
 
-    expect(loadMonitoringPollingSettings("system-metrics")).toEqual({
+  expect(loadMonitoringPollingSettings("system-metrics")).toEqual({
+    historyIntervalMs: 20000,
+    historyResetGapMs: 10000,
+    maxRecords: 180,
+    mode: "history",
+    snapshotIntervalMs: 1000,
+  });
+  expect(
+    window.localStorage.getItem(buildMonitoringPollingSettingsStorageKey("zfs-metrics")),
+  ).toBeNull();
+});
+
+test("persists changed processes polling settings using interval-only cards", () => {
+  window.localStorage.clear();
+
+  render(
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesProcessesPollingSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
+  );
+
+  fireEvent.change(
+    within(screen.getByTestId("monitoring-settings-card-service-metrics")).getByRole("spinbutton", {
+      name: "Snapshot interval (ms)",
+    }),
+    {
+      target: { value: "18000" },
+    },
+  );
+  fireEvent.click(screen.getByTestId("monitoring-settings-apply-button-service-metrics"));
+
+  expect(loadMonitoringPollingSettings("service-metrics")).toEqual({
+    historyIntervalMs: 1,
+    historyResetGapMs: 1,
+    maxRecords: 1,
+    mode: "snapshot",
+    snapshotIntervalMs: 18000,
+  });
+});
+
+test("renders process and service polling defaults on the dedicated processes page", () => {
+  window.localStorage.clear();
+
+  render(
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesProcessesPollingSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
+  );
+
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-process-metrics")).getByRole("spinbutton", {
+      name: "Snapshot interval (ms)",
+    }),
+  ).toHaveValue(5000);
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-service-metrics")).getByRole("spinbutton", {
+      name: "Snapshot interval (ms)",
+    }),
+  ).toHaveValue(15000);
+});
+
+test("renders persisted monitoring polling modes in the correct resource cards", () => {
+  window.localStorage.clear();
+  window.localStorage.setItem(
+    buildMonitoringPollingSettingsStorageKey("system-metrics"),
+    JSON.stringify({
+      historyIntervalMs: 20000,
+      historyResetGapMs: 10000,
+      maxRecords: 180,
+      mode: "history",
+      snapshotIntervalMs: 1000,
+    }),
+  );
+  window.localStorage.setItem(
+    buildMonitoringPollingSettingsStorageKey("network-metrics"),
+    JSON.stringify({
       historyIntervalMs: 15000,
       historyResetGapMs: 10000,
       maxRecords: 180,
       mode: "snapshot",
       snapshotIntervalMs: 1000,
-    });
-    expect(
-      window.localStorage.getItem(buildMonitoringPollingSettingsStorageKey("zfs-metrics")),
-    ).toBeNull();
-  });
+    }),
+  );
+
+  render(
+    <TestProfileBoundary>
+      <TestMemoryRouter>
+        <PreferencesMonitoringSettingsPage />
+      </TestMemoryRouter>
+    </TestProfileBoundary>,
+  );
+
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-system-metrics")).getByRole("combobox", {
+      name: "Polling mode",
+    }),
+  ).toHaveTextContent("History");
+  expect(
+    within(screen.getByTestId("monitoring-settings-card-network-metrics")).getByRole("combobox", {
+      name: "Polling mode",
+    }),
+  ).toHaveTextContent("Snapshot");
 });
 
 describe("theme creation", () => {
@@ -204,8 +361,14 @@ describe("theme creation", () => {
   });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: these app-shell checks share the router navigation stub and cleanup.
 describe("application providers", () => {
+  beforeEach(() => {
+    vi.spyOn(router, "navigate").mockResolvedValue(undefined);
+  });
+
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -231,14 +394,19 @@ describe("application providers", () => {
     expect(screen.getByText("Themed child")).toBeInTheDocument();
   });
 
-  test("renders login from the app shell for anonymous sessions", async () => {
+  test("the app shell redirects anonymous sessions to login", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(responseWithStatus(401)));
 
     await act(async () => {
       render(<App />);
     });
 
-    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(router.navigate).toHaveBeenCalledWith(
+        expect.objectContaining({ pathname: "/login" }),
+        expect.objectContaining({ replace: true, state: { from: "/" } }),
+      ),
+    );
   });
 
   test("renders dashboard from the app shell for authenticated sessions", async () => {
@@ -326,7 +494,7 @@ const StatefulThemeManagerProvider = ({ children }: PropsWithChildren): ReactEle
         templateName: settings.templateName,
       }}
     >
-      {children}
+      <TestProfileBoundary>{children}</TestProfileBoundary>
     </ThemeManagerContext.Provider>
   );
 };

@@ -18,10 +18,19 @@ import { ValueLineChartSvg } from "./ValueLineChartSvg";
  */
 export const ValueLineChart = ({
   capacity,
+  colorStops,
   formatValue = formatValueLineChartValue,
+  guideStops,
   stamps,
   valuesByKey,
 }: ValueLineChartProps): ReactElement => {
+  const minimumMaximum = Math.max(
+    0,
+    ...(colorStops ?? []).map((stop) => stop.value),
+    ...(guideStops ?? [])
+      .filter((stop) => stop.showBar || stop.showLabel)
+      .map((stop) => stop.value),
+  );
   if (!hasValueLineChartData(valuesByKey, stamps)) {
     return (
       <Typography color="text.secondary" data-testid="value-line-chart-empty" variant="body2">
@@ -39,11 +48,13 @@ export const ValueLineChart = ({
       <ValueLineChartSvg
         axisLabels={buildValueLineChartAxisLabels(stamps, capacity)}
         capacity={capacity}
+        colorStops={colorStops}
         formatValue={formatValue}
-        lines={buildValueLineChartLines(valuesByKey, capacity)}
+        guideStops={guideStops}
+        lines={buildValueLineChartLines(valuesByKey, capacity, minimumMaximum)}
         stamps={stamps}
         valuesByKey={valuesByKey}
-        yAxisLabels={buildValueLineChartYAxisLabels(valuesByKey, formatValue)}
+        yAxisLabels={buildValueLineChartYAxisLabels(valuesByKey, formatValue, minimumMaximum)}
       />
     </>
   );

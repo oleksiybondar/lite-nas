@@ -9,6 +9,7 @@ import (
 	sharedlogger "lite-nas/shared/logger"
 	"lite-nas/shared/messaging"
 	"lite-nas/shared/metrics"
+	sharedworkers "lite-nas/shared/workers"
 )
 
 const (
@@ -54,13 +55,17 @@ func run(ctx context.Context) error {
 
 	infra.Logger.Info("system metrics service started", "config", packagedConfigPath)
 
-	return serveSnapshots(
-		ctx,
-		channels.SystemSnapshots,
-		stateModule.SnapshotStore,
-		infra.Client,
-		infra.Logger,
-	)
+	publisherDone := make(chan error, 1)
+	sharedworkers.NewBaseWorker(func(workerCtx context.Context) {
+		publisherDone <- serveSnapshots(
+			workerCtx,
+			channels.SystemSnapshots,
+			stateModule.SnapshotStore,
+			infra.Client,
+			infra.Logger,
+		)
+	}).Start(ctx)
+	return <-publisherDone
 }
 
 // startWorkers starts the polling and processing workers for the service

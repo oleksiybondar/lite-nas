@@ -257,6 +257,25 @@ service-to-service communication between LiteNAS internal services.
 
 ---
 
+### FR-009 Issue scoped caption job grants
+
+#### FR-009 Description
+
+The Auth Service MUST issue a seven-day opaque grant only for an authenticated
+Moments caption job. The grant is valid only for File Service reads of the fixed
+gallery file list and survives Auth Service restart.
+
+#### FR-009 Acceptance Criteria
+
+- Issuance requires a valid user access token and a bounded list of file hashes
+- File Service validates each requested path online before applying the user's
+  current RBAC and filesystem permissions
+- The grant cannot authenticate other LiteNAS APIs or mutate files
+- Logout does not revoke an active job grant; job completion or cancellation does
+- The secret is stored only as a hash in Auth Service durable state
+
+---
+
 ## Interface Requirements
 
 ### IR-001 Expose auth request/reply contracts over NATS

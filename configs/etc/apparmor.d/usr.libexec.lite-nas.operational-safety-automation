@@ -1,0 +1,39 @@
+abi <abi/4.0>,
+
+include <tunables/global>
+
+profile /usr/libexec/lite-nas/operational-safety-automation flags=(attach_disconnected,mediate_deleted) {
+  include <abstractions/lite-nas-go-base>
+  include <abstractions/lite-nas-nats-client>
+  include <abstractions/lite-nas-auth-client>
+  include <abstractions/authentication>
+
+  # sudo and the root helper inherit this profile during CPU cap changes.
+  capability setuid,
+  capability setgid,
+
+  /usr/libexec/lite-nas/operational-safety-automation mrix,
+  /etc/lite-nas/operational-safety-automation.conf r,
+  /etc/lite-nas/operational-safety-automation/rules.json r,
+  /var/log/lite-nas/operational-safety-automation.log rw,
+  /var/lib/lite-nas/operational-safety-automation/event-ids/ rw,
+  /var/lib/lite-nas/operational-safety-automation/event-ids/** rwk,
+  /sys/devices/system/cpu/cpufreq/ r,
+  /sys/devices/system/cpu/cpufreq/policy[0-9]*/ r,
+  /sys/devices/system/cpu/cpufreq/policy[0-9]*/{scaling_min_freq,cpuinfo_min_freq,cpuinfo_max_freq} r,
+  /sys/devices/system/cpu/cpufreq/policy[0-9]*/scaling_max_freq rw,
+
+  /usr/bin/sudo ix,
+  /usr/lib/cargo/bin/sudo ix,
+  /usr/lib/sudo/** mr,
+  /usr/libexec/sudo/** mr,
+  /etc/sudo.conf r,
+  /etc/sudoers r,
+  /etc/sudoers.d/ r,
+  /etc/sudoers.d/** r,
+  /run/sudo/** rwk,
+  /var/db/sudo/** rwk,
+  /var/lib/sudo/** rwk,
+
+  include if exists <local/usr.libexec.lite-nas.operational-safety-automation>
+}

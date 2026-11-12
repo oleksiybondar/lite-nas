@@ -9,12 +9,12 @@ import (
 )
 
 func handleAcknowledgeAlertRPC(core *sharedloggingmanager.Core) sharedmessaging.RPCHandler {
-	return func(_ context.Context, envelope sharedmessaging.Envelope) (any, error) {
+	return func(ctx context.Context, envelope sharedmessaging.Envelope) (any, error) {
 		input, err := decodePayload[loggingmanagercontract.AcknowledgeAlertInput](envelope)
 		if err != nil {
 			return nil, err
 		}
-		if core.AcknowledgeEvent(input.ToDTO()) == nil {
+		if core.AcknowledgeEvent(ctx, input.ToDTO()) == nil {
 			return loggingmanagercontract.OKResponse{OK: true}, nil
 		}
 		return loggingmanagercontract.OKResponse{OK: false}, nil

@@ -17,7 +17,6 @@ deploy.ufw.requireTools() {
 		install
 		sed
 		sort
-		yes
 	)
 
 	for tool in "${tools[@]}"; do
@@ -44,7 +43,7 @@ deploy.ufw.installConfig() {
 deploy.ufw.deleteNumberedRule() {
 	local rule_number="$1"
 
-	yes | ufw delete "$rule_number" >/dev/null
+	ufw --force delete "$rule_number" >/dev/null
 }
 
 deploy.ufw.removeAllowRulesForPort() {

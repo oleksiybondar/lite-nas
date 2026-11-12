@@ -1,0 +1,5 @@
+# ZFS datasets mounted below /tank are storage endpoints, not host system paths.
+-/tank
+# Removable and manually mounted filesystems are outside the host system baseline.
+-/media
+-/mnt

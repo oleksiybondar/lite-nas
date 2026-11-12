@@ -2,7 +2,7 @@
 
 ## Purpose and Scope
 
-LiteNAS will include two logging-manager services:
+LiteNAS includes two logging-manager services:
 
 - `security-logging-manager`
 - `system-logging-manager`
@@ -13,15 +13,10 @@ different operational domains and own separate data flows.
 In the current implementation, logging managers are primarily alert consumers
 that keep a more user-friendly, state-based view of alert data.
 
-Dedicated monitoring services act as alert sources. Today, that means
-`resources-monitor` consumes metrics events and emits alert lifecycle updates.
-Traditional stateless operational events still exist in log files as a
-separate source of detail.
-
-The system manager already has meaningful monitoring producers behind it. The
-security manager keeps the same contract and storage split intentionally, even
-though there are not yet dedicated security-monitoring producers feeding it at
-the same depth.
+Dedicated monitoring services act as alert sources. `resources-monitor` consumes
+metrics events for system alerts. Log Analysis, Network Security, Antivirus,
+Service Watchdog, and LiteNAS Integrity feed security alerts to the security
+manager. Traditional operational logs remain a separate source of detail.
 
 ## Shared Core and Service Separation
 
@@ -72,8 +67,8 @@ database-normalization goal.
 
 ## Boundaries of This Document
 
-Future UI layers may consume the same stateful alert data, but the current
-branch keeps the manager role operational and CLI-oriented first.
+The admin panel and CLI consume the stateful alert data through their existing
+service boundaries.
 
 This document captures architecture context and design rationale.
 

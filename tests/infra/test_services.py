@@ -7,6 +7,7 @@ from hyperiontf import CLIClient
 SERVICE_DOMAIN_MARKS = {
     "lite-nas-auth": pytest.mark.Auth,
     "lite-nas-web-gateway": pytest.mark.WebGateway,
+    "lite-nas-stream-service": pytest.mark.StreamService,
     "lite-nas-system-metrics": pytest.mark.SystemMetrics,
     "lite-nas-system-logging-manager": pytest.mark.SystemLoggingManager,
     "lite-nas-security-logging-manager": pytest.mark.SecurityLoggingManager,
