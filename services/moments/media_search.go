@@ -87,7 +87,7 @@ func (c galleryController) searchMedia(ctx context.Context, user string, input *
 	}
 	order := ` ORDER BY max(g.created_at) DESC,gm.path`
 	queryOffset := page.Offset
-	if len(terms) != 0 && (wantsSemanticSearch(input.Q) || page.Total == 0) {
+	if len(terms) != 0 && !input.DisableE5Vectors && (wantsSemanticSearch(input.Q) || page.Total == 0) {
 		if paths, err := c.semanticPaths(ctx, user, input, queryVector); err == nil {
 			page.Total = int64(len(paths))
 			if page.Offset >= len(paths) {

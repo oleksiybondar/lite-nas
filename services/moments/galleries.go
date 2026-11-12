@@ -104,16 +104,17 @@ type galleryIDInput struct {
 // listGalleryInput bounds search and pagination before querying SQLite.
 type listGalleryInput struct {
 	GalleryAuth
-	Page        int      `query:"page" default:"1" minimum:"1" maximum:"100000"`
-	Size        int      `query:"size" default:"20" minimum:"1" maximum:"500"`
-	Q           string   `query:"q" maxLength:"160"`
-	Type        []string `query:"type,explode"`
-	Visibility  []string `query:"visibility,explode"`
-	OwnerID     []string `query:"ownerId,explode"`
-	MediaType   []string `query:"mediaType,explode"`
-	Location    []string `query:"location,explode"`
-	MediaLimit  int      `query:"mediaLimit" default:"50" minimum:"1" maximum:"100"`
-	MediaOffset int      `query:"mediaOffset" default:"0" minimum:"0" maximum:"100000"`
+	Page             int      `query:"page" default:"1" minimum:"1" maximum:"100000"`
+	Size             int      `query:"size" default:"20" minimum:"1" maximum:"500"`
+	Q                string   `query:"q" maxLength:"160"`
+	DisableE5Vectors bool     `query:"disableE5Vectors"`
+	Type             []string `query:"type,explode"`
+	Visibility       []string `query:"visibility,explode"`
+	OwnerID          []string `query:"ownerId,explode"`
+	MediaType        []string `query:"mediaType,explode"`
+	Location         []string `query:"location,explode"`
+	MediaLimit       int      `query:"mediaLimit" default:"50" minimum:"1" maximum:"100"`
+	MediaOffset      int      `query:"mediaOffset" default:"0" minimum:"0" maximum:"100000"`
 }
 
 // patchGalleryInput permits owner-controlled mutable metadata only.
@@ -481,7 +482,7 @@ func (c galleryController) list(ctx context.Context, input *listGalleryInput) (*
 	}
 	order := ` ORDER BY g.created_at DESC,g.id DESC`
 	var queryVector []float32
-	if input.Q != "" && (wantsSemanticSearch(input.Q) || output.Body.Metadata.TotalCount == 0) {
+	if input.Q != "" && !input.DisableE5Vectors && (wantsSemanticSearch(input.Q) || output.Body.Metadata.TotalCount == 0) {
 		if ids, err := c.semanticGalleryIDs(ctx, user, input, &queryVector); err == nil {
 			output.Body.Metadata.TotalCount = int64(len(ids))
 			where = baseWhere

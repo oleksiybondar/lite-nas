@@ -52,6 +52,9 @@ uses the existing text match first and tries semantic ranking only when no
 photos match. Gallery `items` and their pagination remain lexical. Semantic
 vectors contain text derived from each physical file's caption, source tags,
 and person names; no original image bytes enter the text-model worker.
+Pass `disableE5Vectors=true` to `GET /api/galleries` to skip semantic vector
+ranking for that request; lexical text matching and gallery results remain
+available.
 
 Huma validates typed route and query inputs. Gallery IDs are UUIDs. Paths use
 File Service's clean absolute Unix path namespace. At creation or reference
