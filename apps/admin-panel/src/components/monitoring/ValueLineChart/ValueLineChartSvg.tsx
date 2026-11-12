@@ -106,14 +106,13 @@ const renderValueLineChartLines = (
   gradientId?: string,
 ): ReactElement[] => {
   return lines.map((line) => {
+    const singlePoint = /^M ([\d.]+) ([\d.]+)$/.exec(line.path);
+    const color = gradientId ? `url(#${gradientId})` : line.color;
     return (
-      <path
-        d={line.path}
-        fill="none"
-        key={line.key}
-        stroke={gradientId ? `url(#${gradientId})` : line.color}
-        strokeWidth="2"
-      />
+      <g key={line.key}>
+        <path d={line.path} fill="none" stroke={color} strokeWidth="2" />
+        {singlePoint && <circle cx={singlePoint[1]} cy={singlePoint[2]} fill={color} r="4" />}
+      </g>
     );
   });
 };
@@ -252,10 +251,10 @@ export const ValueLineChartSvg = ({
         </defs>
       )}
       {renderValueLineChartGrid(yAxisLabels)}
-      {renderValueLineChartGuides(guideStops, maxValue, formatValue)}
       {renderValueLineChartAxisLabels(axisLabels)}
       {stops.length > 0 && renderValueLineChartFills(lines, gradientId)}
       {renderValueLineChartLines(lines, stops.length > 0 ? gradientId : undefined)}
+      {renderValueLineChartGuides(guideStops, maxValue, formatValue)}
     </ChartSvgContainer>
   );
 };

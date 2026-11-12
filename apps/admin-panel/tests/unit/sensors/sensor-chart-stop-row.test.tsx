@@ -30,13 +30,44 @@ const renderStopRow = (
 test("selects a color from the native picker", () => {
   const onChange = vi.fn();
   renderStopRow(onChange);
-  fireEvent.change(screen.getByLabelText("Color"), { target: { value: "#abcdef" } });
+  fireEvent.change(screen.getByLabelText("Color picker"), { target: { value: "#abcdef" } });
   expect(onChange).toHaveBeenCalledWith(0, { color: "#abcdef" });
 });
 
-test("selects the primary color from the active theme", () => {
+test("searches and selects the primary color from the active theme", () => {
   const onChange = vi.fn();
   renderStopRow(onChange);
-  fireEvent.click(screen.getByRole("button", { name: "Theme color: Primary" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Color" }), {
+    target: { value: "primary" },
+  });
+  fireEvent.click(screen.getByRole("option", { name: /Theme color: Primary/ }));
   expect(onChange).toHaveBeenCalledWith(0, { color: "#123456" });
+});
+
+test("searches and selects a common color preset", () => {
+  const onChange = vi.fn();
+  renderStopRow(onChange);
+  fireEvent.change(screen.getByRole("combobox", { name: "Color" }), {
+    target: { value: "orange" },
+  });
+  fireEvent.click(screen.getByRole("option", { name: /Orange/ }));
+  expect(onChange).toHaveBeenCalledWith(0, { color: "#ff9800" });
+});
+
+test("accepts a custom six-digit hex color", () => {
+  const onChange = vi.fn();
+  renderStopRow(onChange);
+  fireEvent.change(screen.getByRole("combobox", { name: "Color" }), {
+    target: { value: "#abcdef" },
+  });
+  expect(onChange).toHaveBeenCalledWith(0, { color: "#abcdef" });
+});
+
+test("does not save a search term as a color", () => {
+  const onChange = vi.fn();
+  renderStopRow(onChange);
+  fireEvent.change(screen.getByRole("combobox", { name: "Color" }), {
+    target: { value: "orange" },
+  });
+  expect(onChange).not.toHaveBeenCalled();
 });
