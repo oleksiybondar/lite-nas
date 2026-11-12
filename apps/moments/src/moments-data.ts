@@ -107,7 +107,7 @@ export async function listGalleries(
   page: number,
   ownerId?: string,
   filters: z.input<typeof gallerySearchSchema> = {},
-  options: { mediaOffset?: number; signal?: AbortSignal } = {},
+  options: { mediaOffset?: number; signal?: AbortSignal; disableE5Vectors?: boolean } = {},
 ): Promise<z.infer<typeof galleryListSchema>> {
   const parsedPage = z.number().int().positive().max(100000).parse(page);
   const query = new URLSearchParams({ page: String(parsedPage), size: "20" });
@@ -117,6 +117,7 @@ export async function listGalleries(
       "mediaOffset",
       String(z.number().int().nonnegative().max(100000).parse(options.mediaOffset)),
     );
+  if (options.disableE5Vectors === true) query.set("disableE5Vectors", "true");
   appendGalleryFilters(query, gallerySearchSchema.parse(filters));
   return galleryListSchema.parse(
     await readJson(`${momentsApiPath("/api/galleries")}?${query}`, { signal: options.signal }),

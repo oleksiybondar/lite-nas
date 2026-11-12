@@ -45,11 +45,13 @@ export function GalleryFeed({
   scope,
   userId,
   workingDir,
+  disableE5Vectors,
   onOpen,
 }: {
   scope: GalleryFeedScope;
   userId: string;
   workingDir: string;
+  disableE5Vectors: boolean;
   onOpen: (gallery: GalleryRecord) => void;
 }): ReactElement {
   const { getLabel } = useLanguage();
@@ -115,7 +117,7 @@ export function GalleryFeed({
         mediaType: mediaTypes.length > 0 ? mediaTypes : undefined,
         location: location.trim() || undefined,
       },
-      { signal: controller.signal },
+      { signal: controller.signal, disableE5Vectors },
     )
       .then((result) => {
         if (!active) return;
@@ -136,7 +138,18 @@ export function GalleryFeed({
       active = false;
       controller.abort();
     };
-  }, [page, scope, userId, search, kind, visibility, mediaTypes, location, getLabel]);
+  }, [
+    page,
+    scope,
+    userId,
+    search,
+    kind,
+    visibility,
+    mediaTypes,
+    location,
+    disableE5Vectors,
+    getLabel,
+  ]);
   useEffect(() => {
     if (busy || page >= pages || !sentinel.current || typeof IntersectionObserver === "undefined")
       return;
@@ -174,7 +187,7 @@ export function GalleryFeed({
           mediaType: mediaTypes.length > 0 ? mediaTypes : undefined,
           location: location.trim() || undefined,
         },
-        { mediaOffset: mediaMatches.length },
+        { mediaOffset: mediaMatches.length, disableE5Vectors },
       );
       if (version !== requestVersion.current) return;
       setMediaMatches((previous) => [...previous, ...(result.matchingMedia?.items ?? [])]);
