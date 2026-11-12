@@ -275,12 +275,24 @@ export const imageConcurrencySchema = z.number().int().min(1).max(20);
 export const imageUiCooldownSchema = z.number().int().min(0).max(500);
 export const defaultImageUiCooldownMs = 100;
 
+/** Bounds the delay between user-submitted gallery searches. */
+export const searchSubmitCooldownSchema = z.number().int().min(0).max(60000);
+export const defaultSearchSubmitCooldownMs = 0;
+
+/** User-configurable Moments behavior flags; these are preferences only for now. */
+export const momentsFeatureFlagsSchema = z.object({
+  disableE5Vectors: z.boolean().default(false),
+  disableImmediateSearch: z.boolean().default(false),
+  searchSubmitCooldownMs: searchSubmitCooldownSchema.default(defaultSearchSubmitCooldownMs),
+});
+
 /** App-specific user settings grouped for the Moments profile JSON file. */
 export const momentsSettingsSchema = z.object({
   gallery: z.object({
     maxConcurrentImageLoads: imageConcurrencySchema,
     imageUiCooldownMs: imageUiCooldownSchema.default(defaultImageUiCooldownMs),
   }),
+  featureFlags: momentsFeatureFlagsSchema.default({}),
 });
 
 /** Persisted Moments settings after runtime validation. */

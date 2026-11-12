@@ -23,7 +23,12 @@ import { MomentsHeader } from "./MomentsHeader";
 import { MomentsLayout } from "./MomentsLayout";
 import { Settings, type SettingsView } from "./Settings";
 import type { Me } from "./schemas";
-import { defaultImageUiCooldownMs, imageConcurrencySchema, imageUiCooldownSchema } from "./schemas";
+import {
+  defaultImageUiCooldownMs,
+  imageConcurrencySchema,
+  imageUiCooldownSchema,
+  momentsFeatureFlagsSchema,
+} from "./schemas";
 import { useProfileAvatar } from "./useProfileAvatar";
 
 /** Feed routes retain the same scope names used by the gallery query. */
@@ -39,6 +44,7 @@ const settingsRoutes: Record<string, SettingsView> = {
   "/settings/security": "security",
   "/settings/appearance": "appearance",
   "/settings/gallery": "gallery",
+  "/settings/feature-flags": "feature-flags",
 };
 
 /** Provides the authenticated header, live gallery views, and shared settings. */
@@ -66,6 +72,7 @@ export const MomentsShell = ({
     return parsed.success ? parsed.data : 10;
   });
   const [imageUiCooldownMs, setImageUiCooldownMs] = useState(defaultImageUiCooldownMs);
+  const [featureFlags, setFeatureFlags] = useState(() => momentsFeatureFlagsSchema.parse({}));
   const [message, setMessage] = useState<string | null>(null);
   const [galleryMessage, setGalleryMessage] = useState<string | null>(null);
   const galleryChanged = useRef(false);
@@ -91,6 +98,7 @@ export const MomentsShell = ({
       if (active && !galleryChanged.current) {
         setMaxConcurrent(settings.maxConcurrentImageLoads);
         setImageUiCooldownMs(settings.imageUiCooldownMs);
+        setFeatureFlags(settings.featureFlags);
       }
     });
     return () => {
@@ -185,7 +193,7 @@ export const MomentsShell = ({
           />
           <Route path="/friends" element={<FriendsPage />} />
           <Route path="/settings/friends" element={<Navigate to="/friends" replace />} />
-          {["profile", "security", "appearance", "gallery"].map((tab) => (
+          {["profile", "security", "appearance", "gallery", "feature-flags"].map((tab) => (
             <Route
               key={tab}
               path={`/settings/${tab}`}
@@ -202,11 +210,16 @@ export const MomentsShell = ({
                   onSaveMode={(value) => void saveMode(value)}
                   maxConcurrent={maxConcurrent}
                   imageUiCooldownMs={imageUiCooldownMs}
+                  featureFlags={featureFlags}
                   galleryMessage={galleryMessage}
                   onMaxConcurrentChange={(value) => {
                     galleryChanged.current = true;
                     setMaxConcurrent(value);
-                    void saveGallerySettings({ maxConcurrentImageLoads: value, imageUiCooldownMs })
+                    void saveGallerySettings({
+                      maxConcurrentImageLoads: value,
+                      imageUiCooldownMs,
+                      featureFlags,
+                    })
                       .then(() => setGalleryMessage(null))
                       .catch(() => setGalleryMessage(getLabel("language.saveFailed")));
                   }}
@@ -218,6 +231,19 @@ export const MomentsShell = ({
                     void saveGallerySettings({
                       maxConcurrentImageLoads: maxConcurrent,
                       imageUiCooldownMs: parsed.data,
+                      featureFlags,
+                    })
+                      .then(() => setGalleryMessage(null))
+                      .catch(() => setGalleryMessage(getLabel("language.saveFailed")));
+                  }}
+                  onFeatureFlagsChange={(value) => {
+                    const parsed = momentsFeatureFlagsSchema.safeParse(value);
+                    if (!parsed.success) return;
+                    setFeatureFlags(parsed.data);
+                    void saveGallerySettings({
+                      maxConcurrentImageLoads: maxConcurrent,
+                      imageUiCooldownMs,
+                      featureFlags: parsed.data,
                     })
                       .then(() => setGalleryMessage(null))
                       .catch(() => setGalleryMessage(getLabel("language.saveFailed")));

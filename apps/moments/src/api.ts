@@ -20,6 +20,7 @@ import {
   type Me,
   meSchema,
   momentsConfigSchema,
+  momentsFeatureFlagsSchema,
   momentsSettingsSchema,
   sessionSchema,
 } from "./schemas";
@@ -198,21 +199,32 @@ export const saveSharedMode = async (value: ThemeMode): Promise<void> => {
   );
 };
 
-/** Loads validated gallery preferences from the user profile and browser fallback. */
-export const loadGallerySettings = async (): Promise<{
+/** Shape shared by profile and browser gallery preference loading. */
+type GallerySettings = {
   maxConcurrentImageLoads: number;
   imageUiCooldownMs: number;
-}> => {
+  featureFlags: ReturnType<typeof momentsFeatureFlagsSchema.parse>;
+};
+
+/** Reads saved Moments preferences from the authenticated profile document. */
+const loadProfileGallerySettings = async (): Promise<GallerySettings | null> => {
   try {
     const settings = await readProfileDocument(request, "moments", momentsSettingsSchema);
-    if (settings)
-      return {
-        maxConcurrentImageLoads: settings.gallery.maxConcurrentImageLoads,
-        imageUiCooldownMs: settings.gallery.imageUiCooldownMs,
-      };
+    if (!settings) return null;
+    return {
+      maxConcurrentImageLoads: settings.gallery.maxConcurrentImageLoads,
+      imageUiCooldownMs: settings.gallery.imageUiCooldownMs,
+      featureFlags: settings.featureFlags,
+    };
   } catch {
-    // Continue with a validated browser value when profile storage is unavailable.
+    return null;
   }
+};
+
+/** Loads validated gallery preferences from the user profile and browser fallback. */
+export const loadGallerySettings = async (): Promise<GallerySettings> => {
+  const profileSettings = await loadProfileGallerySettings();
+  if (profileSettings) return profileSettings;
   const stored = Number(
     typeof window === "undefined" ? null : window.localStorage.getItem("moments-image-concurrency"),
   );
@@ -220,7 +232,20 @@ export const loadGallerySettings = async (): Promise<{
   return {
     maxConcurrentImageLoads: parsed.success ? parsed.data : 10,
     imageUiCooldownMs: defaultImageUiCooldownMs,
+    featureFlags: loadLocalFeatureFlags(),
   };
+};
+
+/** Loads locally persisted feature flags, using validated defaults when unavailable. */
+const loadLocalFeatureFlags = (): ReturnType<typeof momentsFeatureFlagsSchema.parse> => {
+  try {
+    const local = window.localStorage.getItem("moments-feature-flags");
+    return local
+      ? momentsFeatureFlagsSchema.parse(JSON.parse(local))
+      : momentsFeatureFlagsSchema.parse({});
+  } catch {
+    return momentsFeatureFlagsSchema.parse({});
+  }
 };
 
 let gallerySaveQueue = Promise.resolve();
@@ -229,13 +254,18 @@ let gallerySaveQueue = Promise.resolve();
 export const saveGallerySettings = async (values: {
   maxConcurrentImageLoads: number;
   imageUiCooldownMs: number;
+  featureFlags?: ReturnType<typeof momentsFeatureFlagsSchema.parse>;
 }): Promise<void> => {
-  const settings = momentsSettingsSchema.parse({ gallery: values });
+  const currentFeatureFlags = loadLocalFeatureFlags();
+  const featureFlags = momentsFeatureFlagsSchema.parse(values.featureFlags ?? currentFeatureFlags);
+  const settings = momentsSettingsSchema.parse({ gallery: values, featureFlags });
   if (typeof window !== "undefined")
     window.localStorage.setItem(
       "moments-image-concurrency",
       String(settings.gallery.maxConcurrentImageLoads),
     );
+  if (typeof window !== "undefined")
+    window.localStorage.setItem("moments-feature-flags", JSON.stringify(settings.featureFlags));
   const pending = gallerySaveQueue.then(() =>
     writeProfileDocument(
       (path, body) =>

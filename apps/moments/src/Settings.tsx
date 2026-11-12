@@ -6,11 +6,14 @@ import { ProfilePreferencesPanel, writeProfileAvatar } from "@lite-nas/profile";
 import { PreferencesPageHeader, PreferencesTabs } from "@lite-nas/settings";
 import { type ThemeMode, ThemePreferencesPanel } from "@lite-nas/theme";
 import CollectionsIcon from "@mui/icons-material/Collections";
+import FlagIcon from "@mui/icons-material/Flag";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import PaletteIcon from "@mui/icons-material/Palette";
 import SecurityIcon from "@mui/icons-material/Security";
 import Box from "@mui/material/Box";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Tab from "@mui/material/Tab";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -18,13 +21,24 @@ import type { ReactElement } from "react";
 import { useState } from "react";
 import { z } from "zod";
 import { replyPasswordChange, request, startPasswordChange } from "./api";
-import { imageConcurrencySchema, imageUiCooldownSchema } from "./schemas";
+import {
+  imageConcurrencySchema,
+  imageUiCooldownSchema,
+  type momentsFeatureFlagsSchema,
+  searchSubmitCooldownSchema,
+} from "./schemas";
 
 /** Settings sections exposed in the Moments preferences sidebar. */
-const settingsViewSchema = z.enum(["profile", "security", "appearance", "gallery"]);
+const settingsViewSchema = z.enum([
+  "profile",
+  "security",
+  "appearance",
+  "gallery",
+  "feature-flags",
+]);
 export type SettingsView = z.infer<typeof settingsViewSchema>;
 
-/** Shows profile, appearance, and gallery preferences in one tabbed settings area. */
+/** Shows profile, appearance, gallery, and feature flag preferences in one tabbed settings area. */
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: sidebar tabs keep the three related preference sections in one screen.
 export const Settings = ({
   view,
@@ -38,9 +52,11 @@ export const Settings = ({
   onSaveMode,
   maxConcurrent,
   imageUiCooldownMs,
+  featureFlags,
   galleryMessage,
   onMaxConcurrentChange,
   onImageUiCooldownChange,
+  onFeatureFlagsChange,
 }: {
   view: SettingsView;
   onViewChange: (view: SettingsView) => void;
@@ -53,9 +69,11 @@ export const Settings = ({
   onSaveMode: (value: ThemeMode) => void;
   maxConcurrent: number;
   imageUiCooldownMs: number;
+  featureFlags: z.infer<typeof momentsFeatureFlagsSchema>;
   galleryMessage: string | null;
   onMaxConcurrentChange: (value: number) => void;
   onImageUiCooldownChange: (value: number) => void;
+  onFeatureFlagsChange: (value: z.infer<typeof momentsFeatureFlagsSchema>) => void;
 }): ReactElement => {
   const { getLabel } = useLanguage();
   const [savedMode, setSavedMode] = useState(mode);
@@ -118,6 +136,12 @@ export const Settings = ({
             iconPosition="start"
             label={getLabel("moments.settings.gallery")}
             value="gallery"
+          />
+          <Tab
+            icon={<FlagIcon />}
+            iconPosition="start"
+            label={getLabel("moments.settings.featureFlags")}
+            value="feature-flags"
           />
         </PreferencesTabs>
         <Box sx={{ flex: 1, minWidth: 0, maxWidth: 900 }}>
@@ -185,6 +209,56 @@ export const Settings = ({
                 onChange={(event) => {
                   const result = imageUiCooldownSchema.safeParse(Number(event.target.value));
                   if (result.success) onImageUiCooldownChange(result.data);
+                }}
+                sx={{ maxWidth: 320 }}
+              />
+              {galleryMessage && <Typography color="error">{galleryMessage}</Typography>}
+            </Stack>
+          )}
+          {view === "feature-flags" && (
+            <Stack spacing={2}>
+              <Typography variant="h5">{getLabel("moments.settings.featureFlags")}</Typography>
+              <Typography color="text.secondary" variant="body2">
+                {getLabel("moments.settings.featureFlagsHint")}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={featureFlags.disableE5Vectors}
+                    onChange={(event) =>
+                      onFeatureFlagsChange({
+                        ...featureFlags,
+                        disableE5Vectors: event.target.checked,
+                      })
+                    }
+                  />
+                }
+                label={getLabel("moments.settings.disableE5Vectors")}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={featureFlags.disableImmediateSearch}
+                    onChange={(event) =>
+                      onFeatureFlagsChange({
+                        ...featureFlags,
+                        disableImmediateSearch: event.target.checked,
+                      })
+                    }
+                  />
+                }
+                label={getLabel("moments.settings.disableImmediateSearch")}
+              />
+              <TextField
+                label={getLabel("moments.settings.searchSubmitCooldown")}
+                helperText={getLabel("moments.settings.searchSubmitCooldownHint")}
+                type="number"
+                value={featureFlags.searchSubmitCooldownMs}
+                inputProps={{ min: 0, max: 60000, step: 100 }}
+                onChange={(event) => {
+                  const result = searchSubmitCooldownSchema.safeParse(Number(event.target.value));
+                  if (result.success)
+                    onFeatureFlagsChange({ ...featureFlags, searchSubmitCooldownMs: result.data });
                 }}
                 sx={{ maxWidth: 320 }}
               />
